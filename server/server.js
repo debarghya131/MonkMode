@@ -23,6 +23,11 @@ import Goal from "./models/Goal.js";
 import Journal from "./models/Journal.js";
 import Workout from "./models/Workout.js";
 import authRoutes from "./routes/authRoutes.js";
+import habitRoutes from "./routes/habitRoutes.js";
+import todoRoutes from "./routes/todoRoutes.js";
+import goalRoutes from "./routes/goalRoutes.js";
+import journalRoutes from "./routes/journalRoutes.js";
+import gymRoutes from "./routes/gymRoutes.js";
 
 const registeredModels = {
   User: User.modelName,
@@ -69,6 +74,11 @@ app.get("/test-db", async (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/habits", habitRoutes);
+app.use("/api/todos", todoRoutes);
+app.use("/api/goals", goalRoutes);
+app.use("/api/journal", journalRoutes);
+app.use("/api/gym", gymRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ message: "Route not found" });

@@ -1,21 +1,27 @@
 export const calculateStreak = (logs) => {
   if (!logs.length) return 0;
 
-  // sort logs by date descending
-  logs.sort((a, b) => new Date(b.date) - new Date(a.date));
+  const normalizeDate = (value) => {
+    const date = new Date(value);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  };
+
+  const uniqueLogDays = [
+    ...new Set(logs.map((log) => normalizeDate(log.date).getTime()))
+  ].sort((a, b) => b - a);
 
   let streak = 0;
-  let currentDate = new Date();
+  let expectedDate = normalizeDate(new Date());
 
-  for (let i = 0; i < logs.length; i++) {
-    const logDate = new Date(logs[i].date);
+  for (const logDay of uniqueLogDays) {
+    const logDate = new Date(logDay);
 
-    const diffDays = Math.floor(
-      (currentDate - logDate) / (1000 * 60 * 60 * 24)
-    );
-
-    if (diffDays === streak) {
+    if (logDate.getTime() === expectedDate.getTime()) {
       streak++;
+      expectedDate.setDate(expectedDate.getDate() - 1);
+    } else if (logDate.getTime() > expectedDate.getTime()) {
+      continue;
     } else {
       break;
     }

@@ -1,24 +1,62 @@
 import Todo from "../models/Todo.js";
 
 export const createTodo = async (req, res) => {
-  const todo = await Todo.create({
-    userId: req.user.id,
-    title: req.body.title
-  });
+  try {
+    if (!req.body.title) {
+      return res.status(400).json({ message: "Title is required" });
+    }
 
-  res.json(todo);
+    const todo = await Todo.create({
+      userId: req.user.id,
+      title: req.body.title,
+      date: req.body.date
+    });
+
+    res.status(201).json(todo);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 export const getTodos = async (req, res) => {
-  const todos = await Todo.find({ userId: req.user.id });
-  res.json(todos);
+  try {
+    const todos = await Todo.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    res.json(todos);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 export const toggleTodo = async (req, res) => {
-  const todo = await Todo.findById(req.params.id);
+  try {
+    const todo = await Todo.findOne({ _id: req.params.id, userId: req.user.id });
 
-  todo.completed = !todo.completed;
-  await todo.save();
+    if (!todo) {
+      return res.status(404).json({ message: "Todo not found" });
+    }
 
-  res.json(todo);
+    todo.completed = !todo.completed;
+    await todo.save();
+
+    res.json(todo);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const deleteTodo = async (req, res) => {
+  try {
+    const todo = await Todo.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.user.id
+    });
+
+    if (!todo) {
+      return res.status(404).json({ message: "Todo not found" });
+    }
+
+    res.json({ message: "Todo deleted" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
