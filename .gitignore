@@ -15,3 +15,8 @@ Thumbs.db
 # build
 dist/
 build/
+
+node_modules/
+.env
+.codex
+package-lock.json
