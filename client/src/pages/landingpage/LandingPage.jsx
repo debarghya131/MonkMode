@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Hero from "./Hero";
 import LandingNavbar from "./LandingNavbar";
@@ -11,7 +11,9 @@ const animatedGradientStyle = {
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const audioRef = useRef(null);
   const hasNavigatedRef = useRef(false);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
 
   useEffect(() => {
     let touchStartY = 0;
@@ -54,8 +56,81 @@ export default function LandingPage() {
     };
   }, [navigate]);
 
+  useEffect(() => {
+    const audio = audioRef.current;
+
+    if (!audio) {
+      return undefined;
+    }
+
+    audio.volume = 1.0;
+
+    const syncMusicState = () => {
+      setIsMusicPlaying(!audio.paused);
+    };
+
+    const removeInteractionListeners = () => {
+      document.removeEventListener("pointerdown", handleFirstInteraction);
+      document.removeEventListener("keydown", handleFirstInteraction);
+    };
+
+    const tryPlayAudio = () => {
+      audio.play()
+        .then(() => {
+          removeInteractionListeners();
+        })
+        .catch(() => {});
+    };
+
+    const handleFirstInteraction = () => {
+      if (!audio.paused) {
+        removeInteractionListeners();
+        return;
+      }
+
+      tryPlayAudio();
+    };
+
+    audio.addEventListener("play", syncMusicState);
+    audio.addEventListener("pause", syncMusicState);
+    document.addEventListener("pointerdown", handleFirstInteraction);
+    document.addEventListener("keydown", handleFirstInteraction);
+    tryPlayAudio();
+
+    return () => {
+      removeInteractionListeners();
+      audio.pause();
+      audio.currentTime = 0;
+      audio.removeEventListener("play", syncMusicState);
+      audio.removeEventListener("pause", syncMusicState);
+    };
+  }, []);
+
+  const toggleMusic = async () => {
+    const audio = audioRef.current;
+
+    if (!audio) {
+      return;
+    }
+
+    if (audio.paused) {
+      try {
+        await audio.play();
+      } catch {
+        return;
+      }
+
+      return;
+    }
+
+    audio.pause();
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden text-white">
+      <audio ref={audioRef} loop preload="auto" autoPlay>
+        <source src="/meditation.mp3" type="audio/mpeg" />
+      </audio>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#2a0a02,#0d0201)]" />
       <div className="absolute inset-0 opacity-10" style={animatedGradientStyle} />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(255,160,59,0.14),transparent_25%),radial-gradient(circle_at_30%_70%,rgba(59,130,246,0.1),transparent_18%),linear-gradient(180deg,rgba(22,7,4,0.12)_0%,rgba(13,2,1,0.46)_56%,rgba(13,2,1,0.8)_100%)]" />
@@ -73,10 +148,23 @@ export default function LandingPage() {
         <p className="font-serif text-[0.72rem] font-bold uppercase tracking-[0.28em] text-amber-100/70 md:text-[0.78rem]">
           Made by
         </p>
-        <p className="mt-1 text-xs font-bold tracking-[0.04em] text-stone-100 sm:text-sm md:text-base">
-          <span className="text-orange-300">🧡</span> Debarghya Bandyopadhyay
+        <p
+          className="mt-1 bg-gradient-to-r from-orange-300 via-amber-100 to-orange-200 bg-clip-text font-serif text-sm font-semibold italic tracking-[0.02em] text-transparent drop-shadow-[0_6px_14px_rgba(245,158,11,0.16)] sm:text-base md:text-[1.1rem]"
+          style={{ fontFamily: "Georgia, Times New Roman, serif" }}
+        >
+          <span className="bg-none text-orange-300 not-italic text-base md:text-lg">🧡</span>{" "}
+          Debarghya Bandyopadhyay
         </p>
       </div>
+      <button
+        type="button"
+        onClick={toggleMusic}
+        className="fixed bottom-4 left-4 z-20 inline-flex items-center gap-2 rounded-full border border-amber-100/55 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-stone-950 shadow-[0_0_0_1px_rgba(255,236,178,0.24),0_0_26px_rgba(251,191,36,0.34),0_14px_34px_rgba(120,52,8,0.28)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_0_1px_rgba(255,236,178,0.3),0_0_32px_rgba(251,191,36,0.44),0_18px_40px_rgba(120,52,8,0.34)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/80 md:bottom-6 md:left-6"
+        aria-label={isMusicPlaying ? "Pause background music" : "Play background music"}
+      >
+        <span className="text-base leading-none">{isMusicPlaying ? "⏸" : "🎵"}</span>
+        <span>{isMusicPlaying ? "Pause Music" : "Play Music"}</span>
+      </button>
     </div>
   );
 }
