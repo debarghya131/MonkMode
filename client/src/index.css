@@ -1,3 +1,5 @@
+@import "@fontsource/bungee-spice";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -37,6 +39,23 @@ a {
 
 #root {
   min-height: 100vh;
+}
+
+.auth-page {
+  font-family: Baskerville, "Palatino Linotype", "Book Antiqua", Georgia, "Times New Roman", serif;
+}
+
+.auth-page input,
+.auth-page button,
+.auth-page textarea,
+.auth-page select {
+  font-family: inherit;
+}
+
+.auth-overline {
+  font-family: "Bungee Spice", fantasy;
+  font-weight: 400;
+  letter-spacing: 0.2em;
 }
 
 @keyframes landingGradientMove {

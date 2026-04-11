@@ -10,7 +10,12 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: "Name, email and password are required" });
     }
 
-    const existingUser = await User.findOne({ email });
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ message: "JWT_SECRET is not configured" });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const existingUser = await User.findOne({ email: normalizedEmail });
 
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
@@ -19,15 +24,22 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: normalizedEmail,
       password: hashedPassword
     });
 
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d"
+    });
+
     res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email
+      }
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -46,7 +58,8 @@ export const login = async (req, res) => {
       return res.status(500).json({ message: "JWT_SECRET is not configured" });
     }
 
-    const user = await User.findOne({ email });
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
       return res.status(400).json({ message: "User not found" });

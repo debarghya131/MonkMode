@@ -1,0 +1,78 @@
+import { createContext, useState } from "react";
+import api from "../api/axios";
+
+const AuthContext = createContext(null);
+
+const TOKEN_KEY = "monkmode_token";
+const USER_KEY = "monkmode_user";
+
+const getStoredAuth = () => {
+  const storedToken = localStorage.getItem(TOKEN_KEY);
+  const storedUser = localStorage.getItem(USER_KEY);
+
+  if (!storedToken || !storedUser) {
+    return { token: "", user: null };
+  }
+
+  try {
+    return {
+      token: storedToken,
+      user: JSON.parse(storedUser)
+    };
+  } catch {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    return { token: "", user: null };
+  }
+};
+
+export function AuthProvider({ children }) {
+  const storedAuth = getStoredAuth();
+  const [user, setUser] = useState(storedAuth.user);
+  const [token, setToken] = useState(storedAuth.token);
+  const isBootstrapping = false;
+
+  const persistAuth = (nextToken, nextUser) => {
+    setToken(nextToken);
+    setUser(nextUser);
+    localStorage.setItem(TOKEN_KEY, nextToken);
+    localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+  };
+
+  const clearAuth = () => {
+    setToken("");
+    setUser(null);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  };
+
+  const register = async (payload) => {
+    const { data } = await api.post("/auth/register", payload);
+    persistAuth(data.token, data.user);
+    return data.user;
+  };
+
+  const login = async (payload) => {
+    const { data } = await api.post("/auth/login", payload);
+    persistAuth(data.token, data.user);
+    return data.user;
+  };
+
+  const logout = () => {
+    clearAuth();
+  };
+
+  const value = {
+    isAuthenticated: Boolean(token),
+    isBootstrapping,
+    login,
+    logout,
+    register,
+    token,
+    user
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export default AuthContext;

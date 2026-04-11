@@ -147,7 +147,7 @@ export default function Hero() {
         }}
         whileTap={{ scale: 0.98, y: -2 }}
         transition={{ duration: 0.55, delay: 0.15 }}
-        onClick={() => navigate("/login")}
+        onClick={() => navigate("/signup")}
         className="group relative overflow-hidden rounded-full border border-amber-200/45 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] px-8 py-3 text-sm font-black uppercase tracking-[0.16em] text-stone-950 shadow-[0_0_0_1px_rgba(255,236,178,0.24),0_0_30px_rgba(251,191,36,0.34),0_18px_42px_rgba(120,52,8,0.34)] transition duration-300 hover:border-amber-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/80"
       >
         <span className="pointer-events-none absolute inset-y-0 left-[-35%] w-[32%] -skew-x-12 bg-white/35 opacity-0 blur-md transition duration-500 group-hover:left-[108%] group-hover:opacity-100" />

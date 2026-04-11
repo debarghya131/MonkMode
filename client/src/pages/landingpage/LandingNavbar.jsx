@@ -22,7 +22,7 @@ export default function LandingNavbar() {
     },
     {
       label: "Demo Login",
-      onClick: () => navigate("/dashboard")
+      onClick: () => navigate("/login")
     },
     {
       label: "About",
@@ -74,7 +74,7 @@ export default function LandingNavbar() {
           </button>
           <button
             type="button"
-            onClick={() => navigate("/login")}
+            onClick={() => navigate("/signup")}
             className={`rounded-full border border-transparent bg-gradient-to-r from-amber-300 via-orange-400 to-orange-500 px-5 py-2.5 text-sm font-bold text-stone-950 shadow-lg shadow-orange-950/20 transition ${goldenHoverClass}`}
           >
             Signup
