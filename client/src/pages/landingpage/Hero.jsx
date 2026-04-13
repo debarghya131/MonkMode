@@ -162,7 +162,7 @@ export default function Hero() {
         transition={{ duration: 0.6, delay: 0.25 }}
         className="mt-12 max-w-3xl text-center"
       >
-        <h1 className="bg-gradient-to-r from-orange-400 via-amber-300 to-sky-400 bg-clip-text text-5xl font-black tracking-tight text-transparent sm:text-6xl md:text-7xl">
+        <h1 className="bg-gradient-to-r from-orange-400 via-amber-300 to-sky-400 bg-clip-text text-5xl font-black tracking-tight text-transparent font-heading sm:text-6xl md:text-7xl">
           MonkMode
         </h1>
         <p className="mt-4 text-base text-stone-200/85 sm:text-lg">

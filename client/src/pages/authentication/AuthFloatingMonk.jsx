@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 import monkIllustration from "../../assets/monk.png";
 
 const sparkles = [
@@ -14,7 +14,7 @@ export default function AuthFloatingMonk() {
   return (
     <div className="pointer-events-none relative z-20 flex h-[180px] w-full items-end justify-center sm:h-[210px]">
       {sparkles.map((sparkle) => (
-        <motion.span
+        <Motion.span
           key={sparkle.id}
           className="absolute rounded-full bg-[#ffd54f]"
           animate={{
@@ -36,7 +36,7 @@ export default function AuthFloatingMonk() {
         />
       ))}
 
-      <motion.div
+      <Motion.div
         className="absolute bottom-10 h-44 w-44 rounded-full bg-[radial-gradient(circle,rgba(255,227,138,0.66),rgba(255,191,73,0.22),transparent_72%)] blur-2xl sm:h-56 sm:w-56"
         animate={{
           scale: [0.94, 1.06, 0.94],
@@ -49,7 +49,7 @@ export default function AuthFloatingMonk() {
         }}
       />
 
-      <motion.div
+      <Motion.div
         className="absolute bottom-1 h-7 w-36 rounded-full bg-black/35 blur-xl sm:w-44"
         animate={{
           opacity: [0.34, 0.16, 0.34],
@@ -63,7 +63,7 @@ export default function AuthFloatingMonk() {
         }}
       />
 
-      <motion.div
+      <Motion.div
         className="relative z-10"
         animate={{
           y: [0, -12, -18, -10, 0]
@@ -74,7 +74,7 @@ export default function AuthFloatingMonk() {
           ease: "easeInOut"
         }}
       >
-        <motion.img
+        <Motion.img
           src={monkIllustration}
           alt="Floating monk"
           className="w-[190px] drop-shadow-[0_22px_42px_rgba(0,0,0,0.42)] sm:w-[240px]"
@@ -87,7 +87,7 @@ export default function AuthFloatingMonk() {
             ease: "easeInOut"
           }}
         />
-      </motion.div>
+      </Motion.div>
     </div>
   );
 }

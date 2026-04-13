@@ -69,7 +69,7 @@ export default function SignUp() {
           <div className="p-8 md:p-10">
             <div className="mx-auto w-full max-w-md">
               <p className="auth-overline text-[0.72rem] uppercase tracking-[0.35em] text-amber-200/70">Signup</p>
-              <h2 className="mt-3 text-3xl font-bold text-amber-50">Create your account</h2>
+              <h2 className="mt-3 text-3xl font-bold text-amber-50 font-heading">Create your account</h2>
               <p className="mt-3 text-sm leading-7 text-stone-300">
                 Start your MonkMode journey in under a minute.
               </p>

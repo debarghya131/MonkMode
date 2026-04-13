@@ -54,7 +54,7 @@ export default function Login() {
           <div className="p-8 md:p-10">
             <div className="mx-auto w-full max-w-md">
               <p className="auth-overline text-[0.72rem] uppercase tracking-[0.35em] text-amber-200/70">Login</p>
-              <h2 className="mt-3 text-3xl font-bold text-amber-50">Welcome back</h2>
+              <h2 className="mt-3 text-3xl font-bold text-amber-50 font-heading">Welcome back</h2>
               <p className="mt-3 text-sm leading-7 text-stone-300">
                 Sign in to continue your habits, goals, workouts, and deep work streaks.
               </p>
