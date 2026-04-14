@@ -7,9 +7,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        // Primary heading font - custom Google Font
-        "heading-display": ["Bitcount Prop Double Ink", "Poppins", "sans-serif"],
-        // Secondary heading/emphasis font
+        // Primary heading font
         heading: ["Poppins", "sans-serif"],
         // Body text
         body: ["Segoe UI", "Helvetica Neue", "Arial", "sans-serif"],
