@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 
 const MOCK_HISTORY = [
@@ -91,16 +92,26 @@ function EntryModal({ entry, onClose }) {
     weekday: "long", month: "long", day: "numeric", year: "numeric",
   });
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4" onClick={onClose}>
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 sm:p-6 md:p-8" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
       <div
-        className="relative z-10 my-8 w-full max-w-2xl rounded-2xl border border-amber-100/15 bg-[linear-gradient(160deg,#1e1208,#120d0c)] shadow-2xl shadow-black/60"
+        className="relative z-10 my-4 w-full max-w-2xl overflow-hidden rounded-2xl border border-amber-100/15 bg-[linear-gradient(160deg,#1e1208,#120d0c)] shadow-2xl shadow-black/60 sm:my-8"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Sticky header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-2xl border-b border-amber-100/10 bg-[#1c1007] px-6 py-4">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-amber-100/10 bg-[#1c1007] px-5 py-4 sm:px-6">
           <div>
             <p className="text-sm font-bold text-amber-200">📔 Journal Entry</p>
             <p className="mt-0.5 text-xs text-stone-500">{formattedDate}</p>
@@ -113,7 +124,7 @@ function EntryModal({ entry, onClose }) {
           </button>
         </div>
 
-        <div className="journal-scroll max-h-[78vh] space-y-6 overflow-y-auto p-6">
+        <div className="journal-scroll max-h-[calc(100dvh-11rem)] space-y-6 overflow-y-auto p-5 sm:p-6">
 
           {/* Mood + Energy */}
           <div className="grid grid-cols-2 gap-4">
@@ -220,7 +231,8 @@ function EntryModal({ entry, onClose }) {
 
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
