@@ -18,6 +18,10 @@ const MOODS = [
   { emoji: "💪", label: "Strong" },
   { emoji: "🧘", label: "Peaceful" },
   { emoji: "😒", label: "Bored" },
+  { emoji: "😎", label: "Confident" },
+  { emoji: "🤔", label: "Curious" },
+  { emoji: "🥲", label: "Emotional" },
+  { emoji: "🤗", label: "Content" },
 ];
 
 const MANDATORY_STEPS = [
@@ -35,17 +39,19 @@ const MANDATORY_STEPS = [
 ];
 
 const INITIAL_FORM = {
-  mood:          null,
-  energyLevel:   50,
-  summary:       "",
-  wins:          ["", "", ""],
-  mistakes:      ["", "", ""],
-  insight:       "",
-  gratitude:     ["", ""],
-  achievement:   ["", ""],
-  affirmation:   "",
-  tomorrowPlan:  "",
-  overallRating: 50,
+  mood:           null,
+  energyLevel:    50,
+  energyTouched:  false,
+  summary:        "",
+  wins:           ["", "", ""],
+  mistakes:       ["", "", ""],
+  insight:        "",
+  gratitude:      ["", ""],
+  achievement:    ["", ""],
+  affirmation:    "",
+  tomorrowPlan:   "",
+  overallRating:  50,
+  ratingTouched:  false,
 };
 
 /* ── shared style tokens ── */
@@ -58,12 +64,194 @@ const textareaBase =
 const btnPrimary =
   "rounded-full border border-amber-100/15 bg-white/8 px-6 py-2.5 text-sm font-semibold text-amber-50 transition duration-300 hover:-translate-y-0.5 hover:border-amber-200/50 hover:bg-gradient-to-r hover:from-amber-200 hover:via-yellow-300 hover:to-orange-300 hover:text-stone-950 hover:shadow-[0_0_28px_rgba(251,191,36,0.45)] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:translate-y-0 disabled:hover:bg-transparent disabled:hover:border-amber-100/15 disabled:hover:text-amber-50 disabled:hover:shadow-none";
 
+/* ── Journal View Modal ───────────────────────────────────────────────────── */
+function Section({ icon, title, children }) {
+  return (
+    <div>
+      <p className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">
+        <span>{icon}</span>{title}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+function JournalViewModal({ form, customFields, date, onClose }) {
+  const moodObj = MOODS.find((m) => m.label === form.mood);
+
+  const energyLabel =
+    form.energyLevel >= 80 ? "Fully charged 🔋"
+    : form.energyLevel >= 50 ? "Decent energy ⚡"
+    : form.energyLevel >= 30 ? "Running low 😮‍💨"
+    : "Drained 😴";
+
+  const ratingLabel =
+    form.overallRating >= 80 ? "Exceptional day 🌟"
+    : form.overallRating >= 60 ? "Solid day 👍"
+    : form.overallRating >= 40 ? "Average day 🤝"
+    : "Rough day, but you showed up 💪";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+
+      <div
+        className="relative z-10 my-8 w-full max-w-2xl rounded-2xl border border-amber-100/15 bg-[linear-gradient(160deg,#1e1208,#120d0c)] shadow-2xl shadow-black/60"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Sticky header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-2xl border-b border-amber-100/10 bg-[#1c1007] px-6 py-4">
+          <div>
+            <p className="text-sm font-bold text-amber-200">📔 Journal Entry</p>
+            <p className="mt-0.5 text-xs text-stone-500">{date}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-amber-100/10 bg-white/5 p-1.5 text-stone-400 transition hover:border-amber-400/30 hover:text-amber-300"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="journal-scroll max-h-[78vh] space-y-6 overflow-y-auto p-6">
+
+          {/* Mood + Energy row */}
+          <div className="grid grid-cols-2 gap-4">
+            <Section icon="😊" title="Mood">
+              {form.mood ? (
+                <div className="flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3">
+                  <span className="text-2xl">{moodObj?.emoji}</span>
+                  <span className="text-sm font-semibold text-amber-200">{form.mood}</span>
+                </div>
+              ) : <p className="text-xs text-stone-500">Not answered</p>}
+            </Section>
+
+            <Section icon="⚡" title="Energy Level">
+              <div className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
+                <p className="text-3xl font-bold text-amber-200">{form.energyLevel}</p>
+                <p className="mt-1 text-xs text-stone-400">{energyLabel}</p>
+              </div>
+            </Section>
+          </div>
+
+          <div className="border-t border-amber-100/8" />
+
+          {/* Summary */}
+          <Section icon="📝" title="Summary">
+            <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">
+              {form.summary || <span className="text-stone-600">Not answered</span>}
+            </p>
+          </Section>
+
+          {/* Wins */}
+          <Section icon="✅" title="Wins">
+            <ul className="space-y-2">
+              {form.wins.filter((w) => w.trim()).map((w, i) => (
+                <li key={i} className="flex items-start gap-2 rounded-xl border border-emerald-400/15 bg-emerald-500/8 px-4 py-2.5 text-sm text-stone-200">
+                  <span className="mt-0.5 text-emerald-400 font-bold shrink-0">{i + 1}.</span>{w}
+                </li>
+              ))}
+              {form.wins.every((w) => !w.trim()) && <p className="text-xs text-stone-600">Not answered</p>}
+            </ul>
+          </Section>
+
+          {/* Mistakes */}
+          <Section icon="❌" title="Mistakes">
+            <ul className="space-y-2">
+              {form.mistakes.filter((m) => m.trim()).map((m, i) => (
+                <li key={i} className="flex items-start gap-2 rounded-xl border border-red-400/15 bg-red-500/8 px-4 py-2.5 text-sm text-stone-200">
+                  <span className="mt-0.5 text-red-400 font-bold shrink-0">{i + 1}.</span>{m}
+                </li>
+              ))}
+              {form.mistakes.every((m) => !m.trim()) && <p className="text-xs text-stone-600">Not answered</p>}
+            </ul>
+          </Section>
+
+          {/* Insight */}
+          <Section icon="💡" title="Lesson of the Day">
+            <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">
+              {form.insight || <span className="text-stone-600">Not answered</span>}
+            </p>
+          </Section>
+
+          {/* Gratitude + Achievement row */}
+          <div className="grid grid-cols-2 gap-4">
+            <Section icon="🙏" title="Gratitude">
+              <ul className="space-y-2">
+                {form.gratitude.filter((g) => g.trim()).map((g, i) => (
+                  <li key={i} className="rounded-xl border border-amber-100/10 bg-white/5 px-3 py-2 text-xs text-stone-300">🙏 {g}</li>
+                ))}
+                {form.gratitude.every((g) => !g.trim()) && <p className="text-xs text-stone-600">Not answered</p>}
+              </ul>
+            </Section>
+
+            <Section icon="🏆" title="Achievement">
+              <ul className="space-y-2">
+                {form.achievement.filter((a) => a.trim()).map((a, i) => (
+                  <li key={i} className="rounded-xl border border-amber-100/10 bg-white/5 px-3 py-2 text-xs text-stone-300">🏆 {a}</li>
+                ))}
+                {form.achievement.every((a) => !a.trim()) && <p className="text-xs text-stone-600">Not answered</p>}
+              </ul>
+            </Section>
+          </div>
+
+          {/* Affirmation */}
+          <Section icon="💬" title="Affirmation">
+            <p className="rounded-2xl border border-amber-400/20 bg-amber-500/8 px-5 py-4 text-center text-sm italic text-amber-100/80">
+              {form.affirmation ? `"${form.affirmation}"` : <span className="text-stone-600 not-italic">Not answered</span>}
+            </p>
+          </Section>
+
+          {/* Tomorrow Plan */}
+          <Section icon="📅" title="Tomorrow's Plan">
+            <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">
+              {form.tomorrowPlan || <span className="text-stone-600">Not answered</span>}
+            </p>
+          </Section>
+
+          {/* Overall Rating */}
+          <Section icon="⭐" title="Overall Day Rating">
+            <div className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
+              <p className="text-4xl font-bold text-amber-200">{form.overallRating}</p>
+              <p className="mt-1 text-xs text-stone-400">{ratingLabel}</p>
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400 transition-all duration-500"
+                  style={{ width: `${form.overallRating}%` }} />
+              </div>
+            </div>
+          </Section>
+
+          {/* Custom fields */}
+          {customFields.length > 0 && (
+            <>
+              <div className="border-t border-amber-100/8" />
+              {customFields.map((cf, i) => (
+                <Section key={i} icon="✏️" title={cf.title || `Custom ${i + 1}`}>
+                  {cf.description && <p className="mb-2 text-xs text-stone-500">{cf.description}</p>}
+                  <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">
+                    {cf.answer || <span className="text-stone-600">Not answered</span>}
+                  </p>
+                </Section>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Journal() {
   const [step, setStep]               = useState(1);
   const [form, setForm]               = useState(INITIAL_FORM);
   const [customFields, setCustomFields] = useState([]);
-  const [submitted, setSubmitted]     = useState(false);
-  const [submittedDate, setSubmittedDate] = useState(null); // "YYYY-MM-DD" of submission
+  const [submitted, setSubmitted]       = useState(false);
+  const [submittedDate, setSubmittedDate] = useState(null);
+  const [showJournalView, setShowJournalView] = useState(false);
 
   const streak = 7;
 
@@ -94,6 +282,12 @@ export default function Journal() {
       return { ...p, [key]: arr };
     });
 
+  const addToArr = (key) =>
+    setForm((p) => ({ ...p, [key]: [...p[key], ""] }));
+
+  const removeFromArr = (key, idx) =>
+    setForm((p) => ({ ...p, [key]: p[key].filter((_, i) => i !== idx) }));
+
   const updateCustom = (idx, key, val) =>
     setCustomFields((prev) => {
       const next = [...prev];
@@ -121,7 +315,7 @@ export default function Journal() {
     }
     switch (step) {
       case 1:  return !!form.mood;
-      case 2:  return true;
+      case 2:  return form.energyTouched;
       case 3:  return form.summary.trim().length > 0;
       case 4:  return form.wins.some((w) => w.trim());
       case 5:  return form.mistakes.some((m) => m.trim());
@@ -130,7 +324,7 @@ export default function Journal() {
       case 8:  return form.achievement.some((a) => a.trim());
       case 9:  return form.affirmation.trim().length > 0;
       case 10: return form.tomorrowPlan.trim().length > 0;
-      case 11: return true;
+      case 11: return form.ratingTouched;
       default: return false;
     }
   };
@@ -145,7 +339,7 @@ export default function Journal() {
     }
     switch (id) {
       case 1:  return !!form.mood;
-      case 2:  return true; // slider always has a value
+      case 2:  return form.energyTouched;
       case 3:  return form.summary.trim().length > 0;
       case 4:  return form.wins.some((w) => w.trim());
       case 5:  return form.mistakes.some((m) => m.trim());
@@ -154,7 +348,7 @@ export default function Journal() {
       case 8:  return form.achievement.some((a) => a.trim());
       case 9:  return form.affirmation.trim().length > 0;
       case 10: return form.tomorrowPlan.trim().length > 0;
-      case 11: return true; // slider always has a value
+      case 11: return form.ratingTouched;
       default: return false;
     }
   };
@@ -186,15 +380,24 @@ export default function Journal() {
           </div>
 
           <div className="flex items-center gap-3 mt-2">
+            {/* See Journal */}
+            <button
+              type="button"
+              onClick={() => setShowJournalView(true)}
+              className="flex items-center gap-2 rounded-full border border-stone-600 bg-white/5 px-5 py-2.5 text-sm font-semibold text-stone-300 transition duration-200 hover:border-stone-400 hover:text-stone-100"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              See Journal
+            </button>
+
             {/* Edit — only available on the same day */}
             {canEditToday && (
               <button
                 type="button"
-                onClick={() => {
-                  setSubmitted(false);
-                  setStep(1);
-                  // form & customFields stay intact — resume editing
-                }}
+                onClick={() => { setSubmitted(false); setStep(1); }}
                 className="flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-500/10 px-5 py-2.5 text-sm font-semibold text-amber-300 transition duration-200 hover:border-amber-400/60 hover:bg-amber-500/20 hover:text-amber-200"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -204,7 +407,6 @@ export default function Journal() {
                 Edit Today's Entry
               </button>
             )}
-
           </div>
         </div>
 
@@ -213,6 +415,15 @@ export default function Journal() {
             <JournalRightSidebar />
           </div>
         </div>
+
+        {showJournalView && (
+          <JournalViewModal
+            form={form}
+            customFields={customFields}
+            date={new Date(submittedDate).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+            onClose={() => setShowJournalView(false)}
+          />
+        )}
       </div>
     );
   }
@@ -295,9 +506,10 @@ export default function Journal() {
         </section>
 
         {/* ── Step content ── */}
-        <section className="rounded-2xl border border-amber-100/10 bg-white/6 p-6 shadow-2xl shadow-black/25 backdrop-blur flex flex-col min-h-[420px]">
+        <section className="journal-step-card rounded-2xl border border-amber-100/10 bg-white/6 p-6 shadow-2xl shadow-black/25 backdrop-blur">
 
           {/* ── Mandatory steps 1–11 ── */}
+          <div className="journal-scroll journal-step-body pr-1">
 
           {/* Step 1 — Mood */}
           {step === 1 && (
@@ -342,7 +554,7 @@ export default function Journal() {
                 <input
                   type="range" min="1" max="100"
                   value={form.energyLevel}
-                  onChange={(e) => set("energyLevel", Number(e.target.value))}
+                  onChange={(e) => { set("energyLevel", Number(e.target.value)); set("energyTouched", true); }}
                   className="flex-1 h-2 cursor-pointer accent-amber-400"
                 />
                 <span className="text-stone-500 text-xs w-8 text-right">100</span>
@@ -382,7 +594,7 @@ export default function Journal() {
               <p className="text-label-lg">Step 4 · Wins</p>
               <h2 className="text-heading-xl mt-1 mb-2">What went RIGHT?</h2>
               <p className="text-stone-400 text-sm mb-6">2–3 things you did well today. Own your progress.</p>
-              <div className="space-y-3 flex-1">
+              <div className="space-y-3">
                 {form.wins.map((win, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <span className="text-amber-400 text-sm font-bold w-5 shrink-0 text-center">{i + 1}.</span>
@@ -392,9 +604,21 @@ export default function Journal() {
                       placeholder={`Win #${i + 1}…`}
                       className={inputBase}
                     />
+                    {form.wins.length > 1 && (
+                      <button type="button" onClick={() => removeFromArr("wins", i)}
+                        className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full border border-amber-100/10 bg-white/5 text-stone-500 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400">
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
+              <button type="button" onClick={() => addToArr("wins")}
+                className="mt-4 self-start flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-500/8 px-4 py-1.5 text-xs font-semibold text-amber-400/80 transition hover:border-amber-400/40 hover:bg-amber-500/15 hover:text-amber-300">
+                <span className="text-sm leading-none">+</span> Add Win
+              </button>
             </div>
           )}
 
@@ -404,7 +628,7 @@ export default function Journal() {
               <p className="text-label-lg">Step 5 · Mistakes</p>
               <h2 className="text-heading-xl mt-1 mb-2">What went WRONG?</h2>
               <p className="text-stone-400 text-sm mb-6">2–3 things you messed up. Honesty is how you grow.</p>
-              <div className="space-y-3 flex-1">
+              <div className="space-y-3">
                 {form.mistakes.map((m, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <span className="text-red-400 text-sm font-bold w-5 shrink-0 text-center">{i + 1}.</span>
@@ -414,9 +638,21 @@ export default function Journal() {
                       placeholder={`Mistake #${i + 1}…`}
                       className="w-full rounded-xl border border-red-400/15 bg-stone-950/45 px-4 py-3 text-sm text-amber-50/90 placeholder-stone-500 outline-none transition focus:border-red-400/30 focus:shadow-[0_0_12px_rgba(248,113,113,0.08)]"
                     />
+                    {form.mistakes.length > 1 && (
+                      <button type="button" onClick={() => removeFromArr("mistakes", i)}
+                        className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full border border-amber-100/10 bg-white/5 text-stone-500 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400">
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
+              <button type="button" onClick={() => addToArr("mistakes")}
+                className="mt-4 self-start flex items-center gap-2 rounded-full border border-red-400/20 bg-red-500/8 px-4 py-1.5 text-xs font-semibold text-red-400/80 transition hover:border-red-400/40 hover:bg-red-500/15 hover:text-red-300">
+                <span className="text-sm leading-none">+</span> Add Mistake
+              </button>
             </div>
           )}
 
@@ -442,7 +678,7 @@ export default function Journal() {
               <p className="text-label-lg">Step 7 · Gratitude</p>
               <h2 className="text-heading-xl mt-1 mb-2">What are you thankful for?</h2>
               <p className="text-stone-400 text-sm mb-6">1–2 things that made today worth living.</p>
-              <div className="space-y-3 flex-1">
+              <div className="space-y-3">
                 {form.gratitude.map((g, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <span className="text-xl">🙏</span>
@@ -452,9 +688,21 @@ export default function Journal() {
                       placeholder="I'm grateful for…"
                       className={inputBase}
                     />
+                    {form.gratitude.length > 1 && (
+                      <button type="button" onClick={() => removeFromArr("gratitude", i)}
+                        className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full border border-amber-100/10 bg-white/5 text-stone-500 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400">
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
+              <button type="button" onClick={() => addToArr("gratitude")}
+                className="mt-4 self-start flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-500/8 px-4 py-1.5 text-xs font-semibold text-amber-400/80 transition hover:border-amber-400/40 hover:bg-amber-500/15 hover:text-amber-300">
+                <span className="text-sm leading-none">+</span> Add Gratitude
+              </button>
             </div>
           )}
 
@@ -464,7 +712,7 @@ export default function Journal() {
               <p className="text-label-lg">Step 8 · Achievement</p>
               <h2 className="text-heading-xl mt-1 mb-2">Real Accomplishments</h2>
               <p className="text-stone-400 text-sm mb-6">1–2 things you actually finished or moved forward today.</p>
-              <div className="space-y-3 flex-1">
+              <div className="space-y-3">
                 {form.achievement.map((a, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <span className="text-xl">🏆</span>
@@ -474,9 +722,21 @@ export default function Journal() {
                       placeholder="I accomplished…"
                       className={inputBase}
                     />
+                    {form.achievement.length > 1 && (
+                      <button type="button" onClick={() => removeFromArr("achievement", i)}
+                        className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full border border-amber-100/10 bg-white/5 text-stone-500 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400">
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
+              <button type="button" onClick={() => addToArr("achievement")}
+                className="mt-4 self-start flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-500/8 px-4 py-1.5 text-xs font-semibold text-amber-400/80 transition hover:border-amber-400/40 hover:bg-amber-500/15 hover:text-amber-300">
+                <span className="text-sm leading-none">+</span> Add Achievement
+              </button>
             </div>
           )}
 
@@ -525,7 +785,7 @@ export default function Journal() {
                 <input
                   type="range" min="1" max="100"
                   value={form.overallRating}
-                  onChange={(e) => set("overallRating", Number(e.target.value))}
+                  onChange={(e) => { set("overallRating", Number(e.target.value)); set("ratingTouched", true); }}
                   className="flex-1 h-2 cursor-pointer accent-amber-400"
                 />
                 <span className="text-stone-500 text-xs w-8 text-right">100</span>
@@ -609,8 +869,10 @@ export default function Journal() {
             </div>
           )}
 
+          </div>
+
           {/* ── Navigation ── */}
-          <div className="mt-8 flex items-center justify-between">
+          <div className="journal-step-nav mt-8 flex items-center justify-between">
             <button
               type="button"
               onClick={() => setStep((s) => s - 1)}

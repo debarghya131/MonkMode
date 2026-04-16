@@ -1,179 +1,348 @@
 import { useState } from "react";
 
-const MOCK_ANALYTICS = [
-  { day: "Mon", mood: "🔥", label: "Motivated", score: 90 },
-  { day: "Tue", mood: "😊", label: "Happy",     score: 80 },
-  { day: "Wed", mood: "😌", label: "Calm",       score: 65 },
-  { day: "Thu", mood: "😐", label: "Neutral",    score: 50 },
-  { day: "Fri", mood: "😤", label: "Focused",    score: 85 },
-  { day: "Sat", mood: "😴", label: "Tired",      score: 30 },
-  { day: "Sun", mood: "😊", label: "Happy",      score: 75 },
-];
 
 const MOCK_HISTORY = [
   {
-    date: "2026-04-13",
+    date: "2026-04-15",
     mood: { emoji: "🔥", label: "Motivated" },
-    entry: "Started the day with a 5am wake-up and 30 minutes of meditation. Crushed my deep work session and felt completely in flow.",
+    energyLevel: 88,
+    overallRating: 91,
+    summary: "Started the day with a 5am wake-up and 30 minutes of meditation. Crushed my deep work session and felt completely in flow.",
+    wins: ["Finished the dashboard module", "Hit 10k steps", "Read 40 pages"],
+    mistakes: ["Skipped lunch break", "Replied to messages too late"],
+    insight: "Protecting the first 2 hours of the day from distractions is what makes everything else possible.",
+    gratitude: ["Grateful for my health and energy today", "Thankful for a supportive team"],
+    achievement: ["Shipped the schedule feature", "Completed 3 deep work blocks"],
+    affirmation: "I build discipline one decision at a time.",
+    tomorrowPlan: "Review PRs, write tests for the new module, and go for a morning run.",
+  },
+  {
+    date: "2026-04-14",
+    mood: { emoji: "😌", label: "Calm" },
+    energyLevel: 62,
+    overallRating: 74,
+    summary: "Slow morning. Had a long walk and got core tasks done. Sometimes stillness is the most productive thing.",
+    wins: ["Cleared my inbox", "Had a great 1:1 meeting", "Cooked a healthy dinner"],
+    mistakes: ["Got distracted by social media for 45 min", "Didn't finish the blog draft"],
+    insight: "Stillness is not the absence of progress — it's the foundation of it.",
+    gratitude: ["Grateful for the quiet morning", "Thankful for good coffee and clean air"],
+    achievement: ["Reviewed and merged 2 PRs", "Planned the week ahead"],
+    affirmation: "Calm is a superpower I choose every day.",
+    tomorrowPlan: "Start the day with journaling, finish the blog draft, evening yoga.",
+  },
+  {
+    date: "2026-04-13",
+    mood: { emoji: "😤", label: "Focused" },
+    energyLevel: 95,
+    overallRating: 88,
+    summary: "Deep work block from 9am to 1pm. Phone off, inbox closed. Wrote 2,000 words and shipped a feature.",
+    wins: ["4-hour deep work session", "Wrote 2000 words", "Shipped the auth feature"],
+    mistakes: ["Forgot to hydrate until 2pm", "Cancelled evening workout"],
+    insight: "When you eliminate options, focus becomes inevitable.",
+    gratitude: ["Grateful for uninterrupted time", "Thankful for the energy to push through"],
+    achievement: ["Delivered auth module", "Completed sprint goal 2 days early"],
+    affirmation: "I do my best work when I eliminate noise and go deep.",
+    tomorrowPlan: "Light day — review, rest, and prep for the weekend.",
   },
   {
     date: "2026-04-12",
-    mood: { emoji: "😌", label: "Calm" },
-    entry: "Slow morning. Had a long walk and got core tasks done. Sometimes stillness is the most productive thing.",
+    mood: { emoji: "😰", label: "Anxious" },
+    energyLevel: 38,
+    overallRating: 45,
+    summary: "Felt scattered today. Need to go back to basics — one task at a time. Tomorrow will be better.",
+    wins: ["Showed up despite feeling off", "Completed one important task"],
+    mistakes: ["Multitasked and finished nothing properly", "Let anxiety drive decisions"],
+    insight: "When overwhelmed, narrow the focus to one thing only.",
+    gratitude: ["Grateful that today is over", "Thankful for the ability to start fresh tomorrow"],
+    achievement: ["Sent the client report", "Cleared pending notifications"],
+    affirmation: "I can reset at any moment. Tomorrow is a clean slate.",
+    tomorrowPlan: "Single task focus all day. No multitasking. Phone away.",
   },
   {
     date: "2026-04-11",
-    mood: { emoji: "😤", label: "Focused" },
-    entry: "Deep work block from 9am to 1pm. Phone off, inbox closed. Wrote 2,000 words and shipped a feature.",
-  },
-  {
-    date: "2026-04-10",
-    mood: { emoji: "😰", label: "Anxious" },
-    entry: "Felt scattered today. Need to go back to basics — one task at a time. Tomorrow will be better.",
-  },
-  {
-    date: "2026-04-09",
     mood: { emoji: "🙏", label: "Grateful" },
-    entry: "Grateful for the consistency and small wins. Wrote a letter to my future self.",
+    energyLevel: 76,
+    overallRating: 82,
+    summary: "Grateful for the consistency and small wins. Wrote a letter to my future self.",
+    wins: ["Maintained 7-day streak", "Wrote a letter to future self", "Evening run completed"],
+    mistakes: ["Spent too long on low-priority tasks", "Skipped breakfast"],
+    insight: "Gratitude is not just a feeling — it's a practice that rewires how you see the world.",
+    gratitude: ["Grateful for 7 days of consistency", "Thankful for good health and a clear mind"],
+    achievement: ["7-day journal streak", "Completed weekly review"],
+    affirmation: "Every small consistent action is building the person I want to become.",
+    tomorrowPlan: "Morning meditation, DSA practice, team standup, evening walk.",
   },
 ];
 
+function EntryModal({ entry, onClose }) {
+  const energyLabel =
+    entry.energyLevel >= 80 ? "Fully charged 🔋"
+    : entry.energyLevel >= 50 ? "Decent energy ⚡"
+    : entry.energyLevel >= 30 ? "Running low 😮‍💨"
+    : "Drained 😴";
+
+  const ratingLabel =
+    entry.overallRating >= 80 ? "Exceptional day 🌟"
+    : entry.overallRating >= 60 ? "Solid day 👍"
+    : entry.overallRating >= 40 ? "Average day 🤝"
+    : "Rough day, but you showed up 💪";
+
+  const formattedDate = new Date(entry.date).toLocaleDateString("en-US", {
+    weekday: "long", month: "long", day: "numeric", year: "numeric",
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+
+      <div
+        className="relative z-10 my-8 w-full max-w-2xl rounded-2xl border border-amber-100/15 bg-[linear-gradient(160deg,#1e1208,#120d0c)] shadow-2xl shadow-black/60"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Sticky header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-2xl border-b border-amber-100/10 bg-[#1c1007] px-6 py-4">
+          <div>
+            <p className="text-sm font-bold text-amber-200">📔 Journal Entry</p>
+            <p className="mt-0.5 text-xs text-stone-500">{formattedDate}</p>
+          </div>
+          <button type="button" onClick={onClose}
+            className="rounded-full border border-amber-100/10 bg-white/5 p-1.5 text-stone-400 transition hover:border-amber-400/30 hover:text-amber-300">
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="journal-scroll max-h-[78vh] space-y-6 overflow-y-auto p-6">
+
+          {/* Mood + Energy */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">😊 Mood</p>
+              <div className="flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3">
+                <span className="text-2xl">{entry.mood.emoji}</span>
+                <span className="text-sm font-semibold text-amber-200">{entry.mood.label}</span>
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">⚡ Energy Level</p>
+              <div className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
+                <p className="text-3xl font-bold text-amber-200">{entry.energyLevel}</p>
+                <p className="mt-1 text-xs text-stone-400">{energyLabel}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-amber-100/8" />
+
+          {/* Summary */}
+          <div>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">📝 Summary</p>
+            <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">{entry.summary}</p>
+          </div>
+
+          {/* Wins */}
+          <div>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">✅ Wins</p>
+            <ul className="space-y-2">
+              {entry.wins.map((w, i) => (
+                <li key={i} className="flex items-start gap-2 rounded-xl border border-emerald-400/15 bg-emerald-500/8 px-4 py-2.5 text-sm text-stone-200">
+                  <span className="mt-0.5 shrink-0 font-bold text-emerald-400">{i + 1}.</span>{w}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Mistakes */}
+          <div>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">❌ Mistakes</p>
+            <ul className="space-y-2">
+              {entry.mistakes.map((m, i) => (
+                <li key={i} className="flex items-start gap-2 rounded-xl border border-red-400/15 bg-red-500/8 px-4 py-2.5 text-sm text-stone-200">
+                  <span className="mt-0.5 shrink-0 font-bold text-red-400">{i + 1}.</span>{m}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Insight */}
+          <div>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">💡 Lesson of the Day</p>
+            <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">{entry.insight}</p>
+          </div>
+
+          {/* Gratitude + Achievement */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">🙏 Gratitude</p>
+              <ul className="space-y-2">
+                {entry.gratitude.map((g, i) => (
+                  <li key={i} className="rounded-xl border border-amber-100/10 bg-white/5 px-3 py-2 text-xs text-stone-300">🙏 {g}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">🏆 Achievement</p>
+              <ul className="space-y-2">
+                {entry.achievement.map((a, i) => (
+                  <li key={i} className="rounded-xl border border-amber-100/10 bg-white/5 px-3 py-2 text-xs text-stone-300">🏆 {a}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Affirmation */}
+          <div>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">💬 Affirmation</p>
+            <p className="rounded-2xl border border-amber-400/20 bg-amber-500/8 px-5 py-4 text-center text-sm italic text-amber-100/80">
+              &ldquo;{entry.affirmation}&rdquo;
+            </p>
+          </div>
+
+          {/* Tomorrow Plan */}
+          <div>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">📅 Tomorrow&apos;s Plan</p>
+            <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">{entry.tomorrowPlan}</p>
+          </div>
+
+          {/* Overall Rating */}
+          <div>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">⭐ Overall Day Rating</p>
+            <div className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
+              <p className="text-4xl font-bold text-amber-200">{entry.overallRating}</p>
+              <p className="mt-1 text-xs text-stone-400">{ratingLabel}</p>
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400 transition-all duration-500"
+                  style={{ width: `${entry.overallRating}%` }} />
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function JournalRightSidebar() {
-  const [expandedEntry, setExpandedEntry] = useState(null);
   const [modalEntry, setModalEntry] = useState(null);
 
   return (
     <>
-
       <div className="space-y-4">
-      {/* Mood Analytics */}
-      <section className="rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur">
 
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-base">📊</span>
-          <p className="text-label-md">Mood This Week</p>
-        </div>
+        {/* Weekly Analysis */}
+        {(() => {
+          const entries = MOCK_HISTORY;
+          const count = entries.length;
 
-        <div className="space-y-2.5">
-          {MOCK_ANALYTICS.map((item) => (
-            <div key={item.day} className="flex items-center gap-2">
-              <span className="w-7 shrink-0 text-xs text-stone-500">{item.day}</span>
-              <span className="text-sm">{item.mood}</span>
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-950/60">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400 transition-all duration-500"
-                  style={{ width: `${item.score}%` }}
-                />
+          // Top mood
+          const moodFreq = {};
+          entries.forEach((e) => {
+            const key = e.mood.label;
+            moodFreq[key] = (moodFreq[key] || { count: 0, emoji: e.mood.emoji });
+            moodFreq[key].count += 1;
+          });
+          const topMood = Object.entries(moodFreq).sort((a, b) => b[1].count - a[1].count)[0];
+
+          const avgEnergy   = Math.round(entries.reduce((s, e) => s + e.energyLevel, 0) / count);
+          const totalWins   = entries.reduce((s, e) => s + e.wins.length, 0);
+          const totalMistakes = entries.reduce((s, e) => s + e.mistakes.length, 0);
+          const totalAchievements = entries.reduce((s, e) => s + e.achievement.length, 0);
+          const avgRating   = Math.round(entries.reduce((s, e) => s + e.overallRating, 0) / count);
+
+          const stats = [
+            { icon: "⚡", label: "Avg Energy",      value: avgEnergy,         color: "text-amber-300" },
+            { icon: "⭐", label: "Avg Day Rating",   value: avgRating,         color: "text-yellow-300" },
+            { icon: "✅", label: "Total Wins",       value: totalWins,         color: "text-emerald-400" },
+            { icon: "❌", label: "Total Mistakes",   value: totalMistakes,     color: "text-red-400" },
+            { icon: "🏆", label: "Achievements",     value: totalAchievements, color: "text-amber-400" },
+            { icon: "📓", label: "Days Logged",      value: count,             color: "text-stone-300" },
+          ];
+
+          return (
+            <section className="rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-base">📈</span>
+                <p className="text-label-md">Weekly Analysis</p>
               </div>
-            </div>
-          ))}
-        </div>
 
-        {/* Most Frequent */}
-        <div className="mt-4 flex items-center justify-between rounded-xl border border-amber-100/10 bg-stone-950/45 px-3 py-2.5">
-          <p className="text-xs text-stone-500 uppercase tracking-wider">Top Mood</p>
-          <p className="text-sm font-semibold text-amber-300">😊 Happy</p>
-        </div>
-      </section>
-
-      {/* Journal History */}
-      <section className="rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur">
-
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-base">📖</span>
-          <p className="text-label-md">Past Entries</p>
-        </div>
-
-        <div className="h-[calc(70vh-380px)] overflow-y-auto space-y-3 pr-1 journal-scroll">
-          {MOCK_HISTORY.map((item) => {
-            const dateObj = new Date(item.date);
-            const formattedDate = dateObj.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              weekday: "short",
-            });
-            const isExpanded = expandedEntry === item.date;
-            const preview = item.entry.length > 80 ? item.entry.slice(0, 80) + "…" : item.entry;
-
-            return (
-              <div
-                key={item.date}
-                className="rounded-xl border border-amber-100/10 bg-stone-950/45 p-3 transition-all duration-200 hover:border-amber-400/20"
-              >
-                {/* Date + mood on same row */}
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-stone-500">{formattedDate}</p>
-                  <span className="flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300">
-                    {item.mood.emoji} {item.mood.label}
-                  </span>
-                </div>
-
-                <p className="mt-2 text-xs leading-relaxed text-stone-400">
-                  {isExpanded ? item.entry : preview}
+              {/* Top Mood banner */}
+              <div className="mb-4 flex items-center justify-between rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-amber-300/70">Top Mood</p>
+                <p className="text-[13px] font-bold text-amber-200">
+                  {topMood[1].emoji} {topMood[0]}
                 </p>
-
-                {item.entry.length > 80 && (
-                  <button
-                    type="button"
-                    onClick={() => setModalEntry(item)}
-                    className="mt-1.5 text-xs font-semibold text-amber-500 transition hover:text-amber-300"
-                  >
-                    More ↓
-                  </button>
-                )}
               </div>
-            );
-          })}
-        </div>
-      </section>
+
+              {/* Stats grid */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {stats.map((s) => (
+                  <div key={s.label} className="min-h-[58px] rounded-xl border border-amber-100/8 bg-stone-950/40 px-3 py-2.5">
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <span className="text-[13px] leading-none">{s.icon}</span>
+                      <p className={`text-base font-bold leading-none ${s.color}`}>{s.value}</p>
+                    </div>
+                    <p className="whitespace-nowrap text-[8px] font-semibold uppercase leading-none tracking-[0.02em] text-stone-500">
+                      {s.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })()}
+
+        {/* Past Entries */}
+        <section className="rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-base">📖</span>
+            <p className="text-label-md">Past Entries</p>
+          </div>
+
+          <div className="h-[calc(70vh-350px)] overflow-y-auto space-y-3 pr-1 journal-scroll">
+            {MOCK_HISTORY.map((item) => {
+              const formattedDate = new Date(item.date).toLocaleDateString("en-US", {
+                month: "short", day: "numeric", weekday: "short",
+              });
+
+              return (
+                <div key={item.date}
+                  className="rounded-xl border border-amber-100/10 bg-stone-950/45 p-3 transition-all duration-200 hover:border-amber-400/20">
+
+                  {/* Date + mood */}
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-stone-500">{formattedDate}</p>
+                    <span className="flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300">
+                      {item.mood.emoji} {item.mood.label}
+                    </span>
+                  </div>
+
+                  {/* Stats row */}
+                  <div className="mt-2 flex items-center gap-3 text-[11px] text-stone-500">
+                    <span>⚡ {item.energyLevel}</span>
+                    <span>⭐ {item.overallRating}</span>
+                    <span>✅ {item.wins.length} wins</span>
+                  </div>
+
+                  {/* Summary preview */}
+                  <p className="mt-2 text-xs leading-relaxed text-stone-400">
+                    {item.summary.length > 75 ? item.summary.slice(0, 75) + "…" : item.summary}
+                  </p>
+
+                  <button type="button" onClick={() => setModalEntry(item)}
+                    className="mt-1.5 text-xs font-semibold text-amber-500 transition hover:text-amber-300">
+                    See full entry ↓
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
 
       </div>
 
-      {/* Entry Detail Modal */}
-      {modalEntry && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          onClick={() => setModalEntry(null)}
-        >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-
-          {/* Modal card */}
-          <div
-            className="relative z-10 w-full max-w-md rounded-2xl border border-amber-100/15 bg-[linear-gradient(160deg,#1e1208,#120d0c)] p-6 shadow-2xl shadow-black/50"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
-                  {new Date(modalEntry.date).toLocaleDateString("en-US", {
-                    weekday: "long", month: "long", day: "numeric", year: "numeric",
-                  })}
-                </p>
-                <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
-                  {modalEntry.mood.emoji} {modalEntry.mood.label}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModalEntry(null)}
-                className="shrink-0 rounded-full border border-amber-100/10 bg-white/5 p-1.5 text-stone-400 transition hover:border-amber-400/30 hover:text-amber-300"
-              >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Divider */}
-            <div className="my-4 border-t border-amber-100/10" />
-
-            {/* Full entry */}
-            <p className="text-sm leading-relaxed text-stone-300">{modalEntry.entry}</p>
-          </div>
-        </div>
-      )}
+      {modalEntry && <EntryModal entry={modalEntry} onClose={() => setModalEntry(null)} />}
     </>
   );
 }
