@@ -1,4 +1,5 @@
 import monkLogo from "../assets/monk.png";
+import NavbarBirdBackground from "./NavbarBirdBackground";
 
 const formatDate = (date) => {
   return new Date(date).toLocaleDateString("en-US", {
@@ -14,9 +15,32 @@ export default function Navbar({ user }) {
   const currentDate = formatDate(new Date());
 
   return (
-    <div className="bg-gradient-to-r from-[#0B1220] via-[#0A0F1F] to-[#140A2E] px-6 py-3">
-      
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+    <div className="relative overflow-hidden px-6 py-3">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: "linear-gradient(120deg, #07192f 0%, #1a2e58 32%, #1b1741 55%, #190b12 100%)",
+          backgroundSize: "280% 280%",
+          animation: "navbarGradientShift 6s ease-in-out infinite",
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 left-[-12%] w-[42%]"
+        style={{
+          background: "linear-gradient(90deg, transparent 0%, rgba(125,211,252,0.2) 40%, rgba(251,191,36,0.22) 65%, transparent 100%)",
+          filter: "blur(10px)",
+          animation: "navbarLightSweep 5s linear infinite",
+        }}
+      />
+      <NavbarBirdBackground />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_18%),linear-gradient(180deg,rgba(5,10,22,0.12),rgba(10,8,18,0.2)_64%,rgba(7,5,14,0.34))]"
+      />
+
+      <div className="relative z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
 
         {/* LEFT: Logo */}
         <div className="flex flex-col items-center w-fit">

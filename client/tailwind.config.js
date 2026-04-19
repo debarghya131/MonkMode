@@ -8,7 +8,7 @@ export default {
     extend: {
       fontFamily: {
         // Primary heading font
-        heading: ["Poppins", "sans-serif"],
+        heading: ["Cinzel", "serif"],
         // Body text
         body: ["Segoe UI", "Helvetica Neue", "Arial", "sans-serif"],
       },

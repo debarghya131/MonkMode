@@ -6,9 +6,68 @@ import Schedule from "./Schedule";
 import Important from "./Important";
 import { DEFAULT_CATEGORIES, DEFAULT_IMPORTANT_CATEGORIES } from "./todoShared";
 
+const toISODate = (dateObj) => {
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const day = String(dateObj.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const addDaysISO = (offsetDays) => {
+  const dateObj = new Date();
+  dateObj.setDate(dateObj.getDate() + offsetDays);
+  return toISODate(dateObj);
+};
+
+const DEMO_TASKS = [
+  {
+    id: "demo-task-1",
+    title: "Morning Run",
+    description: "30-minute cardio with cooldown stretch.",
+    category: "Health",
+    priority: "High",
+    repeatType: "daily",
+    startDate: addDaysISO(0),
+    endDate: null,
+    time: "06:30",
+  },
+  {
+    id: "demo-task-2",
+    title: "Pay Credit Card Bill",
+    description: "Pay before due time to avoid late fee.",
+    category: "Bill & Payment",
+    priority: "High",
+    repeatType: "once",
+    date: addDaysISO(0),
+    time: "10:30",
+  },
+  {
+    id: "demo-task-3",
+    title: "Read System Design",
+    description: "Focus on caching and load balancing chapter.",
+    category: "Study",
+    priority: "Medium",
+    repeatType: "weekdays",
+    startDate: addDaysISO(0),
+    endDate: addDaysISO(10),
+    days: ["Mon", "Wed", "Fri"],
+    time: "20:00",
+  },
+  {
+    id: "demo-task-4-archived",
+    title: "Submit Weekly Reflection",
+    description: "Write and submit your weekly review notes.",
+    category: "Work",
+    priority: "Low",
+    repeatType: "once",
+    date: addDaysISO(-1),
+    time: "18:15",
+  },
+];
+
 export default function Todo() {
   const [active, setActive] = useState("today");
-  const [tasks, setTasks] = useState([]);
+  const [tasks, setTasks] = useState(DEMO_TASKS);
   const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORIES);
   const [importantCategories, setImportantCategories] = useState(DEFAULT_IMPORTANT_CATEGORIES);
 
