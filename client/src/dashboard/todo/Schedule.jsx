@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_CATEGORIES,
   DEFAULT_IMPORTANT_CATEGORIES,
@@ -16,7 +16,7 @@ const REPEAT_TYPES = [
   { value: "once", label: "One Time" },
   { value: "daily", label: "Daily" },
   { value: "weekdays", label: "Weekdays (Custom Days)" },
-  { value: "weekend", label: "Weekend" },
+  { value: "weekend", label: "Weekend (Sat & Sun)" },
 ];
 const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_SHORT = { Sun: "Su", Mon: "M", Tue: "T", Wed: "W", Thu: "Th", Fri: "F", Sat: "Sa" };
@@ -72,12 +72,30 @@ export default function Schedule({
 }) {
   const today = useMemo(() => toISODate(new Date()), []);
 
+  const [isCatOpen, setIsCatOpen] = useState(false);
+  const [isEditCatOpen, setIsEditCatOpen] = useState(false);
+  const catDropRef = useRef(null);
+  const editCatDropRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (catDropRef.current && !catDropRef.current.contains(e.target)) setIsCatOpen(false);
+      if (editCatDropRef.current && !editCatDropRef.current.contains(e.target)) setIsEditCatOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   const [showCustomCategory, setShowCustomCategory] = useState(false);
   const [customCategory, setCustomCategory] = useState("");
   const [markCustomCategoryImportant, setMarkCustomCategoryImportant] = useState(false);
   const [categoryError, setCategoryError] = useState("");
   const [categoryDeleteError, setCategoryDeleteError] = useState("");
-  const [taskLogs, setTaskLogs] = useState([]);
+  const [taskLogs, setTaskLogs] = useState(() => [
+    { id: "demo-task-log-1", title: "Morning Run", date: today, time: "06:30" },
+    { id: "demo-task-log-2", title: "Pay Credit Card Bill", date: today, time: "10:30", action: "edited" },
+    { id: "demo-task-log-3", title: "Gym Session", date: today, time: "18:00", action: "deleted" },
+  ]);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -104,19 +122,35 @@ export default function Schedule({
     days: ["Mon", "Wed", "Fri"],
   });
 
+  const [tasksView, setTasksView] = useState("active");
+
   // Split tasks into active vs ended (derived — no setState needed)
   const { activeTasks, endedTaskLogs } = useMemo(() => {
     const active = [];
     const ended = [];
     tasks.forEach((t) => {
-      if (t.endDate && t.endDate < today) {
-        ended.push({ id: `${t.id}-ended`, title: t.title, date: t.endDate, time: t.time, action: "ended" });
+      const isOnceEnded = t.repeatType === "once" && t.date && t.date < today;
+      const isRepeatingEnded = t.repeatType !== "once" && t.endDate && t.endDate < today;
+      if (isOnceEnded || isRepeatingEnded) {
+        ended.push({
+          id: `${t.id}-ended`,
+          title: t.title,
+          date: t.repeatType === "once" ? t.date : t.endDate,
+          time: t.time,
+          action: "ended",
+        });
       } else {
         active.push(t);
       }
     });
     return { activeTasks: active, endedTaskLogs: ended };
   }, [tasks, today]);
+  const archivedTasks = useMemo(
+    () => tasks.filter((task) => !activeTasks.some((activeTask) => activeTask.id === task.id)),
+    [tasks, activeTasks]
+  );
+  const displayedTasks = tasksView === "active" ? activeTasks : archivedTasks;
+  const isArchiveView = tasksView === "archive";
 
   const allLogs = useMemo(
     () => [...endedTaskLogs, ...taskLogs],
@@ -436,21 +470,38 @@ export default function Schedule({
                   Category <span className="text-red-400">*</span>
                 </label>
                 <div className="flex gap-1">
-                  <select
-                    id="task-category"
-                    value={form.category}
-                    onChange={(event) => handleInputChange("category", event.target.value)}
-                    className={`h-9 flex-1 min-w-0 rounded-lg border bg-stone-900 pl-2 pr-6 text-[11px] text-stone-100 outline-none transition focus:border-amber-300/35 ${
-                      fieldError("category") ? "border-red-400/60" : "border-amber-100/15"
-                    }`}
-                  >
-                    <option value="" disabled style={{ backgroundColor: "#1c1917", color: "#6b7280" }}>Select category</option>
-                    {categoryOptions.map((category) => (
-                      <option key={category} value={category} style={{ backgroundColor: "#1c1917", color: "#e7e5e4" }}>
-                        {importantCategories.some((item) => item.toLowerCase() === category.toLowerCase()) ? `${category} ⭐` : category}
-                      </option>
-                    ))}
-                  </select>
+                  <div ref={catDropRef} className="relative min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsCatOpen((p) => !p)}
+                      className={`relative h-9 w-full rounded-lg border bg-stone-900 pl-2 pr-6 text-left text-[11px] text-stone-100 outline-none transition focus:border-amber-300/35 ${
+                        fieldError("category") ? "border-red-400/60" : "border-amber-100/15"
+                      }`}
+                    >
+                      {form.category
+                        ? importantCategories.some((i) => i.toLowerCase() === form.category.toLowerCase())
+                          ? `${form.category} ⭐`
+                          : form.category
+                        : <span className="text-stone-500">Select category</span>}
+                      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-stone-400">▾</span>
+                    </button>
+                    {isCatOpen && (
+                      <div className="journal-scroll absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-amber-100/15 bg-stone-900 py-1 shadow-xl shadow-black/50">
+                        {categoryOptions.map((category) => (
+                          <button
+                            key={category}
+                            type="button"
+                            onClick={() => { handleInputChange("category", category); setIsCatOpen(false); }}
+                            className={`w-full px-3 py-1.5 text-left text-[11px] transition hover:bg-amber-500/10 hover:text-amber-200 ${
+                              form.category === category ? "bg-amber-500/15 text-amber-200" : "text-stone-100"
+                            }`}
+                          >
+                            {importantCategories.some((i) => i.toLowerCase() === category.toLowerCase()) ? `${category} ⭐` : category}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => setShowCustomCategory((prev) => !prev)}
@@ -657,19 +708,37 @@ export default function Schedule({
             <div>
               <p className="text-sm font-semibold text-amber-200">All Tasks</p>
               <p className="mt-0.5 text-xs text-stone-400">Every scheduled task at a glance.</p>
+              <div className="mt-2 flex items-center gap-1.5">
+                {["active", "archive"].map((view) => (
+                  <button
+                    key={view}
+                    type="button"
+                    onClick={() => setTasksView(view)}
+                    className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold capitalize transition ${
+                      tasksView === view
+                        ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
+                        : "border-amber-100/10 bg-white/5 text-stone-400 hover:border-amber-300/35 hover:text-amber-200"
+                    }`}
+                  >
+                    {view}
+                  </button>
+                ))}
+              </div>
             </div>
             <span className="rounded-full border border-amber-100/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
-              {tasks.length} total
+              {displayedTasks.length} total
             </span>
           </div>
 
           <div className="journal-scroll flex-1 space-y-2 overflow-y-auto pr-1">
-            {activeTasks.length === 0 ? (
-              <p className="mt-6 text-center text-xs text-stone-500">No tasks yet. Create one to get started.</p>
+            {displayedTasks.length === 0 ? (
+              <p className="mt-6 text-center text-xs text-stone-500">
+                {tasksView === "active" ? "No active tasks yet. Create one to get started." : "No archived tasks yet."}
+              </p>
             ) : (
-              activeTasks.map((task) => (
+              displayedTasks.map((task) => (
                 <article key={task.id} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
-                  {editingId === task.id ? (
+                  {editingId === task.id && !isArchiveView ? (
                     /* ── Inline edit form ── */
                     <div className="space-y-2">
                       <input
@@ -686,15 +755,32 @@ export default function Schedule({
                         className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2.5 py-1.5 text-xs text-stone-300 outline-none focus:border-amber-300/40"
                       />
                       <div className="grid grid-cols-2 gap-2">
-                        <select
-                          value={editForm.category}
-                          onChange={(e) => setEditForm((p) => ({ ...p, category: e.target.value }))}
-                          className="rounded-lg border border-amber-100/15 bg-stone-900 px-2 py-1.5 text-[11px] text-stone-100 outline-none"
-                        >
-                          {categoryOptions.map((c) => (
-                            <option key={c} value={c} style={{ backgroundColor: "#1c1917" }}>{c}</option>
-                          ))}
-                        </select>
+                        <div ref={editCatDropRef} className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setIsEditCatOpen((p) => !p)}
+                            className="relative h-9 w-full rounded-lg border border-amber-100/15 bg-stone-900 pl-2 pr-6 text-left text-[11px] text-stone-100 outline-none"
+                          >
+                            {editForm.category || <span className="text-stone-500">Category</span>}
+                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-stone-400">▾</span>
+                          </button>
+                          {isEditCatOpen && (
+                            <div className="journal-scroll absolute z-50 mt-1 max-h-40 w-full overflow-y-auto rounded-lg border border-amber-100/15 bg-stone-900 py-1 shadow-xl shadow-black/50">
+                              {categoryOptions.map((c) => (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  onClick={() => { setEditForm((p) => ({ ...p, category: c })); setIsEditCatOpen(false); }}
+                                  className={`w-full px-3 py-1.5 text-left text-[11px] transition hover:bg-amber-500/10 hover:text-amber-200 ${
+                                    editForm.category === c ? "bg-amber-500/15 text-amber-200" : "text-stone-100"
+                                  }`}
+                                >
+                                  {importantCategories.some((i) => i.toLowerCase() === c.toLowerCase()) ? `${c} ⭐` : c}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                         <input
                           type="time"
                           value={editForm.time}
@@ -822,20 +908,24 @@ export default function Schedule({
                           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${priorityStyles[task.priority]}`}>
                             {task.priority}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => startEdit(task)}
-                            className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-400/20"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(task.id)}
-                            className="rounded border border-rose-400/25 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
-                          >
-                            Delete
-                          </button>
+                          {!isArchiveView && (
+                            <button
+                              type="button"
+                              onClick={() => startEdit(task)}
+                              className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-400/20"
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {!isArchiveView && (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(task.id)}
+                              className="rounded border border-rose-400/25 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </div>
                       {task.description ? (

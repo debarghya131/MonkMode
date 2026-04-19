@@ -6,7 +6,7 @@ import DashboardLayout from "./dashboard/DashboardLayout";
 import Overview from "./dashboard/overview/Overview";
 import Journal from "./dashboard/journal/Journal";
 import Todo from "./dashboard/todo/Todo";
-import Habit from "./dashboard/habit/Habit";
+import Habits from "./dashboard/habits/Habits";
 import Goal from "./dashboard/goal/Goal";
 import Gym from "./dashboard/gym/Gym";
 import Analytics from "./dashboard/analytics/Analytics";
@@ -25,7 +25,7 @@ export default function App() {
         <Route path="/dashboard" element={<Overview />} />
         <Route path="/dashboard/journal" element={<DashboardLayout><Journal /></DashboardLayout>} />
         <Route path="/dashboard/todo" element={<DashboardLayout><Todo /></DashboardLayout>} />
-        <Route path="/dashboard/habit" element={<DashboardLayout><Habit /></DashboardLayout>} />
+        <Route path="/dashboard/habit" element={<DashboardLayout><Habits /></DashboardLayout>} />
         <Route path="/dashboard/goal" element={<DashboardLayout><Goal /></DashboardLayout>} />
         <Route path="/dashboard/gym" element={<DashboardLayout><Gym /></DashboardLayout>} />
         <Route path="/dashboard/analytics" element={<DashboardLayout><Analytics /></DashboardLayout>} />
