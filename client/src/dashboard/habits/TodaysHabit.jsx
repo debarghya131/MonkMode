@@ -375,12 +375,23 @@ export default function TodaysHabit() {
                 sidebarHabits.map((habit) => (
                   <article key={`summary-${habit.id}`} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
                     <p className="text-sm font-semibold text-stone-100">{habit.title}</p>
-                    <div className="mt-2 space-y-1 text-[11px] text-stone-300">
-                      <p>Target Streak: <span className="font-semibold text-amber-100">{habit.targetStreak ?? "--"}</span></p>
-                      <p>Current Streak: <span className="font-semibold text-emerald-200">{habit.currentStreak ?? 0}</span></p>
-                      <p>Max Streak: <span className="font-semibold text-amber-100">{habit.maxStreak ?? "--"}</span></p>
-                      <p>No. of Streak Break: <span className="font-semibold text-rose-200">{habit.streakBreaks ?? 0}</span></p>
-                      <p>End Date: <span className="font-semibold text-amber-100">{habit.endDate ?? "Never Ends"}</span></p>
+                    <div className="mt-2 flex gap-4 text-[11px] text-stone-300">
+                      <div className="flex-1 space-y-1">
+                        <p>No. of Streak Break: <span className="font-semibold text-rose-200">{habit.streakBreaks ?? 0}</span></p>
+                        <p>End Date: <span className="font-semibold text-amber-100">{habit.endDate ?? "Never Ends"}</span></p>
+                        {habit.endDate && (() => {
+                          const msLeft = new Date(habit.endDate) - new Date(todayISO);
+                          const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+                          return (
+                            <p>Days Left: <span className={`font-semibold ${daysLeft <= 7 ? "text-rose-300" : daysLeft <= 30 ? "text-yellow-200" : "text-sky-200"}`}>{daysLeft > 0 ? `${daysLeft} days` : "Ended"}</span></p>
+                          );
+                        })()}
+                      </div>
+                      <div className="space-y-1 text-right">
+                        <p>Target Streak: <span className="font-semibold text-amber-100">{habit.targetStreak ?? "--"}</span></p>
+                        <p>Current Streak: <span className="font-semibold text-emerald-200">{habit.currentStreak ?? 0}</span></p>
+                        <p>Max Streak: <span className="font-semibold text-amber-100">{habit.maxStreak ?? "--"}</span></p>
+                      </div>
                     </div>
                   </article>
                 ))

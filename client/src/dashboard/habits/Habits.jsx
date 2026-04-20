@@ -1,12 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import CreateHabit from "./CreateHabit";
 import HabitTracking from "./HabitTracking";
 import HabitsNav from "./HabitsNav";
 import TodaysHabit from "./TodaysHabit";
 
 export default function Habits() {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("today");
   const streakDays = 7;
+
+  useEffect(() => {
+    const requestedTab = location.state?.tab;
+    if (requestedTab === "today" || requestedTab === "create" || requestedTab === "track") {
+      setActiveTab(requestedTab);
+    }
+  }, [location.state]);
 
   const renderContent = () => {
     if (activeTab === "create") return <CreateHabit />;

@@ -97,6 +97,7 @@ export default function Schedule({
     { id: "demo-task-log-3", title: "Gym Session", date: today, time: "18:00", action: "deleted" },
   ]);
   const [error, setError] = useState("");
+  const [undoError, setUndoError] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
 
@@ -153,7 +154,11 @@ export default function Schedule({
   const isArchiveView = tasksView === "archive";
 
   const allLogs = useMemo(
-    () => [...endedTaskLogs, ...taskLogs],
+    () => [...endedTaskLogs, ...taskLogs].sort((a, b) => {
+      const aEnded = a.action === "ended" ? 1 : 0;
+      const bEnded = b.action === "ended" ? 1 : 0;
+      return aEnded - bEnded;
+    }),
     [endedTaskLogs, taskLogs]
   );
 
@@ -315,6 +320,41 @@ export default function Schedule({
       return;
     }
 
+    if (editingId) {
+      const updatedFields = {
+        title: form.title.trim(),
+        description: form.description,
+        category: form.category,
+        priority: form.priority,
+        time: form.time,
+        repeatType: form.repeatType,
+        ...(form.repeatType === "once"
+          ? { date: form.date, startDate: undefined, endDate: undefined, days: undefined }
+          : {
+              startDate: form.startDate,
+              endDate: form.neverEnds ? null : form.endDate,
+              days: form.repeatType === "weekdays" ? form.days : undefined,
+              date: undefined,
+            }),
+      };
+      setTasks((prev) => prev.map((t) => (t.id === editingId ? { ...t, ...updatedFields } : t)));
+      setTaskLogs((prev) => [
+        {
+          id: `${editingId}-edited-${Date.now()}`,
+          title: form.title.trim(),
+          date: form.repeatType === "once" ? form.date : form.startDate,
+          time: form.time,
+          action: "edited",
+        },
+        ...prev,
+      ]);
+      setEditingId(null);
+      setError("");
+      setTouched({});
+      setForm((prev) => ({ ...prev, title: "", description: "", category: "", priority: "", repeatType: "", time: "", date: "" }));
+      return;
+    }
+
     const baseTask = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       title: form.title.trim(),
@@ -371,15 +411,37 @@ export default function Schedule({
     const task = tasks.find((t) => t.id === id);
     setTasks((prev) => prev.filter((t) => t.id !== id));
     setTaskLogs((prev) => [
-      { id: `${id}-deleted-${Date.now()}`, title: task.title, date: task.date ?? task.startDate, time: task.time, action: "deleted" },
+      { id: `${id}-deleted-${Date.now()}`, title: task.title, date: task.date ?? task.startDate, time: task.time, action: "deleted", deletedItem: task },
       ...prev,
     ]);
     if (editingId === id) setEditingId(null);
   };
 
+  const handleUndoDelete = (logId) => {
+    const log = taskLogs.find((l) => l.id === logId);
+    if (!log?.deletedItem) return;
+    const item = log.deletedItem;
+    const nowDate = toISODate(new Date());
+    const nowTime = new Date().toTimeString().slice(0, 5);
+    let expired = false;
+    if (item.repeatType === "once") {
+      expired = item.date < nowDate || (item.date === nowDate && item.time < nowTime);
+    } else if (!item.neverEnds && item.endDate) {
+      expired = item.endDate < nowDate || (item.endDate === nowDate && item.time < nowTime);
+    }
+    if (expired) {
+      setUndoError(`Undo not possible — "${item.title}" has already passed its end date/time.`);
+      setTimeout(() => setUndoError(""), 4000);
+      return;
+    }
+    setUndoError("");
+    setTasks((prev) => [item, ...prev]);
+    setTaskLogs((prev) => prev.filter((l) => l.id !== logId));
+  };
+
   const startEdit = (task) => {
     setEditingId(task.id);
-    setEditForm({
+    setForm({
       title: task.title,
       description: task.description ?? "",
       category: task.category,
@@ -435,7 +497,7 @@ export default function Schedule({
 
       <div className="schedule-layout">
         <div className="schedule-main journal-scroll rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20" style={{ height: SCHEDULE_PANEL_HEIGHT, overflowY: "auto" }}>
-          <h3 className="mb-4 text-sm font-semibold text-amber-200">Create Task</h3>
+          <h3 className="mb-4 text-sm font-semibold text-amber-200">{editingId ? "Edit Task" : "Create Task"}</h3>
           <form className="space-y-3" onSubmit={handleSubmit}>
             {/* Row 1: Title */}
             <div>
@@ -697,8 +759,17 @@ export default function Schedule({
               type="submit"
               className="w-full rounded-lg border border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 px-4 py-2 text-xs font-semibold text-amber-200 transition hover:from-amber-400/25 hover:to-orange-400/20"
             >
-              Add Task
+              {editingId ? "Update Task" : "Add Task"}
             </button>
+            {editingId && (
+              <button
+                type="button"
+                onClick={() => { setEditingId(null); setError(""); setTouched({}); setForm((prev) => ({ ...prev, title: "", description: "", category: "", priority: "", repeatType: "", time: "", date: "" })); }}
+                className="mt-1.5 w-full rounded-lg border border-stone-600/40 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-400 transition hover:text-stone-200"
+              >
+                Cancel Edit
+              </button>
+            )}
           </form>
         </div>
 
@@ -738,7 +809,7 @@ export default function Schedule({
             ) : (
               displayedTasks.map((task) => (
                 <article key={task.id} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
-                  {editingId === task.id && !isArchiveView ? (
+                  {false ? (
                     /* ── Inline edit form ── */
                     <div className="space-y-2">
                       <input
@@ -1029,12 +1100,15 @@ export default function Schedule({
             {/* Task Logs — fills remaining height */}
             <section className="flex min-h-0 flex-1 flex-col">
               <p className="mb-2 shrink-0 text-sm font-semibold tracking-wide text-amber-200">Task Logs</p>
+              {undoError && (
+                <p className="mb-2 shrink-0 rounded-md border border-rose-400/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-300">{undoError}</p>
+              )}
               {allLogs.length === 0 ? (
                 <p className="text-sm text-stone-400">No task logs yet.</p>
               ) : (
-                <div className="journal-scroll min-h-0 flex-1 space-y-1.5 overflow-y-auto scroll-smooth pr-1">
+                <div className="journal-scroll min-h-0 flex-1 space-y-1.5 overflow-x-hidden overflow-y-auto scroll-smooth pr-1">
                   {allLogs.map((log) => (
-                    <p key={log.id} className={`rounded-md border px-2 py-1.5 text-[11px] ${
+                    <div key={log.id} className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-[11px] ${
                       log.action === "deleted"
                         ? "border-rose-400/20 bg-rose-500/5 text-stone-300"
                         : log.action === "edited"
@@ -1043,19 +1117,31 @@ export default function Schedule({
                         ? "border-blue-400/20 bg-blue-500/5 text-stone-300"
                         : "border-amber-100/10 bg-white/5 text-stone-200"
                     }`}>
-                      <span className={`font-semibold ${
-                        log.action === "deleted" ? "text-rose-300"
-                        : log.action === "edited" ? "text-amber-200"
-                        : log.action === "ended" ? "text-blue-300"
-                        : "text-emerald-300"
-                      }`}>
-                        {log.action === "deleted" ? "Deleted"
-                          : log.action === "edited" ? "Edited"
-                          : log.action === "ended" ? "Ended"
-                          : "Created"}:
-                      </span>{" "}
-                      <span className="font-semibold text-stone-100">{log.title}</span> on {log.date} at {formatLogTime(log.time)}
-                    </p>
+                      <p className="min-w-0 flex-1">
+                        <span className={`font-semibold ${
+                          log.action === "deleted" ? "text-rose-300"
+                          : log.action === "edited" ? "text-amber-200"
+                          : log.action === "ended" ? "text-blue-300"
+                          : "text-emerald-300"
+                        }`}>
+                          {log.action === "deleted" ? "Deleted"
+                            : log.action === "edited" ? "Edited"
+                            : log.action === "ended" ? "Ended"
+                            : "Created"}:
+                        </span>{" "}
+                        <span className="break-all font-semibold text-stone-100">{log.title}</span> on {log.date} at {formatLogTime(log.time)}
+                      </p>
+                      {log.action === "deleted" && log.deletedItem && (
+                        <button
+                          type="button"
+                          onClick={() => handleUndoDelete(log.id)}
+                          className="shrink-0 rounded border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
+                          title="Undo delete"
+                        >
+                          ↺
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}

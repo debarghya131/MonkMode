@@ -1,13 +1,42 @@
+import { useState } from "react";
+import { GOALS } from "./goalDemoData";
+import CreateGoal from "./CreateGoal";
+import GoalNav from "./GoalNav";
+import Mygoals from "./Mygoals";
+import Progress from "./Progress";
+
 export default function Goal() {
+  const [activeTab, setActiveTab] = useState("my-goals");
+  const [importantByGoal, setImportantByGoal] = useState({ "gate-2027": true });
+  const [milestonesByGoal, setMilestonesByGoal] = useState(() =>
+    Object.fromEntries(GOALS.map((goal) => [goal.id, goal.milestones]))
+  );
+
+  const renderContent = () => {
+    if (activeTab === "create-goals") return <CreateGoal />;
+    if (activeTab === "progress")
+      return (
+        <Progress
+          importantByGoal={importantByGoal}
+          milestonesByGoal={milestonesByGoal}
+        />
+      );
+    return (
+      <Mygoals
+        importantByGoal={importantByGoal}
+        setImportantByGoal={setImportantByGoal}
+        milestonesByGoal={milestonesByGoal}
+        setMilestonesByGoal={setMilestonesByGoal}
+      />
+    );
+  };
+
   return (
-    <div className="mx-auto max-w-6xl">
-      <div className="rounded-[2rem] border border-amber-100/10 bg-white/6 p-8 shadow-2xl shadow-black/25 backdrop-blur">
-        <p className="text-label-lg">Goals</p>
-        <h2 className="text-heading-xl mt-2">Your Goals</h2>
-        <p className="text-body-md mt-4">
-          Coming soon - Set, track, and achieve your long-term goals.
-        </p>
+    <div className="mx-auto max-w-8xl space-y-4">
+      <div className="min-w-0 flex-1">
+        <GoalNav activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
+      <div>{renderContent()}</div>
     </div>
   );
 }

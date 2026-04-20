@@ -66,11 +66,16 @@ const fmtTime = (t) => {
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 };
 
-const PANEL_H = "540px";
+const PANEL_H = "650px";
 
 /* ─── Component ─────────────────────────────────────── */
-export default function CreateHabit() {
+export default function CreateHabit({ entity = "habit" }) {
   const today = useMemo(() => toISO(new Date()), []);
+  const isGoal = entity === "goal";
+  const singular = isGoal ? "Goal" : "Habit";
+  const plural = isGoal ? "Goals" : "Habits";
+  const lowerSingular = singular.toLowerCase();
+  const lowerPlural = plural.toLowerCase();
 
   /* category dropdowns */
   const [isCatOpen, setIsCatOpen] = useState(false);
@@ -160,6 +165,7 @@ export default function CreateHabit() {
   });
   const [touched, setTouched] = useState({});
   const [error, setError] = useState("");
+  const [undoError, setUndoError] = useState("");
   const [habitsView, setHabitsView] = useState("active");
 
   /* ── derived ── */
@@ -274,6 +280,26 @@ export default function CreateHabit() {
     const err = validate();
     if (err) { setError(err); return; }
 
+    if (editingId) {
+      const fixedDays2 = FIXED_DURATION[form.repeatType];
+      const updated = {
+        title: form.title.trim(), reason: form.reason.trim(),
+        targetStreak: form.targetStreak ? Number(form.targetStreak) : null,
+        timeOfDay: form.timeOfDay, category: form.category, priority: form.priority,
+        time: form.time, repeatType: form.repeatType,
+        ...(fixedDays2
+          ? { startDate: form.startDate, endDate: fixedEndDate(fixedDays2, form.startDate) }
+          : { startDate: form.startDate, endDate: form.neverEnds ? null : form.endDate,
+              ...(form.repeatType === "weekdays" ? { days: form.days } : {}) }),
+      };
+      setHabits((p) => p.map((h) => h.id === editingId ? { ...h, ...updated } : h));
+      setHabitLogs((p) => [{ id:`${editingId}-edit-${Date.now()}`, title:form.title.trim(), date:form.startDate, time:form.time, action:"edited" }, ...p]);
+      setEditingId(null);
+      setError(""); setTouched({});
+      setForm((p) => ({ ...p, title:"", reason:"", targetStreak:"", timeOfDay:"", category:"", priority:"", repeatType:"", time:"" }));
+      return;
+    }
+
     const base = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
       title: form.title.trim(),
@@ -312,8 +338,27 @@ export default function CreateHabit() {
   const handleDelete = (id) => {
     const h = habits.find((x) => x.id === id);
     setHabits((p) => p.filter((x) => x.id !== id));
-    setHabitLogs((p) => [{ id:`${id}-del-${Date.now()}`, title:h.title, date:h.startDate, time:h.time, action:"deleted" }, ...p]);
+    setHabitLogs((p) => [{ id:`${id}-del-${Date.now()}`, title:h.title, date:h.startDate, time:h.time, action:"deleted", deletedItem:h }, ...p]);
     if (editingId === id) setEditingId(null);
+  };
+
+  const handleUndoDelete = (logId) => {
+    const log = habitLogs.find((l) => l.id === logId);
+    if (!log?.deletedItem) return;
+    const item = log.deletedItem;
+    const nowDate = toISO(new Date());
+    const nowTime = new Date().toTimeString().slice(0, 5);
+    const expired = item.endDate && (
+      item.endDate < nowDate || (item.endDate === nowDate && item.time < nowTime)
+    );
+    if (expired) {
+      setUndoError(`Undo not possible — "${item.title}" has already passed its end date/time.`);
+      setTimeout(() => setUndoError(""), 4000);
+      return;
+    }
+    setUndoError("");
+    setHabits((p) => [item, ...p]);
+    setHabitLogs((p) => p.filter((l) => l.id !== logId));
   };
 
   const toggleHabitImportant = (id) => {
@@ -322,7 +367,7 @@ export default function CreateHabit() {
 
   const startEdit = (h) => {
     setEditingId(h.id);
-    setEditForm({ title:h.title, reason:h.reason??h.description??"", targetStreak:h.targetStreak??"", timeOfDay:h.timeOfDay??"", category:h.category, priority:h.priority,
+    setForm({ title:h.title, reason:h.reason??h.description??"", targetStreak:h.targetStreak??"", timeOfDay:h.timeOfDay??"", category:h.category, priority:h.priority,
       time:h.time, repeatType:h.repeatType, startDate:h.startDate??"",
       endDate:h.endDate??"", neverEnds:h.endDate==null, days:h.days??[] });
   };
@@ -352,8 +397,8 @@ export default function CreateHabit() {
   return (
     <div className="space-y-5">
       <div className="mb-5">
-        <p className="text-label-lg">Create Habit</p>
-        <h2 className="mt-2 text-2xl font-bold text-amber-100">Build Your Habits</h2>
+        <p className="text-label-lg">{`Create ${singular}`}</p>
+        <h2 className="mt-2 text-2xl font-bold text-amber-100">{`Build Your ${plural}`}</h2>
       </div>
 
       <div className="schedule-layout">
@@ -363,12 +408,12 @@ export default function CreateHabit() {
           className="schedule-main journal-scroll rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20"
           style={{ height: PANEL_H, overflowY: "auto" }}
         >
-          <h3 className="mb-4 text-sm font-semibold text-amber-200">New Habit</h3>
+          <h3 className="mb-4 text-sm font-semibold text-amber-200">{editingId ? `Edit ${singular}` : `New ${singular}`}</h3>
           <form className="space-y-3" onSubmit={handleSubmit}>
 
             {/* Title */}
             <div>
-              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Habit Name *</label>
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">{`${singular} Name *`}</label>
               <input
                 type="text"
                 value={form.title}
@@ -605,8 +650,15 @@ export default function CreateHabit() {
 
             <button type="submit"
               className="w-full rounded-lg border border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 px-4 py-2 text-xs font-semibold text-amber-200 transition hover:from-amber-400/25 hover:to-orange-400/20">
-              Add Habit
+              {editingId ? `Update ${singular}` : `Add ${singular}`}
             </button>
+            {editingId && (
+              <button type="button"
+                onClick={() => { setEditingId(null); setError(""); setTouched({}); setForm((p) => ({ ...p, title:"", reason:"", targetStreak:"", timeOfDay:"", category:"", priority:"", repeatType:"", time:"" })); }}
+                className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-300 transition hover:text-stone-100">
+                Cancel Edit
+              </button>
+            )}
           </form>
         </div>
 
@@ -614,8 +666,8 @@ export default function CreateHabit() {
         <section className="schedule-all-tasks rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20" style={{ height: PANEL_H }}>
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-amber-200">All Habits</p>
-              <p className="mt-0.5 text-xs text-stone-400">Every scheduled habit at a glance.</p>
+              <p className="text-sm font-semibold text-amber-200">{`All ${plural}`}</p>
+              <p className="mt-0.5 text-xs text-stone-400">{`Every scheduled ${lowerSingular} at a glance.`}</p>
               <div className="mt-2 flex items-center gap-1.5">
                 {["active", "archive"].map((view) => (
                   <button
@@ -641,12 +693,14 @@ export default function CreateHabit() {
           <div className="journal-scroll flex-1 space-y-2 overflow-y-auto pr-1">
             {displayedHabits.length === 0 ? (
               <p className="mt-6 text-center text-xs text-stone-500">
-                {habitsView === "active" ? "No active habits yet. Create one to get started." : "No archived habits yet."}
+                {habitsView === "active"
+                  ? `No active ${lowerPlural} yet. Create one to get started.`
+                  : `No archived ${lowerPlural} yet.`}
               </p>
             ) : (
               displayedHabits.map((h) => (
                 <article key={h.id} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
-                  {editingId === h.id && !isArchiveView ? (
+                  {false ? (
                     /* ── Inline edit ── */
                     <div className="space-y-2">
                       <input type="text" value={editForm.title}
@@ -902,28 +956,43 @@ export default function CreateHabit() {
 
             {/* Habit Logs */}
             <section className="flex min-h-0 flex-1 flex-col">
-              <p className="mb-2 shrink-0 text-sm font-semibold tracking-wide text-amber-200">Habit Logs</p>
+              <p className="mb-2 shrink-0 text-sm font-semibold tracking-wide text-amber-200">{`${singular} Logs`}</p>
+              {undoError && (
+                <p className="mb-2 shrink-0 rounded-md border border-rose-400/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-300">{undoError}</p>
+              )}
               {allLogs.length === 0 ? (
-                <p className="text-sm text-stone-400">No habit logs yet.</p>
+                <p className="text-sm text-stone-400">{`No ${lowerSingular} logs yet.`}</p>
               ) : (
-                <div className="journal-scroll min-h-0 flex-1 space-y-1.5 overflow-y-auto scroll-smooth pr-1">
+                <div className="journal-scroll min-h-0 flex-1 space-y-1.5 overflow-x-hidden overflow-y-auto scroll-smooth pr-1">
                   {allLogs.map((log) => (
-                    <p key={log.id} className={`rounded-md border px-2 py-1.5 text-[11px] ${
+                    <div key={log.id} className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-[11px] ${
                       log.action==="deleted" ? "border-rose-400/20 bg-rose-500/5 text-stone-300"
                       : log.action==="edited" ? "border-amber-300/20 bg-amber-500/5 text-stone-300"
                       : log.action==="ended" ? "border-blue-400/20 bg-blue-500/5 text-stone-300"
                       : "border-amber-100/10 bg-white/5 text-stone-200"
                     }`}>
-                      <span className={`font-semibold ${
-                        log.action==="deleted" ? "text-rose-300"
-                        : log.action==="edited" ? "text-amber-200"
-                        : log.action==="ended" ? "text-blue-300"
-                        : "text-emerald-300"
-                      }`}>
-                        {log.action==="deleted" ? "Deleted" : log.action==="edited" ? "Edited" : log.action==="ended" ? "Ended" : "Created"}:
-                      </span>{" "}
-                      <span className="font-semibold text-stone-100">{log.title}</span> on {log.date} at {fmtTime(log.time)}
-                    </p>
+                      <p className="min-w-0 flex-1">
+                        <span className={`font-semibold ${
+                          log.action==="deleted" ? "text-rose-300"
+                          : log.action==="edited" ? "text-amber-200"
+                          : log.action==="ended" ? "text-blue-300"
+                          : "text-emerald-300"
+                        }`}>
+                          {log.action==="deleted" ? "Deleted" : log.action==="edited" ? "Edited" : log.action==="ended" ? "Ended" : "Created"}:
+                        </span>{" "}
+                        <span className="break-all font-semibold text-stone-100">{log.title}</span> on {log.date} at {fmtTime(log.time)}
+                      </p>
+                      {log.action==="deleted" && log.deletedItem && (
+                        <button
+                          type="button"
+                          onClick={() => handleUndoDelete(log.id)}
+                          className="shrink-0 rounded border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
+                          title="Undo delete"
+                        >
+                          ↺
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
