@@ -1,18 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
 /* ─── Workouts data ─────────────────────────────────────────── */
-const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-const DEMO_WEEKLY_EXERCISES = {
-  Mon: ["Bench Press", "Incline Dumbbell Press", "Overhead Press", "Cable Fly", "Tricep Pushdown", "Lateral Raise"],
-  Tue: ["Pull-Up", "Lat Pulldown", "Cable Row", "Face Pull", "Hammer Curl", "Rear Delt Fly"],
-  Wed: ["Squat", "Romanian Deadlift", "Leg Press", "Walking Lunges", "Calf Raise", "Leg Extension"],
-  Thu: ["Deadlift", "T-Bar Row", "Single Arm DB Row", "Chin-ups", "Barbell Curl", "Cable Crunch"],
-  Fri: ["Incline Barbell Press", "Machine Chest Press", "Arnold Press", "Skull Crushers", "Upright Row", "Push-ups"],
-  Sat: ["Hack Squat", "Hip Thrust", "Bulgarian Split Squat", "Leg Curl", "Seated Calf Raise", "Ab Wheel Rollout"],
-  Sun: ["Plank", "Hanging Leg Raise", "Russian Twist", "Mobility Flow", "Light Jog", "Stretch Routine"],
-};
-
 const loadWorkouts = () => {
   try {
     const stored = localStorage.getItem("monkmode_workouts");
@@ -24,22 +12,6 @@ const loadWorkouts = () => {
 const WORKOUT_PROGRESS_KEY = "monkmode_exercise_progress";
 const WORKOUT_PROGRESS_SEED_KEY = "monkmode_exercise_progress_seed";
 const WORKOUT_PROGRESS_SEED_VERSION = "meaningful_v2";
-
-const buildWeeklyVariety = (workouts) => {
-  const today = new Date().toISOString().slice(0, 10);
-  const map = Object.fromEntries(WEEK_DAYS.map((day) => [day, new Set()]));
-  workouts.forEach((workout) => {
-    const ok = workout?.isActive && (workout?.neverEnds || !workout?.endDate || workout.endDate >= today);
-    if (!ok) return;
-    (workout?.days || []).forEach((day) => {
-      if (!map[day]) return;
-      (workout?.exercises || []).forEach((ex) => { if (ex?.name) map[day].add(ex.name); });
-    });
-  });
-  const total = WEEK_DAYS.reduce((sum, d) => sum + map[d].size, 0);
-  if (total === 0) return DEMO_WEEKLY_EXERCISES;
-  return Object.fromEntries(WEEK_DAYS.map((d) => [d, [...map[d]].sort()]));
-};
 
 /* ─── Measurements data ─────────────────────────────────────── */
 const MEAS_FIELDS = [
@@ -596,7 +568,7 @@ function WorkoutProgress({ workouts }) {
 
 /* ─── Measurements Progress tab ────────────────────────────── */
 function MeasurementsProgress() {
-  const entries = useMemo(loadEntries, []);
+  const entries = useMemo(() => loadEntries(), []);
   const [groupFilter, setGroupFilter] = useState("All");
   const [selectedField, setSelectedField] = useState(MEAS_FIELDS[0].key);
 
