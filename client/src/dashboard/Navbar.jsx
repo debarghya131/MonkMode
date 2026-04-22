@@ -67,7 +67,7 @@ export default function Navbar({ user }) {
           </div>
 
           <div className="flex flex-col gap-0.5 pl-6 border-l border-amber-100/15">
-            <p className="text-body-xs text-amber-300/70">Monk Score</p>
+            <p className="text-body-xs text-amber-300/70">Monk Streak</p>
             <p className="text-body-sm font-semibold text-amber-300">
               {maxStreak} days 🔥
             </p>

@@ -9,6 +9,19 @@ const habitSchema = new mongoose.Schema({
   frequency: {
     type: String,
     enum: ["daily", "weekly"]
+  },
+  endDate: {
+    type: Date,
+    default: null
+  },
+  deletedAt: {
+    type: Date,
+    default: null
+  },
+  archivedReason: {
+    type: String,
+    enum: ["ended", "deleted", null],
+    default: null
   }
 }, { timestamps: true });
 

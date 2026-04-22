@@ -1,0 +1,1131 @@
+import { useState } from "react";
+
+const MEAL_SECTIONS = [
+  { key: "morning",   label: "Morning"   },
+  { key: "breakfast", label: "Breakfast" },
+  { key: "lunch",     label: "Lunch"     },
+  { key: "evening",   label: "Evening"   },
+  { key: "dinner",    label: "Dinner"    },
+];
+
+const WORKOUT_SECTIONS = [
+  { key: "preWorkout",  label: "Pre-workout"  },
+  { key: "postWorkout", label: "Post-workout" },
+];
+
+const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const MACRO_FIELDS = [
+  { key: "protein",  label: "Protein",      unit: "g"    },
+  { key: "carbs",    label: "Carbs",        unit: "g"    },
+  { key: "fats",     label: "Fats",         unit: "g"    },
+  { key: "fiber",    label: "Fiber",        unit: "g"    },
+  { key: "calories", label: "Calories",     unit: "kcal" },
+  { key: "water",    label: "Water Intake", unit: "L"    },
+  { key: "sugar",    label: "Sugar",        unit: "g"    },
+  { key: "sodium",   label: "Sodium",       unit: "mg"   },
+];
+
+const makeMealState  = (sections) => Object.fromEntries(sections.map(({ key }) => [key, []]));
+const makeInputState = (sections) => Object.fromEntries(sections.map(({ key }) => [key, { name: "", time: "" }]));
+const BLANK_MACROS   = Object.fromEntries(MACRO_FIELDS.map(({ key }) => [key, ""]));
+
+const fmtTime = (t) => {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  const d = new Date();
+  d.setHours(h, m);
+  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+};
+
+/* ── Demo Data ───────────────────────────────────────────── */
+const DEMO_DIETS = [
+  {
+    id: "demo-diet-mon", day: "Mon", isActive: true, copiedFromId: null,
+    meals: {
+      morning:   [{ id: "dm-1", name: "Warm lemon water", time: "06:00" }, { id: "dm-2", name: "Soaked almonds (10)", time: "06:10" }],
+      breakfast: [{ id: "dm-3", name: "Oats with banana & honey", time: "08:00" }, { id: "dm-4", name: "2 boiled eggs", time: "08:05" }],
+      lunch:     [{ id: "dm-5", name: "Brown rice (1 cup)", time: "13:00" }, { id: "dm-6", name: "Grilled chicken (150g)", time: "13:00" }, { id: "dm-7", name: "Cucumber salad", time: "13:05" }],
+      evening:   [{ id: "dm-8", name: "Whey protein shake", time: "17:00" }, { id: "dm-9", name: "Apple", time: "17:05" }],
+      dinner:    [{ id: "dm-10", name: "Grilled salmon (120g)", time: "20:00" }, { id: "dm-11", name: "Steamed broccoli", time: "20:00" }, { id: "dm-12", name: "Sweet potato (half)", time: "20:05" }],
+    },
+  },
+  {
+    id: "demo-diet-tue", day: "Tue", isActive: true, copiedFromId: null,
+    meals: {
+      morning:   [{ id: "dt-1", name: "Green tea", time: "06:15" }],
+      breakfast: [{ id: "dt-2", name: "Multigrain toast (2)", time: "08:00" }, { id: "dt-3", name: "Peanut butter (1 tbsp)", time: "08:00" }],
+      lunch:     [{ id: "dt-4", name: "Quinoa bowl", time: "13:00" }, { id: "dt-5", name: "Grilled paneer (100g)", time: "13:00" }],
+      evening:   [{ id: "dt-6", name: "Greek yogurt with nuts", time: "16:30" }],
+      dinner:    [{ id: "dt-7", name: "Dal (1 bowl)", time: "20:00" }, { id: "dt-8", name: "Chapati (2)", time: "20:00" }],
+    },
+  },
+  {
+    id: "demo-diet-wed", day: "Wed", isActive: true, copiedFromId: null,
+    meals: {
+      morning:   [{ id: "dw-1", name: "Apple cider vinegar water", time: "06:10" }],
+      breakfast: [{ id: "dw-2", name: "Protein pancakes (3)", time: "08:15" }, { id: "dw-3", name: "Mixed berries", time: "08:20" }],
+      lunch:     [{ id: "dw-4", name: "Chicken wrap", time: "13:00" }, { id: "dw-5", name: "Side salad", time: "13:05" }],
+      evening:   [{ id: "dw-6", name: "Casein protein shake", time: "17:30" }],
+      dinner:    [{ id: "dw-7", name: "Egg white omelette (4 eggs)", time: "20:00" }, { id: "dw-8", name: "Sauteed spinach", time: "20:05" }],
+    },
+  },
+  {
+    id: "demo-diet-thu", day: "Thu", isActive: true, copiedFromId: null,
+    meals: {
+      morning:   [{ id: "dth-1", name: "Warm water + lemon", time: "06:00" }],
+      breakfast: [{ id: "dth-2", name: "Scrambled eggs (3)", time: "08:00" }, { id: "dth-3", name: "Whole wheat toast", time: "08:05" }],
+      lunch:     [{ id: "dth-4", name: "Grilled chicken rice bowl", time: "13:00" }],
+      evening:   [{ id: "dth-5", name: "Protein shake", time: "17:00" }],
+      dinner:    [{ id: "dth-6", name: "Stir fry veggies + tofu", time: "20:00" }],
+    },
+  },
+  {
+    id: "demo-diet-fri", day: "Fri", isActive: false, copiedFromId: null,
+    meals: {
+      morning:   [{ id: "df-1", name: "Apple cider vinegar water", time: "06:00" }],
+      breakfast: [{ id: "df-2", name: "Protein pancakes (3)", time: "08:30" }, { id: "df-3", name: "Mixed berries", time: "08:35" }],
+      lunch:     [{ id: "df-4", name: "Chicken wrap", time: "13:00" }, { id: "df-5", name: "Side salad", time: "13:05" }],
+      evening:   [{ id: "df-6", name: "Casein protein shake", time: "17:30" }],
+      dinner:    [{ id: "df-7", name: "Egg white omelette (4 eggs)", time: "20:00" }, { id: "df-8", name: "Sauteed spinach", time: "20:05" }],
+    },
+  },
+  {
+    id: "demo-diet-sat", day: "Sat", isActive: false, copiedFromId: null,
+    meals: {
+      morning:   [{ id: "ds-1", name: "Black coffee", time: "06:30" }],
+      breakfast: [{ id: "ds-2", name: "Pancakes + honey", time: "08:30" }],
+      lunch:     [{ id: "ds-3", name: "Pasta + chicken", time: "13:15" }],
+      evening:   [{ id: "ds-4", name: "Banana + peanut butter", time: "17:20" }],
+      dinner:    [{ id: "ds-5", name: "Rice + dal + sabzi", time: "20:15" }],
+    },
+  },
+  {
+    id: "demo-diet-sun", day: "Sun", isActive: false, copiedFromId: null,
+    meals: {
+      morning:   [{ id: "dsn-1", name: "Herbal tea", time: "07:00" }],
+      breakfast: [{ id: "dsn-2", name: "Poha + curd", time: "09:00" }],
+      lunch:     [{ id: "dsn-3", name: "Rajma chawal", time: "13:30" }],
+      evening:   [{ id: "dsn-4", name: "Sprouts chaat", time: "17:30" }],
+      dinner:    [{ id: "dsn-5", name: "Soup + bread", time: "20:30" }],
+    },
+  },
+];
+
+const DEMO_WORKOUT_NUTRITION = [
+  {
+    id: "demo-wn-mon", day: "Mon", isActive: true, copiedFromId: null,
+    meals: {
+      preWorkout:  [{ id: "wn-1", name: "Banana + black coffee", time: "16:30" }, { id: "wn-2", name: "BCAA drink", time: "16:45" }],
+      postWorkout: [{ id: "wn-3", name: "Whey protein shake", time: "18:30" }, { id: "wn-4", name: "Rice cakes (3)", time: "18:35" }],
+    },
+  },
+  {
+    id: "demo-wn-tue", day: "Tue", isActive: true, copiedFromId: null,
+    meals: {
+      preWorkout:  [{ id: "wn-t-1", name: "Oats + honey", time: "06:45" }, { id: "wn-t-2", name: "Espresso", time: "07:00" }],
+      postWorkout: [{ id: "wn-t-3", name: "Protein shake + milk", time: "09:00" }, { id: "wn-t-4", name: "Banana", time: "09:05" }],
+    },
+  },
+  {
+    id: "demo-wn-wed", day: "Wed", isActive: true, copiedFromId: null,
+    meals: {
+      preWorkout:  [{ id: "wn-5", name: "Oats + honey", time: "06:45" }, { id: "wn-6", name: "Espresso", time: "07:00" }],
+      postWorkout: [{ id: "wn-7", name: "Protein shake + milk", time: "09:00" }, { id: "wn-8", name: "Banana", time: "09:05" }],
+    },
+  },
+  {
+    id: "demo-wn-thu", day: "Thu", isActive: true, copiedFromId: null,
+    meals: {
+      preWorkout:  [{ id: "wn-th-1", name: "Banana + black coffee", time: "17:00" }],
+      postWorkout: [{ id: "wn-th-2", name: "Whey isolate shake", time: "19:00" }],
+    },
+  },
+  {
+    id: "demo-wn-fri", day: "Fri", isActive: false, copiedFromId: null,
+    meals: {
+      preWorkout:  [{ id: "wn-f-1", name: "Toast + jam", time: "09:00" }],
+      postWorkout: [{ id: "wn-f-2", name: "Chocolate milk (300ml)", time: "11:00" }, { id: "wn-f-3", name: "Handful of almonds", time: "11:10" }],
+    },
+  },
+  {
+    id: "demo-wn-sat", day: "Sat", isActive: false, copiedFromId: null,
+    meals: {
+      preWorkout:  [{ id: "wn-9", name: "Toast + jam", time: "09:00" }],
+      postWorkout: [{ id: "wn-10", name: "Chocolate milk (300ml)", time: "11:00" }, { id: "wn-11", name: "Handful of almonds", time: "11:10" }],
+    },
+  },
+  {
+    id: "demo-wn-sun", day: "Sun", isActive: false, copiedFromId: null,
+    meals: {
+      preWorkout:  [{ id: "wn-su-1", name: "Light fruit snack", time: "08:30" }],
+      postWorkout: [{ id: "wn-su-2", name: "Protein smoothie", time: "10:30" }],
+    },
+  },
+];
+
+const DEMO_SUPP_PLANS = [
+  {
+    id: "demo-sp-mon", day: "Mon", isActive: true, copiedFromId: null,
+    items: [
+      { id: "sp-1", name: "Creatine (5g)",        time: "08:00" },
+      { id: "sp-2", name: "Vitamin D3 (2000 IU)", time: "08:30" },
+      { id: "sp-3", name: "Omega-3 (1000mg)",     time: "13:00" },
+      { id: "sp-4", name: "Magnesium (400mg)",    time: "21:00" },
+    ],
+  },
+  {
+    id: "demo-sp-tue", day: "Tue", isActive: true, copiedFromId: null,
+    items: [
+      { id: "sp-5", name: "Creatine (5g)",        time: "08:00" },
+      { id: "sp-6", name: "Vitamin D3 (2000 IU)", time: "08:30" },
+      { id: "sp-7", name: "Zinc (25mg)",           time: "21:00" },
+    ],
+  },
+  {
+    id: "demo-sp-wed", day: "Wed", isActive: true, copiedFromId: null,
+    items: [
+      { id: "sp-w-1", name: "Creatine (5g)",    time: "08:00" },
+      { id: "sp-w-2", name: "Omega-3 (1000mg)", time: "13:00" },
+    ],
+  },
+  {
+    id: "demo-sp-thu", day: "Thu", isActive: true, copiedFromId: null,
+    items: [
+      { id: "sp-th-1", name: "Creatine (5g)",        time: "08:00" },
+      { id: "sp-th-2", name: "Vitamin D3 (2000 IU)", time: "08:30" },
+      { id: "sp-th-3", name: "Magnesium (400mg)",    time: "21:00" },
+    ],
+  },
+  {
+    id: "demo-sp-fri", day: "Fri", isActive: false, copiedFromId: null,
+    items: [
+      { id: "sp-8", name: "Pre-workout (1 scoop)", time: "16:30" },
+      { id: "sp-9", name: "Whey protein (30g)",    time: "18:30" },
+    ],
+  },
+  {
+    id: "demo-sp-sat", day: "Sat", isActive: false, copiedFromId: null,
+    items: [
+      { id: "sp-sa-1", name: "Creatine (5g)",    time: "08:00" },
+      { id: "sp-sa-2", name: "Omega-3 (1000mg)", time: "13:00" },
+    ],
+  },
+  {
+    id: "demo-sp-sun", day: "Sun", isActive: false, copiedFromId: null,
+    items: [
+      { id: "sp-su-1", name: "Vitamin D3 (2000 IU)", time: "08:30" },
+      { id: "sp-su-2", name: "Magnesium (400mg)",    time: "21:00" },
+    ],
+  },
+];
+
+const DEMO_MACRO_PLANS = [
+  {
+    id: "demo-mp-mon", day: "Mon", isActive: true, copiedFromId: null,
+    values: { protein: "180", carbs: "280", fats: "65", fiber: "35", calories: "2450", water: "3.5", sugar: "40", sodium: "1800" },
+  },
+  {
+    id: "demo-mp-tue", day: "Tue", isActive: true, copiedFromId: null,
+    values: { protein: "175", carbs: "260", fats: "60", fiber: "32", calories: "2300", water: "3", sugar: "35", sodium: "1700" },
+  },
+  {
+    id: "demo-mp-wed", day: "Wed", isActive: true, copiedFromId: null,
+    values: { protein: "175", carbs: "260", fats: "60", fiber: "32", calories: "2300", water: "3", sugar: "35", sodium: "1700" },
+  },
+  {
+    id: "demo-mp-thu", day: "Thu", isActive: true, copiedFromId: null,
+    values: { protein: "185", carbs: "290", fats: "68", fiber: "36", calories: "2500", water: "3.5", sugar: "42", sodium: "1850" },
+  },
+  {
+    id: "demo-mp-fri", day: "Fri", isActive: false, copiedFromId: null,
+    values: { protein: "160", carbs: "200", fats: "55", fiber: "30", calories: "1950", water: "3", sugar: "30", sodium: "1500" },
+  },
+  {
+    id: "demo-mp-sat", day: "Sat", isActive: false, copiedFromId: null,
+    values: { protein: "165", carbs: "270", fats: "62", fiber: "30", calories: "2350", water: "3", sugar: "38", sodium: "1750" },
+  },
+  {
+    id: "demo-mp-sun", day: "Sun", isActive: false, copiedFromId: null,
+    values: { protein: "150", carbs: "230", fats: "55", fiber: "28", calories: "2100", water: "2.5", sugar: "30", sodium: "1550" },
+  },
+];
+
+/* ── Shared Plan View Modal ──────────────────────────────── */
+function PlanViewModal({ title, plans, dayFilter, setDayFilter, copyingId, setCopyingId, onToggleActive, onDelete, onCopy, onEdit, onClose, getRemainingDays, renderPlanContent }) {
+  const filtered = dayFilter === "all" ? plans : plans.filter((p) => p.day === dayFilter);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div
+        className="flex w-full max-w-2xl flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.97),rgba(12,8,8,0.98))] shadow-2xl shadow-black/60"
+        style={{ maxHeight: "85vh" }}
+      >
+        {/* Header */}
+        <div className="shrink-0 border-b border-amber-100/10 px-5 pb-4 pt-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-amber-100">{title}</h3>
+              <p className="mt-0.5 text-xs text-stone-400">{plans.length} plan{plans.length !== 1 ? "s" : ""} saved</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { onClose(); setCopyingId(null); }}
+              className="shrink-0 rounded border border-amber-100/20 bg-white/5 px-2.5 py-1 text-xs font-semibold text-stone-300 transition hover:text-stone-100"
+            >
+              Close
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            {["all", ...WEEK_DAYS].map((day) => (
+              <button
+                key={day}
+                type="button"
+                onClick={() => setDayFilter(day)}
+                className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold capitalize transition ${
+                  dayFilter === day
+                    ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
+                    : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-amber-200"
+                }`}
+              >
+                {day === "all" ? "All Days" : day}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="journal-scroll min-h-0 flex-1 overflow-y-auto p-5">
+          {filtered.length === 0 ? (
+            <p className="mt-8 text-center text-xs text-stone-500">
+              {plans.length === 0 ? "No plans saved yet." : `No plans saved for ${dayFilter}.`}
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {filtered.map((plan) => {
+                const remaining = getRemainingDays(plan);
+                const isCopying = copyingId === plan.id;
+                return (
+                  <article key={plan.id} className="rounded-xl border border-amber-100/10 bg-white/5 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-amber-300/40 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-200">{plan.day}</span>
+                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${plan.isActive ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200" : "border-stone-500/20 bg-white/5 text-stone-400"}`}>
+                          {plan.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                        <button type="button" onClick={() => onToggleActive(plan.id)}
+                          className={`rounded border px-2 py-0.5 text-[10px] font-semibold transition ${plan.isActive ? "border-stone-400/25 bg-white/5 text-stone-300 hover:text-stone-100" : "border-emerald-400/25 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20"}`}>
+                          {plan.isActive ? "Deactivate" : "Activate"}
+                        </button>
+                        <button type="button" onClick={() => setCopyingId(isCopying ? null : plan.id)}
+                          className="rounded border border-sky-300/25 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-200 transition hover:bg-sky-500/20">
+                          Copy
+                        </button>
+                        {onEdit && (
+                          <button type="button" onClick={() => onEdit(plan)}
+                            className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
+                            Edit
+                          </button>
+                        )}
+                        <button type="button" onClick={() => onDelete(plan.id)}
+                          className="rounded border border-rose-400/25 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-300 transition hover:bg-rose-500/20">
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    {isCopying && (
+                      <div className="mt-3 rounded-lg border border-sky-300/15 bg-sky-500/5 p-3">
+                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-sky-200/70">Copy to day</p>
+                        {remaining.length === 0 ? (
+                          <p className="text-xs text-stone-400">Already copied to all days.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {remaining.map((day) => (
+                              <button key={day} type="button" onClick={() => { onCopy(plan, day); setCopyingId(null); }}
+                                className="rounded-full border border-sky-300/30 bg-sky-500/10 px-3 py-1 text-[11px] font-semibold text-sky-200 transition hover:bg-sky-500/25">
+                                {day}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="mt-3">{renderPlanContent(plan)}</div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── MealGroup ───────────────────────────────────────────── */
+function MealGroup({ sections, meals, setMeals, inputs, setInputs }) {
+  const [viewingKey, setViewingKey] = useState(null);
+
+  const addMeal = (key) => {
+    const inp = inputs[key];
+    if (!inp.name.trim() || !inp.time) return;
+    setMeals((prev) => ({
+      ...prev,
+      [key]: [...prev[key], { id: `${key}-${Date.now()}`, name: inp.name.trim(), time: inp.time }],
+    }));
+    setInputs((prev) => ({ ...prev, [key]: { name: "", time: "" } }));
+  };
+
+  const removeMeal = (key, id) => {
+    setMeals((prev) => ({ ...prev, [key]: prev[key].filter((m) => m.id !== id) }));
+  };
+
+  const viewingSection = sections.find((s) => s.key === viewingKey);
+
+  return (
+    <>
+      <div className="space-y-4">
+        {sections.map(({ key, label }) => (
+          <div key={key}>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-200/70">{label}</p>
+              {meals[key].length > 0 && (
+                <button type="button" onClick={() => setViewingKey(key)}
+                  className="rounded border border-amber-300/20 bg-amber-400/8 px-2 py-0.5 text-[9px] font-semibold text-amber-300/80 transition hover:border-amber-300/35 hover:text-amber-200">
+                  View ({meals[key].length})
+                </button>
+              )}
+            </div>
+            <div className="flex gap-1.5">
+              <input type="text" value={inputs[key].name}
+                onChange={(e) => setInputs((p) => ({ ...p, [key]: { ...p[key], name: e.target.value } }))}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addMeal(key); } }}
+                placeholder="Add meal…"
+                className="min-w-0 flex-1 rounded-lg border border-amber-100/15 bg-white/5 px-2.5 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
+              <input type="time" value={inputs[key].time}
+                onChange={(e) => setInputs((p) => ({ ...p, [key]: { ...p[key], time: e.target.value } }))}
+                className="w-24 rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
+              <button type="button" onClick={() => addMeal(key)}
+                className="rounded-lg border border-amber-300/25 bg-amber-400/10 px-2.5 py-1 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
+                Add
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {viewingKey && viewingSection && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="flex w-full max-w-sm flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.07),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.97),rgba(12,8,8,0.98))] shadow-2xl shadow-black/60" style={{ maxHeight: "75vh" }}>
+            <div className="shrink-0 border-b border-amber-100/10 px-5 pb-4 pt-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-200/50">Meal Section</p>
+                  <h3 className="mt-0.5 text-base font-semibold text-amber-100">{viewingSection.label}</h3>
+                </div>
+                <button type="button" onClick={() => setViewingKey(null)}
+                  className="rounded border border-amber-100/20 bg-white/5 px-2.5 py-1 text-xs font-semibold text-stone-300 transition hover:text-stone-100">
+                  Close
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-stone-400">{meals[viewingKey].length} meal{meals[viewingKey].length !== 1 ? "s" : ""} added</p>
+            </div>
+            <div className="journal-scroll min-h-0 flex-1 overflow-y-auto p-5">
+              <div className="space-y-2">
+                {meals[viewingKey].map((meal, idx) => (
+                  <div key={meal.id} className="flex items-center justify-between rounded-xl border border-amber-100/10 bg-white/5 px-3 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-[10px] font-bold text-amber-400/60">{idx + 1}.</span>
+                      <div>
+                        <p className="text-xs font-semibold text-stone-100">{meal.name}</p>
+                        {meal.time && <p className="mt-0.5 text-[10px] text-stone-400">{fmtTime(meal.time)}</p>}
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => { removeMeal(viewingKey, meal.id); if (meals[viewingKey].length === 1) setViewingKey(null); }}
+                      className="rounded border border-rose-400/25 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-rose-300 transition hover:bg-rose-500/20">
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function SupplementDraftModal({ items, onRemove, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div
+        className="flex w-full max-w-sm flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.07),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.97),rgba(12,8,8,0.98))] shadow-2xl shadow-black/60"
+        style={{ maxHeight: "75vh" }}
+      >
+        <div className="shrink-0 border-b border-amber-100/10 px-5 pb-4 pt-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-200/50">Draft Plan</p>
+              <h3 className="mt-0.5 text-base font-semibold text-amber-100">Supplements</h3>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded border border-amber-100/20 bg-white/5 px-2.5 py-1 text-xs font-semibold text-stone-300 transition hover:text-stone-100"
+            >
+              Close
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-stone-400">{items.length} supplement{items.length !== 1 ? "s" : ""} added</p>
+        </div>
+        <div className="journal-scroll min-h-0 flex-1 overflow-y-auto p-5">
+          <div className="space-y-2">
+            {items.map((item, idx) => (
+              <div key={item.id} className="flex items-center justify-between rounded-xl border border-amber-100/10 bg-white/5 px-3 py-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[10px] font-bold text-amber-400/60">{idx + 1}.</span>
+                  <div>
+                    <p className="text-xs font-semibold text-stone-100">{item.name}</p>
+                    {item.time && <p className="mt-0.5 text-[10px] text-stone-400">{fmtTime(item.time)}</p>}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRemove(item.id)}
+                  className="rounded border border-rose-400/25 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Helpers for plan state ──────────────────────────────── */
+const makeGetRemaining = (plans) => (plan) => {
+  const sourceId = plan.copiedFromId || plan.id;
+  const used = new Set(plans.filter((p) => (p.copiedFromId || p.id) === sourceId).map((p) => p.day));
+  used.add(plan.day);
+  return WEEK_DAYS.filter((d) => !used.has(d));
+};
+
+const makeSavePlan = (setSaved, payload) => {
+  setSaved((prev) => [{ ...payload, id: `plan-${Date.now()}`, isActive: false, copiedFromId: null }, ...prev]);
+};
+
+const makeCopyPlan = (setSaved) => (plan, targetDay) => {
+  setSaved((prev) => [{ ...plan, id: `plan-${Date.now()}-copy`, day: targetDay, isActive: false, copiedFromId: plan.copiedFromId || plan.id }, ...prev]);
+};
+
+/* ── Day selector ───────────────────────────────────────── */
+function DaySelector({ selected, onSelect, compact = false, inline = false }) {
+  return (
+    <div
+      className={
+        compact
+          ? "grid grid-cols-7 gap-1"
+          : inline
+            ? "grid min-w-0 flex-1 grid-cols-7 gap-1"
+            : "mb-4 flex items-center gap-1"
+      }
+    >
+      {WEEK_DAYS.map((day) => (
+        <button key={day} type="button"
+          onClick={() => onSelect((prev) => prev === day ? "" : day)}
+          className={`rounded border font-semibold transition ${
+            compact
+              ? "min-w-0 px-1.5 py-1 text-[10px]"
+              : inline
+                ? "min-w-0 px-1.5 py-1.5 text-[10px]"
+                : "flex-1 py-1.5 text-[10px]"
+          } ${
+            selected === day
+              ? "border-amber-300/55 bg-amber-400/15 text-amber-100"
+              : "border-amber-100/15 bg-white/5 text-stone-400 hover:text-stone-200"
+          }`}>
+          {day}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ── Save button ─────────────────────────────────────────── */
+function SaveBtn({ label, selectedDay, onClick, disabled }) {
+  return (
+    <div>
+      <button type="button" onClick={onClick} disabled={disabled || !selectedDay}
+        className={`w-full rounded-lg border px-4 py-2.5 text-xs font-semibold transition ${
+          selectedDay && !disabled
+            ? "border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 text-amber-200 hover:from-amber-400/25 hover:to-orange-400/20"
+            : "cursor-not-allowed border-amber-100/10 bg-white/5 text-stone-500"
+        }`}>
+        {selectedDay ? `${label} ${selectedDay}` : "Select a day above to save."}
+      </button>
+    </div>
+  );
+}
+
+/* ── Main Component ──────────────────────────────────────── */
+export default function DietChart() {
+
+  /* Full Day Diet */
+  const [selectedDietDay, setSelectedDietDay]   = useState("");
+  const [meals, setMeals]                       = useState(makeMealState(MEAL_SECTIONS));
+  const [mealInputs, setMealInputs]             = useState(makeInputState(MEAL_SECTIONS));
+  const [savedDiets, setSavedDiets]             = useState(DEMO_DIETS);
+  const [showDietView, setShowDietView]         = useState(false);
+  const [dietDayFilter, setDietDayFilter]       = useState("all");
+  const [copyingDietId, setCopyingDietId]       = useState(null);
+  const [editingDietId, setEditingDietId]       = useState(null);
+
+  /* Workout Nutrition */
+  const [selectedWnDay, setSelectedWnDay]       = useState("");
+  const [workoutMeals, setWorkoutMeals]         = useState(makeMealState(WORKOUT_SECTIONS));
+  const [workoutInputs, setWorkoutInputs]       = useState(makeInputState(WORKOUT_SECTIONS));
+  const [savedWn, setSavedWn]                   = useState(DEMO_WORKOUT_NUTRITION);
+  const [showWnView, setShowWnView]             = useState(false);
+  const [wnDayFilter, setWnDayFilter]           = useState("all");
+  const [copyingWnId, setCopyingWnId]           = useState(null);
+  const [editingWnId, setEditingWnId]           = useState(null);
+
+  /* Supplements */
+  const [selectedSuppDay, setSelectedSuppDay]   = useState("");
+  const [suppItems, setSuppItems]               = useState([]);
+  const [suppInput, setSuppInput]               = useState({ name: "", time: "" });
+  const [savedSupps, setSavedSupps]             = useState(DEMO_SUPP_PLANS);
+  const [showSuppView, setShowSuppView]         = useState(false);
+  const [suppDayFilter, setSuppDayFilter]       = useState("all");
+  const [copyingSuppId, setCopyingSuppId]       = useState(null);
+  const [showSuppDraftView, setShowSuppDraftView] = useState(false);
+  const [editingSuppId, setEditingSuppId]       = useState(null);
+
+  /* Macros */
+  const [selectedMacroDay, setSelectedMacroDay] = useState("");
+  const [macros, setMacros]                     = useState(BLANK_MACROS);
+  const [savedMacros, setSavedMacros]           = useState(DEMO_MACRO_PLANS);
+  const [showMacrosView, setShowMacrosView]     = useState(false);
+  const [macrosDayFilter, setMacrosDayFilter]   = useState("all");
+  const [copyingMacroId, setCopyingMacroId]     = useState(null);
+  const [editingMacroId, setEditingMacroId]     = useState(null);
+
+  /* ── Shared toggle/delete ── */
+  const makeToggle = (setSaved) => (id) => setSaved((prev) => prev.map((p) => p.id === id ? { ...p, isActive: !p.isActive } : p));
+  const makeDelete = (setSaved, setCopying) => (id) => { setSaved((prev) => prev.filter((p) => p.id !== id)); setCopying((c) => c === id ? null : c); };
+
+  /* ── Diet handlers ── */
+  const startEditDiet = (plan) => {
+    const nextMeals = Object.fromEntries(
+      MEAL_SECTIONS.map(({ key }) => [key, (plan.meals?.[key] || []).map((item) => ({ ...item }))])
+    );
+    setMeals(nextMeals);
+    setMealInputs(makeInputState(MEAL_SECTIONS));
+    setSelectedDietDay(plan.day || "");
+    setEditingDietId(plan.id);
+    setCopyingDietId(null);
+    setShowDietView(false);
+  };
+
+  const saveDiet = () => {
+    if (!selectedDietDay) return;
+    if (editingDietId) {
+      setSavedDiets((prev) => prev.map((plan) => (
+        plan.id === editingDietId
+          ? { ...plan, day: selectedDietDay, meals: JSON.parse(JSON.stringify(meals)) }
+          : plan
+      )));
+      setEditingDietId(null);
+    } else {
+      makeSavePlan(setSavedDiets, { day: selectedDietDay, meals: JSON.parse(JSON.stringify(meals)) });
+    }
+    setMeals(makeMealState(MEAL_SECTIONS));
+    setMealInputs(makeInputState(MEAL_SECTIONS));
+    setSelectedDietDay("");
+  };
+
+  /* ── Workout Nutrition handlers ── */
+  const startEditWn = (plan) => {
+    const nextMeals = Object.fromEntries(
+      WORKOUT_SECTIONS.map(({ key }) => [key, (plan.meals?.[key] || []).map((item) => ({ ...item }))])
+    );
+    setWorkoutMeals(nextMeals);
+    setWorkoutInputs(makeInputState(WORKOUT_SECTIONS));
+    setSelectedWnDay(plan.day || "");
+    setEditingWnId(plan.id);
+    setCopyingWnId(null);
+    setShowWnView(false);
+  };
+
+  const saveWn = () => {
+    if (!selectedWnDay) return;
+    if (editingWnId) {
+      setSavedWn((prev) => prev.map((plan) => (
+        plan.id === editingWnId
+          ? { ...plan, day: selectedWnDay, meals: JSON.parse(JSON.stringify(workoutMeals)) }
+          : plan
+      )));
+      setEditingWnId(null);
+    } else {
+      makeSavePlan(setSavedWn, { day: selectedWnDay, meals: JSON.parse(JSON.stringify(workoutMeals)) });
+    }
+    setWorkoutMeals(makeMealState(WORKOUT_SECTIONS));
+    setWorkoutInputs(makeInputState(WORKOUT_SECTIONS));
+    setSelectedWnDay("");
+  };
+
+  /* ── Supplement handlers ── */
+  const startEditSupp = (plan) => {
+    setSuppItems((plan.items || []).map((item) => ({ ...item })));
+    setSuppInput({ name: "", time: "" });
+    setSelectedSuppDay(plan.day || "");
+    setEditingSuppId(plan.id);
+    setCopyingSuppId(null);
+    setShowSuppDraftView(false);
+    setShowSuppView(false);
+  };
+
+  const addSuppItem = () => {
+    if (!suppInput.name.trim() || !suppInput.time) return;
+    setSuppItems((prev) => [...prev, { id: `si-${Date.now()}`, name: suppInput.name.trim(), time: suppInput.time }]);
+    setSuppInput({ name: "", time: "" });
+  };
+
+  const removeSuppItem = (id) => {
+    setSuppItems((prev) => {
+      const next = prev.filter((item) => item.id !== id);
+      if (next.length === 0) setShowSuppDraftView(false);
+      return next;
+    });
+  };
+
+  const saveSupp = () => {
+    if (!selectedSuppDay || suppItems.length === 0) return;
+    if (editingSuppId) {
+      setSavedSupps((prev) => prev.map((plan) => (
+        plan.id === editingSuppId
+          ? { ...plan, day: selectedSuppDay, items: [...suppItems] }
+          : plan
+      )));
+      setEditingSuppId(null);
+    } else {
+      makeSavePlan(setSavedSupps, { day: selectedSuppDay, items: [...suppItems] });
+    }
+    setShowSuppView(false);
+    setShowSuppDraftView(false);
+    setSuppItems([]);
+    setSuppInput({ name: "", time: "" });
+    setSelectedSuppDay("");
+  };
+
+  /* ── Macro handlers ── */
+  const startEditMacro = (plan) => {
+    setMacros({ ...BLANK_MACROS, ...(plan.values || {}) });
+    setSelectedMacroDay(plan.day || "");
+    setEditingMacroId(plan.id);
+    setCopyingMacroId(null);
+    setShowMacrosView(false);
+  };
+
+  const saveMacro = () => {
+    if (!selectedMacroDay) return;
+    if (editingMacroId) {
+      setSavedMacros((prev) => prev.map((plan) => (
+        plan.id === editingMacroId
+          ? { ...plan, day: selectedMacroDay, values: { ...macros } }
+          : plan
+      )));
+      setEditingMacroId(null);
+    } else {
+      makeSavePlan(setSavedMacros, { day: selectedMacroDay, values: { ...macros } });
+    }
+    setMacros(BLANK_MACROS);
+    setSelectedMacroDay("");
+  };
+
+  /* card shell shared classes */
+  const card = "flex flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 shadow-xl shadow-black/20";
+
+  return (
+    /* Full-height wrapper on larger screens */
+    <div className="flex flex-col gap-4 xl:h-[calc(100vh-19rem)] xl:min-h-0">
+
+      {/* ── Responsive 4-card layout ── */}
+      <div className="grid gap-4 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+
+        <div className="flex min-h-0 flex-col">
+          {/* ── Container 1: Full Day Diet ── */}
+          <div className={`${card} min-h-0 xl:flex-1`}>
+            {/* sticky header */}
+            <div className="shrink-0 border-b border-amber-100/10 px-5 pb-4 pt-5">
+              <div className="flex flex-col gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-amber-200">Full Day Diet</h3>
+                  <p className="mt-2 text-xs text-stone-400">Select a day and plan your meals.</p>
+                </div>
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+                  <DaySelector selected={selectedDietDay} onSelect={setSelectedDietDay} inline />
+                  <button type="button" onClick={() => { setShowDietView(true); setDietDayFilter("all"); setCopyingDietId(null); }}
+                    className="shrink-0 rounded-lg border border-amber-300/25 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
+                    View ({savedDiets.length})
+                  </button>
+                </div>
+              </div>
+            </div>
+            {/* scrollable body */}
+            <div className="journal-scroll min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              <MealGroup sections={MEAL_SECTIONS} meals={meals} setMeals={setMeals} inputs={mealInputs} setInputs={setMealInputs} />
+            </div>
+            {/* sticky footer */}
+            <div className="shrink-0 border-t border-amber-100/10 px-5 pb-5 pt-3">
+              <div className="space-y-2">
+                <SaveBtn label={editingDietId ? "Update this Diet for" : "Add this Diet for"} selectedDay={selectedDietDay} onClick={saveDiet} />
+                {editingDietId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingDietId(null);
+                      setMeals(makeMealState(MEAL_SECTIONS));
+                      setMealInputs(makeInputState(MEAL_SECTIONS));
+                      setSelectedDietDay("");
+                    }}
+                    className="w-full rounded-lg border border-stone-500/20 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-300 transition hover:text-stone-100"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div className="flex min-h-0 flex-col gap-4">
+          {/* ── Container 2 + 3: Workout Nutrition & Supplements side by side ── */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* ── Workout Nutrition ── */}
+            <div className={`${card} h-full`}>
+              <div className="shrink-0 border-b border-amber-100/10 px-5 pb-4 pt-5">
+                <div className="flex flex-col gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-amber-200">Workout Nutrition</h3>
+                    <p className="mt-2 text-xs text-stone-400">Pre &amp; post workout meals.</p>
+                  </div>
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+                    <DaySelector selected={selectedWnDay} onSelect={setSelectedWnDay} inline />
+                    <button type="button" onClick={() => { setShowWnView(true); setWnDayFilter("all"); setCopyingWnId(null); }}
+                      className="shrink-0 rounded-lg border border-amber-300/25 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
+                      View ({savedWn.length})
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="journal-scroll px-5 py-4">
+                <MealGroup sections={WORKOUT_SECTIONS} meals={workoutMeals} setMeals={setWorkoutMeals} inputs={workoutInputs} setInputs={setWorkoutInputs} />
+              </div>
+              <div className="shrink-0 border-t border-amber-100/10 px-5 pb-5 pt-3">
+                <div className="space-y-2">
+                  <SaveBtn label={editingWnId ? "Update this Nutrition for" : "Add this Nutrition for"} selectedDay={selectedWnDay} onClick={saveWn} />
+                  {editingWnId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingWnId(null);
+                        setWorkoutMeals(makeMealState(WORKOUT_SECTIONS));
+                        setWorkoutInputs(makeInputState(WORKOUT_SECTIONS));
+                        setSelectedWnDay("");
+                      }}
+                      className="w-full rounded-lg border border-stone-500/20 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-300 transition hover:text-stone-100"
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Supplements ── */}
+            <div className={`${card} xl:shrink-0`}>
+            <div className="shrink-0 border-b border-amber-100/10 px-5 pb-4 pt-5">
+              <div className="flex flex-col gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-amber-200">Supplements</h3>
+                  <p className="mt-2 text-xs text-stone-400">Plan your daily supplement intake.</p>
+                </div>
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+                  <DaySelector selected={selectedSuppDay} onSelect={setSelectedSuppDay} inline />
+                  <div className="shrink-0">
+                    <button type="button" onClick={() => { setShowSuppView(true); setSuppDayFilter("all"); setCopyingSuppId(null); setShowSuppDraftView(false); }}
+                      className="rounded-lg border border-amber-300/25 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
+                      View ({savedSupps.length})
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="px-5 pt-4">
+                {suppItems.length === 0 ? (
+                  <p className="text-xs text-stone-500">No supplements added yet.</p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowSuppDraftView(true)}
+                    className="rounded border border-amber-300/20 bg-amber-400/8 px-2 py-0.5 text-[9px] font-semibold text-amber-300/80 transition hover:border-amber-300/35 hover:text-amber-200"
+                  >
+                    View ({suppItems.length})
+                  </button>
+                )}
+              </div>
+              <div className="px-5 pb-3 pt-3">
+                <div className="flex gap-1.5">
+                  <input type="text" value={suppInput.name}
+                    onChange={(e) => setSuppInput((p) => ({ ...p, name: e.target.value }))}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSuppItem(); } }}
+                    placeholder="Add supplement…"
+                    className="min-w-0 flex-1 rounded-lg border border-amber-100/15 bg-white/5 px-2.5 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
+                  <input type="time" value={suppInput.time}
+                    onChange={(e) => setSuppInput((p) => ({ ...p, time: e.target.value }))}
+                    className="w-24 rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
+                  <button type="button" onClick={addSuppItem}
+                    className="rounded-lg border border-amber-300/25 bg-amber-400/10 px-2.5 py-1 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20">Add</button>
+                </div>
+              </div>
+            </div>
+            <div className="shrink-0 border-t border-amber-100/10 px-5 pb-5 pt-3">
+              <div className="space-y-2">
+                <SaveBtn label={editingSuppId ? "Update this Plan for" : "Add this Plan for"} selectedDay={selectedSuppDay} onClick={saveSupp} disabled={suppItems.length === 0} />
+                {editingSuppId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingSuppId(null);
+                      setSuppItems([]);
+                      setSuppInput({ name: "", time: "" });
+                      setSelectedSuppDay("");
+                      setShowSuppDraftView(false);
+                    }}
+                    className="w-full rounded-lg border border-stone-500/20 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-300 transition hover:text-stone-100"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
+            </div>
+            </div>
+          </div>
+
+          {/* ── Container 4: Macros ── */}
+          <div className={`${card} min-h-[18rem] xl:shrink-0`}>
+            {/* sticky header */}
+            <div className="shrink-0 border-b border-amber-100/10 px-5 pb-4 pt-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-amber-200">Macros</h3>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <DaySelector selected={selectedMacroDay} onSelect={setSelectedMacroDay} compact />
+                  <button type="button" onClick={() => { setShowMacrosView(true); setMacrosDayFilter("all"); setCopyingMacroId(null); }}
+                    className="shrink-0 rounded-lg border border-amber-300/25 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
+                    View ({savedMacros.length})
+                  </button>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-stone-400">Set your daily macro targets.</p>
+            </div>
+            {/* scrollable body */}
+            <div className="journal-scroll min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {MACRO_FIELDS.map(({ key, label, unit }) => (
+                  <div key={key}>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
+                      {label} <span className="font-normal normal-case text-stone-500">({unit})</span>
+                    </label>
+                    <input type="number" min="0" step="0.1" value={macros[key]}
+                      onChange={(e) => setMacros((prev) => ({ ...prev, [key]: e.target.value }))}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1.5 text-sm text-stone-100 outline-none transition focus:border-amber-300/35 focus:ring-1 focus:ring-amber-300/30" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* sticky footer */}
+            <div className="shrink-0 border-t border-amber-100/10 px-5 pb-5 pt-3">
+              <div className="space-y-2">
+                <button type="button" onClick={saveMacro} disabled={!selectedMacroDay}
+                  className={`w-full rounded-lg border px-4 py-2 text-xs font-semibold transition ${
+                    selectedMacroDay
+                      ? "border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 text-amber-200 hover:from-amber-400/25 hover:to-orange-400/20"
+                      : "cursor-not-allowed border-amber-100/10 bg-white/5 text-stone-500"
+                  }`}>
+                  {editingMacroId ? "Update this Macro Plan for" : "Add this Macro Plan for"} {selectedMacroDay || "Selected Day"}
+                </button>
+                {editingMacroId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingMacroId(null);
+                      setMacros(BLANK_MACROS);
+                      setSelectedMacroDay("");
+                    }}
+                    className="w-full rounded-lg border border-stone-500/20 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-300 transition hover:text-stone-100"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Diet View Modal ── */}
+      {showDietView && (
+        <PlanViewModal
+          title="Saved Diets" plans={savedDiets}
+          dayFilter={dietDayFilter} setDayFilter={setDietDayFilter}
+          copyingId={copyingDietId} setCopyingId={setCopyingDietId}
+          onToggleActive={makeToggle(setSavedDiets)}
+          onDelete={makeDelete(setSavedDiets, setCopyingDietId)}
+          onCopy={makeCopyPlan(setSavedDiets)}
+          onEdit={startEditDiet}
+          onClose={() => setShowDietView(false)}
+          getRemainingDays={makeGetRemaining(savedDiets)}
+          renderPlanContent={(plan) => (
+            <div className="space-y-2.5">
+              {MEAL_SECTIONS.map(({ key, label }) => {
+                const items = plan.meals[key] || [];
+                if (!items.length) return null;
+                return (
+                  <div key={key}>
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-amber-200/60">{label}</p>
+                    <div className="space-y-1">
+                      {items.map((meal) => (
+                        <div key={meal.id} className="flex items-center justify-between rounded-md border border-amber-100/8 bg-black/20 px-2.5 py-1">
+                          <p className="text-xs text-stone-100">{meal.name}</p>
+                          {meal.time && <p className="text-[10px] text-stone-400">{fmtTime(meal.time)}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              {MEAL_SECTIONS.every(({ key }) => !(plan.meals[key] || []).length) && (
+                <p className="text-xs text-stone-500">No meals added.</p>
+              )}
+            </div>
+          )}
+        />
+      )}
+
+      {/* ── Workout Nutrition View Modal ── */}
+      {showWnView && (
+        <PlanViewModal
+          title="Saved Workout Nutrition" plans={savedWn}
+          dayFilter={wnDayFilter} setDayFilter={setWnDayFilter}
+          copyingId={copyingWnId} setCopyingId={setCopyingWnId}
+          onToggleActive={makeToggle(setSavedWn)}
+          onDelete={makeDelete(setSavedWn, setCopyingWnId)}
+          onCopy={makeCopyPlan(setSavedWn)}
+          onEdit={startEditWn}
+          onClose={() => setShowWnView(false)}
+          getRemainingDays={makeGetRemaining(savedWn)}
+          renderPlanContent={(plan) => (
+            <div className="space-y-2.5">
+              {WORKOUT_SECTIONS.map(({ key, label }) => {
+                const items = plan.meals[key] || [];
+                if (!items.length) return null;
+                return (
+                  <div key={key}>
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-amber-200/60">{label}</p>
+                    <div className="space-y-1">
+                      {items.map((meal) => (
+                        <div key={meal.id} className="flex items-center justify-between rounded-md border border-amber-100/8 bg-black/20 px-2.5 py-1">
+                          <p className="text-xs text-stone-100">{meal.name}</p>
+                          {meal.time && <p className="text-[10px] text-stone-400">{fmtTime(meal.time)}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        />
+      )}
+
+      {showSuppView && (
+        <PlanViewModal
+          title="Saved Supplement Plans" plans={savedSupps}
+          dayFilter={suppDayFilter} setDayFilter={setSuppDayFilter}
+          copyingId={copyingSuppId} setCopyingId={setCopyingSuppId}
+          onToggleActive={makeToggle(setSavedSupps)}
+          onDelete={makeDelete(setSavedSupps, setCopyingSuppId)}
+          onCopy={makeCopyPlan(setSavedSupps)}
+          onEdit={startEditSupp}
+          onClose={() => setShowSuppView(false)}
+          getRemainingDays={makeGetRemaining(savedSupps)}
+          renderPlanContent={(plan) => (
+            <div className="space-y-1">
+              {(plan.items || []).map((s, idx) => (
+                <div key={s.id} className="flex items-center justify-between rounded-md border border-amber-100/8 bg-black/20 px-2.5 py-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-amber-400/50">{idx + 1}.</span>
+                    <p className="text-xs text-stone-100">{s.name}</p>
+                  </div>
+                  {s.time && <p className="text-[10px] text-stone-400">{fmtTime(s.time)}</p>}
+                </div>
+              ))}
+              {!(plan.items || []).length && <p className="text-xs text-stone-500">No supplements added.</p>}
+            </div>
+          )}
+        />
+      )}
+
+      {showSuppDraftView && suppItems.length > 0 && (
+        <SupplementDraftModal
+          items={suppItems}
+          onRemove={removeSuppItem}
+          onClose={() => setShowSuppDraftView(false)}
+        />
+      )}
+
+
+      {/* ── Macros View Modal ── */}
+      {showMacrosView && (
+        <PlanViewModal
+          title="Saved Macro Plans" plans={savedMacros}
+          dayFilter={macrosDayFilter} setDayFilter={setMacrosDayFilter}
+          copyingId={copyingMacroId} setCopyingId={setCopyingMacroId}
+          onToggleActive={makeToggle(setSavedMacros)}
+          onDelete={makeDelete(setSavedMacros, setCopyingMacroId)}
+          onCopy={makeCopyPlan(setSavedMacros)}
+          onEdit={startEditMacro}
+          onClose={() => setShowMacrosView(false)}
+          getRemainingDays={makeGetRemaining(savedMacros)}
+          renderPlanContent={(plan) => (
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              {MACRO_FIELDS.map(({ key, label, unit }) => (
+                plan.values[key] ? (
+                  <div key={key} className="rounded-md border border-amber-100/8 bg-black/20 px-2.5 py-1.5">
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-stone-400">{label}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-stone-100">{plan.values[key]} <span className="text-[10px] font-normal text-stone-400">{unit}</span></p>
+                  </div>
+                ) : null
+              ))}
+            </div>
+          )}
+        />
+      )}
+    </div>
+  );
+}

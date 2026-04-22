@@ -160,7 +160,7 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                     onClick={() => setPopupGoalId(goal.id)}
                     className="rounded border border-sky-300/25 bg-sky-400/10 px-2 py-0.5 text-[11px] font-semibold text-sky-200 transition hover:bg-sky-400/20"
                   >
-                    View Sub-goals
+                    Update Progress
                   </button>
                 </div>
               </div>
@@ -226,7 +226,7 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                   </button>
                 </div>
                 <p className="mt-2 text-xs text-stone-400">
-                  Added sub-goals will be visible in the `View Sub-goals` popup.
+                  Added sub-goals will be visible in the `Update Progress` popup.
                 </p>
               </div>
             </div>
@@ -239,7 +239,7 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
           <div className="w-full max-w-4xl rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.95),rgba(12,8,8,0.97))] p-5 shadow-2xl shadow-black/50 backdrop-blur">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <p className="text-label-lg">View Sub-goals</p>
+                <p className="text-label-lg">Update Progress</p>
                 <h3 className="mt-1 text-xl font-semibold text-amber-100">{popupGoal.title}</h3>
               </div>
               <button
