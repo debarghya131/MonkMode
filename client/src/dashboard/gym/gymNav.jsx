@@ -1,3 +1,5 @@
+import { motion as Motion } from "framer-motion";
+
 const TABS = [
   { id: "todays-workout", icon: "🏋️", label: "Today" },
   { id: "add-workout",    icon: "➕", label: "Add Workout"      },
@@ -16,19 +18,27 @@ export default function GymNav({ active, onChange }) {
       {TABS.map((tab) => {
         const isActive = active === tab.id;
         return (
-          <button
+          <Motion.button
             key={tab.id}
             type="button"
             onClick={() => onChange(tab.id)}
-            className={`flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200 ${
+            whileHover={!isActive ? { scale: 1.03, backgroundColor: "rgba(255,255,255,0.06)" } : {}}
+            whileTap={{ scale: 0.97 }}
+            animate={
               isActive
-                ? "bg-gradient-to-r from-amber-400/20 to-orange-400/15 border border-amber-400/30 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.15)]"
-                : "border border-transparent text-stone-400 hover:text-amber-200 hover:bg-white/5"
+                ? { boxShadow: "0 0 18px rgba(251,191,36,0.22)" }
+                : { boxShadow: "0 0 0px rgba(251,191,36,0)" }
+            }
+            transition={{ duration: 0.2 }}
+            className={`flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors duration-200 ${
+              isActive
+                ? "bg-gradient-to-r from-amber-400/20 to-orange-400/15 border border-amber-400/30 text-amber-300"
+                : "border border-transparent text-stone-400 hover:text-amber-200"
             }`}
           >
             <span className="text-base leading-none">{tab.icon}</span>
             <span>{tab.label}</span>
-          </button>
+          </Motion.button>
         );
       })}
     </nav>

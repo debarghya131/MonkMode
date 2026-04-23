@@ -1,3 +1,4 @@
+import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 
 /* ─── Workouts data ─────────────────────────────────────────── */
@@ -493,11 +494,15 @@ function WorkoutProgress({ workouts }) {
         </div>
 
         <div className="journal-scroll mt-3 max-h-[54vh] space-y-2 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
-          {visibleExercises.map((exercise) => (
-            <button
+          {visibleExercises.map((exercise, ei) => (
+            <Motion.button
               key={exercise.exerciseId}
               type="button"
               onClick={() => setSelectedExerciseId(exercise.exerciseId)}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: ei * 0.04, duration: 0.18 }}
+              whileHover={{ x: 2 }}
               className={`w-full rounded-xl border px-3 py-2 text-left transition ${
                 selectedExerciseId === exercise.exerciseId
                   ? "border-amber-300/40 bg-amber-500/10"
@@ -513,7 +518,7 @@ function WorkoutProgress({ workouts }) {
               <p className="mt-1 text-[10px] text-stone-500">
                 {exercise.bodyGroup} • Last {fmtDate(exercise.latest?.date)}
               </p>
-            </button>
+            </Motion.button>
           ))}
         </div>
       </div>
@@ -534,7 +539,7 @@ function WorkoutProgress({ workouts }) {
         )}
 
         <div className="journal-scroll max-h-[58vh] space-y-3 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
-          {selectedExercise && WORKOUT_METRICS.map((metric) => {
+          {selectedExercise && WORKOUT_METRICS.map((metric, mi) => {
             const rawPoints = selectedExercise.logs
               .filter((log) => log[metric.key] != null)
               .map((log) => ({ date: log.date, value: log[metric.key] }));
@@ -543,7 +548,13 @@ function WorkoutProgress({ workouts }) {
             const chartId = `wp-${selectedExercise.exerciseId}-${metric.key}`.replace(/[^a-zA-Z0-9-_]/g, "");
 
             return (
-              <div key={metric.key} className="rounded-2xl border border-amber-100/10 bg-black/20 p-4">
+              <Motion.div
+                key={metric.key}
+                className="rounded-2xl border border-amber-100/10 bg-black/20 p-4"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: mi * 0.06, duration: 0.2 }}
+              >
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold text-stone-200">{metric.label}</p>
                   <span className="text-[10px] font-semibold text-amber-200">
@@ -557,7 +568,7 @@ function WorkoutProgress({ workouts }) {
                     Need at least 2 logs to draw trend.
                   </div>
                 )}
-              </div>
+              </Motion.div>
             );
           })}
         </div>
@@ -666,7 +677,14 @@ function MeasurementsProgress() {
                   return cur !== "" && cur != null && String(cur) !== String(old ?? "");
                 });
                 return (
-                  <div key={entry.id} className="rounded-xl border border-amber-100/10 bg-black/15 p-3">
+                  <Motion.div
+                    key={entry.id}
+                    className="rounded-xl border border-amber-100/10 bg-black/15 p-3"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.06, duration: 0.2 }}
+                    whileHover={{ y: -1, borderColor: "rgba(251,191,36,0.18)" }}
+                  >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold text-stone-100">{fmtDate(entry.checkInDate)}</span>
                       <span className="rounded-full border border-amber-300/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
@@ -693,7 +711,7 @@ function MeasurementsProgress() {
                     ) : (
                       <p className="mt-1.5 text-[10px] text-stone-600">No changes in selected group.</p>
                     )}
-                  </div>
+                  </Motion.div>
                 );
               })}
             </div>
@@ -705,9 +723,13 @@ function MeasurementsProgress() {
 }
 
 /* ─── Main component ────────────────────────────────────────── */
-export default function Progress() {
-  const [tab, setTab] = useState("measurements");
+export default function Progress({ initialTab = "measurements" }) {
+  const [tab, setTab] = useState(initialTab);
   const [workouts, setWorkouts] = useState(loadWorkouts);
+
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
 
   useEffect(() => {
     const sync = () => setWorkouts(loadWorkouts());
@@ -723,22 +745,42 @@ export default function Progress() {
         {[
           { id: "measurements", label: "📏 Measurements Progress" },
           { id: "workouts",     label: "🏋️ Workout Progress"        },
-        ].map(({ id, label }) => (
-          <button key={id} type="button" onClick={() => setTab(id)}
-            className={`flex-1 rounded-xl py-2 text-xs font-semibold transition ${
-              tab === id
-                ? "bg-amber-500/15 border border-amber-300/30 text-amber-100"
-                : "border border-transparent text-stone-400 hover:text-stone-200"
-            }`}>
-            {label}
-          </button>
-        ))}
+        ].map(({ id, label }) => {
+          const isActive = tab === id;
+          return (
+            <Motion.button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              whileHover={!isActive ? { scale: 1.02 } : {}}
+              whileTap={{ scale: 0.98 }}
+              animate={isActive ? { boxShadow: "0 0 14px rgba(251,191,36,0.18)" } : { boxShadow: "0 0 0px rgba(251,191,36,0)" }}
+              transition={{ duration: 0.2 }}
+              className={`flex-1 rounded-xl py-2 text-xs font-semibold transition-colors ${
+                isActive
+                  ? "bg-amber-500/15 border border-amber-300/30 text-amber-100"
+                  : "border border-transparent text-stone-400 hover:text-stone-200"
+              }`}
+            >
+              {label}
+            </Motion.button>
+          );
+        })}
       </div>
 
       {/* Tab content */}
-      {tab === "measurements" && <MeasurementsProgress />}
-
-      {tab === "workouts" && <WorkoutProgress workouts={workouts} />}
+      <AnimatePresence mode="wait">
+        <Motion.div
+          key={tab}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.2, ease: "easeInOut" }}
+        >
+          {tab === "measurements" && <MeasurementsProgress />}
+          {tab === "workouts" && <WorkoutProgress workouts={workouts} />}
+        </Motion.div>
+      </AnimatePresence>
     </div>
   );
 }

@@ -34,16 +34,17 @@ const menuItems = {
     },
   ],
   insights: [
+     {
+      name: "Weekly Report",
+      icon: "📅",
+      path: "/dashboard/weeklyreview",
+    },
     {
       name: "Analysis",
       icon: "📈",
       path: "/dashboard/analytics",
     },
-    {
-      name: "Weekly Report",
-      icon: "📅",
-      path: "/dashboard/weeklyreview",
-    },
+   
     {
       name: "AI Coach",
       icon: "✨",

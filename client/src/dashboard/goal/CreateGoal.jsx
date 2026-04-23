@@ -1,3 +1,4 @@
+import { motion as Motion } from "framer-motion";
 import { useMemo, useState } from "react";
 
 const PANEL_H = "620px";
@@ -451,8 +452,15 @@ export default function CreateGoal() {
                   : "No archived goals yet."}
               </p>
             ) : (
-              displayedGoals.map((goal) => (
-                <article key={goal.id} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
+              displayedGoals.map((goal, i) => (
+                <Motion.article
+                  key={goal.id}
+                  className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.06, duration: 0.22 }}
+                  whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <p className="min-w-0 flex-1 break-all text-sm font-semibold leading-relaxed text-stone-100">
                       {goal.title}
@@ -495,7 +503,7 @@ export default function CreateGoal() {
                       Deadline {goal.deadline}
                     </span>
                   </div>
-                </article>
+                </Motion.article>
               ))
             )}
           </div>

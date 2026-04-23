@@ -1,3 +1,4 @@
+import { motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -289,8 +290,15 @@ export default function JournalRightSidebar() {
 
               {/* Stats grid */}
               <div className="grid grid-cols-2 gap-2.5">
-                {stats.map((s) => (
-                  <div key={s.label} className="min-h-[58px] rounded-xl border border-amber-100/8 bg-stone-950/40 px-3 py-2.5">
+                {stats.map((s, i) => (
+                  <Motion.div
+                    key={s.label}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.07, duration: 0.3 }}
+                    whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)" }}
+                    className="min-h-[58px] rounded-xl border border-amber-100/8 bg-stone-950/40 px-3 py-2.5"
+                  >
                     <div className="mb-1.5 flex items-center justify-between gap-2">
                       <span className="text-[13px] leading-none">{s.icon}</span>
                       <p className={`text-base font-bold leading-none ${s.color}`}>{s.value}</p>
@@ -298,7 +306,7 @@ export default function JournalRightSidebar() {
                     <p className="whitespace-nowrap text-[8px] font-semibold uppercase leading-none tracking-[0.02em] text-stone-500">
                       {s.label}
                     </p>
-                  </div>
+                  </Motion.div>
                 ))}
               </div>
             </section>
@@ -313,14 +321,20 @@ export default function JournalRightSidebar() {
           </div>
 
           <div className="h-[calc(70vh-350px)] overflow-y-auto space-y-3 pr-1 journal-scroll">
-            {MOCK_HISTORY.map((item) => {
+            {MOCK_HISTORY.map((item, i) => {
               const formattedDate = new Date(item.date).toLocaleDateString("en-US", {
                 month: "short", day: "numeric", weekday: "short",
               });
 
               return (
-                <div key={item.date}
-                  className="rounded-xl border border-amber-100/10 bg-stone-950/45 p-3 transition-all duration-200 hover:border-amber-400/20">
+                <Motion.div
+                  key={item.date}
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.06, duration: 0.25 }}
+                  whileHover={{ y: -2 }}
+                  className="rounded-xl border border-amber-100/10 bg-stone-950/45 p-3 transition-colors duration-200 hover:border-amber-400/20"
+                >
 
                   {/* Date + mood */}
                   <div className="flex items-center justify-between gap-2">
@@ -346,7 +360,7 @@ export default function JournalRightSidebar() {
                     className="mt-1.5 text-xs font-semibold text-amber-500 transition hover:text-amber-300">
                     See full entry ↓
                   </button>
-                </div>
+                </Motion.div>
               );
             })}
           </div>

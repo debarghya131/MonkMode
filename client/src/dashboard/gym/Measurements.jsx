@@ -1,3 +1,4 @@
+import { motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
 
 const STORAGE_KEY = "monkmode_gym_measurements";
@@ -281,6 +282,7 @@ export default function Measurements() {
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    window.dispatchEvent(new Event("monkmode:gym-measurements-updated"));
   }, [entries]);
 
   useEffect(() => {
@@ -624,10 +626,14 @@ export default function Measurements() {
                       <p className="text-sm text-stone-500">No measurements logged in this section.</p>
                     ) : (
                       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {visibleSavedMeasurements.map((field) => (
-                          <div
+                        {visibleSavedMeasurements.map((field, fi) => (
+                          <Motion.div
                             key={field.key}
                             className="min-w-0 rounded-2xl border border-amber-100/10 bg-black/20 px-4 py-3"
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: fi * 0.04, duration: 0.18 }}
+                            whileHover={{ y: -2, borderColor: "rgba(251,191,36,0.2)", boxShadow: "0 8px 20px rgba(0,0,0,0.3)" }}
                           >
                             <p className="break-words text-[11px] font-semibold uppercase leading-relaxed tracking-[0.18em] text-stone-500">
                               {field.label}
@@ -638,7 +644,7 @@ export default function Measurements() {
                                 {field.unit}
                               </span>
                             </p>
-                          </div>
+                          </Motion.div>
                         ))}
                       </div>
                     )}
@@ -657,17 +663,21 @@ export default function Measurements() {
                 </div>
 
                 <div className="mt-3 flex-1 space-y-2.5 overflow-x-hidden overflow-y-auto scroll-smooth pr-1">
-                  {entries.map((entry) => {
+                  {entries.map((entry, ei) => {
                     const isSelected = entry.id === selectedEntry.id;
 
                     return (
-                      <div
+                      <Motion.div
                         key={entry.id}
                         className={`flex w-full items-center justify-between gap-2.5 rounded-xl border px-3 py-2.5 transition ${
                           isSelected
                             ? "border-amber-300/35 bg-amber-500/10"
                             : "border-amber-100/10 bg-white/5 hover:border-amber-200/20 hover:bg-white/10"
                         }`}
+                        initial={{ opacity: 0, x: 8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: ei * 0.05, duration: 0.2 }}
+                        whileHover={!isSelected ? { x: -2 } : {}}
                       >
                         <button
                           type="button"
@@ -695,7 +705,7 @@ export default function Measurements() {
                             ✕
                           </button>
                         </div>
-                      </div>
+                      </Motion.div>
                     );
                   })}
                 </div>

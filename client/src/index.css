@@ -2,6 +2,73 @@
 @import "@fontsource/cinzel";
 @import "@fontsource/cinzel/700.css";
 
+/* ── Calendar Heatmap overrides ── */
+.react-calendar-heatmap text { font-size: 6px; fill: #57534e; }
+.react-calendar-heatmap .react-calendar-heatmap-month-label { font-size: 6px; }
+
+/* empty */
+.heatmap-violet-empty, .heatmap-sky-empty, .heatmap-emerald-empty,
+.heatmap-rose-empty, .heatmap-amber-empty { fill: rgba(255,255,255,0.05); }
+
+/* violet — Journal */
+.heatmap-violet-scale-1 { fill: #7c3aed33; }
+.heatmap-violet-scale-2 { fill: #7c3aed66; }
+.heatmap-violet-scale-3 { fill: #7c3aed99; }
+.heatmap-violet-scale-4 { fill: #7c3aeddd; }
+
+/* sky — Todo */
+.heatmap-sky-scale-1 { fill: #0ea5e933; }
+.heatmap-sky-scale-2 { fill: #0ea5e966; }
+.heatmap-sky-scale-3 { fill: #0ea5e999; }
+.heatmap-sky-scale-4 { fill: #0ea5e9dd; }
+
+/* emerald — Habit */
+.heatmap-emerald-scale-1 { fill: #05966933; }
+.heatmap-emerald-scale-2 { fill: #05966966; }
+.heatmap-emerald-scale-3 { fill: #05966999; }
+.heatmap-emerald-scale-4 { fill: #059669dd; }
+
+/* rose — Goal */
+.heatmap-rose-scale-1 { fill: #e1193333; }
+.heatmap-rose-scale-2 { fill: #e1193366; }
+.heatmap-rose-scale-3 { fill: #e1193399; }
+.heatmap-rose-scale-4 { fill: #e11933dd; }
+
+/* amber — Gym */
+.heatmap-amber-scale-1 { fill: #fbbf2433; }
+.heatmap-amber-scale-2 { fill: #fbbf2466; }
+.heatmap-amber-scale-3 { fill: #fbbf2499; }
+.heatmap-amber-scale-4 { fill: #fbbf24dd; }
+
+/* github-style overview heatmap */
+.overview-heatmap {
+  display: block;
+}
+.overview-heatmap svg {
+  width: 103%;
+  height: auto;
+  max-height: 100%;
+  margin-left: 0;
+  display: block;
+}
+.overview-heatmap .react-calendar-heatmap text {
+  font-size: 10px;
+  fill: #a8a29e;
+}
+.overview-heatmap .react-calendar-heatmap .react-calendar-heatmap-month-label {
+  font-size: 10px;
+  fill: #cbd5e1;
+}
+.overview-heatmap .react-calendar-heatmap rect {
+  rx: 2px;
+  ry: 2px;
+}
+.heatmap-github-empty { fill: rgba(255, 255, 255, 0.07); }
+.heatmap-github-scale-1 { fill: #9be9a8; }
+.heatmap-github-scale-2 { fill: #40c463; }
+.heatmap-github-scale-3 { fill: #30a14e; }
+.heatmap-github-scale-4 { fill: #216e39; }
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -33,6 +100,39 @@ body {
 
 button {
   font: inherit;
+}
+
+.dashboard-shell :where(button, a[href]) {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    background-color 180ms ease,
+    opacity 180ms ease;
+}
+
+.dashboard-shell :where(button, a[href]):where(:not(:disabled, [aria-disabled="true"])):hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.26),
+    0 0 18px rgba(251, 191, 36, 0.18);
+}
+
+.dashboard-shell :where(button, a[href]):where(:not(:disabled, [aria-disabled="true"])):active {
+  transform: translateY(0) scale(0.98);
+}
+
+.dashboard-shell :where(button, a[href]):focus-visible {
+  outline: 2px solid rgba(251, 191, 36, 0.72);
+  outline-offset: 3px;
+  box-shadow:
+    0 0 0 4px rgba(251, 191, 36, 0.14),
+    0 0 22px rgba(251, 191, 36, 0.2);
+}
+
+.dashboard-shell :where(button:disabled, button[aria-disabled="true"], a[aria-disabled="true"]) {
+  cursor: not-allowed;
 }
 
 a {

@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { AnimatePresence, motion as Motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import GymNav from "./gymNav";
 import TodaysWorkout from "./TodaysWorkout";
 import AddWorkout from "./AddWorkout";
@@ -8,32 +10,35 @@ import ExerciseLibrary from "./ExerciseLibrary";
 import Progress from "./Progress";
 import Gallery from "./Gallery";
 
-const STREAK_KEY = "monkmode_gym_streak";
-
-const getStreak = () => {
-  try {
-    const stored = localStorage.getItem(STREAK_KEY);
-    return stored ? JSON.parse(stored) : { count: 0, lastDate: "" };
-  } catch { return { count: 0, lastDate: "" }; }
-};
-
-const updateStreak = () => {
-  const today = new Date().toISOString().slice(0, 10);
-  const data = getStreak();
-  if (data.lastDate === today) return data.count;
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  const newCount = data.lastDate === yesterday ? data.count + 1 : 1;
-  localStorage.setItem(STREAK_KEY, JSON.stringify({ count: newCount, lastDate: today }));
-  return newCount;
-};
+const GYM_SECTIONS = new Set([
+  "todays-workout",
+  "add-workout",
+  "diet-chart",
+  "measurements",
+  "library",
+  "progress",
+  "gallery",
+]);
 
 export default function Gym() {
-  const [active, setActive] = useState("todays-workout");
-  const [streak, setStreak] = useState(0);
+  const location = useLocation();
+  const routeTab = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get("tab") || location.state?.tab;
+    return GYM_SECTIONS.has(tab) ? tab : "todays-workout";
+  }, [location.search, location.state]);
+
+  const progressTab = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get("progress") || location.state?.progressTab;
+    return tab === "workouts" ? "workouts" : "measurements";
+  }, [location.search, location.state]);
+
+  const [active, setActive] = useState(routeTab);
 
   useEffect(() => {
-    setStreak(updateStreak());
-  }, []);
+    setActive(routeTab);
+  }, [routeTab]);
 
   const section = {
     "todays-workout": <TodaysWorkout />,
@@ -41,33 +46,32 @@ export default function Gym() {
     "diet-chart":     <DietChart />,
     "measurements":   <Measurements />,
     "library":        <ExerciseLibrary />,
-    "progress":       <Progress />,
+    "progress":       <Progress initialTab={progressTab} />,
     "gallery":        <Gallery />,
   };
 
   return (
     <div className="mx-auto max-w-8xl space-y-4">
 
-      {/* TOP ROW — streak + navbar side by side */}
-      <div className="flex items-center gap-20">
-
-        {/* STREAK */}
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl shrink-0
-          bg-amber-950/50 border border-amber-500/25 shadow-lg">
-          <span className="flex items-center gap-1 text-xs text-amber-300/80">
-            🔥 <span className="font-semibold text-amber-300">{streak}</span> day streak
-          </span>
-        </div>
-
-        {/* NAVBAR — takes remaining space */}
+      {/* TOP ROW */}
+      <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <GymNav active={active} onChange={setActive} />
         </div>
-
       </div>
 
       {/* CONTENT */}
-      <div>{section[active]}</div>
+      <AnimatePresence mode="wait">
+        <Motion.div
+          key={active}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.22, ease: "easeInOut" }}
+        >
+          {section[active]}
+        </Motion.div>
+      </AnimatePresence>
 
     </div>
   );

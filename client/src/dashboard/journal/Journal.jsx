@@ -1,3 +1,4 @@
+import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useState } from "react";
 import JournalRightSidebar from "./JournalRightSidebar";
 
@@ -52,6 +53,31 @@ const INITIAL_FORM = {
   tomorrowPlan:   "",
   overallRating:  50,
   ratingTouched:  false,
+};
+
+const JOURNAL_LOGGED_DAYS_KEY = "monkmode_journal_logged_days";
+const JOURNAL_WEEKLY_STATS_KEY = "monkmode_journal_weekly_stats";
+
+const saveJournalProgress = (date, achievementCount, winCount) => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(JOURNAL_LOGGED_DAYS_KEY));
+    const dates = Array.isArray(stored) ? stored : [];
+    localStorage.setItem(JOURNAL_LOGGED_DAYS_KEY, JSON.stringify([...new Set([...dates, date])]));
+
+    const storedStats = JSON.parse(localStorage.getItem(JOURNAL_WEEKLY_STATS_KEY));
+    const stats = Array.isArray(storedStats) ? storedStats : [];
+    const nextStats = [
+      ...stats.filter((item) => item?.date !== date),
+      { date, achievementCount, winCount },
+    ];
+    localStorage.setItem(JOURNAL_WEEKLY_STATS_KEY, JSON.stringify(nextStats));
+
+    window.dispatchEvent(new Event("monkmode:journal-logged-days-updated"));
+  } catch {
+    localStorage.setItem(JOURNAL_LOGGED_DAYS_KEY, JSON.stringify([date]));
+    localStorage.setItem(JOURNAL_WEEKLY_STATS_KEY, JSON.stringify([{ date, achievementCount, winCount }]));
+    window.dispatchEvent(new Event("monkmode:journal-logged-days-updated"));
+  }
 };
 
 /* ── shared style tokens ── */
@@ -355,6 +381,14 @@ export default function Journal() {
 
   const completedCount = allSteps.filter((s) => isStepComplete(s.id)).length;
   const allComplete    = completedCount === totalSteps;
+  const handleSubmitJournal = () => {
+    const date = todayStr();
+    const achievementCount = form.achievement.filter((item) => item.trim()).length;
+    const winCount = form.wins.filter((item) => item.trim()).length;
+    saveJournalProgress(date, achievementCount, winCount);
+    setSubmitted(true);
+    setSubmittedDate(date);
+  };
 
   /* ─────────── submitted screen ─────────── */
   if (submitted) {
@@ -362,8 +396,17 @@ export default function Journal() {
 
     return (
       <div className="flex gap-6">
-        <div className="flex-1 min-w-0 flex flex-col items-center justify-center py-24 space-y-5">
-          <div className="text-7xl">🎉</div>
+        <Motion.div
+          className="flex-1 min-w-0 flex flex-col items-center justify-center py-24 space-y-5"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+        >
+          <Motion.div
+            className="text-7xl"
+            animate={{ rotate: [0, -10, 10, -5, 5, 0] }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >🎉</Motion.div>
           <h2 className="text-heading-xl text-center">Day Logged!</h2>
           <p className="text-sm text-stone-400 text-center max-w-sm leading-relaxed">
             Your journal entry has been saved. Come back tomorrow and keep that streak alive.
@@ -408,7 +451,7 @@ export default function Journal() {
               </button>
             )}
           </div>
-        </div>
+        </Motion.div>
 
         <div className="w-64 shrink-0">
           <div className="sticky top-0">
@@ -434,13 +477,24 @@ export default function Journal() {
       <div className="flex-1 min-w-0 space-y-5">
 
         {/* Streak badge */}
-        <div className="flex items-center gap-3">
+        <Motion.div
+          className="flex items-center gap-3"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+        >
           <div className="flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-500/10 px-4 py-2">
-            <span className="text-lg">🔥</span>
+            <Motion.span
+              className="text-lg"
+              animate={{ scale: [1, 1.25, 1] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+            >
+              🔥
+            </Motion.span>
             <span className="text-sm font-semibold text-amber-300">{streak} day streak</span>
           </div>
           <p className="text-sm text-stone-400">Keep it up — consistency builds clarity.</p>
-        </div>
+        </Motion.div>
 
         {/* ── Progress bar ── */}
         <section className="rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur">
@@ -509,7 +563,15 @@ export default function Journal() {
         <section className="journal-step-card rounded-2xl border border-amber-100/10 bg-white/6 p-6 shadow-2xl shadow-black/25 backdrop-blur">
 
           {/* ── Mandatory steps 1–11 ── */}
-          <div className="journal-scroll journal-step-body pr-1">
+          <AnimatePresence mode="wait">
+          <Motion.div
+            key={step}
+            className="journal-scroll journal-step-body pr-1"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.22, ease: "easeInOut" }}
+          >
 
           {/* Step 1 — Mood */}
           {step === 1 && (
@@ -517,12 +579,17 @@ export default function Journal() {
               <p className="text-label-lg">Step 1 · Mood</p>
               <h2 className="text-heading-xl mt-1 mb-5">How are you feeling?</h2>
               <div className="grid grid-cols-4 gap-2">
-                {MOODS.map((mood) => (
-                  <button
+                {MOODS.map((mood, i) => (
+                  <Motion.button
                     key={mood.label}
                     type="button"
                     onClick={() => set("mood", mood.label)}
-                    className={`flex flex-col items-center gap-1 rounded-xl border p-2.5 transition-all duration-200 ${
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.03, duration: 0.2 }}
+                    whileHover={{ y: -3, scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    className={`mx-auto w-[92%] flex flex-col items-center gap-1 rounded-xl border p-2.5 transition-colors duration-200 ${
                       form.mood === mood.label
                         ? "border-amber-400/60 bg-amber-500/20 shadow-[0_0_16px_rgba(251,191,36,0.2)]"
                         : "border-amber-100/10 bg-stone-950/45 hover:border-amber-400/30 hover:bg-amber-500/10"
@@ -530,14 +597,9 @@ export default function Journal() {
                   >
                     <span className="text-lg">{mood.emoji}</span>
                     <span className="text-[10px] font-medium text-amber-50/70">{mood.label}</span>
-                  </button>
+                  </Motion.button>
                 ))}
               </div>
-              {form.mood && (
-                <p className="mt-4 text-sm text-stone-400">
-                  Selected: {MOODS.find((m) => m.label === form.mood)?.emoji} {form.mood}
-                </p>
-              )}
             </div>
           )}
 
@@ -869,7 +931,8 @@ export default function Journal() {
             </div>
           )}
 
-          </div>
+          </Motion.div>
+          </AnimatePresence>
 
           {/* ── Navigation ── */}
           <div className="journal-step-nav mt-8 flex items-center justify-between">
@@ -882,7 +945,13 @@ export default function Journal() {
               ← Back
             </button>
 
-            <span className="text-xs text-stone-600">{step} / {totalSteps}</span>
+            {step === 1 && form.mood ? (
+              <span className="text-sm text-stone-400">
+                Selected: {MOODS.find((m) => m.label === form.mood)?.emoji} {form.mood}
+              </span>
+            ) : (
+              <span className="text-xs text-stone-600">{step} / {totalSteps}</span>
+            )}
 
             {!isLastStep ? (
               <button
@@ -897,7 +966,7 @@ export default function Journal() {
               <button
                 type="button"
                 disabled={!allComplete}
-                onClick={() => { setSubmitted(true); setSubmittedDate(todayStr()); }}
+                onClick={handleSubmitJournal}
                 title={!allComplete ? `${totalSteps - completedCount} field(s) still unanswered` : ""}
                 className="rounded-full border border-amber-400/50 bg-gradient-to-r from-amber-400 to-orange-400 px-8 py-2.5 text-sm font-bold text-stone-950 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_28px_rgba(251,191,36,0.55)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
               >

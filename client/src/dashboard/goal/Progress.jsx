@@ -1,3 +1,4 @@
+import { motion as Motion } from "framer-motion";
 import { useState } from "react";
 import { GOALS } from "./goalDemoData";
 
@@ -60,9 +61,11 @@ export default function Progress({ importantByGoal = {}, milestonesByGoal = {} }
           <span className="text-xs font-bold text-amber-100">{overall}%</span>
         </div>
         <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${getBarColor(overall)}`}
-            style={{ width: `${overall}%` }}
+          <Motion.div
+            className={`h-full rounded-full ${getBarColor(overall)}`}
+            initial={{ width: 0 }}
+            animate={{ width: `${overall}%` }}
+            transition={{ duration: 1, ease: "easeOut" }}
           />
         </div>
         <p className="mt-1.5 text-[11px] text-stone-400">
@@ -116,7 +119,7 @@ export default function Progress({ importantByGoal = {}, milestonesByGoal = {} }
         {filtered.length === 0 ? (
           <p className="mt-4 text-xs text-stone-500">No goals match the selected filters.</p>
         ) : (
-          filtered.map((goal) => {
+          filtered.map((goal, i) => {
             const milestones = milestonesByGoal[goal.id] ?? goal.milestones;
             const total = milestones.length;
             const done = milestones.filter((m) => m.completed).length;
@@ -124,9 +127,13 @@ export default function Progress({ importantByGoal = {}, milestonesByGoal = {} }
             const daysLeft = getDaysLeft(goal.deadline);
 
             return (
-              <article
+              <Motion.article
                 key={goal.id}
                 className="rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4"
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.07, duration: 0.25 }}
+                whileHover={{ y: -3, boxShadow: "0 12px 32px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
                   <div>
@@ -167,9 +174,11 @@ export default function Progress({ importantByGoal = {}, milestonesByGoal = {} }
                   </div>
                 ) : (
                   <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${getBarColor(pct)}`}
-                      style={{ width: `${pct}%` }}
+                    <Motion.div
+                      className={`h-full rounded-full ${getBarColor(pct)}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.8, delay: i * 0.07 + 0.2, ease: "easeOut" }}
                     />
                   </div>
                 )}
@@ -192,7 +201,7 @@ export default function Progress({ importantByGoal = {}, milestonesByGoal = {} }
                         : `${Math.abs(daysLeft)} days overdue`}
                   </p>
                 </div>
-              </article>
+              </Motion.article>
             );
           })
         )}

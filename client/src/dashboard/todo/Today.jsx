@@ -1,6 +1,7 @@
+import { motion as Motion } from "framer-motion";
 import { useMemo, useState } from "react";
 
-const INITIAL_TASKS = [
+export const INITIAL_TASKS = [
   // Study
   { id: "study-dsa",      title: "Revise Graph Algorithms",    category: "Study",          priority: "High",   status: "pending",   time: "07:30", note: "Finish BFS, DFS, and solve 3 medium questions." },
   { id: "study-os",       title: "Read OS Concepts",           category: "Study",          priority: "Medium", status: "pending",   time: "14:00", note: "Cover process scheduling and memory management." },
@@ -67,9 +68,15 @@ const formatTime = (timeValue) => {
   });
 };
 
-function TaskRow({ task, onUndo }) {
+function TaskRow({ task, onUndo, index = 0 }) {
   return (
-    <article className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
+    <Motion.article
+      className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.04, duration: 0.2 }}
+      whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-stone-100">{task.title}</p>
@@ -97,7 +104,7 @@ function TaskRow({ task, onUndo }) {
         <span className={`rounded-full border px-2 py-1 ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
         <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{formatTime(task.time)}</span>
       </div>
-    </article>
+    </Motion.article>
   );
 }
 
@@ -197,9 +204,18 @@ export default function Today() {
             <h3 className="mt-2 text-2xl font-bold text-amber-100">Today&apos;s Tasks</h3>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
+          <Motion.div
+            className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3"
+            initial="hidden"
+            animate="visible"
+            variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
+          >
             {/* 1. All Tasks */}
-            <section className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5">
+            <Motion.section
+              className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5"
+              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+              transition={{ duration: 0.3 }}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-amber-200">1. All Tasks</p>
@@ -230,10 +246,14 @@ export default function Today() {
                   );
                 })}
               </div>
-            </section>
+            </Motion.section>
 
             {/* 2. Pending */}
-            <section className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5">
+            <Motion.section
+              className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5"
+              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+              transition={{ duration: 0.3 }}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-amber-200">2. Pending</p>
@@ -253,35 +273,48 @@ export default function Today() {
                       {pendingTasks.length === 0 ? "All tasks completed for today!" : "No pending tasks for this priority."}
                     </p>
                   ) : (
-                    filtered.map((task) => (
-                      <article key={task.id} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
+                    filtered.map((task, i) => (
+                      <Motion.article
+                        key={task.id}
+                        className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.04, duration: 0.2 }}
+                        whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
+                      >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-stone-100">{task.title}</p>
                             <p className="mt-1 text-xs text-stone-400">{task.note}</p>
                           </div>
-                          <button
+                          <Motion.button
                             type="button"
                             onClick={() => markComplete(task.id)}
+                            whileHover={{ scale: 1.05, boxShadow: "0 0 12px rgba(52,211,153,0.3)" }}
+                            whileTap={{ scale: 0.95 }}
                             className="shrink-0 rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/20"
                           >
                             ✓ Done
-                          </button>
+                          </Motion.button>
                         </div>
                         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-stone-300">
                           <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{task.category}</span>
                           <span className={`rounded-full border px-2 py-1 ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
                           <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{formatTime(task.time)}</span>
                         </div>
-                      </article>
+                      </Motion.article>
                     ))
                   );
                 })()}
               </div>
-            </section>
+            </Motion.section>
 
             {/* 3. Completed */}
-            <section className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5">
+            <Motion.section
+              className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5"
+              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+              transition={{ duration: 0.3 }}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-amber-200">3. Completed</p>
@@ -305,8 +338,8 @@ export default function Today() {
                   );
                 })()}
               </div>
-            </section>
-          </div>
+            </Motion.section>
+          </Motion.div>
         </section>
 
         <aside className="today-sidebar space-y-5">

@@ -1,3 +1,4 @@
+import { motion as Motion } from "framer-motion";
 import { useMemo, useState } from "react";
 
 const toISODate = (date) => {
@@ -13,7 +14,7 @@ const shiftISODate = (offsetDays) => {
   return toISODate(d);
 };
 
-const INITIAL_HABITS = [
+export const INITIAL_HABITS = [
   { id: "habit-meditation", title: "Morning Meditation", category: "Mindfulness", priority: "High", status: "completed", scheduledDate: shiftISODate(0), time: "06:30", note: "10 minutes breath focus before starting work.", targetStreak: 30, currentStreak: 11, maxStreak: 22, streakBreaks: 2, endDate: shiftISODate(40) },
   { id: "habit-workout", title: "Workout (30 min)", category: "Fitness", priority: "High", status: "pending", scheduledDate: shiftISODate(0), time: "07:00", note: "Bodyweight circuit: pushups, squats, planks.", targetStreak: 21, currentStreak: 3, maxStreak: 14, streakBreaks: 1, endDate: null },
   { id: "habit-reading", title: "Read 20 pages", category: "Learning", priority: "Medium", status: "pending", scheduledDate: shiftISODate(0), time: "21:00", note: "Read before sleep and write one takeaway.", targetStreak: 45, currentStreak: 7, maxStreak: 19, streakBreaks: 4, endDate: shiftISODate(60) },
@@ -80,11 +81,17 @@ const getHabitStatus = (habit, todayISO) => {
   return "pending";
 };
 
-function HabitRow({ habit, status, onUndo }) {
+function HabitRow({ habit, status, onUndo, index = 0 }) {
   const slot = getTimeSlot(habit.time);
 
   return (
-    <article className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
+    <Motion.article
+      className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.04, duration: 0.2 }}
+      whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-stone-100">{habit.title}</p>
@@ -112,7 +119,7 @@ function HabitRow({ habit, status, onUndo }) {
         <span className="rounded-full border border-sky-300/25 bg-sky-500/10 px-2 py-1 text-sky-100">{timeSlotLabel[slot]}</span>
         <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{formatTime(habit.time)}</span>
       </div>
-    </article>
+    </Motion.article>
   );
 }
 
@@ -238,8 +245,17 @@ export default function TodaysHabit() {
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
-            <section className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5">
+          <Motion.div
+            className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3"
+            initial="hidden"
+            animate="visible"
+            variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
+          >
+            <Motion.section
+              className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5"
+              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+              transition={{ duration: 0.3 }}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-amber-200">1. All Habits</p>
@@ -270,9 +286,13 @@ export default function TodaysHabit() {
                   );
                 })}
               </div>
-            </section>
+            </Motion.section>
 
-            <section className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5">
+            <Motion.section
+              className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5"
+              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+              transition={{ duration: 0.3 }}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-amber-200">2. Pending</p>
@@ -292,21 +312,30 @@ export default function TodaysHabit() {
                       {pendingHabits.length === 0 ? "All habits completed for today!" : "No pending habits for this priority."}
                     </p>
                   ) : (
-                    filtered.map((habit) => (
-                      <article key={habit.id} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
+                    filtered.map((habit, i) => (
+                      <Motion.article
+                        key={habit.id}
+                        className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.04, duration: 0.2 }}
+                        whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
+                      >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-stone-100">{habit.title}</p>
                             <p className="mt-1 text-xs text-stone-400">{habit.note}</p>
                           </div>
                           <div className="flex shrink-0 items-center gap-1.5">
-                            <button
+                            <Motion.button
                               type="button"
                               onClick={() => markDone(habit.id)}
+                              whileHover={{ scale: 1.05, boxShadow: "0 0 12px rgba(52,211,153,0.3)" }}
+                              whileTap={{ scale: 0.95 }}
                               className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/20"
                             >
                               ✓ Done
-                            </button>
+                            </Motion.button>
                           </div>
                         </div>
                         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-stone-300">
@@ -314,14 +343,18 @@ export default function TodaysHabit() {
                           <span className={`rounded-full border px-2 py-1 ${PRIORITY_STYLES[habit.priority]}`}>{habit.priority}</span>
                           <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{formatTime(habit.time)}</span>
                         </div>
-                      </article>
+                      </Motion.article>
                     ))
                   );
                 })()}
               </div>
-            </section>
+            </Motion.section>
 
-            <section className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5">
+            <Motion.section
+              className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5"
+              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+              transition={{ duration: 0.3 }}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-amber-200">3. Completed</p>
@@ -350,8 +383,8 @@ export default function TodaysHabit() {
                   );
                 })()}
               </div>
-            </section>
-          </div>
+            </Motion.section>
+          </Motion.div>
         </section>
 
         <aside className="today-sidebar">

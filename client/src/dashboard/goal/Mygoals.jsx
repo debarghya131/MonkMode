@@ -1,3 +1,4 @@
+import { motion as Motion } from "framer-motion";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { GOALS } from "./goalDemoData";
@@ -71,10 +72,17 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
       </p>
 
       <div className="journal-scroll mt-5 flex-1 space-y-3 overflow-y-auto pr-1">
-        {sortedGoals.map((goal) => {
+        {sortedGoals.map((goal, i) => {
           const daysLeft = getDaysLeft(goal.deadline);
           return (
-            <article key={goal.id} className="rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4">
+            <Motion.article
+              key={goal.id}
+              className="rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4"
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.06, duration: 0.25 }}
+              whileHover={{ y: -3, boxShadow: "0 12px 32px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
+            >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-semibold text-amber-100">{goal.title}</h3>
@@ -164,7 +172,7 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                   </button>
                 </div>
               </div>
-            </article>
+            </Motion.article>
           );
         })}
       </div>

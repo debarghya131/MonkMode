@@ -2,6 +2,7 @@ import express from "express";
 import {
   createGoal,
   deleteGoal,
+  getGoalHeatmap,
   getGoals,
   updateGoalProgress
 } from "../controllers/goalController.js";
@@ -11,6 +12,7 @@ const router = express.Router();
 
 router.use(protect);
 
+router.get("/heatmap", getGoalHeatmap);
 router.route("/").post(createGoal).get(getGoals);
 router.patch("/:id/progress", updateGoalProgress);
 router.delete("/:id", deleteGoal);

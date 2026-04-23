@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { motion as Motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { WORKOUT_SPLITS } from "./workoutLibraryData";
 
 const getSplitLabel = (val) => WORKOUT_SPLITS.find((s) => s.value === val)?.label || val || "";
@@ -638,8 +639,15 @@ export default function TodaysWorkout() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredWorkouts.map((workout) => (
-                    <div key={workout.id} className="rounded-2xl border border-amber-100/10 bg-white/5 p-4">
+                  {filteredWorkouts.map((workout, wi) => (
+                    <Motion.div
+                      key={workout.id}
+                      className="rounded-2xl border border-amber-100/10 bg-white/5 p-4"
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: wi * 0.07, duration: 0.25 }}
+                      whileHover={{ y: -2, boxShadow: "0 10px 28px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
+                    >
                       {/* Workout header */}
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
@@ -695,7 +703,14 @@ export default function TodaysWorkout() {
                       {/* Exercise list */}
                       <div className="journal-scroll mt-3 max-h-85 space-y-2 overflow-y-auto scroll-smooth pr-1.5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/25 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/45 md:max-h-98">
                         {workout.exercises.map((ex, idx) => (
-                          <div key={ex.id} className="rounded-xl border border-amber-100/8 bg-black/20 px-3 py-2.5">
+                          <Motion.div
+                            key={ex.id}
+                            className="rounded-xl border border-amber-100/8 bg-black/20 px-3 py-2.5"
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: wi * 0.07 + idx * 0.05, duration: 0.2 }}
+                            whileHover={{ y: -1, borderColor: "rgba(251,191,36,0.18)", boxShadow: "0 6px 16px rgba(0,0,0,0.3)" }}
+                          >
                             <div className="flex items-center gap-3">
                               <span className="shrink-0 text-[10px] font-bold text-amber-400/50">{idx + 1}.</span>
                               <div className="min-w-0 flex-1">
@@ -751,10 +766,10 @@ export default function TodaysWorkout() {
                                 </span>
                               ) : null}
                             </div>
-                          </div>
+                          </Motion.div>
                         ))}
                       </div>
-                    </div>
+                    </Motion.div>
                   ))}
                 </div>
               )}
@@ -764,10 +779,14 @@ export default function TodaysWorkout() {
           {/* ── Diet column ── */}
           <div className="journal-scroll flex w-44 shrink-0 flex-col gap-3 overflow-y-auto scroll-smooth [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/40">
             <p className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">Diet</p>
-            {dietCards.map(({ type, label, icon, color }) => (
-              <div
+            {dietCards.map(({ type, label, icon, color }, di) => (
+              <Motion.div
                 key={type}
                 className={`flex shrink-0 flex-col items-start gap-2 rounded-2xl border p-3 ${color}`}
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: di * 0.08, duration: 0.25 }}
+                whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)" }}
               >
                 <span className="text-2xl">{icon}</span>
                 <p className="text-xs font-semibold leading-snug">{label}</p>
@@ -779,7 +798,7 @@ export default function TodaysWorkout() {
                 >
                   View
                 </button>
-              </div>
+              </Motion.div>
             ))}
           </div>
 

@@ -27,7 +27,7 @@ export default function DashboardLayout({ children }) {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_34%),linear-gradient(180deg,#17110f_0%,#241714_45%,#120d0c_100%)] text-white">
+    <div className="dashboard-shell h-screen flex flex-col bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_34%),linear-gradient(180deg,#17110f_0%,#241714_45%,#120d0c_100%)] text-white">
 
       {/* Navbar: direct child of flex-col → always full viewport width */}
       <header className="shrink-0 z-30 border-b border-amber-100/10">
@@ -51,4 +51,3 @@ export default function DashboardLayout({ children }) {
     </div>
   );
 }
-

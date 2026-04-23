@@ -1,3 +1,4 @@
+import { motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BODY_PART_GROUPS, EXERCISE_LIBRARY, WORKOUT_SPLITS } from "./workoutLibraryData";
@@ -1307,8 +1308,15 @@ export default function AddWorkout() {
                     : `No archived workouts for ${workoutDayFilter}.`}
               </p>
             ) : (
-              displayedWorkouts.map((w) => (
-                <article key={w.id} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
+              displayedWorkouts.map((w, wi) => (
+                <Motion.article
+                  key={w.id}
+                  className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: wi * 0.06, duration: 0.22 }}
+                  whileHover={{ y: -2, boxShadow: "0 10px 28px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <p className="min-w-0 flex-1 text-sm font-semibold text-stone-100">{w.title}</p>
                     <div className="flex shrink-0 items-center gap-1.5">
@@ -1387,7 +1395,7 @@ export default function AddWorkout() {
                     ))}
                   </div>
 
-                </article>
+                </Motion.article>
               ))
             )}
           </div>
@@ -1408,9 +1416,12 @@ export default function AddWorkout() {
               <p className="text-sm text-stone-400">No logs yet.</p>
             ) : (
               <div className="journal-scroll min-h-0 flex-1 space-y-1.5 overflow-x-hidden overflow-y-auto pr-1">
-                {logs.map((log) => (
-                  <div
+                {logs.map((log, li) => (
+                  <Motion.div
                     key={log.id}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: li * 0.04, duration: 0.18 }}
                     className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-[11px] ${
                       log.action === "deleted"
                         ? "border-rose-400/20 bg-rose-500/5 text-stone-300"
@@ -1446,7 +1457,7 @@ export default function AddWorkout() {
                         ↺
                       </button>
                     )}
-                  </div>
+                  </Motion.div>
                 ))}
               </div>
             )}

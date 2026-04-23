@@ -1,3 +1,4 @@
+import { motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 /* ─── Constants ─────────────────────────────────────── */
@@ -698,8 +699,15 @@ export default function CreateHabit({ entity = "habit" }) {
                   : `No archived ${lowerPlural} yet.`}
               </p>
             ) : (
-              displayedHabits.map((h) => (
-                <article key={h.id} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
+              displayedHabits.map((h, i) => (
+                <Motion.article
+                  key={h.id}
+                  className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05, duration: 0.22 }}
+                  whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
+                >
                   {false ? (
                     /* ── Inline edit ── */
                     <div className="space-y-2">
@@ -903,7 +911,7 @@ export default function CreateHabit({ entity = "habit" }) {
                       </div>
                     </>
                   )}
-                </article>
+                </Motion.article>
               ))
             )}
           </div>

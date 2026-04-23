@@ -20,6 +20,7 @@ import Habit from "./models/Habit.js";
 import HabitLog from "./models/HabitLog.js";
 import Todo from "./models/Todo.js";
 import Goal from "./models/Goal.js";
+import GoalProgressLog from "./models/GoalProgressLog.js";
 import Journal from "./models/Journal.js";
 import Workout from "./models/Workout.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -35,6 +36,7 @@ const registeredModels = {
   HabitLog: HabitLog.modelName,
   Todo: Todo.modelName,
   Goal: Goal.modelName,
+  GoalProgressLog: GoalProgressLog.modelName,
   Journal: Journal.modelName,
   Workout: Workout.modelName
 };

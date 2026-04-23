@@ -1,3 +1,4 @@
+import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useState } from "react";
 import ToDoNavbar from "./ToDoNavbar";
 import Today from "./Today";
@@ -104,15 +105,24 @@ export default function Todo() {
       <div className="flex items-center gap-20">
 
         {/* STREAK */}
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl shrink-0
-          bg-amber-950/50 border border-amber-500/25 shadow-lg">
-          <div className="text-xl">🔥</div>
+        <Motion.div
+          className="flex items-center gap-2 px-4 py-2 rounded-xl shrink-0 bg-amber-950/50 border border-amber-500/25 shadow-lg"
+          initial={{ opacity: 0, x: -16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          whileHover={{ boxShadow: "0 0 20px rgba(251,191,36,0.25)" }}
+        >
+          <Motion.div
+            className="text-xl"
+            animate={{ scale: [1, 1.25, 1] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+          >🔥</Motion.div>
           <div className="flex flex-col leading-tight">
             <span className="text-lg font-bold text-amber-400">
               {streak.current} day streak
             </span>
           </div>
-        </div>
+        </Motion.div>
 
         {/* NAVBAR — takes remaining space */}
         <div className="flex-1 min-w-0">
@@ -122,7 +132,17 @@ export default function Todo() {
       </div>
 
       {/* CONTENT */}
-      <div>{section[active]}</div>
+      <AnimatePresence mode="wait">
+        <Motion.div
+          key={active}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.22, ease: "easeInOut" }}
+        >
+          {section[active]}
+        </Motion.div>
+      </AnimatePresence>
 
     </div>
   );

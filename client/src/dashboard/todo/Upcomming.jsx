@@ -1,3 +1,4 @@
+import { motion as Motion } from "framer-motion";
 import { useMemo, useState } from "react";
 
 const PRIORITY_ORDER = ["High", "Medium", "Low"];
@@ -83,9 +84,15 @@ const NEXT5_TASKS = [
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function TaskCard({ task }) {
+function TaskCard({ task, index = 0 }) {
   return (
-    <article className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
+    <Motion.article
+      className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.04, duration: 0.2 }}
+      whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
+    >
       <p className="text-sm font-semibold leading-snug text-stone-100">{task.title}</p>
       <p className="mt-1 text-xs text-stone-400">{task.note}</p>
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs">
@@ -99,7 +106,7 @@ function TaskCard({ task }) {
           {formatTime(task.time)}
         </span>
       </div>
-    </article>
+    </Motion.article>
   );
 }
 

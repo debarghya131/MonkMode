@@ -1,3 +1,4 @@
+import { motion as Motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import transformatiomImage1 from "../../assets/transformatiom image 1.png";
 import transformatiomImage2 from "../../assets/transformatiom image 2.png";
@@ -59,7 +60,10 @@ const loadLogs = () => {
   } catch { return DEMO_LOGS; }
 };
 
-const saveLogs = (logs) => localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+const saveLogs = (logs) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+  window.dispatchEvent(new Event("monkmode:gym-gallery-updated"));
+};
 
 /* ── Lightbox ── */
 function Lightbox({ logs, startDate, startIndex, onClose }) {
@@ -296,8 +300,15 @@ export default function Gallery() {
             </div>
           ) : (
             <div className="space-y-4">
-              {logs.map((log) => (
-                <div key={log.date} className="rounded-2xl border border-amber-100/10 bg-black/20 p-3">
+              {logs.map((log, li) => (
+                <Motion.div
+                  key={log.date}
+                  className="rounded-2xl border border-amber-100/10 bg-black/20 p-3"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: li * 0.07, duration: 0.25 }}
+                  whileHover={{ y: -2, boxShadow: "0 10px 28px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
+                >
                   {/* Log header */}
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex items-center gap-2">
@@ -311,7 +322,14 @@ export default function Gallery() {
                   {/* Thumbnail grid */}
                   <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
                     {log.images.map((src, i) => (
-                      <div key={i} className="group relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-amber-100/10">
+                      <Motion.div
+                        key={i}
+                        className="group relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-amber-100/10"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: li * 0.07 + i * 0.04, duration: 0.2 }}
+                        whileHover={{ scale: 1.04, borderColor: "rgba(251,191,36,0.35)" }}
+                      >
                         <img
                           src={src}
                           alt={`${log.date} ${i + 1}`}
@@ -325,10 +343,10 @@ export default function Gallery() {
                         >
                           ✕
                         </button>
-                      </div>
+                      </Motion.div>
                     ))}
                   </div>
-                </div>
+                </Motion.div>
               ))}
             </div>
           )}

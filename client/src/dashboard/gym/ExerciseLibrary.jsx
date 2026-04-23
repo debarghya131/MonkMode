@@ -1,3 +1,4 @@
+import { motion as Motion } from "framer-motion";
 import { useMemo, useState } from "react";
 
 import { BODY_PART_GROUPS, EXERCISE_LIBRARY } from "./workoutLibraryData";
@@ -218,8 +219,14 @@ export default function ExerciseLibrary() {
             </div>
           ) : (
             <div className="space-y-4">
-              {visibleGroups.map(({ group, exercises }) => (
-                <section key={group} className="rounded-2xl border border-amber-100/10 bg-black/15 p-4">
+              {visibleGroups.map(({ group, exercises }, gi) => (
+                <Motion.section
+                  key={group}
+                  className="rounded-2xl border border-amber-100/10 bg-black/15 p-4"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: gi * 0.07, duration: 0.25 }}
+                >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="text-base font-semibold text-amber-100">{group}</h3>
                     <span className="rounded-full border border-amber-300/25 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-200">
@@ -227,12 +234,16 @@ export default function ExerciseLibrary() {
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {exercises.map((exercise) => (
-                      <div
+                    {exercises.map((exercise, exi) => (
+                      <Motion.div
                         key={exercise.id}
                         className={`group relative max-w-full rounded-xl border bg-white/5 px-3 py-2.5 ${
                           exercise.custom ? "border-amber-300/25" : "border-amber-100/10"
                         }`}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: gi * 0.07 + exi * 0.03, duration: 0.18 }}
+                        whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.3)", borderColor: "rgba(251,191,36,0.2)" }}
                       >
                         <p className="text-sm font-semibold text-stone-100">{exercise.name}</p>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -259,10 +270,10 @@ export default function ExerciseLibrary() {
                             </>
                           )}
                         </div>
-                      </div>
+                      </Motion.div>
                     ))}
                   </div>
-                </section>
+                </Motion.section>
               ))}
             </div>
           )}

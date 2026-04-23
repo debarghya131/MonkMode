@@ -1,3 +1,4 @@
+import { motion as Motion } from "framer-motion";
 import { useMemo, useState } from "react";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -205,13 +206,18 @@ export default function HabitTracking() {
                 </tr>
               </thead>
               <tbody>
-                {filteredHabits.map((habit) => {
+                {filteredHabits.map((habit, rowIdx) => {
                   const currentStreak = getCurrentStreak(habit.completedDays, visibleDays.length);
                   const daysLeft = Math.max((habit.targetStreak ?? 0) - currentStreak, 0);
                   const archiveLabel = getArchiveLabel(habit, today);
 
                   return (
-                    <tr key={habit.id}>
+                    <Motion.tr
+                      key={habit.id}
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: rowIdx * 0.04, duration: 0.25 }}
+                    >
                       <td className="sticky left-0 z-10 min-w-[380px] rounded-lg border border-amber-100/10 bg-black/45 px-3 py-2">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -263,7 +269,7 @@ export default function HabitTracking() {
                           </td>
                         );
                       })}
-                    </tr>
+                    </Motion.tr>
                   );
                 })}
               </tbody>
