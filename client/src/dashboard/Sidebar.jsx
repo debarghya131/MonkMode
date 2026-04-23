@@ -37,7 +37,7 @@ const menuItems = {
      {
       name: "Weekly Report",
       icon: "📅",
-      path: "/dashboard/weeklyreview",
+      path: "/dashboard/weeklyreport",
     },
     {
       name: "Analysis",

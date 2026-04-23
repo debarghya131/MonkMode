@@ -57,7 +57,7 @@ const DEMO_TASKS = [
   {
     id: "demo-task-4-archived",
     title: "Submit Weekly Reflection",
-    description: "Write and submit your weekly review notes.",
+    description: "Write and submit your weekly report notes.",
     category: "Work",
     priority: "Low",
     repeatType: "once",

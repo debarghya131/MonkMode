@@ -27,20 +27,25 @@ const MOODS = [
 
 const MANDATORY_STEPS = [
   { id: 1,  icon: "😊", label: "Mood"        },
-  { id: 2,  icon: "⚡", label: "Energy"      },
-  { id: 3,  icon: "📝", label: "Summary"     },
-  { id: 4,  icon: "✅", label: "Wins"        },
-  { id: 5,  icon: "❌", label: "Mistakes"    },
-  { id: 6,  icon: "💡", label: "Insight"     },
-  { id: 7,  icon: "🙏", label: "Gratitude"   },
-  { id: 8,  icon: "🏆", label: "Achievement" },
-  { id: 9,  icon: "💬", label: "Affirmation" },
-  { id: 10, icon: "📅", label: "Tomorrow"    },
-  { id: 11, icon: "⭐", label: "Rating"      },
+  { id: 2,  icon: "🌅", label: "Wake Up"     },
+  { id: 3,  icon: "⚡", label: "Energy"      },
+  { id: 4,  icon: "📝", label: "Summary"     },
+  { id: 5,  icon: "✅", label: "Wins"        },
+  { id: 6,  icon: "❌", label: "Mistakes"    },
+  { id: 7,  icon: "💡", label: "Insight"     },
+  { id: 8,  icon: "🚫", label: "Distraction" },
+  { id: 9,  icon: "🙏", label: "Gratitude"   },
+  { id: 10, icon: "🏆", label: "Achievement" },
+  { id: 11, icon: "💬", label: "Affirmation" },
+  { id: 12, icon: "📅", label: "Tomorrow"    },
+  { id: 13, icon: "😴", label: "Sleep"       },
+  { id: 14, icon: "⭐", label: "Rating"      },
 ];
+const MANDATORY_STEP_COUNT = MANDATORY_STEPS.length;
 
 const INITIAL_FORM = {
   mood:           null,
+  wakeUpTime:     "",
   energyLevel:    50,
   energyTouched:  false,
   summary:        "",
@@ -51,6 +56,8 @@ const INITIAL_FORM = {
   achievement:    ["", ""],
   affirmation:    "",
   tomorrowPlan:   "",
+  distractions:   [""],
+  sleepTime:      "",
   overallRating:  50,
   ratingTouched:  false,
 };
@@ -145,8 +152,8 @@ function JournalViewModal({ form, customFields, date, onClose }) {
         {/* Scrollable body */}
         <div className="journal-scroll max-h-[78vh] space-y-6 overflow-y-auto p-6">
 
-          {/* Mood + Energy row */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Mood + Wake-up + Energy row */}
+          <div className="grid grid-cols-3 gap-4">
             <Section icon="😊" title="Mood">
               {form.mood ? (
                 <div className="flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3">
@@ -154,6 +161,13 @@ function JournalViewModal({ form, customFields, date, onClose }) {
                   <span className="text-sm font-semibold text-amber-200">{form.mood}</span>
                 </div>
               ) : <p className="text-xs text-stone-500">Not answered</p>}
+            </Section>
+
+            <Section icon="🌅" title="Wake-up Time">
+              <div className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
+                <p className="text-2xl font-bold text-amber-200">{form.wakeUpTime || "--:--"}</p>
+                <p className="mt-1 text-xs text-stone-400">Morning start</p>
+              </div>
             </Section>
 
             <Section icon="⚡" title="Energy Level">
@@ -204,6 +218,18 @@ function JournalViewModal({ form, customFields, date, onClose }) {
             </p>
           </Section>
 
+          {/* Distraction */}
+          <Section icon="🚫" title="Biggest Distraction">
+            <ul className="space-y-2">
+              {form.distractions.filter((item) => item.trim()).map((item, i) => (
+                <li key={i} className="flex items-start gap-2 rounded-xl border border-red-400/15 bg-red-500/8 px-4 py-2.5 text-sm text-stone-200">
+                  <span className="mt-0.5 shrink-0 font-bold text-red-400">{i + 1}.</span>{item}
+                </li>
+              ))}
+              {form.distractions.every((item) => !item.trim()) && <p className="text-xs text-stone-600">Not answered</p>}
+            </ul>
+          </Section>
+
           {/* Gratitude + Achievement row */}
           <div className="grid grid-cols-2 gap-4">
             <Section icon="🙏" title="Gratitude">
@@ -237,6 +263,14 @@ function JournalViewModal({ form, customFields, date, onClose }) {
             <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">
               {form.tomorrowPlan || <span className="text-stone-600">Not answered</span>}
             </p>
+          </Section>
+
+          {/* Sleep Time */}
+          <Section icon="😴" title="Sleep Time">
+            <div className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
+              <p className="text-3xl font-bold text-amber-200">{form.sleepTime || "--:--"}</p>
+              <p className="mt-1 text-xs text-stone-400">Planned rest window</p>
+            </div>
           </Section>
 
           {/* Overall Rating */}
@@ -284,15 +318,15 @@ export default function Journal() {
   const todayStr = () => new Date().toISOString().slice(0, 10);
 
   /* ── derived ── */
-  const totalSteps  = 11 + customFields.length;
-  const isCustom    = step > 11;
-  const customIdx   = step - 12; // 0-based index into customFields
+  const totalSteps  = MANDATORY_STEP_COUNT + customFields.length;
+  const isCustom    = step > MANDATORY_STEP_COUNT;
+  const customIdx   = step - (MANDATORY_STEP_COUNT + 1); // 0-based index into customFields
 
   /* ── all steps for the progress bar ── */
   const allSteps = [
     ...MANDATORY_STEPS,
     ...customFields.map((cf, i) => ({
-      id:    12 + i,
+      id:    MANDATORY_STEP_COUNT + 1 + i,
       icon:  "✏️",
       label: cf.title.trim() || `Custom ${i + 1}`,
     })),
@@ -324,13 +358,13 @@ export default function Journal() {
   /* ── add / delete custom field ── */
   const addCustomField = () => {
     setCustomFields((prev) => [...prev, { title: "", description: "", answer: "" }]);
-    setStep(12 + customFields.length); // jump to the new step
+    setStep(MANDATORY_STEP_COUNT + 1 + customFields.length); // jump to the new step
   };
 
   const deleteCustomField = (idx) => {
     setCustomFields((prev) => prev.filter((_, i) => i !== idx));
     // if we were on or after the deleted step, move back one
-    if (step >= 12 + idx) setStep((s) => Math.max(1, s - 1));
+    if (step >= MANDATORY_STEP_COUNT + 1 + idx) setStep((s) => Math.max(1, s - 1));
   };
 
   /* ── step validation ── */
@@ -341,16 +375,19 @@ export default function Journal() {
     }
     switch (step) {
       case 1:  return !!form.mood;
-      case 2:  return form.energyTouched;
-      case 3:  return form.summary.trim().length > 0;
-      case 4:  return form.wins.some((w) => w.trim());
-      case 5:  return form.mistakes.some((m) => m.trim());
-      case 6:  return form.insight.trim().length > 0;
-      case 7:  return form.gratitude.some((g) => g.trim());
-      case 8:  return form.achievement.some((a) => a.trim());
-      case 9:  return form.affirmation.trim().length > 0;
-      case 10: return form.tomorrowPlan.trim().length > 0;
-      case 11: return form.ratingTouched;
+      case 2:  return form.wakeUpTime.trim().length > 0;
+      case 3:  return form.energyTouched;
+      case 4:  return form.summary.trim().length > 0;
+      case 5:  return form.wins.some((w) => w.trim());
+      case 6:  return form.mistakes.some((m) => m.trim());
+      case 7:  return form.insight.trim().length > 0;
+      case 8:  return form.distractions.some((item) => item.trim());
+      case 9:  return form.gratitude.some((g) => g.trim());
+      case 10: return form.achievement.some((a) => a.trim());
+      case 11: return form.affirmation.trim().length > 0;
+      case 12: return form.tomorrowPlan.trim().length > 0;
+      case 13: return form.sleepTime.trim().length > 0;
+      case 14: return form.ratingTouched;
       default: return false;
     }
   };
@@ -359,22 +396,25 @@ export default function Journal() {
 
   /* ── per-step completion (answer-based, not position-based) ── */
   const isStepComplete = (id) => {
-    if (id > 11) {
-      const cf = customFields[id - 12];
+    if (id > MANDATORY_STEP_COUNT) {
+      const cf = customFields[id - (MANDATORY_STEP_COUNT + 1)];
       return cf && cf.title.trim().length > 0 && cf.answer.trim().length > 0;
     }
     switch (id) {
       case 1:  return !!form.mood;
-      case 2:  return form.energyTouched;
-      case 3:  return form.summary.trim().length > 0;
-      case 4:  return form.wins.some((w) => w.trim());
-      case 5:  return form.mistakes.some((m) => m.trim());
-      case 6:  return form.insight.trim().length > 0;
-      case 7:  return form.gratitude.some((g) => g.trim());
-      case 8:  return form.achievement.some((a) => a.trim());
-      case 9:  return form.affirmation.trim().length > 0;
-      case 10: return form.tomorrowPlan.trim().length > 0;
-      case 11: return form.ratingTouched;
+      case 2:  return form.wakeUpTime.trim().length > 0;
+      case 3:  return form.energyTouched;
+      case 4:  return form.summary.trim().length > 0;
+      case 5:  return form.wins.some((w) => w.trim());
+      case 6:  return form.mistakes.some((m) => m.trim());
+      case 7:  return form.insight.trim().length > 0;
+      case 8:  return form.distractions.some((item) => item.trim());
+      case 9:  return form.gratitude.some((g) => g.trim());
+      case 10: return form.achievement.some((a) => a.trim());
+      case 11: return form.affirmation.trim().length > 0;
+      case 12: return form.tomorrowPlan.trim().length > 0;
+      case 13: return form.sleepTime.trim().length > 0;
+      case 14: return form.ratingTouched;
       default: return false;
     }
   };
@@ -535,7 +575,7 @@ export default function Journal() {
                     ? "bg-amber-400/50 shadow-[0_0_6px_rgba(251,191,36,0.3)]"
                     : isStepComplete(s.id)
                     ? "bg-gradient-to-r from-amber-400 to-orange-400"
-                    : s.id > 11
+                    : s.id > MANDATORY_STEP_COUNT
                     ? "bg-indigo-900/60 hover:bg-indigo-800/60"
                     : "bg-stone-800 hover:bg-stone-700"
                 }`}
@@ -562,7 +602,7 @@ export default function Journal() {
         {/* ── Step content ── */}
         <section className="journal-step-card rounded-2xl border border-amber-100/10 bg-white/6 p-6 shadow-2xl shadow-black/25 backdrop-blur">
 
-          {/* ── Mandatory steps 1–11 ── */}
+          {/* ── Mandatory steps 1–14 ── */}
           <AnimatePresence mode="wait">
           <Motion.div
             key={step}
@@ -603,10 +643,25 @@ export default function Journal() {
             </div>
           )}
 
-          {/* Step 2 — Energy Level */}
+          {/* Step 2 — Wake-up Time */}
           {step === 2 && (
             <div className="flex-1 flex flex-col justify-center gap-2">
-              <p className="text-label-lg">Step 2 · Energy Level</p>
+              <p className="text-label-lg">Step 2 · Wake-up Time</p>
+              <h2 className="text-heading-xl mt-1 mb-2">When did you wake up?</h2>
+              <p className="text-stone-400 text-sm mb-8">Capture when the day started.</p>
+              <input
+                type="time"
+                value={form.wakeUpTime}
+                onChange={(e) => set("wakeUpTime", e.target.value)}
+                className="w-full rounded-2xl border border-amber-400/25 bg-stone-950/45 px-6 py-5 text-center text-4xl font-bold text-amber-100 outline-none transition focus:border-amber-400/50 focus:shadow-[0_0_20px_rgba(251,191,36,0.12)]"
+              />
+            </div>
+          )}
+
+          {/* Step 3 — Energy Level */}
+          {step === 3 && (
+            <div className="flex-1 flex flex-col justify-center gap-2">
+              <p className="text-label-lg">Step 3 · Energy Level</p>
               <h2 className="text-heading-xl mt-1">How charged are you?</h2>
               <p className="text-stone-400 text-sm mb-8">
                 Rate your physical &amp; mental energy from 1 to 100.
@@ -633,10 +688,10 @@ export default function Journal() {
             </div>
           )}
 
-          {/* Step 3 — Summary */}
-          {step === 3 && (
+          {/* Step 4 — Summary */}
+          {step === 4 && (
             <div className="flex-1 flex flex-col">
-              <p className="text-label-lg">Step 3 · Summary</p>
+              <p className="text-label-lg">Step 4 · Summary</p>
               <h2 className="text-heading-xl mt-1 mb-2">What happened today?</h2>
               <p className="text-stone-400 text-sm mb-5">Short summary — just facts, no overthinking.</p>
               <textarea
@@ -650,10 +705,10 @@ export default function Journal() {
             </div>
           )}
 
-          {/* Step 4 — Wins */}
-          {step === 4 && (
+          {/* Step 5 — Wins */}
+          {step === 5 && (
             <div className="flex-1 flex flex-col">
-              <p className="text-label-lg">Step 4 · Wins</p>
+              <p className="text-label-lg">Step 5 · Wins</p>
               <h2 className="text-heading-xl mt-1 mb-2">What went RIGHT?</h2>
               <p className="text-stone-400 text-sm mb-6">2–3 things you did well today. Own your progress.</p>
               <div className="space-y-3">
@@ -684,10 +739,10 @@ export default function Journal() {
             </div>
           )}
 
-          {/* Step 5 — Mistakes */}
-          {step === 5 && (
+          {/* Step 6 — Mistakes */}
+          {step === 6 && (
             <div className="flex-1 flex flex-col">
-              <p className="text-label-lg">Step 5 · Mistakes</p>
+              <p className="text-label-lg">Step 6 · Mistakes</p>
               <h2 className="text-heading-xl mt-1 mb-2">What went WRONG?</h2>
               <p className="text-stone-400 text-sm mb-6">2–3 things you messed up. Honesty is how you grow.</p>
               <div className="space-y-3">
@@ -718,10 +773,10 @@ export default function Journal() {
             </div>
           )}
 
-          {/* Step 6 — Insight */}
-          {step === 6 && (
+          {/* Step 7 — Insight */}
+          {step === 7 && (
             <div className="flex-1 flex flex-col">
-              <p className="text-label-lg">Step 6 · Insight</p>
+              <p className="text-label-lg">Step 7 · Insight</p>
               <h2 className="text-heading-xl mt-1 mb-2">Lesson of the Day</h2>
               <p className="text-stone-400 text-sm mb-5">What did today teach you?</p>
               <textarea
@@ -734,10 +789,44 @@ export default function Journal() {
             </div>
           )}
 
-          {/* Step 7 — Gratitude */}
-          {step === 7 && (
+          {/* Step 8 — Distraction */}
+          {step === 8 && (
             <div className="flex-1 flex flex-col">
-              <p className="text-label-lg">Step 7 · Gratitude</p>
+              <p className="text-label-lg">Step 8 · Distraction</p>
+              <h2 className="text-heading-xl mt-1 mb-2">Biggest distraction of the day</h2>
+              <p className="text-stone-400 text-sm mb-5">Name the one thing that pulled your attention the most.</p>
+              <div className="space-y-3">
+                {form.distractions.map((item, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      value={item}
+                      onChange={(e) => setArr("distractions", i, e.target.value)}
+                      placeholder="My biggest distraction today was…"
+                      className={`${inputBase} flex-1`}
+                    />
+                    {form.distractions.length > 1 && (
+                      <button type="button" onClick={() => removeFromArr("distractions", i)}
+                        className="shrink-0 flex h-10 w-10 items-center justify-center rounded-full border border-amber-100/10 bg-white/5 text-stone-500 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400">
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button type="button" onClick={() => addToArr("distractions")}
+                className="mt-4 self-start rounded-full border border-amber-400/20 bg-amber-500/8 px-4 py-1.5 text-xs font-semibold text-amber-400/80 transition hover:border-amber-400/40 hover:bg-amber-500/15 hover:text-amber-300">
+                Add Distraction
+              </button>
+            </div>
+          )}
+
+          {/* Step 9 — Gratitude */}
+          {step === 9 && (
+            <div className="flex-1 flex flex-col">
+              <p className="text-label-lg">Step 9 · Gratitude</p>
               <h2 className="text-heading-xl mt-1 mb-2">What are you thankful for?</h2>
               <p className="text-stone-400 text-sm mb-6">1–2 things that made today worth living.</p>
               <div className="space-y-3">
@@ -768,10 +857,10 @@ export default function Journal() {
             </div>
           )}
 
-          {/* Step 8 — Achievement */}
-          {step === 8 && (
+          {/* Step 10 — Achievement */}
+          {step === 10 && (
             <div className="flex-1 flex flex-col">
-              <p className="text-label-lg">Step 8 · Achievement</p>
+              <p className="text-label-lg">Step 10 · Achievement</p>
               <h2 className="text-heading-xl mt-1 mb-2">Real Accomplishments</h2>
               <p className="text-stone-400 text-sm mb-6">1–2 things you actually finished or moved forward today.</p>
               <div className="space-y-3">
@@ -802,10 +891,10 @@ export default function Journal() {
             </div>
           )}
 
-          {/* Step 9 — Affirmation */}
-          {step === 9 && (
+          {/* Step 11 — Affirmation */}
+          {step === 11 && (
             <div className="flex-1 flex flex-col justify-center gap-2">
-              <p className="text-label-lg">Step 9 · Affirmation</p>
+              <p className="text-label-lg">Step 11 · Affirmation</p>
               <h2 className="text-heading-xl mt-1 mb-2">One Strong Line</h2>
               <p className="text-stone-400 text-sm mb-8">
                 Write one powerful statement about yourself. Make it count.
@@ -820,10 +909,10 @@ export default function Journal() {
             </div>
           )}
 
-          {/* Step 10 — Tomorrow Plan */}
-          {step === 10 && (
+          {/* Step 12 — Tomorrow Plan */}
+          {step === 12 && (
             <div className="flex-1 flex flex-col">
-              <p className="text-label-lg">Step 10 · Tomorrow Plan</p>
+              <p className="text-label-lg">Step 12 · Tomorrow Plan</p>
               <h2 className="text-heading-xl mt-1 mb-2">Plan for Tomorrow</h2>
               <p className="text-stone-400 text-sm mb-5">What are your top priorities for tomorrow?</p>
               <textarea
@@ -836,10 +925,25 @@ export default function Journal() {
             </div>
           )}
 
-          {/* Step 11 — Overall Day Rating */}
-          {step === 11 && (
+          {/* Step 13 — Sleep Time */}
+          {step === 13 && (
             <div className="flex-1 flex flex-col justify-center gap-2">
-              <p className="text-label-lg">Step 11 · Overall Rating</p>
+              <p className="text-label-lg">Step 13 · Sleep Time</p>
+              <h2 className="text-heading-xl mt-1 mb-2">When did you sleep?</h2>
+              <p className="text-stone-400 text-sm mb-8">Log your sleep time or planned bedtime.</p>
+              <input
+                type="time"
+                value={form.sleepTime}
+                onChange={(e) => set("sleepTime", e.target.value)}
+                className="w-full rounded-2xl border border-amber-400/25 bg-stone-950/45 px-6 py-5 text-center text-4xl font-bold text-amber-100 outline-none transition focus:border-amber-400/50 focus:shadow-[0_0_20px_rgba(251,191,36,0.12)]"
+              />
+            </div>
+          )}
+
+          {/* Step 14 — Overall Day Rating */}
+          {step === 14 && (
+            <div className="flex-1 flex flex-col justify-center gap-2">
+              <p className="text-label-lg">Step 14 · Overall Rating</p>
               <h2 className="text-heading-xl mt-1">How was your day?</h2>
               <p className="text-stone-400 text-sm mb-8">Give your overall day a score from 1 to 100.</p>
               <div className="flex items-center gap-4">

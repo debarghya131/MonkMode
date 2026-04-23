@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import LandingPage from "./pages/landingpage/LandingPage";
 import Login from "./pages/authentication/Login";
 import SignUp from "./pages/authentication/SignUp";
@@ -10,7 +10,7 @@ import Habits from "./dashboard/habits/Habits";
 import Goal from "./dashboard/goal/Goal";
 import Gym from "./dashboard/gym/Gym";
 import Analytics from "./dashboard/analytics/Analytics";
-import WeeklyReview from "./dashboard/weeklyreview/WeeklyReview";
+import WeeklyReport from "./dashboard/weeklyreport/WeeklyReport";
 import AICoach from "./dashboard/ai_coach/AICoach";
 
 export default function App() {
@@ -29,7 +29,8 @@ export default function App() {
         <Route path="/dashboard/goal" element={<DashboardLayout><Goal /></DashboardLayout>} />
         <Route path="/dashboard/gym" element={<DashboardLayout><Gym /></DashboardLayout>} />
         <Route path="/dashboard/analytics" element={<DashboardLayout><Analytics /></DashboardLayout>} />
-        <Route path="/dashboard/weeklyreview" element={<DashboardLayout><WeeklyReview /></DashboardLayout>} />
+        <Route path="/dashboard/weeklyreport" element={<DashboardLayout><WeeklyReport /></DashboardLayout>} />
+        <Route path="/dashboard/weeklyreview" element={<Navigate to="/dashboard/weeklyreport" replace />} />
         <Route path="/dashboard/ai_coach" element={<DashboardLayout><AICoach /></DashboardLayout>} />
       </Routes>
     </BrowserRouter>

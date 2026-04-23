@@ -208,7 +208,25 @@ export default function Navbar({ user }) {
           <img src={monkLogo} alt="MonkMode" className="h-20 w-auto translate-x-12 scale-[2.2] object-contain shrink-0" />
           <div className="pl-28">
             <div className="ml-14 flex items-center gap-0">
-              <img src={monkGreetingsLogo} alt="" className="h-16 w-16 object-contain shrink-0" aria-hidden="true" />
+              <Motion.div
+                className="relative grid h-16 w-16 shrink-0 place-items-center"
+                animate={{ y: [-10, -14, -10] }}
+                transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+                aria-hidden="true"
+              >
+                <Motion.span
+                  className="absolute inset-2 rounded-full bg-amber-400/15 blur-md"
+                  animate={{ opacity: [0.35, 0.8, 0.35], scale: [0.9, 1.12, 0.9] }}
+                  transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+                />
+                <Motion.img
+                  src={monkGreetingsLogo}
+                  alt=""
+                  className="relative z-10 h-24 w-24 -translate-y-2 object-contain drop-shadow-[0_10px_18px_rgba(245,158,11,0.16)]"
+                  whileHover={{ scale: 1.08, rotate: -3 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 14 }}
+                />
+              </Motion.div>
               <p className="text-heading-sm text-amber-200 font-semibold">{getGreeting()}</p>
             </div>
           </div>
