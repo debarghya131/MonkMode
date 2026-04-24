@@ -14,7 +14,7 @@ const GOAL_TYPES = [
 
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-const DIFFICULTY_LEVELS = ["Beginner", "Intermediate", "Advanced"];
+const DIFFICULTY_LEVELS = ["Beginner 🟢", "Intermediate 🟡", "Advanced 🔴"];
 const DIFFICULTY_STYLES = {
   Beginner:     "border-green-400/40 text-green-200 bg-green-500/10",
   Intermediate: "border-yellow-400/40 text-yellow-200 bg-yellow-500/10",

@@ -311,8 +311,8 @@ export default function GoalWeeklyReport() {
               transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
             />
             <div>
-              <h3 className="text-label-md">Weekly Summary</h3>
-              <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-amber-300/70">Goal Review</p>
+              <h3 className="text-label-md">Little Monk's Analysis</h3>
+              <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-amber-300/70">AI Assistant</p>
             </div>
           </div>
           <div className="journal-scroll min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
