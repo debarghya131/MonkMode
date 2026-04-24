@@ -185,13 +185,17 @@ export default function Today() {
 
   const markComplete = (id) => {
     setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: "completed" } : t))
+      prev.map((t) => (t.id === id ? { ...t, previousStatus: t.status, status: "completed" } : t))
     );
   };
 
-  const markPending = (id) => {
+  const undoComplete = (id) => {
     setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: "pending" } : t))
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        const { previousStatus, ...rest } = t;
+        return { ...rest, status: previousStatus ?? "pending" };
+      })
     );
   };
 
@@ -333,7 +337,7 @@ export default function Today() {
                     <p className="mt-3 text-xs text-stone-500">No completed tasks for this priority.</p>
                   ) : (
                     filtered.map((task) => (
-                      <TaskRow key={task.id} task={task} onUndo={() => markPending(task.id)} />
+                      <TaskRow key={task.id} task={task} onUndo={() => undoComplete(task.id)} />
                     ))
                   );
                 })()}
@@ -402,18 +406,33 @@ export default function Today() {
             </div>
 
             <div className="journal-scroll today-scroll-body mt-4 space-y-2 pr-1">
-              {missedTasks.map((task) => (
-                <div key={task.id} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
-                  <p className="text-sm font-semibold text-stone-100">{task.title}</p>
-                  <p className="mt-1 text-xs text-stone-400">{task.category}</p>
-                  <div className="mt-2 flex items-center justify-between text-xs text-stone-300">
-                    <span>{formatTime(task.time)}</span>
-                    <span className={`rounded-full border px-2 py-1 ${STATUS_STYLES[task.status]}`}>
-                      {STATUS_LABELS[task.status]}
-                    </span>
+              {missedTasks.length === 0 ? (
+                <p className="text-xs text-stone-500">No missed tasks left for today.</p>
+              ) : (
+                missedTasks.map((task) => (
+                  <div key={task.id} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
+                    <p className="text-sm font-semibold text-stone-100">{task.title}</p>
+                    <p className="mt-1 text-xs text-stone-400">{task.category}</p>
+                    <div className="mt-2 flex items-center justify-between gap-2 text-xs text-stone-300">
+                      <span>{formatTime(task.time)}</span>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <Motion.button
+                          type="button"
+                          onClick={() => markComplete(task.id)}
+                          whileHover={{ scale: 1.04, boxShadow: "0 0 12px rgba(52,211,153,0.25)" }}
+                          whileTap={{ scale: 0.95 }}
+                          className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/20"
+                        >
+                          Mark as Complete
+                        </Motion.button>
+                        <span className={`rounded-full border px-2 py-1 ${STATUS_STYLES[task.status]}`}>
+                          {STATUS_LABELS[task.status]}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </section>
         </aside>

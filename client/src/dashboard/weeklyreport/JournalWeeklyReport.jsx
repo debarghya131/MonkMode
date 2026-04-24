@@ -25,6 +25,8 @@ const WEEKLY_AI_SUMMARIES = [
     signal: "5 logged days",
     detail: "Strong week when the morning started early. Best pattern: phone away, inbox closed, and one clear deep-work block before distractions.",
     topMood: { emoji: "😤", label: "Focused", days: 3 },
+    weeklyScore: 73,
+    longestStreak: 3,
     aiSummary: "Your strongest days this week shared one clear pattern: an early wake-up before 6 AM, a protected first work block, and no phone in the first hour. Wednesday stood out as the model day — high energy, high rating, and the most wins logged. The two missed days broke the streak, but the recovery is simple: a short 2-minute note is enough to keep the pattern visible. Your average sleep window is slightly late — pushing sleep to 22:30 would add roughly 25 minutes of recovery and likely raise your lowest-scoring days. Focus for next week: protect the first hour, close the day with one written reflection, and keep the sleep window tight.",
     stats: {
       energy:       { avg: 72, highest: { day: "Wed, Apr 15", value: 95 }, lowest: { day: "Sun, Apr 12", value: 38 } },
@@ -43,6 +45,8 @@ const WEEKLY_AI_SUMMARIES = [
     signal: "4 logged days",
     detail: "Consistency improved, but missed reflections made the pattern harder to read. Keep the evening journal short when energy is low.",
     topMood: { emoji: "😌", label: "Calm", days: 2 },
+    weeklyScore: 63,
+    longestStreak: 2,
     aiSummary: "This week had 4 logged days which is an improvement, but 3 missing entries made it harder to spot the full pattern. The data that exists shows Thursday as your best day — energy spiked to 88 and the rating followed. Monday was the weakest, likely due to a late Sunday night and no wind-down routine. The biggest lever here is the evening journal: even a 2-sentence entry on the difficult days would have made the pattern readable. For next week, commit to one sentence at bedtime on low-energy days — quantity matters less than consistency.",
     stats: {
       energy:       { avg: 65, highest: { day: "Thu, Apr 10", value: 88 }, lowest: { day: "Mon, Apr 7",  value: 42 } },
@@ -61,6 +65,8 @@ const WEEKLY_AI_SUMMARIES = [
     signal: "6 logged days",
     detail: "Most stable journal week. Your best entries included a win, mistake, lesson, and next-day plan.",
     topMood: { emoji: "🔥", label: "Motivated", days: 4 },
+    weeklyScore: 83,
+    longestStreak: 5,
     aiSummary: "This was your most consistent week — 6 logged days, high average energy, and the most achievements recorded in any single week. Wednesday April 2nd was an outlier in the best way: near-perfect energy, 4 wins, and 4 achievements. The structure you used — early start, single focus task, and a written close — is the template worth repeating. The one improvement area is Monday: it was your lowest-rated day despite being the start of the week. A Sunday evening planning session would help set Monday up with clarity before the week begins.",
     stats: {
       energy:       { avg: 80, highest: { day: "Wed, Apr 2",  value: 97 }, lowest: { day: "Mon, Mar 30", value: 55 } },
@@ -79,6 +85,8 @@ const WEEKLY_AI_SUMMARIES = [
     signal: "3 logged days",
     detail: "Not enough entries for a full read, but the available notes show sleep and distractions were the biggest levers.",
     topMood: { emoji: "😰", label: "Anxious", days: 2 },
+    weeklyScore: 53,
+    longestStreak: 2,
     aiSummary: "Only 3 entries this week, which limits the analysis. From what was logged, the pattern is clear: late sleep times pushed wake-up later, and later mornings correlated with lower energy and lower ratings. Wednesday was the one bright spot — moderate energy and the highest rating of the week. The missing days are the real cost here: without the full picture, it is impossible to know what drove the low-scoring days. The single highest-impact change for this week type is a hard sleep deadline — setting a 23:00 cutoff would likely raise the floor on your lowest days significantly.",
     stats: {
       energy:       { avg: 58, highest: { day: "Wed, Mar 25", value: 75 }, lowest: { day: "Mon, Mar 23", value: 40 } },
@@ -100,6 +108,12 @@ const THIS_WEEK_MISSED_DAYS = MISSED_JOURNAL_DAYS.filter((day) => {
   const d = new Date(`${day.date}T00:00:00`);
   return d >= THIS_WEEK_START && d <= THIS_WEEK_END;
 });
+
+function scoreColor(score) {
+  if (score >= 75) return { text: "text-emerald-300", border: "border-emerald-400/20", bg: "bg-emerald-500/10" };
+  if (score >= 55) return { text: "text-amber-300",   border: "border-amber-400/20",   bg: "bg-amber-500/10"   };
+  return                   { text: "text-rose-300",   border: "border-rose-400/20",     bg: "bg-rose-500/10"    };
+}
 
 function ReportCard({ children, className = "" }) {
   return (
@@ -211,12 +225,31 @@ export default function JournalWeeklyReport() {
                     </button>
                   </div>
                 </div>
-                <div className="mt-3 flex items-center gap-3">
+                <div className="mt-3 flex flex-wrap items-center gap-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Top Repeated Mood</p>
                   <div className="flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1">
                     <span className="text-base leading-none">{selectedWeek.topMood.emoji}</span>
                     <span className="text-xs font-bold text-amber-200">{selectedWeek.topMood.label}</span>
                     <span className="text-[10px] text-stone-500">· {selectedWeek.topMood.days} days</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Weekly Score</p>
+                    <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1 ${scoreColor(selectedWeek.weeklyScore).border} ${scoreColor(selectedWeek.weeklyScore).bg}`}>
+                      <span className={`text-xs font-bold ${scoreColor(selectedWeek.weeklyScore).text}`}>
+                        {selectedWeek.weeklyScore}
+                        <span className="text-[10px] font-semibold text-stone-500"> / 100</span>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Longest Streak</p>
+                    <div className="flex items-center gap-1.5 rounded-full border border-orange-400/20 bg-orange-500/10 px-3 py-1">
+                      <span className="text-base leading-none">🔥</span>
+                      <span className="text-xs font-bold text-orange-300">
+                        {selectedWeek.longestStreak}
+                        <span className="text-[10px] font-semibold text-stone-500"> days</span>
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

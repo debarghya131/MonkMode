@@ -94,7 +94,7 @@ export default function Sidebar({ onLogout }) {
         <div className="flex-1 overflow-y-auto space-y-8">
           <SidebarSection title="Main" items={menuItems.main} activePath={location.pathname} />
           <div className="border-t border-amber-100/10" />
-          <SidebarSection title="Insights" items={menuItems.insights} activePath={location.pathname} />
+          <SidebarSection title="AI Insights" items={menuItems.insights} activePath={location.pathname} />
         </div>
 
         {/* Logout Button at Bottom */}

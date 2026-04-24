@@ -9,7 +9,7 @@ import Todo from "./dashboard/todo/Todo";
 import Habits from "./dashboard/habits/Habits";
 import Goal from "./dashboard/goal/Goal";
 import Gym from "./dashboard/gym/Gym";
-import Analytics from "./dashboard/analytics/Analytics";
+import Analytics from "./dashboard/analysis/Analytics";
 import WeeklyReport from "./dashboard/weeklyreport/WeeklyReport";
 import AICoach from "./dashboard/ai_coach/AICoach";
 
