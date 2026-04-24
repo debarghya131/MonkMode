@@ -407,6 +407,7 @@ export default function Overview() {
                   actions={[
                     { label: "View Measure Progress", href: "/dashboard/gym?tab=progress&progress=measurements" },
                     { label: "View Workout Progress", href: "/dashboard/gym?tab=progress&progress=workouts" },
+                    { label: "Upload Pic", href: "/dashboard/gym", state: { tab: "gallery" } },
                   ]}
                 >
                   <StatRow label="Today's Progress updates" value={`${DEMO_OVERVIEW_STATS.gym.completedProgress} / ${DEMO_OVERVIEW_STATS.gym.totalProgress}`} accent="positive" />

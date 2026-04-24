@@ -146,14 +146,14 @@ export default function LandingPage() {
       </div>
       <div className="pointer-events-none fixed bottom-4 right-4 z-20 max-w-[calc(100vw-2rem)] rounded-2xl border border-amber-200/10 bg-stone-950/35 px-4 py-3 text-right shadow-[0_14px_34px_rgba(0,0,0,0.28)] backdrop-blur md:bottom-6 md:right-6 md:max-w-none md:px-5">
         <p className="font-serif text-[0.72rem] font-bold uppercase tracking-[0.28em] text-amber-100/70 md:text-[0.78rem]">
-          Made by 🧡
+          Crafted with focus 
         </p>
         <p
           className="mt-1 bg-gradient-to-r from-orange-300 via-amber-100 to-orange-200 bg-clip-text font-serif text-sm font-semibold italic tracking-[0.02em] text-transparent drop-shadow-[0_6px_14px_rgba(245,158,11,0.16)] sm:text-base md:text-[1.1rem]"
           style={{ fontFamily: "Georgia, Times New Roman, serif" }}
         >
           <span className="bg-none text-orange-300 not-italic text-base md:text-lg"></span>{" "}
-          Debarghya Bandyopadhyay
+         by Debarghya Bandyopadhyay 🧡
         </p>
       </div>
       <button
