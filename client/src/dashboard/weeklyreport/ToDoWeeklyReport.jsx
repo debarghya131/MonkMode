@@ -6,7 +6,7 @@ const WEEKLY_TODO_DATA = [
   {
     id: "2026-04-13",
     date: "Apr 13 - Apr 19",
-    signal: "6 days with tasks",
+    signal: "6 Active days",
     totalTasks: 42,
     completed: 28,
     pending: 6,
@@ -71,7 +71,7 @@ const WEEKLY_TODO_DATA = [
   {
     id: "2026-04-06",
     date: "Apr 6 - Apr 12",
-    signal: "5 days with tasks",
+    signal: "5 Active days",
     totalTasks: 38,
     completed: 22,
     pending: 9,
@@ -135,7 +135,7 @@ const WEEKLY_TODO_DATA = [
   {
     id: "2026-03-30",
     date: "Mar 30 - Apr 5",
-    signal: "7 days with tasks",
+    signal: "7 Active days",
     totalTasks: 45,
     completed: 36,
     pending: 4,
@@ -197,7 +197,7 @@ const WEEKLY_TODO_DATA = [
   {
     id: "2026-03-23",
     date: "Mar 23 - Mar 29",
-    signal: "4 days with tasks",
+    signal: "4 Active days",
     totalTasks: 35,
     completed: 17,
     pending: 8,
@@ -355,6 +355,28 @@ export default function ToDoWeeklyReport() {
                       <span className="text-[10px] font-semibold text-stone-500"> days</span>
                     </span>
                   </div>
+                  {/* Consistency Score */}
+                  {(() => {
+                    const activeDays = parseInt(selectedWeek.signal);
+                    const consistencyPct = Math.round((activeDays / 7) * 100);
+                    return (
+                      <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1 ${
+                        consistencyPct >= 75 ? "border-violet-400/20 bg-violet-500/10" :
+                        consistencyPct >= 55 ? "border-amber-400/20 bg-amber-500/10" :
+                        "border-rose-400/20 bg-rose-500/10"
+                      }`}>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Consistency</p>
+                        <span className={`text-xs font-bold ${
+                          consistencyPct >= 75 ? "text-violet-300" :
+                          consistencyPct >= 55 ? "text-amber-300" :
+                          "text-rose-300"
+                        }`}>
+                          {consistencyPct}%
+                          <span className="text-[10px] font-semibold text-stone-500"> ({activeDays}/7d)</span>
+                        </span>
+                      </div>
+                    );
+                  })()}
                   {/* Weekly Score */}
                   <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1 ${
                     selectedWeek.weeklyScore >= 75 ? "border-emerald-400/20 bg-emerald-500/10" :

@@ -1,7 +1,6 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import monkLogo from "../assets/monkmode-logo.png";
-import monkGreetingsLogo from "../assets/monkgreetingslogo.png";
 import { INITIAL_HABITS } from "./habits/TodaysHabit";
 import { INITIAL_TASKS } from "./todo/Today";
 import NavbarBirdBackground from "./NavbarBirdBackground";
@@ -13,14 +12,6 @@ const formatDate = (date) => {
     day: "numeric",
   });
 };
-
-const getGreeting = () => {
-  const h = new Date().getHours();
-  if (h < 12) return "Good Morning . . . . 🌞";
-  if (h < 18) return "Good Afternoon . . . . 🌄";
-  return "Good Evening . . . . 🌙";
-};
-
 
 const getStreak = (key) => {
   try {
@@ -73,6 +64,19 @@ const getHabitsCompletedToday = () =>
   INITIAL_HABITS.length > 0 &&
   INITIAL_HABITS.every((habit) => habit.status === "completed");
 
+const calculateConsistencyScore = () => {
+  const today = toLocalISODate(new Date());
+  const journalScore = getJournalSubmittedToday(today) ? 100 : 0;
+  const todoScore = INITIAL_TASKS.length
+    ? (INITIAL_TASKS.filter((task) => task.status === "completed").length / INITIAL_TASKS.length) * 100
+    : 0;
+  const habitScore = INITIAL_HABITS.length
+    ? (INITIAL_HABITS.filter((habit) => habit.status === "completed").length / INITIAL_HABITS.length) * 100
+    : 0;
+
+  return Math.round((journalScore + todoScore + habitScore) / 3);
+};
+
 const calculateMonkStreak = () => {
   const today = toLocalISODate(new Date());
   const yesterday = getYesterdayISODate();
@@ -96,7 +100,21 @@ const calculateMonkStreak = () => {
   return nextCount;
 };
 
-function StreakStat({ label, days, icon, labelClass, valueClass, glowColor, tooltip }) {
+const getMonkLevel = (streak) => {
+  if (streak >= 999) return "Monk🧘";
+  if (streak >= 365) return "Legend 🔥";
+  if (streak >= 240) return "Warrior ⚔️";
+  if (streak >= 120) return "Discipline God 😤";
+  if (streak >= 60) return "Disciplined 🧠";
+  if (streak >= 21) return "Consistent🎯";
+  if (streak >= 7) return "Starter";
+  if (streak >= 1) return "Beginner🐣";
+  return "Beginner🐣";
+};
+
+function StreakStat({ label, value, days, suffix = "days", icon, labelClass, valueClass, glowColor, tooltip }) {
+  const displayValue = value ?? days;
+
   return (
     <Motion.div
       className="group relative flex flex-col gap-0.5 rounded-xl border-l border-amber-100/15 px-4 py-2"
@@ -129,7 +147,7 @@ function StreakStat({ label, days, icon, labelClass, valueClass, glowColor, tool
         }}
         transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
       >
-        {days} days{" "}
+        {displayValue}{suffix ? ` ${suffix}` : ""}{" "}
         <Motion.span
           className="inline-block"
           animate={{ y: [0, -2, 0], scale: [1, 1.16, 1] }}
@@ -156,6 +174,7 @@ function StreakStat({ label, days, icon, labelClass, valueClass, glowColor, tool
 export default function Navbar({ user }) {
   const firstName = user?.name || "Friend";
   const [monkStreak, setMonkStreak] = useState(0);
+  const [consistencyScore, setConsistencyScore] = useState(0);
   const currentDate = formatDate(new Date());
 
   const journalStreak = getStreak("monkmode_journal_streak") || DEMO_STREAKS.journal;
@@ -163,15 +182,18 @@ export default function Navbar({ user }) {
   const habitStreak   = getStreak("monkmode_habit_streak") || DEMO_STREAKS.habit;
 
   useEffect(() => {
-    const refreshMonkStreak = () => setMonkStreak(calculateMonkStreak());
+    const refreshNavbarStats = () => {
+      setMonkStreak(calculateMonkStreak());
+      setConsistencyScore(calculateConsistencyScore());
+    };
 
-    refreshMonkStreak();
-    window.addEventListener("storage", refreshMonkStreak);
-    window.addEventListener("monkmode:journal-logged-days-updated", refreshMonkStreak);
+    refreshNavbarStats();
+    window.addEventListener("storage", refreshNavbarStats);
+    window.addEventListener("monkmode:journal-logged-days-updated", refreshNavbarStats);
 
     return () => {
-      window.removeEventListener("storage", refreshMonkStreak);
-      window.removeEventListener("monkmode:journal-logged-days-updated", refreshMonkStreak);
+      window.removeEventListener("storage", refreshNavbarStats);
+      window.removeEventListener("monkmode:journal-logged-days-updated", refreshNavbarStats);
     };
   }, []);
 
@@ -201,41 +223,15 @@ export default function Navbar({ user }) {
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_18%),linear-gradient(180deg,rgba(5,10,22,0.12),rgba(10,8,18,0.2)_64%,rgba(7,5,14,0.34))]"
       />
 
-      <div className="relative z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+      <div className="relative z-10 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
 
-        {/* LEFT: Logo */}
-        <div className="flex items-center gap-8">
+        {/* LEFT: Logo + Welcome */}
+        <div className="flex min-w-0 items-center gap-0">
           <img src={monkLogo} alt="MonkMode" className="h-20 w-auto translate-x-12 scale-[2.2] object-contain shrink-0" />
-          <div className="pl-28">
-            <div className="ml-14 flex items-center gap-0">
-              <Motion.div
-                className="relative grid h-16 w-16 shrink-0 place-items-center"
-                animate={{ y: [-10, -14, -10] }}
-                transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
-                aria-hidden="true"
-              >
-                <Motion.span
-                  className="absolute inset-2 rounded-full bg-amber-400/15 blur-md"
-                  animate={{ opacity: [0.35, 0.8, 0.35], scale: [0.9, 1.12, 0.9] }}
-                  transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
-                />
-                <Motion.img
-                  src={monkGreetingsLogo}
-                  alt=""
-                  className="relative z-10 h-24 w-24 -translate-y-2 object-contain drop-shadow-[0_10px_18px_rgba(245,158,11,0.16)]"
-                  whileHover={{ scale: 1.08, rotate: -3 }}
-                  transition={{ type: "spring", stiffness: 260, damping: 14 }}
-                />
-              </Motion.div>
-              <p className="text-heading-sm text-amber-200 font-semibold">{getGreeting()}</p>
-            </div>
+          <div className="min-w-0 pl-36 text-left">
+            <p className="text-label-sm text-amber-300/70">Welcome back</p>
+            <h1 className="mt-0.5 truncate text-heading-md text-amber-50 md:text-heading-lg">{firstName}</h1>
           </div>
-        </div>
-
-        {/* CENTER: Welcome */}
-        <div className="text-center">
-          <p className="text-label-sm text-amber-300/70">Welcome back</p>
-          <h1 className="text-heading-md md:text-heading-lg text-amber-50 mt-0.5">{firstName}</h1>
         </div>
 
         {/* RIGHT: Info */}
@@ -261,6 +257,48 @@ export default function Navbar({ user }) {
                 "Complete every habit for the day.",
               ],
               reset: "If any one section is not completed, Monk Streak breaks and starts from 0.",
+            }}
+          />
+
+          <StreakStat
+            label="Level"
+            value={getMonkLevel(monkStreak)}
+            suffix=""
+            labelClass="text-orange-300/70"
+            valueClass="text-orange-300"
+            glowColor="rgba(253,186,116,0.72)"
+            tooltip={{
+              title: "Monk Level",
+              rules: [
+                "1 day: Beginner🐣",
+                "7 days: Starter🙂",
+                "21 days: Consistent🎯",
+                "60 days: Disciplined 🧠",
+                "120 days: Discipline God 😤",
+                "240 days: Warrior ⚔️",
+                "365 days: Legend 🔥",
+                "999+ days: Monk🧘",
+              ],
+              reset: "Your level is based on your current Monk Streak.",
+            }}
+          />
+
+          <StreakStat
+            label="Consistency"
+            value={consistencyScore}
+            suffix="%"
+            icon="🎯"
+            labelClass="text-fuchsia-300/70"
+            valueClass="text-fuchsia-300"
+            glowColor="rgba(240,171,252,0.72)"
+            tooltip={{
+              title: "Consistency Score",
+              rules: [
+                "Based on today's journal, todo, and habit completion.",
+                "Journal contributes 100% only after today's submission.",
+                "Todo and habit sections use their completed item ratio.",
+              ],
+              reset: "The score updates as today's sections are completed.",
             }}
           />
 

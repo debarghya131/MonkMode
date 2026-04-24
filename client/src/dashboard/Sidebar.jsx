@@ -98,7 +98,14 @@ export default function Sidebar({ onLogout }) {
         </div>
 
         {/* Logout Button at Bottom */}
-        <div className="border-t border-amber-100/10 pt-6 mt-6">
+        <div className="group relative mb-5 overflow-hidden rounded-lg border border-amber-200/15 bg-[linear-gradient(135deg,rgba(251,191,36,0.12),rgba(255,255,255,0.03),rgba(251,113,133,0.08))] px-4 py-3 text-center shadow-[0_0_20px_rgba(251,191,36,0.08)] transition duration-300 hover:-translate-y-0.5 hover:border-amber-200/35 hover:shadow-[0_0_28px_rgba(251,191,36,0.18)]">
+          <span className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 rotate-12 bg-gradient-to-r from-transparent via-amber-100/20 to-transparent transition duration-700 group-hover:left-full" />
+          <p className="relative text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-200/55">crafted with focus</p>
+          <p className="relative mt-1 animate-pulse text-sm font-bold text-amber-100 drop-shadow-[0_0_10px_rgba(251,191,36,0.25)]">
+            by debarghya 💛
+          </p>
+        </div>
+        <div className="border-t border-amber-100/10 pt-6">
           <button
             type="button"
             onClick={onLogout}
