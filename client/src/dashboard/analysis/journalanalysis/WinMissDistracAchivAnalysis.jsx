@@ -33,9 +33,6 @@ const DISTRACTION_POOL = [
   "Chat hopping",
 ];
 
-const BAR_H = 190;
-const LABEL_H = 56;
-
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -200,21 +197,32 @@ function InsightRail({ insights }) {
   );
 }
 
-function MonthlyCountGraph({ title, subtitle, series, theme }) {
-  const maxValue = Math.max(6, Math.max(...series.map((item) => item.value), 0));
-  const CHART_TOP_PAD = 18;
-  const drawableBarH = BAR_H - CHART_TOP_PAD;
+function MonthlyLineGraph({ title, subtitle, series, theme }) {
+  const [hovered, setHovered] = useState(null);
+
+  const maxValue = Math.max(6, ...series.map((item) => item.value));
   const markSet = new Set([0, maxValue]);
-  for (let value = 2; value <= maxValue; value += 2) {
-    markSet.add(value);
-  }
+  for (let v = 2; v <= maxValue; v += 2) markSet.add(v);
   const marks = [...markSet].sort((a, b) => a - b);
 
-  const yLabelBottom = (mark) => {
-    if (mark === maxValue) return drawableBarH - 2;
-    if (mark === 0) return 0;
-    return (mark / maxValue) * drawableBarH - 7;
-  };
+  const VW = 900;
+  const PLOT_TOP = 24;
+  const PLOT_H = 160;
+  const PLOT_BOTTOM = PLOT_TOP + PLOT_H;
+  const X_LABEL_H = 20;
+  const SVG_H = PLOT_TOP + PLOT_H + X_LABEL_H;
+  const PL = 34;
+  const PR = 10;
+  const plotW = VW - PL - PR;
+  const n = series.length;
+  const xOf = (i) => PL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const yOf = (val) => PLOT_BOTTOM - (val / maxValue) * PLOT_H;
+
+  const linePath = series.map((item, i) => `${i === 0 ? "M" : "L"} ${xOf(i).toFixed(1)} ${yOf(item.value).toFixed(1)}`).join(" ");
+  const areaPath = `${linePath} L ${xOf(n - 1).toFixed(1)} ${PLOT_BOTTOM} L ${xOf(0).toFixed(1)} ${PLOT_BOTTOM} Z`;
+  const hovItem = hovered !== null ? series[hovered] : null;
+  const gradId = `area-grad-${subtitle.replace(/\s+/g, "")}`;
+  const glowId = `glow-${subtitle.replace(/\s+/g, "")}`;
 
   return (
     <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
@@ -224,61 +232,104 @@ function MonthlyCountGraph({ title, subtitle, series, theme }) {
           <h4 className="mt-2 text-xl font-semibold text-sky-50">{title}</h4>
         </div>
         <span className="flex items-center gap-2 text-xs text-stone-400">
-          <span className={`h-2.5 w-2.5 rounded-full ${theme.dot}`} />Daily count
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: theme.stroke }} />
+          Daily count
         </span>
       </div>
 
-      <div className="mt-6 flex gap-3">
-        <div
-          className="relative z-10 shrink-0 w-9 text-right text-[11px] font-semibold text-stone-300"
-          style={{ height: BAR_H, marginBottom: LABEL_H }}
-        >
-          {marks.map((mark) => (
-            <span
-              key={mark}
-              className="absolute right-0 rounded bg-stone-950/55 px-0.5"
-              style={{ bottom: `${yLabelBottom(mark)}px` }}
-            >
-              {mark}
-            </span>
-          ))}
-        </div>
+      <div className="mt-5 w-full overflow-x-auto">
+        <div style={{ minWidth: "600px" }}>
+          <svg viewBox={`0 0 ${VW} ${SVG_H}`} style={{ width: "100%", height: "auto", overflow: "visible" }}>
+            <defs>
+              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={theme.stroke} stopOpacity="0.28" />
+                <stop offset="100%" stopColor={theme.stroke} stopOpacity="0.02" />
+              </linearGradient>
+              <filter id={glowId} x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="2.5" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
 
-        <div className="relative flex-1 overflow-x-auto">
-          <div style={{ minWidth: `${Math.max(760, series.length * 28)}px` }}>
-            <div className="relative" style={{ height: BAR_H + LABEL_H }}>
-              {marks.map((mark) => (
-                <div
-                  key={mark}
-                  className="absolute left-0 right-0 border-t border-dashed border-white/6"
-                  style={{ bottom: LABEL_H + (mark / maxValue) * drawableBarH }}
-                />
-              ))}
+            {/* Y-axis labels */}
+            {marks.map((mark) => (
+              <text key={`yl-${mark}`} x={PL - 5} y={yOf(mark) + 4}
+                textAnchor="end" fontSize="9" fill="rgba(120,113,108,0.9)" fontWeight="600">
+                {mark}
+              </text>
+            ))}
 
-              <div className="absolute inset-0 flex items-end gap-1.5" style={{ paddingBottom: `${LABEL_H}px` }}>
-                {series.map((item, index) => (
-                  <div key={item.date} className="flex min-w-0 flex-1 flex-col items-center justify-end">
-                    <span className={`mb-1 text-[10px] font-semibold ${theme.value}`}>{item.value}</span>
-                    <Motion.div
-                      className={`w-full max-w-[20px] rounded-t-lg border ${theme.border} ${theme.fill}`}
-                      style={theme.barStyle}
-                      initial={{ height: 0 }}
-                      animate={{ height: Math.max(10, Math.round((item.value / maxValue) * drawableBarH)) }}
-                      transition={{ duration: 0.45, delay: index * 0.02 }}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Grid lines */}
+            {marks.map((mark) => (
+              <line key={`grid-${mark}`} x1={PL} x2={VW - PR} y1={yOf(mark)} y2={yOf(mark)}
+                stroke="rgba(255,255,255,0.06)" strokeWidth="1" strokeDasharray="4 4" />
+            ))}
 
-            <div className="mt-1 flex items-center text-[10px] text-stone-500">
-              {series.map((item) => (
-                <span key={`label-${item.date}`} className="flex-1 text-center">
+            {/* Area fill */}
+            <Motion.path d={areaPath} fill={`url(#${gradId})`}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              transition={{ duration: 0.8, delay: 0.5 }} />
+
+            {/* Line */}
+            <Motion.path d={linePath} fill="none" stroke={theme.stroke}
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              filter={`url(#${glowId})`}
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: 1, opacity: 1 }}
+              transition={{ duration: 1.4, ease: "easeInOut" }} />
+
+            {/* Dots */}
+            {series.map((item, i) => (
+              <Motion.circle key={item.date}
+                cx={xOf(i)} cy={yOf(item.value)}
+                r={hovered === i ? 5 : 3}
+                fill={hovered === i ? theme.stroke : "#0c0a09"}
+                stroke={theme.stroke} strokeWidth="1.5"
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 1.2 + i * 0.015, duration: 0.18 }}
+                style={{ transformOrigin: `${xOf(i)}px ${yOf(item.value)}px`, cursor: "pointer" }}
+              />
+            ))}
+
+            {/* Hover vertical line + tooltip */}
+            {hovItem && (
+              <>
+                <line x1={xOf(hovered)} x2={xOf(hovered)} y1={PLOT_TOP} y2={PLOT_BOTTOM}
+                  stroke="rgba(255,255,255,0.18)" strokeWidth="1" strokeDasharray="3 3" />
+                <rect x={xOf(hovered) - 18} y={yOf(hovItem.value) - 28}
+                  width={36} height={20} rx={5}
+                  fill="rgba(15,15,15,0.92)" stroke={theme.stroke} strokeWidth="0.8" strokeOpacity="0.6" />
+                <text x={xOf(hovered)} y={yOf(hovItem.value) - 13}
+                  textAnchor="middle" fontSize="10" fontWeight="700" fill="white">
+                  {hovItem.value}
+                </text>
+              </>
+            )}
+
+            {/* Invisible hover zones */}
+            {series.map((item, i) => {
+              const colW = n > 1 ? plotW / (n - 1) : plotW;
+              return (
+                <rect key={`hr-${item.date}`}
+                  x={xOf(i) - colW / 2} y={PLOT_TOP}
+                  width={colW} height={PLOT_H}
+                  fill="transparent" style={{ cursor: "crosshair" }}
+                  onMouseEnter={() => setHovered(i)}
+                  onMouseLeave={() => setHovered(null)} />
+              );
+            })}
+
+            {/* X-axis labels */}
+            {series.map((item, i) =>
+              i % 3 === 0 || i === n - 1 ? (
+                <text key={`xl-${item.date}`} x={xOf(i)} y={SVG_H - 4}
+                  textAnchor="middle" fontSize="9" fill="rgba(120,113,108,0.8)">
                   {item.day}
-                </span>
-              ))}
-            </div>
-          </div>
+                </text>
+              ) : null
+            )}
+          </svg>
         </div>
       </div>
     </section>
@@ -400,46 +451,25 @@ export default function WinMissDistracAchivAnalysis() {
           style={{ maxHeight: "calc(100vh - 350px)" }}
         >
           <div className="space-y-6 p-6">
-            <MonthlyCountGraph
+            <MonthlyLineGraph
               title="No. Of Wins This Month"
               subtitle="Wins"
               series={winSeries}
-              theme={{
-                dot: "bg-emerald-300",
-                fill: "bg-emerald-500/70 bg-gradient-to-t from-emerald-900/95 to-emerald-300/90",
-                border: "border-emerald-200/25",
-                value: "text-emerald-200",
-              }}
+              theme={{ stroke: "#10b981" }}
             />
 
-            <MonthlyCountGraph
+            <MonthlyLineGraph
               title="No. Of Mistakes This Month"
               subtitle="Mistakes"
               series={mistakeSeries}
-              theme={{
-                dot: "bg-red-400",
-                fill: "bg-red-500/90",
-                border: "border-red-300/40",
-                value: "text-red-200",
-                barStyle: {
-                  backgroundColor: "rgba(239, 68, 68, 0.9)",
-                  backgroundImage: "linear-gradient(to top, rgba(127, 29, 29, 0.95), rgba(239, 68, 68, 0.95))",
-                  borderColor: "rgba(252, 165, 165, 0.45)",
-                  boxShadow: "0 0 12px rgba(239, 68, 68, 0.35)",
-                },
-              }}
+              theme={{ stroke: "#ef4444" }}
             />
 
-            <MonthlyCountGraph
+            <MonthlyLineGraph
               title="Total Achievements This Month"
               subtitle="Achievements"
               series={achievementSeries}
-              theme={{
-                dot: "bg-amber-300",
-                fill: "bg-amber-500/70 bg-gradient-to-t from-amber-900/95 to-amber-300/90",
-                border: "border-amber-200/25",
-                value: "text-amber-200",
-              }}
+              theme={{ stroke: "#f59e0b" }}
             />
           </div>
         </div>

@@ -300,6 +300,7 @@ function InsightRail({ insights }) {
 }
 
 function SleepDurationLineGraph({ data }) {
+  const [hovered, setHovered] = useState(null);
   const populatedData = data.filter((item) => item.sleepDuration !== null);
 
   if (populatedData.length === 0) {
@@ -461,7 +462,15 @@ function SleepDurationLineGraph({ data }) {
                   animate={{ opacity: [0, 0.26, 0.1] }}
                   transition={{ duration: 1.8, delay: 1.6 + index * 0.09, ease: "easeOut" }}
                 />
-                <circle cx={x} cy={y} r="5" fill="#0f172a" stroke="#7dd3fc" strokeWidth="2.5" />
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={hovered === index ? 7 : 5}
+                  fill={hovered === index ? "#38bdf8" : "#0f172a"}
+                  stroke="#7dd3fc"
+                  strokeWidth="2.5"
+                  style={{ transition: "r 0.15s ease, fill 0.15s ease" }}
+                />
                 <Motion.text
                   x={x}
                   y={y - 12}
@@ -502,6 +511,51 @@ function SleepDurationLineGraph({ data }) {
             );
           })}
 
+          {(() => {
+            if (hovered === null || data[hovered]?.sleepDuration === null) return null;
+            const item = data[hovered];
+            const x = xOf(hovered);
+            const y = yOf(item.sleepDuration);
+            const ttW = 64;
+            const ttH = 34;
+            const ttX = Math.min(Math.max(x - ttW / 2, pad.left + 2), width - pad.right - ttW - 2);
+            const ttY = Math.max(y - ttH - 10, pad.top + 2);
+            return (
+              <g style={{ pointerEvents: "none" }}>
+                <line
+                  x1={x} y1={pad.top} x2={x} y2={pad.top + chartH}
+                  stroke="rgba(56,189,248,0.45)" strokeWidth="1" strokeDasharray="4 3"
+                />
+                <rect x={ttX} y={ttY} width={ttW} height={ttH} rx="6"
+                  fill="rgba(15,23,42,0.92)" stroke="rgba(56,189,248,0.45)" strokeWidth="1"
+                />
+                <text x={ttX + ttW / 2} y={ttY + 13} textAnchor="middle" fontSize="11" fontWeight="700" fill="#bae6fd">
+                  {round(item.sleepDuration)}h
+                </text>
+                <text x={ttX + ttW / 2} y={ttY + 26} textAnchor="middle" fontSize="9" fill="rgba(148,163,184,0.8)">
+                  Day {item.dayOfMonth}
+                </text>
+              </g>
+            );
+          })()}
+
+          {(() => {
+            const stepW = data.length > 1 ? chartW / (data.length - 1) : chartW;
+            return data.map((_, index) => (
+              <rect
+                key={`hz-${index}`}
+                x={Math.max(pad.left, xOf(index) - stepW / 2)}
+                y={pad.top}
+                width={stepW}
+                height={chartH}
+                fill="transparent"
+                style={{ cursor: "crosshair" }}
+                onMouseEnter={() => setHovered(index)}
+                onMouseLeave={() => setHovered(null)}
+              />
+            ));
+          })()}
+
           </svg>
 
           <Motion.div
@@ -530,6 +584,7 @@ function SleepDurationLineGraph({ data }) {
 }
 
 function SleepVsScoreGraph({ data, selectedWeek, onWeekChange }) {
+  const [hovered, setHovered] = useState(null);
   return (
     <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -596,10 +651,16 @@ function SleepVsScoreGraph({ data, selectedWeek, onWeekChange }) {
                 <Motion.div
                   key={item.date}
                   className="flex min-w-0 flex-1 flex-col items-center"
-                  style={{ height: BAR_H + LABEL_H }}
+                  style={{
+                    height: BAR_H + LABEL_H,
+                    opacity: hovered !== null && hovered !== index ? 0.4 : 1,
+                    transition: "opacity 0.18s ease",
+                  }}
                   initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  animate={{ opacity: hovered !== null && hovered !== index ? 0.4 : 1, y: 0 }}
                   transition={{ duration: 0.35, delay: index * 0.06, ease: "easeOut" }}
+                  onMouseEnter={() => setHovered(index)}
+                  onMouseLeave={() => setHovered(null)}
                 >
                   <div className="flex items-end justify-center gap-1.5" style={{ height: BAR_H }}>
                     <div className="flex flex-col items-center gap-1">
@@ -659,6 +720,7 @@ function SleepVsScoreGraph({ data, selectedWeek, onWeekChange }) {
 }
 
 function EnergyLevelGraph({ data }) {
+  const [hovered, setHovered] = useState(null);
   return (
     <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
       <div>
@@ -690,10 +752,16 @@ function EnergyLevelGraph({ data }) {
               <Motion.div
                 key={item.date}
                 className="flex min-w-0 flex-1 flex-col items-center"
-                style={{ height: TOP_LABEL_H + BAR_H + LABEL_H / 2 }}
+                style={{
+                  height: TOP_LABEL_H + BAR_H + LABEL_H / 2,
+                  opacity: hovered !== null && hovered !== index ? 0.4 : 1,
+                  transition: "opacity 0.18s ease",
+                }}
                 initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
+                animate={{ opacity: hovered !== null && hovered !== index ? 0.4 : 1, y: 0 }}
                 transition={{ duration: 0.35, delay: index * 0.06, ease: "easeOut" }}
+                onMouseEnter={() => setHovered(index)}
+                onMouseLeave={() => setHovered(null)}
               >
                 <div className="flex flex-col items-center justify-end pb-1" style={{ height: TOP_LABEL_H }}>
                   <span className="text-[10px] font-semibold text-sky-200">

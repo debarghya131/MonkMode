@@ -2,125 +2,136 @@ import { useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import monkGreetingsLogo from "../../../assets/monkgreetingslogo.png";
 
+const DAY_ORDER = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_OPTIONS = [
   { value: "01", label: "January" },
   { value: "02", label: "February" },
   { value: "03", label: "March" },
   { value: "04", label: "April" },
+  { value: "05", label: "May" },
+  { value: "06", label: "June" },
+  { value: "07", label: "July" },
+  { value: "08", label: "August" },
+  { value: "09", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
 ];
 
-const WEEKDAY_ORDER = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const SCORE_MONTH_CONFIG = [
+  { year: "2026", month: "04", seed: 5, skippedDays: [6, 14, 21, 30] },
+  { year: "2026", month: "03", seed: 3, skippedDays: [2, 11, 18, 24, 29] },
+  { year: "2026", month: "02", seed: 1, skippedDays: [4, 9, 15, 23] },
+  { year: "2025", month: "12", seed: 6, skippedDays: [5, 12, 19, 26] },
+];
+
 const BAR_H = 190;
 const LABEL_H = 56;
 const CHART_HEADROOM = 16;
 
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
+const YEARS = [...new Set(SCORE_MONTH_CONFIG.map((item) => item.year))].sort().reverse();
+const CURRENT_YEAR = String(new Date().getFullYear());
+const CURRENT_MONTH = String(new Date().getMonth() + 1).padStart(2, "0");
 
-function average(values) {
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
-}
-
-function round(value, precision = 1) {
-  return Number(value.toFixed(precision));
-}
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const round = (value, precision = 1) => Number(value.toFixed(precision));
+const average = (values) => (values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0);
 
 function getDaysInMonth(year, month) {
   return new Date(Number(year), Number(month), 0).getDate();
 }
 
-function formatDay(date) {
-  return new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short" });
+function getAvailableMonthsForYear(year) {
+  return MONTH_OPTIONS.filter((month) =>
+    SCORE_MONTH_CONFIG.some((entry) => entry.year === year && entry.month === month.value)
+  );
 }
 
-function generateMonthScoreLogs(year, month, seed, missedDays) {
-  const days = getDaysInMonth(year, month);
+const INITIAL_YEAR = YEARS.includes(CURRENT_YEAR) ? CURRENT_YEAR : YEARS[0];
+const INITIAL_MONTH = (() => {
+  const months = getAvailableMonthsForYear(INITIAL_YEAR);
+  if (months.some((month) => month.value === CURRENT_MONTH)) return CURRENT_MONTH;
+  return months[0]?.value ?? MONTH_OPTIONS[0].value;
+})();
 
+function generateMonthLogs(year, month, seed, skippedDays) {
+  const days = getDaysInMonth(year, month);
   return Array.from({ length: days }, (_, index) => {
     const day = index + 1;
     const date = `${year}-${month}-${String(day).padStart(2, "0")}`;
-    const weekdayIndex = new Date(`${date}T00:00:00`).getDay();
-    const logged = !missedDays.includes(day);
-
-    const base = 64 + ((day * 7 + seed * 5) % 30);
-    const weekendBoost = weekdayIndex === 0 || weekdayIndex === 6 ? 2 : 0;
-    const dip = day % 6 === 0 ? 3 : 0;
-    const rating = logged ? clamp(base + weekendBoost - dip, 50, 96) : null;
+    const weekday = new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short" });
+    const submitted = !skippedDays.includes(day);
+    const weekendBoost = weekday === "Sun" || weekday === "Sat" ? 3 : 0;
+    const dip = day % 6 === 0 ? 4 : 0;
+    const consistencyScore = submitted ? clamp(58 + ((day * 7 + seed * 9) % 36) + weekendBoost - dip, 40, 98) : 0;
 
     return {
-      date,
       day,
-      weekday: WEEKDAY_ORDER[weekdayIndex],
-      logged,
-      rating,
+      date,
+      weekday,
+      submitted,
+      consistencyScore,
     };
   });
 }
 
-const SCORE_LOGS = [
-  ...generateMonthScoreLogs("2026", "02", 1, [4, 9, 15, 23]),
-  ...generateMonthScoreLogs("2026", "03", 3, [2, 11, 18, 24, 29]),
-  ...generateMonthScoreLogs("2026", "04", 5, [6, 14, 21, 30]),
-];
+const SCORE_MONTH_LOGS = SCORE_MONTH_CONFIG.map((entry) => ({
+  year: entry.year,
+  month: entry.month,
+  logs: generateMonthLogs(entry.year, entry.month, entry.seed, entry.skippedDays),
+}));
 
-const YEARS = [...new Set(SCORE_LOGS.map((entry) => entry.date.slice(0, 4)))].sort().reverse();
-
-function buildOverallWeekdayRatingSeries(logs) {
-  return WEEKDAY_ORDER.map((weekday) => {
-    const values = logs.filter((entry) => entry.logged && entry.weekday === weekday).map((entry) => entry.rating);
+function buildWeekdayConsistencySeries(logs) {
+  return DAY_ORDER.map((day) => {
+    const values = logs.filter((item) => item.submitted && item.weekday === day).map((item) => item.consistencyScore);
     return {
-      label: weekday,
+      label: day,
       value: values.length ? round(average(values)) : 0,
     };
   });
 }
 
 function buildWeeklyScoreSeries(logs) {
-  return [1, 2, 3, 4].map((week) => {
-    const startDay = (week - 1) * 7 + 1;
-    const endDay = week * 7;
+  return [1, 2, 3, 4].map((weekNumber) => {
+    const start = (weekNumber - 1) * 7 + 1;
+    const end = weekNumber * 7;
     const values = logs
-      .filter((entry) => entry.day >= startDay && entry.day <= endDay && entry.logged)
-      .map((entry) => entry.rating);
+      .filter((item) => item.day >= start && item.day <= end && item.submitted)
+      .map((item) => item.consistencyScore);
 
     return {
-      label: `W${week}`,
-      week,
+      label: `W${weekNumber}`,
       value: values.length ? round(average(values)) : 0,
     };
   });
 }
 
-function buildStreakSeries(logs, year, month) {
-  const daysInMonth = getDaysInMonth(year, month);
-  const entryMap = new Map(logs.map((entry) => [entry.day, entry]));
-  const series = [{ day: 0, value: 0, logged: true, isStart: true }];
+function buildStreakSeries(logs) {
+  const series = [];
   let streak = 0;
-
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    const entry = entryMap.get(day);
-    const logged = Boolean(entry?.logged);
-    streak = logged ? streak + 1 : 0;
-    series.push({ day, value: streak, logged, isStart: false });
+  for (const item of logs) {
+    streak = item.submitted ? streak + 1 : 0;
+    series.push({ day: item.day, streak, submitted: item.submitted });
   }
-
   return series;
-}
-
-function buildMissedByWeekdaySeries(logs) {
-  return WEEKDAY_ORDER.map((weekday) => ({
-    label: weekday,
-    value: logs.filter((entry) => !entry.logged && entry.weekday === weekday).length,
-  }));
 }
 
 function countStreakBreaks(logs) {
   let breaks = 0;
   for (let index = 1; index < logs.length; index += 1) {
-    if (logs[index - 1].logged && !logs[index].logged) breaks += 1;
+    if (logs[index - 1].submitted && !logs[index].submitted) breaks += 1;
   }
   return breaks;
+}
+
+function maxStreak(logs) {
+  let current = 0;
+  let best = 0;
+  for (const item of logs) {
+    current = item.submitted ? current + 1 : 0;
+    best = Math.max(best, current);
+  }
+  return best;
 }
 
 function InsightRail({ insights }) {
@@ -174,7 +185,7 @@ function InsightRail({ insights }) {
                 <div className="min-w-0">
                   <span className="text-xs font-semibold text-sky-200">{insight.title}</span>
                   <p className="text-sm font-semibold text-stone-200">{insight.value}</p>
-                  {isSelected && (
+                  {isSelected ? (
                     <Motion.p
                       initial={{ opacity: 0, y: -4 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -182,7 +193,7 @@ function InsightRail({ insights }) {
                     >
                       {insight.description}
                     </Motion.p>
-                  )}
+                  ) : null}
                 </div>
                 <button
                   type="button"
@@ -204,8 +215,10 @@ function InsightRail({ insights }) {
   );
 }
 
-function VerticalBarGraph({ title, subtitle, series, yMax, ticks, theme, valueSuffix = "" }) {
+function VerticalScoreGraph({ title, subtitle, series, theme }) {
   const [hovered, setHovered] = useState(null);
+  const yMax = 100;
+  const ticks = [0, 20, 40, 60, 80, 100];
   const drawableBarH = BAR_H - CHART_HEADROOM;
 
   const yLabelBottom = (mark) => {
@@ -222,12 +235,16 @@ function VerticalBarGraph({ title, subtitle, series, yMax, ticks, theme, valueSu
           <h4 className="mt-2 text-xl font-semibold text-sky-50">{title}</h4>
         </div>
         <span className="flex items-center gap-2 text-xs text-stone-400">
-          <span className={`h-2.5 w-2.5 rounded-full ${theme.dot}`} />Daily count
+          <span className={`h-2.5 w-2.5 rounded-full ${theme.dot}`} />
+          Score
         </span>
       </div>
 
       <div className="mt-6 flex gap-3">
-        <div className="relative z-10 shrink-0 w-9 text-right text-[11px] font-semibold text-stone-300" style={{ height: BAR_H, marginBottom: LABEL_H }}>
+        <div
+          className="relative z-10 shrink-0 w-9 text-right text-[11px] font-semibold text-stone-300"
+          style={{ height: BAR_H, marginBottom: LABEL_H }}
+        >
           {ticks.map((tick) => (
             <span
               key={tick}
@@ -252,21 +269,18 @@ function VerticalBarGraph({ title, subtitle, series, yMax, ticks, theme, valueSu
             <div className="absolute inset-0 flex items-end gap-2" style={{ paddingBottom: `${LABEL_H}px` }}>
               {series.map((item, index) => (
                 <div
-                  key={`${item.label}-${index}`}
+                  key={item.label}
                   className="flex min-w-0 flex-1 flex-col items-center justify-end"
                   style={{ opacity: hovered !== null && hovered !== index ? 0.4 : 1, transition: "opacity 0.18s ease", cursor: "default" }}
                   onMouseEnter={() => setHovered(index)}
                   onMouseLeave={() => setHovered(null)}
                 >
-                  <span className={`mb-1 text-[10px] font-semibold ${theme.value}`}>
-                    {item.value}
-                    {valueSuffix}
-                  </span>
+                  <span className={`mb-1 text-[10px] font-semibold ${theme.value}`}>{item.value}</span>
                   <Motion.div
                     className={`w-full max-w-[42px] rounded-t-xl border ${theme.border} ${theme.fill}`}
                     initial={{ height: 0 }}
                     animate={{ height: Math.max(10, Math.round((item.value / yMax) * drawableBarH)) }}
-                    transition={{ duration: 0.4, delay: index * 0.04 }}
+                    transition={{ duration: 0.42, delay: index * 0.04 }}
                   />
                 </div>
               ))}
@@ -274,8 +288,8 @@ function VerticalBarGraph({ title, subtitle, series, yMax, ticks, theme, valueSu
           </div>
 
           <div className="mt-1 flex items-center text-[10px] text-stone-500">
-            {series.map((item, index) => (
-              <span key={`x-${item.label}-${index}`} className="flex-1 text-center">
+            {series.map((item) => (
+              <span key={`x-${item.label}`} className="flex-1 text-center">
                 {item.label}
               </span>
             ))}
@@ -286,20 +300,22 @@ function VerticalBarGraph({ title, subtitle, series, yMax, ticks, theme, valueSu
   );
 }
 
-function StreakLineGraph({ series, daysInMonth }) {
+function StreakBreakLineGraph({ series, daysInMonth }) {
   const [hovered, setHovered] = useState(null);
-  const width = Math.max(920, (daysInMonth + 1) * 28);
+  const width = Math.max(920, daysInMonth * 28);
   const height = 304;
   const pad = { top: 24, right: 20, bottom: 42, left: 42 };
   const chartW = width - pad.left - pad.right;
   const chartH = height - pad.top - pad.bottom;
-  const maxStreak = Math.max(7, Math.max(...series.map((item) => item.value), 0));
-  const yMarks = Array.from({ length: maxStreak + 1 }, (_, index) => index).filter((value) => value % 2 === 0 || value === maxStreak);
+  const maxStreakValue = Math.max(7, ...series.map((item) => item.streak));
+  const yMarks = Array.from({ length: maxStreakValue + 1 }, (_, index) => index).filter(
+    (value) => value % 2 === 0 || value === maxStreakValue
+  );
 
   const xOf = (index) => (series.length === 1 ? pad.left + chartW / 2 : pad.left + (index / (series.length - 1)) * chartW);
-  const yOf = (value) => pad.top + ((maxStreak - value) / maxStreak) * chartH;
+  const yOf = (value) => pad.top + ((maxStreakValue - value) / maxStreakValue) * chartH;
   const linePath = series
-    .map((point, index) => `${index === 0 ? "M" : "L"}${xOf(index).toFixed(1)},${yOf(point.value).toFixed(1)}`)
+    .map((point, index) => `${index === 0 ? "M" : "L"}${xOf(index).toFixed(1)},${yOf(point.streak).toFixed(1)}`)
     .join(" ");
 
   return (
@@ -307,11 +323,18 @@ function StreakLineGraph({ series, daysInMonth }) {
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Streak</p>
-          <h4 className="mt-2 text-xl font-semibold text-sky-50">Streak Analysis (Breaks shown at 0)</h4>
+          <h4 className="mt-2 text-xl font-semibold text-sky-50">Streak Break Analysis</h4>
+          <p className="mt-1 text-[11px] text-stone-400">x-axis shows date number (1 to {daysInMonth}).</p>
         </div>
         <div className="flex items-center gap-3 text-xs text-stone-400">
-          <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-sky-400" />Streak count</span>
-          <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-rose-300" />Break day</span>
+          <span className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-sky-400" />
+            Streak count
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-rose-300" />
+            Break day
+          </span>
         </div>
       </div>
 
@@ -337,52 +360,46 @@ function StreakLineGraph({ series, daysInMonth }) {
             strokeLinecap="round"
             initial={{ pathLength: 0, opacity: 0 }}
             animate={{ pathLength: 1, opacity: 1 }}
-            transition={{ duration: 3.2, ease: "easeInOut" }}
+            transition={{ duration: 2.8, ease: "easeInOut" }}
           />
 
           {series.map((point, index) => {
-            if (point.day === 0) return null;
             const x = xOf(index);
-            const y = yOf(point.value);
-            const isBreak = !point.logged;
-
+            const y = yOf(point.streak);
+            const isBreak = !point.submitted;
             return (
-              <g key={`pt-${point.day}`}>
-                <circle
-                  cx={x}
-                  cy={y}
-                  r={hovered === index ? 7 : 4.5}
-                  fill={hovered === index ? (isBreak ? "#fda4af" : "#38bdf8") : (isBreak ? "rgba(251,113,133,0.3)" : "#0f172a")}
-                  stroke={isBreak ? "#fda4af" : "#7dd3fc"}
-                  strokeWidth="2"
-                  style={{ transition: "r 0.15s ease, fill 0.15s ease" }}
-                />
-              </g>
+              <circle
+                key={`pt-${point.day}`}
+                cx={x}
+                cy={y}
+                r={hovered === index ? 7 : 4.2}
+                fill={hovered === index ? (isBreak ? "#fda4af" : "#38bdf8") : (isBreak ? "rgba(251,113,133,0.3)" : "#0f172a")}
+                stroke={isBreak ? "#fda4af" : "#7dd3fc"}
+                strokeWidth="2"
+                style={{ transition: "r 0.15s ease, fill 0.15s ease" }}
+              />
             );
           })}
 
-          {series.map((point, index) => {
-            if (point.day === 0) return null;
-            return (
-              <text
-                key={`x-label-${point.day}`}
-                x={xOf(index)}
-                y={height - 12}
-                textAnchor="middle"
-                fontSize="10"
-                fill="rgba(255,255,255,0.45)"
-              >
-                {point.day}
-              </text>
-            );
-          })}
+          {series.map((point, index) => (
+            <text
+              key={`x-${point.day}`}
+              x={xOf(index)}
+              y={height - 12}
+              textAnchor="middle"
+              fontSize="9"
+              fill="rgba(255,255,255,0.42)"
+            >
+              {point.day}
+            </text>
+          ))}
 
           {(() => {
-            if (hovered === null || !series[hovered] || series[hovered].day === 0) return null;
+            if (hovered === null || !series[hovered]) return null;
             const point = series[hovered];
             const x = xOf(hovered);
-            const y = yOf(point.value);
-            const ttW = 72;
+            const y = yOf(point.streak);
+            const ttW = 76;
             const ttH = 34;
             const ttX = Math.min(Math.max(x - ttW / 2, pad.left + 2), width - pad.right - ttW - 2);
             const ttY = Math.max(y - ttH - 10, pad.top + 2);
@@ -390,8 +407,8 @@ function StreakLineGraph({ series, daysInMonth }) {
               <g style={{ pointerEvents: "none" }}>
                 <line x1={x} y1={pad.top} x2={x} y2={pad.top + chartH} stroke="rgba(56,189,248,0.4)" strokeWidth="1" strokeDasharray="4 3" />
                 <rect x={ttX} y={ttY} width={ttW} height={ttH} rx="6" fill="rgba(15,23,42,0.92)" stroke="rgba(56,189,248,0.4)" strokeWidth="1" />
-                <text x={ttX + ttW / 2} y={ttY + 13} textAnchor="middle" fontSize="11" fontWeight="700" fill={point.logged ? "#bae6fd" : "#fda4af"}>
-                  {point.logged ? `Streak: ${point.value}` : "Break"}
+                <text x={ttX + ttW / 2} y={ttY + 13} textAnchor="middle" fontSize="11" fontWeight="700" fill={point.submitted ? "#bae6fd" : "#fda4af"}>
+                  {point.submitted ? `Streak: ${point.streak}` : "Break"}
                 </text>
                 <text x={ttX + ttW / 2} y={ttY + 26} textAnchor="middle" fontSize="9" fill="rgba(148,163,184,0.8)">
                   Day {point.day}
@@ -402,22 +419,19 @@ function StreakLineGraph({ series, daysInMonth }) {
 
           {(() => {
             const stepW = series.length > 1 ? chartW / (series.length - 1) : chartW;
-            return series.map((point, index) => {
-              if (point.day === 0) return null;
-              return (
-                <rect
-                  key={`hz-${index}`}
-                  x={Math.max(pad.left, xOf(index) - stepW / 2)}
-                  y={pad.top}
-                  width={stepW}
-                  height={chartH}
-                  fill="transparent"
-                  style={{ cursor: "crosshair" }}
-                  onMouseEnter={() => setHovered(index)}
-                  onMouseLeave={() => setHovered(null)}
-                />
-              );
-            });
+            return series.map((point, index) => (
+              <rect
+                key={`hz-${index}`}
+                x={Math.max(pad.left, xOf(index) - stepW / 2)}
+                y={pad.top}
+                width={stepW}
+                height={chartH}
+                fill="transparent"
+                style={{ cursor: "crosshair" }}
+                onMouseEnter={() => setHovered(index)}
+                onMouseLeave={() => setHovered(null)}
+              />
+            ));
           })()}
         </svg>
       </div>
@@ -426,82 +440,69 @@ function StreakLineGraph({ series, daysInMonth }) {
 }
 
 export default function ScoreStreakAnalysis() {
-  const [selectedYear, setSelectedYear] = useState(YEARS[0]);
-  const [selectedMonth, setSelectedMonth] = useState("04");
+  const [selectedYear, setSelectedYear] = useState(INITIAL_YEAR);
+  const [selectedMonth, setSelectedMonth] = useState(INITIAL_MONTH);
 
-  const availableMonths = useMemo(() => {
-    const months = new Set(
-      SCORE_LOGS.filter((entry) => entry.date.startsWith(selectedYear)).map((entry) => entry.date.slice(5, 7))
-    );
-    return MONTH_OPTIONS.filter((month) => months.has(month.value));
-  }, [selectedYear]);
+  const availableMonths = useMemo(() => getAvailableMonthsForYear(selectedYear), [selectedYear]);
 
-  const monthLogs = useMemo(
+  const selectedMonthData = useMemo(
     () =>
-      SCORE_LOGS.filter(
-        (entry) => entry.date.startsWith(selectedYear) && entry.date.slice(5, 7) === selectedMonth
-      ).sort((a, b) => a.date.localeCompare(b.date)),
+      SCORE_MONTH_LOGS.find((item) => item.year === selectedYear && item.month === selectedMonth) ??
+      SCORE_MONTH_LOGS.find((item) => item.year === selectedYear) ??
+      SCORE_MONTH_LOGS[0],
     [selectedMonth, selectedYear]
   );
 
-  const overallDayRatingSeries = useMemo(() => buildOverallWeekdayRatingSeries(monthLogs), [monthLogs]);
-  const weeklyScoreSeries = useMemo(() => buildWeeklyScoreSeries(monthLogs), [monthLogs]);
-  const streakSeries = useMemo(() => buildStreakSeries(monthLogs, selectedYear, selectedMonth), [monthLogs, selectedMonth, selectedYear]);
-  const missedDaySeries = useMemo(() => buildMissedByWeekdaySeries(monthLogs), [monthLogs]);
+  const logs = selectedMonthData.logs;
+  const daysInMonth = logs.length;
+  const weekdayConsistencySeries = useMemo(() => buildWeekdayConsistencySeries(logs), [logs]);
+  const weeklyScoreSeries = useMemo(() => buildWeeklyScoreSeries(logs), [logs]);
+  const streakSeries = useMemo(() => buildStreakSeries(logs), [logs]);
 
-  const validWeekdayRatings = overallDayRatingSeries.filter((item) => item.value > 0);
-  const highestRatedDay = validWeekdayRatings.length
-    ? [...validWeekdayRatings].sort((a, b) => b.value - a.value)[0]
-    : null;
-  const lowestRatedDay = validWeekdayRatings.length
-    ? [...validWeekdayRatings].sort((a, b) => a.value - b.value)[0]
-    : null;
+  const avgConsistencyScore = round(average(logs.filter((item) => item.submitted).map((item) => item.consistencyScore)));
+  const avgWeeklyScore = round(average(weeklyScoreSeries.map((item) => item.value)));
 
-  const avgDayRating = round(average(monthLogs.filter((entry) => entry.logged).map((entry) => entry.rating)));
-  const avgWeeklyScore = round(average(weeklyScoreSeries.filter((item) => item.value > 0).map((item) => item.value)));
-  const longestJournalStreak = Math.max(...streakSeries.map((item) => item.value), 0);
-  const streakBreaks = countStreakBreaks(monthLogs);
-  const totalMissedDays = monthLogs.filter((entry) => !entry.logged).length;
+  const sortableDays = weekdayConsistencySeries.filter((item) => item.value > 0);
+  const highestConsistentDay = sortableDays.reduce((best, current) => (current.value > best.value ? current : best), sortableDays[0]);
+  const lowestConsistentDay = sortableDays.reduce((worst, current) => (current.value < worst.value ? current : worst), sortableDays[0]);
+
+  const thisWeekStart = Math.max(1, daysInMonth - 6);
+  const thisWeekLogs = logs.filter((item) => item.day >= thisWeekStart);
+  const streakBreaksThisWeek = countStreakBreaks(thisWeekLogs);
+  const highestStreakThisWeek = maxStreak(thisWeekLogs);
 
   const insights = [
     {
-      title: "Highest Rated Day",
-      value: highestRatedDay ? `${highestRatedDay.label} · ${highestRatedDay.value}%` : "No data",
-      description: "Weekday with the highest average overall rating this month.",
+      title: "Avg Consistency Score",
+      value: `${avgConsistencyScore}`,
+      description: "Average day consistency score for the selected month.",
     },
     {
-      title: "Lowest Rated Day",
-      value: lowestRatedDay ? `${lowestRatedDay.label} · ${lowestRatedDay.value}%` : "No data",
-      description: "Weekday with the lowest average overall rating this month.",
+      title: "Highest Consistent Day",
+      value: `${highestConsistentDay.label} (${highestConsistentDay.value})`,
+      description: "Weekday with the highest average consistency score.",
     },
     {
-      title: "Avg Day Rating This Month",
-      value: `${avgDayRating}%`,
-      description: "Average overall day rating across all logged days this month.",
+      title: "Lowest Consistent Day",
+      value: `${lowestConsistentDay.label} (${lowestConsistentDay.value})`,
+      description: "Weekday with the lowest average consistency score.",
+    },
+    {
+      title: "No. of Streak Break (This Week)",
+      value: `${streakBreaksThisWeek}`,
+      description: `Break count from day ${thisWeekStart} to day ${daysInMonth}.`,
+    },
+    {
+      title: "Highest Streak (This Week)",
+      value: `${highestStreakThisWeek}`,
+      description: "Highest consecutive submitted-day streak in the current week window.",
     },
     {
       title: "Avg Weekly Score",
-      value: `${avgWeeklyScore}%`,
-      description: "Average of Week 1 to Week 4 score values.",
-    },
-    {
-      title: "Longest Journal Streak",
-      value: `${longestJournalStreak} days`,
-      description: "Longest consecutive logged-day streak in this month.",
-    },
-    {
-      title: "Streak Breaks This Month",
-      value: `${streakBreaks}`,
-      description: "Number of times a logged streak ended with a missed day.",
-    },
-    {
-      title: "Total Missed Days This Month",
-      value: `${totalMissedDays}`,
-      description: "Total days in the selected month where no journal entry was logged.",
+      value: `${avgWeeklyScore}`,
+      description: "Average of W1 to W4 weekly score values.",
     },
   ];
-
-  const daysInMonth = getDaysInMonth(selectedYear, selectedMonth);
 
   return (
     <section className="space-y-4">
@@ -513,10 +514,17 @@ export default function ScoreStreakAnalysis() {
             onChange={(event) => {
               const nextYear = event.target.value;
               setSelectedYear(nextYear);
-              const nextMonths = MONTH_OPTIONS.filter((month) =>
-                SCORE_LOGS.some((entry) => entry.date.startsWith(nextYear) && entry.date.slice(5, 7) === month.value)
-              );
-              setSelectedMonth(nextMonths[0]?.value ?? "01");
+              const nextMonths = getAvailableMonthsForYear(nextYear);
+              const monthSet = new Set(nextMonths.map((month) => month.value));
+              if (monthSet.has(selectedMonth)) {
+                setSelectedMonth(selectedMonth);
+                return;
+              }
+              if (monthSet.has(CURRENT_MONTH)) {
+                setSelectedMonth(CURRENT_MONTH);
+                return;
+              }
+              setSelectedMonth(nextMonths[0]?.value ?? MONTH_OPTIONS[0].value);
             }}
             className="bg-transparent text-sky-100 outline-none"
           >
@@ -550,56 +558,36 @@ export default function ScoreStreakAnalysis() {
           style={{ maxHeight: "calc(100vh - 350px)" }}
         >
           <div className="space-y-6 p-6">
-            <StreakLineGraph series={streakSeries} daysInMonth={daysInMonth} />
+            <StreakBreakLineGraph series={streakSeries} daysInMonth={daysInMonth} />
 
-            <VerticalBarGraph
-              title="Overall Day Rating Analysis"
-              subtitle="Overall Rating by Weekday"
-              series={overallDayRatingSeries}
-              yMax={100}
-              ticks={[0, 20, 40, 60, 80, 100]}
-              valueSuffix="%"
+            <VerticalScoreGraph
+              title="Consistency Score Analysis"
+              subtitle="Consistency by Day"
+              series={weekdayConsistencySeries}
               theme={{
-                dot: "bg-cyan-300",
-                fill: "bg-cyan-500/70 bg-gradient-to-t from-cyan-900/95 to-cyan-300/90",
-                border: "border-cyan-200/25",
-                value: "text-cyan-200",
+                dot: "bg-emerald-300",
+                fill: "bg-gradient-to-t from-emerald-900/95 to-emerald-300/90",
+                border: "border-emerald-200/25",
+                value: "text-emerald-200",
               }}
             />
 
-            <VerticalBarGraph
-              title="Weekly Score Analysis (4 Weeks)"
-              subtitle="Week-wise Score"
+            <VerticalScoreGraph
+              title="Weekly Score Analysis"
+              subtitle="4 Week Breakdown"
               series={weeklyScoreSeries}
-              yMax={100}
-              ticks={[0, 20, 40, 60, 80, 100]}
-              valueSuffix="%"
               theme={{
                 dot: "bg-amber-300",
-                fill: "bg-amber-500/70 bg-gradient-to-t from-amber-900/95 to-amber-300/90",
+                fill: "bg-gradient-to-t from-amber-900/95 to-amber-300/90",
                 border: "border-amber-200/25",
                 value: "text-amber-200",
-              }}
-            />
-
-            <VerticalBarGraph
-              title="Missed Day Analysis"
-              subtitle="Missed Logs by Weekday"
-              series={missedDaySeries}
-              yMax={Math.max(4, Math.max(...missedDaySeries.map((item) => item.value), 0))}
-              ticks={[0, 1, 2, 3, 4]}
-              theme={{
-                dot: "bg-red-400",
-                fill: "bg-red-500/90 bg-gradient-to-t from-red-700/95 via-red-500/95 to-red-300/95 shadow-[0_0_12px_rgba(239,68,68,0.35)]",
-                border: "border-red-300/40",
-                value: "text-red-200",
               }}
             />
           </div>
         </div>
 
         <div
-          className="-mt-12 journal-scroll flex w-full max-w-[360px] shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
+          className="journal-scroll flex w-full max-w-[360px] shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
           style={{ maxHeight: "calc(100vh - 180px)" }}
         >
           <InsightRail insights={insights} />

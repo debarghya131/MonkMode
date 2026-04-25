@@ -46,7 +46,7 @@ const menuItems = {
     },
    
     {
-      name: "AI Coach",
+      name: "AI GURU",
       icon: "✨",
       path: "/dashboard/ai_coach",
     },

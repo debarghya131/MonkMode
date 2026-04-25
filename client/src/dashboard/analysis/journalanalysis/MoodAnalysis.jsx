@@ -208,6 +208,7 @@ const BAR_H = 200;
 const LABEL_H = 56; // space below bars for emoji + mood name + log count
 
 function MoodVsGraph({ data, daysLogged }) {
+  const [hovered, setHovered] = useState(null);
   return (
     <section className="rounded-[1.75rem] border border-amber-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -261,10 +262,16 @@ function MoodVsGraph({ data, daysLogged }) {
                 <Motion.div
                   key={item.mood}
                   className="flex min-w-0 flex-1 flex-col items-center"
-                  style={{ height: BAR_H + LABEL_H }}
+                  style={{
+                    height: BAR_H + LABEL_H,
+                    opacity: hovered !== null && hovered !== idx ? 0.35 : 1,
+                    transition: "opacity 0.18s ease",
+                  }}
                   initial={{ opacity: 0, y: 18 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  animate={{ opacity: hovered !== null && hovered !== idx ? 0.35 : 1, y: 0 }}
                   transition={{ duration: 0.35, delay: idx * 0.07, ease: "easeOut" }}
+                  onMouseEnter={() => setHovered(idx)}
+                  onMouseLeave={() => setHovered(null)}
                 >
                   {/* Bars sit at the bottom of the bar area */}
                   <div className="flex items-end justify-center gap-1.5" style={{ height: BAR_H, marginBottom: 0 }}>
@@ -321,6 +328,7 @@ const TOP_LABEL_H = 52;  // emoji + mood + % above the bar
 const DAY_LABEL_H  = 22;  // day name below the bar
 
 function DayWiseMoodGraph({ data }) {
+  const [hovered, setHovered] = useState(null);
   return (
     <section className="rounded-[1.75rem] border border-amber-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
       <div>
@@ -359,10 +367,16 @@ function DayWiseMoodGraph({ data }) {
                 <Motion.div
                   key={item.date}
                   className="flex min-w-0 flex-1 flex-col items-center"
-                  style={{ height: TOP_LABEL_H + BAR_H + DAY_LABEL_H }}
+                  style={{
+                    height: TOP_LABEL_H + BAR_H + DAY_LABEL_H,
+                    opacity: hovered !== null && hovered !== idx ? 0.35 : 1,
+                    transition: "opacity 0.18s ease",
+                  }}
                   initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  animate={{ opacity: hovered !== null && hovered !== idx ? 0.35 : 1, y: 0 }}
                   transition={{ duration: 0.35, delay: idx * 0.07, ease: "easeOut" }}
+                  onMouseEnter={() => setHovered(idx)}
+                  onMouseLeave={() => setHovered(null)}
                 >
                   {/* Top: emoji + mood + % — above the bar */}
                   <Motion.div

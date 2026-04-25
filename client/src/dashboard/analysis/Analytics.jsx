@@ -1,6 +1,7 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useState } from "react";
 import JournalAnalysis from "./journalanalysis/JournalAnalysis";
+import ToDoAnalysis from "./todoanalysis/ToDoAnalysis";
 
 const ANALYTICS_TABS = [
   { id: "journal", icon: "📝", label: "Journal Analysis" },
@@ -18,6 +19,9 @@ export default function Analytics() {
   const renderAnalyticsContent = () => {
     if (activeAnalytics.id === "journal") {
       return <JournalAnalysis />;
+    }
+    if (activeAnalytics.id === "todo") {
+      return <ToDoAnalysis />;
     }
 
     return (
@@ -68,7 +72,7 @@ export default function Analytics() {
         })}
       </nav>
 
-      {activeAnalytics.id === "journal" ? (
+      {activeAnalytics.id === "journal" || activeAnalytics.id === "todo" ? (
         <AnimatePresence mode="wait">{renderAnalyticsContent()}</AnimatePresence>
       ) : (
         <div className="rounded-[2rem] border border-amber-100/10 bg-white/6 p-8 shadow-2xl shadow-black/25 backdrop-blur">

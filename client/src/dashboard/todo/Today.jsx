@@ -103,6 +103,11 @@ function TaskRow({ task, onUndo, index = 0 }) {
         <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{task.category}</span>
         <span className={`rounded-full border px-2 py-1 ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
         <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{formatTime(task.time)}</span>
+        {task.lateCompleted && task.completedAt && (
+          <span className="flex items-center gap-1 rounded-full border border-orange-400/30 bg-orange-500/10 px-2 py-1 text-[11px] font-semibold text-orange-300">
+            ⏰ Late · {formatTime(task.completedAt)}
+          </span>
+        )}
       </div>
     </Motion.article>
   );
@@ -162,6 +167,7 @@ export default function Today() {
   const [allFilter, setAllFilter] = useState("All");
   const [pendingFilter, setPendingFilter] = useState("All");
   const [completedFilter, setCompletedFilter] = useState("All");
+  const [latePrompt, setLatePrompt] = useState({ taskId: null, time: "" });
 
   const todayLabel = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -197,6 +203,17 @@ export default function Today() {
         return { ...rest, status: previousStatus ?? "pending" };
       })
     );
+  };
+
+  const markCompleteWithTime = (id, completedAt) => {
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? { ...t, previousStatus: t.status, status: "completed", lateCompleted: true, completedAt }
+          : t
+      )
+    );
+    setLatePrompt({ taskId: null, time: "" });
   };
 
   return (
@@ -409,29 +426,73 @@ export default function Today() {
               {missedTasks.length === 0 ? (
                 <p className="text-xs text-stone-500">No missed tasks left for today.</p>
               ) : (
-                missedTasks.map((task) => (
-                  <div key={task.id} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
-                    <p className="text-sm font-semibold text-stone-100">{task.title}</p>
-                    <p className="mt-1 text-xs text-stone-400">{task.category}</p>
-                    <div className="mt-2 flex items-center justify-between gap-2 text-xs text-stone-300">
-                      <span>{formatTime(task.time)}</span>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <Motion.button
-                          type="button"
-                          onClick={() => markComplete(task.id)}
-                          whileHover={{ scale: 1.04, boxShadow: "0 0 12px rgba(52,211,153,0.25)" }}
-                          whileTap={{ scale: 0.95 }}
-                          className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/20"
+                missedTasks.map((task) => {
+                  const isPrompting = latePrompt.taskId === task.id;
+                  return (
+                    <Motion.div
+                      key={task.id}
+                      layout
+                      className="rounded-xl border border-rose-400/15 bg-white/5 p-3"
+                    >
+                      <p className="text-sm font-semibold text-stone-100">{task.title}</p>
+                      <p className="mt-1 text-xs text-stone-400">{task.category}</p>
+
+                      {/* Inline late-completion time picker */}
+                      {isPrompting ? (
+                        <Motion.div
+                          initial={{ opacity: 0, y: -6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="mt-3 space-y-2"
                         >
-                          Mark as Complete
-                        </Motion.button>
-                        <span className={`rounded-full border px-2 py-1 ${STATUS_STYLES[task.status]}`}>
-                          {STATUS_LABELS[task.status]}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))
+                          <p className="text-[11px] text-orange-300/80">When did you actually complete this?</p>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="time"
+                              value={latePrompt.time}
+                              onChange={(e) => setLatePrompt((p) => ({ ...p, time: e.target.value }))}
+                              className="rounded-lg border border-orange-400/25 bg-orange-500/10 px-2 py-1 text-xs text-orange-100 outline-none focus:border-orange-400/50"
+                            />
+                            <Motion.button
+                              type="button"
+                              onClick={() => latePrompt.time && markCompleteWithTime(task.id, latePrompt.time)}
+                              disabled={!latePrompt.time}
+                              whileHover={{ scale: 1.04 }}
+                              whileTap={{ scale: 0.95 }}
+                              className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200 disabled:opacity-40 transition hover:border-emerald-300/50 hover:bg-emerald-500/20"
+                            >
+                              Confirm
+                            </Motion.button>
+                            <button
+                              type="button"
+                              onClick={() => setLatePrompt({ taskId: null, time: "" })}
+                              className="text-[11px] text-stone-500 hover:text-stone-300"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </Motion.div>
+                      ) : (
+                        <div className="mt-2 flex items-center justify-between gap-2 text-xs text-stone-300">
+                          <span>{formatTime(task.time)}</span>
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <Motion.button
+                              type="button"
+                              onClick={() => setLatePrompt({ taskId: task.id, time: "" })}
+                              whileHover={{ scale: 1.04, boxShadow: "0 0 12px rgba(52,211,153,0.25)" }}
+                              whileTap={{ scale: 0.95 }}
+                              className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/20"
+                            >
+                              Mark as Complete
+                            </Motion.button>
+                            <span className={`rounded-full border px-2 py-1 ${STATUS_STYLES[task.status]}`}>
+                              {STATUS_LABELS[task.status]}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </Motion.div>
+                  );
+                })
               )}
             </div>
           </section>
