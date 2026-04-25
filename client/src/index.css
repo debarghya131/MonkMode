@@ -160,6 +160,9 @@ a {
   letter-spacing: 0.2em;
 }
 
+.journal-scroll {
+  scroll-behavior: smooth;
+}
 .journal-scroll::-webkit-scrollbar {
   width: 4px;
 }
