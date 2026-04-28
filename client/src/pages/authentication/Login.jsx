@@ -45,7 +45,7 @@ export default function Login() {
   };
 
   return (
-    <div className="auth-page relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-8 text-white">
+    <div className="auth-page relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-6 text-white sm:px-6 sm:py-8">
       <AuthBackground />
 
       <div className="relative z-10 flex w-full max-w-lg -translate-y-4 flex-col items-center sm:-translate-y-6">
@@ -57,7 +57,7 @@ export default function Login() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          <div className="p-8 md:p-10">
+          <div className="p-5 sm:p-8 md:p-10">
             <div className="mx-auto w-full max-w-md">
               <Motion.p
                 className="auth-overline text-[0.72rem] uppercase tracking-[0.35em] text-amber-200/70"

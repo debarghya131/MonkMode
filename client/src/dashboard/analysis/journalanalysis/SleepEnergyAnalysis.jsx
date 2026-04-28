@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
-import monkGreetingsLogo from "../../../assets/monkgreetingslogo.png";
+import littleMonkLogo from "../../../assets/littlemonklogo.png";
 
 const MONTH_OPTIONS = [
   { value: "01", label: "January" },
@@ -99,6 +99,7 @@ const SLEEP_ENTRIES = [
 ];
 
 const YEARS = [...new Set(SLEEP_ENTRIES.map((entry) => entry.date.slice(0, 4)))].sort().reverse();
+const WEEKDAY_ORDER = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WEEK_OPTIONS = [
   { value: 1, label: "Week 1", range: "1-7" },
   { value: 2, label: "Week 2", range: "8-14" },
@@ -218,11 +219,21 @@ function buildWeeklySeries(entries, year, month, week) {
   });
 }
 
+function buildWeekdayRatingSeries(entries) {
+  return WEEKDAY_ORDER.map((weekday) => {
+    const values = entries.filter((entry) => formatDay(entry.date) === weekday).map((entry) => entry.rating);
+    return {
+      label: weekday,
+      value: values.length ? round(average(values)) : 0,
+    };
+  });
+}
+
 function InsightRail({ insights }) {
   const [selectedInsight, setSelectedInsight] = useState(null);
 
   return (
-    <aside className="flex w-full flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur">
+    <aside className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur">
       <div className="shrink-0 p-5 pb-4">
         <div className="flex items-center gap-3">
           <Motion.div
@@ -236,7 +247,7 @@ function InsightRail({ insights }) {
               transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
             />
             <Motion.img
-              src={monkGreetingsLogo}
+              src={littleMonkLogo}
               alt="Little Monk AI Assistant"
               className="relative z-10 h-20 w-20 object-contain drop-shadow-[0_10px_18px_rgba(245,158,11,0.16)]"
               whileHover={{ scale: 1.08, rotate: -3 }}
@@ -252,7 +263,7 @@ function InsightRail({ insights }) {
         </div>
       </div>
 
-      <div className="journal-scroll space-y-3 px-5 pb-5 pr-4">
+      <div className="journal-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-5 pb-5 pr-4">
         {insights.map((insight) => {
           const isSelected = selectedInsight === insight.title;
           return (
@@ -310,7 +321,7 @@ function SleepDurationLineGraph({ data }) {
           <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Sleep Trend</p>
           <h4 className="mt-2 text-xl font-semibold text-sky-50">Total Sleep Duration</h4>
         </div>
-        <div className="mt-6 flex h-[260px] items-center justify-center rounded-2xl border border-dashed border-sky-100/10 text-sm text-stone-400">
+        <div className="mt-6 flex h-[29vh] items-center justify-center rounded-2xl border border-dashed border-sky-100/10 text-sm text-stone-400">
           No sleep logs for this month.
         </div>
       </section>
@@ -622,7 +633,8 @@ function SleepVsScoreGraph({ data, selectedWeek, onWeekChange }) {
         </div>
       </div>
 
-      <div className="mt-6 flex gap-3">
+      <div className="mt-6 overflow-x-auto pb-1">
+      <div className="flex min-w-[680px] gap-3 pr-1">
         <div
           className="flex shrink-0 flex-col justify-between text-right text-[11px] text-stone-500"
           style={{ height: BAR_H, marginBottom: LABEL_H }}
@@ -715,6 +727,7 @@ function SleepVsScoreGraph({ data, selectedWeek, onWeekChange }) {
           </div>
         </div>
       </div>
+      </div>
     </section>
   );
 }
@@ -723,12 +736,25 @@ function EnergyLevelGraph({ data }) {
   const [hovered, setHovered] = useState(null);
   return (
     <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
-      <div>
-        <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Energy</p>
-        <h4 className="mt-2 text-xl font-semibold text-sky-50">7 Day-wise Energy Level</h4>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Energy & Rating</p>
+          <h4 className="mt-2 text-xl font-semibold text-sky-50">7 Day-wise Energy Level and Day Rating</h4>
+        </div>
+        <div className="flex flex-wrap items-center gap-4 text-xs text-stone-400">
+          <span className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-cyan-300" />
+            Energy
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
+            Overall rating
+          </span>
+        </div>
       </div>
 
-      <div className="mt-6 flex gap-3">
+      <div className="mt-6 overflow-x-auto pb-1">
+      <div className="flex min-w-[640px] gap-3 pr-1">
         <div
           className="flex shrink-0 flex-col justify-between text-right text-[11px] text-stone-500"
           style={{ height: BAR_H, marginTop: TOP_LABEL_H, marginBottom: LABEL_H / 2 }}
@@ -763,20 +789,33 @@ function EnergyLevelGraph({ data }) {
                 onMouseEnter={() => setHovered(index)}
                 onMouseLeave={() => setHovered(null)}
               >
-                <div className="flex flex-col items-center justify-end pb-1" style={{ height: TOP_LABEL_H }}>
-                  <span className="text-[10px] font-semibold text-sky-200">
+                <div className="flex items-end justify-center gap-2 pb-1" style={{ height: TOP_LABEL_H }}>
+                  <span className="w-9 text-center text-[10px] font-semibold text-sky-200">
                     {item.energy === null ? "--" : `${item.energy}%`}
                   </span>
+                  <span className="w-9 text-center text-[10px] font-semibold text-emerald-200">
+                    {item.rating === null ? "--" : `${item.rating}%`}
+                  </span>
                 </div>
-                <div className="flex w-full items-end justify-center" style={{ height: BAR_H }}>
+                <div className="flex w-full items-end justify-center gap-2" style={{ height: BAR_H }}>
                   {item.energy === null ? (
-                    <div className="h-2 w-full max-w-[56px] rounded-t-2xl border border-dashed border-cyan-200/50 bg-cyan-400/10" />
+                    <div className="h-2 w-full max-w-[30px] rounded-t-2xl border border-dashed border-cyan-200/50 bg-cyan-400/10" />
                   ) : (
                     <Motion.div
-                      className="w-full max-w-[56px] rounded-t-2xl border border-white/10 bg-gradient-to-t from-sky-800/90 via-cyan-600/85 to-cyan-300/90"
+                      className="w-full max-w-[30px] rounded-t-2xl border border-white/10 bg-gradient-to-t from-sky-800/90 via-cyan-600/85 to-cyan-300/90"
                       initial={{ height: 0 }}
                       animate={{ height: Math.max(12, Math.round((item.energy / 100) * BAR_H)) }}
                       transition={{ duration: 0.5, delay: index * 0.06 }}
+                    />
+                  )}
+                  {item.rating === null ? (
+                    <div className="h-2 w-full max-w-[30px] rounded-t-2xl border border-dashed border-emerald-200/50 bg-emerald-400/10" />
+                  ) : (
+                    <Motion.div
+                      className="w-full max-w-[30px] rounded-t-2xl border border-white/10 bg-gradient-to-t from-emerald-900/90 via-emerald-600/85 to-emerald-300/90"
+                      initial={{ height: 0 }}
+                      animate={{ height: Math.max(12, Math.round((item.rating / 100) * BAR_H)) }}
+                      transition={{ duration: 0.5, delay: index * 0.06 + 0.04 }}
                     />
                   )}
                 </div>
@@ -787,6 +826,7 @@ function EnergyLevelGraph({ data }) {
             ))}
           </div>
         </div>
+      </div>
       </div>
     </section>
   );
@@ -826,6 +866,15 @@ export default function SleepEnergyAnalysis() {
   const avgWakeupTime = average(filteredEntries.map((entry) => timeToMinutes(entry.wakeTime)));
   const avgSleepTime = average(filteredEntries.map((entry) => timeToMinutes(entry.sleepTime)));
   const avgEnergy = average(filteredEntries.map((entry) => entry.energy));
+  const avgDayRating = average(filteredEntries.map((entry) => entry.rating));
+  const weekdayRatingSeries = useMemo(() => buildWeekdayRatingSeries(filteredEntries), [filteredEntries]);
+  const validWeekdayRatings = weekdayRatingSeries.filter((item) => item.value > 0);
+  const highestRatedDay = validWeekdayRatings.length
+    ? [...validWeekdayRatings].sort((a, b) => b.value - a.value)[0]
+    : null;
+  const lowestRatedDay = validWeekdayRatings.length
+    ? [...validWeekdayRatings].sort((a, b) => a.value - b.value)[0]
+    : null;
   const weeklyEnergyEntries = energySeries.filter((entry) => entry.energy !== null);
   const highestEnergyEntry = weeklyEnergyEntries.length
     ? weeklyEnergyEntries.reduce((highest, entry) => (entry.energy > highest.energy ? entry : highest), weeklyEnergyEntries[0])
@@ -854,6 +903,21 @@ export default function SleepEnergyAnalysis() {
       title: "Avg Energy This Month",
       value: `${Math.round(avgEnergy)}%`,
       description: "Average daytime energy across the current month’s entries.",
+    },
+    {
+      title: "Avg Day Rating This Month",
+      value: `${round(avgDayRating)}%`,
+      description: "Average overall day rating across the current month’s sleep and energy entries.",
+    },
+    {
+      title: "Highest Rated Day",
+      value: highestRatedDay ? `${highestRatedDay.label} · ${highestRatedDay.value}%` : "No data",
+      description: "Weekday with the highest average day rating this month.",
+    },
+    {
+      title: "Lowest Rated Day",
+      value: lowestRatedDay ? `${lowestRatedDay.label} · ${lowestRatedDay.value}%` : "No data",
+      description: "Weekday with the lowest average day rating this month.",
     },
     {
       title: "Highest Energy Day",
@@ -917,11 +981,8 @@ export default function SleepEnergyAnalysis() {
 
       </div>
 
-      <div className="flex items-start gap-5">
-        <div
-          className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
-          style={{ maxHeight: "calc(100vh - 350px)" }}
-        >
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-start">
+        <div className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur xl:max-h-[calc(100vh-350px)]">
           <div className="space-y-6 p-6">
             <SleepDurationLineGraph data={lineSeries} />
             <SleepVsScoreGraph
@@ -933,10 +994,7 @@ export default function SleepEnergyAnalysis() {
           </div>
         </div>
 
-        <div
-          className="journal-scroll flex w-full max-w-[360px] shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
-          style={{ maxHeight: "calc(100vh - 180px)" }}
-        >
+        <div className="journal-scroll flex w-full flex-col gap-2 overflow-hidden scroll-smooth xl:h-[calc(100vh-350px)] xl:max-h-[calc(100vh-350px)] xl:max-w-[360px] xl:shrink-0 xl:self-start">
           <InsightRail insights={littleMonkInsights} />
         </div>
       </div>

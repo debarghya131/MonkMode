@@ -51,7 +51,7 @@ export default function Gym() {
   };
 
   return (
-    <div className="mx-auto max-w-8xl space-y-4">
+    <div className="w-full space-y-4">
 
       {/* TOP ROW */}
       <div className="flex items-center gap-3">

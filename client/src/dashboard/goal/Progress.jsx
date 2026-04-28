@@ -48,7 +48,7 @@ export default function Progress({ importantByGoal = {}, milestonesByGoal = {} }
   })();
 
   return (
-    <div className="h-[700px] rounded-[2rem] border border-amber-100/10 bg-white/6 p-6 shadow-2xl shadow-black/25 backdrop-blur flex flex-col">
+    <div className="h-[78vh] rounded-[2rem] border border-amber-100/10 bg-white/6 p-6 shadow-2xl shadow-black/25 backdrop-blur flex flex-col">
       <p className="text-label-lg">Progress</p>
       <h2 className="mt-2 text-2xl font-bold text-amber-100">Goal Progress</h2>
       <p className="text-body-md mt-1 text-stone-300/90">

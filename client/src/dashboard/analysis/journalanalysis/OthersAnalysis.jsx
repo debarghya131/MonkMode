@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
-import monkGreetingsLogo from "../../../assets/monkgreetingslogo.png";
+import littleMonkLogo from "../../../assets/littlemonklogo.png";
 
 const MONTH_OPTIONS = [
   { value: "01", label: "January" },
@@ -10,6 +10,28 @@ const MONTH_OPTIONS = [
 ];
 
 const WEEKDAY_ORDER = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MISTAKE_POOL = [
+  "Late start",
+  "Skipped planning",
+  "Context switching",
+  "Over-committing",
+  "Phone checking",
+  "Delayed deep work",
+  "Poor time blocking",
+  "No evening review",
+  "Multitasking",
+];
+const DISTRACTION_POOL = [
+  "Instagram",
+  "YouTube",
+  "WhatsApp",
+  "Email refresh",
+  "Random browsing",
+  "Notification checks",
+  "Unplanned calls",
+  "News feed",
+  "Chat hopping",
+];
 const BAR_H = 190;
 const LABEL_H = 56;
 const CHART_HEADROOM = 16;
@@ -30,8 +52,28 @@ function getDaysInMonth(year, month) {
   return new Date(Number(year), Number(month), 0).getDate();
 }
 
-function formatDay(date) {
-  return new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short" });
+function getTagSet(pool, daySeed, shift) {
+  const first = pool[(daySeed + shift) % pool.length];
+  const second = pool[(daySeed * 3 + shift + 2) % pool.length];
+  const picks = daySeed % 4 === 0 ? [first, second] : [first];
+  return [...new Set(picks)];
+}
+
+function generateMonthReflectionLogs(year, month, baseShift) {
+  const days = getDaysInMonth(year, month);
+  return Array.from({ length: days }, (_, index) => {
+    const day = index + 1;
+    const date = `${year}-${month}-${String(day).padStart(2, "0")}`;
+
+    return {
+      date,
+      wins: clamp(2 + ((day * 2 + baseShift) % 5), 1, 6),
+      mistakes: clamp(1 + ((day + baseShift) % 4), 0, 5),
+      achievements: clamp(1 + ((day * 3 + baseShift) % 5), 1, 6),
+      mistakeTags: getTagSet(MISTAKE_POOL, day, baseShift),
+      distractionTags: getTagSet(DISTRACTION_POOL, day + 2, baseShift),
+    };
+  });
 }
 
 function generateMonthScoreLogs(year, month, seed, missedDays) {
@@ -64,16 +106,51 @@ const SCORE_LOGS = [
   ...generateMonthScoreLogs("2026", "04", 5, [6, 14, 21, 30]),
 ];
 
+const REFLECTION_LOGS = [
+  ...generateMonthReflectionLogs("2026", "02", 1),
+  ...generateMonthReflectionLogs("2026", "03", 3),
+  ...generateMonthReflectionLogs("2026", "04", 5),
+];
+
 const YEARS = [...new Set(SCORE_LOGS.map((entry) => entry.date.slice(0, 4)))].sort().reverse();
 
-function buildOverallWeekdayRatingSeries(logs) {
-  return WEEKDAY_ORDER.map((weekday) => {
-    const values = logs.filter((entry) => entry.logged && entry.weekday === weekday).map((entry) => entry.rating);
+function buildMonthlySeries(logs, year, month, key) {
+  const entryMap = new Map(logs.map((entry) => [Number(entry.date.slice(8, 10)), entry]));
+  const daysInMonth = getDaysInMonth(year, month);
+
+  return Array.from({ length: daysInMonth }, (_, index) => {
+    const day = index + 1;
+    const item = entryMap.get(day);
     return {
-      label: weekday,
-      value: values.length ? round(average(values)) : 0,
+      date: `${year}-${month}-${String(day).padStart(2, "0")}`,
+      day,
+      value: item?.[key] ?? 0,
     };
   });
+}
+
+function sumBy(logs, key) {
+  return logs.reduce((total, entry) => total + (entry[key] ?? 0), 0);
+}
+
+function topRepeated(logs, key, limit = 5) {
+  const counts = new Map();
+
+  logs.forEach((entry) => {
+    (entry[key] ?? []).forEach((label) => {
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    });
+  });
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([label, count]) => ({ label, count }));
+}
+
+function toListSummary(items, emptyText) {
+  if (!items.length) return emptyText;
+  return items.map((item, index) => `${index + 1}. ${item.label} (${item.count})`).join("\n");
 }
 
 function buildWeeklyScoreSeries(logs) {
@@ -127,7 +204,7 @@ function InsightRail({ insights }) {
   const [selectedInsight, setSelectedInsight] = useState(null);
 
   return (
-    <aside className="flex w-full flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur">
+    <aside className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur">
       <div className="shrink-0 p-5 pb-4">
         <div className="flex items-center gap-3">
           <Motion.div
@@ -141,7 +218,7 @@ function InsightRail({ insights }) {
               transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
             />
             <Motion.img
-              src={monkGreetingsLogo}
+              src={littleMonkLogo}
               alt="Little Monk AI Assistant"
               className="relative z-10 h-20 w-20 object-contain drop-shadow-[0_10px_18px_rgba(245,158,11,0.16)]"
               whileHover={{ scale: 1.08, rotate: -3 }}
@@ -157,7 +234,7 @@ function InsightRail({ insights }) {
         </div>
       </div>
 
-      <div className="journal-scroll space-y-3 px-5 pb-5 pr-4">
+      <div className="journal-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-5 pb-5 pr-4">
         {insights.map((insight) => {
           const isSelected = selectedInsight === insight.title;
           return (
@@ -281,6 +358,123 @@ function VerticalBarGraph({ title, subtitle, series, yMax, ticks, theme, valueSu
             ))}
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function CombinedMonthlyLineGraph({ seriesGroups }) {
+  const [hovered, setHovered] = useState(null);
+  const baseSeries = seriesGroups[0]?.series ?? [];
+  const maxValue = Math.max(6, ...seriesGroups.flatMap((group) => group.series.map((item) => item.value)));
+  const marks = [0, 2, 4, 6].filter((mark) => mark <= maxValue);
+  if (!marks.includes(maxValue)) marks.push(maxValue);
+
+  const width = 900;
+  const height = 228;
+  const pad = { top: 26, right: 14, bottom: 24, left: 34 };
+  const chartW = width - pad.left - pad.right;
+  const chartH = height - pad.top - pad.bottom;
+  const xOf = (index) => pad.left + (baseSeries.length <= 1 ? chartW / 2 : (index / (baseSeries.length - 1)) * chartW);
+  const yOf = (value) => pad.top + ((maxValue - value) / maxValue) * chartH;
+  const buildPath = (series) =>
+    series.map((item, index) => `${index === 0 ? "M" : "L"} ${xOf(index).toFixed(1)} ${yOf(item.value).toFixed(1)}`).join(" ");
+
+  return (
+    <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Monthly Reflection</p>
+          <h4 className="mt-2 text-xl font-semibold text-sky-50">Wins, Mistakes & Achievements This Month</h4>
+        </div>
+        <div className="flex flex-wrap items-center gap-4 text-xs text-stone-400">
+          {seriesGroups.map((group) => (
+            <span key={group.label} className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: group.stroke }} />
+              {group.label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-5 overflow-x-auto">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ minWidth: "640px" }}>
+          {marks.map((mark) => (
+            <g key={mark}>
+              <line x1={pad.left} x2={width - pad.right} y1={yOf(mark)} y2={yOf(mark)} stroke="rgba(255,255,255,0.07)" strokeDasharray="4 5" />
+              <text x={pad.left - 8} y={yOf(mark) + 4} textAnchor="end" fontSize="10" fill="rgba(168,162,158,0.7)">
+                {mark}
+              </text>
+            </g>
+          ))}
+
+          {seriesGroups.map((group, groupIndex) => (
+            <g key={group.label}>
+              <Motion.path
+                d={buildPath(group.series)}
+                fill="none"
+                stroke={group.stroke}
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{ pathLength: 1, opacity: 1 }}
+                transition={{ duration: 1.2, delay: groupIndex * 0.12, ease: "easeInOut" }}
+              />
+              {group.series.map((item, index) => (
+                <Motion.circle
+                  key={`${group.label}-${item.date}`}
+                  cx={xOf(index)}
+                  cy={yOf(item.value)}
+                  r={hovered === index ? 5 : 3}
+                  fill={hovered === index ? group.stroke : "#0c0a09"}
+                  stroke={group.stroke}
+                  strokeWidth="1.6"
+                  animate={{ opacity: hovered !== null && hovered !== index ? 0.42 : 1 }}
+                />
+              ))}
+            </g>
+          ))}
+
+          {hovered !== null && baseSeries[hovered] && (
+            <g pointerEvents="none">
+              <line x1={xOf(hovered)} x2={xOf(hovered)} y1={pad.top} y2={height - pad.bottom} stroke="rgba(255,255,255,0.18)" strokeDasharray="4 4" />
+              <rect x={Math.min(Math.max(xOf(hovered) - 58, pad.left), width - pad.right - 116)} y={pad.top + 4} width="116" height="62" rx="8" fill="rgba(15,15,15,0.94)" stroke="rgba(255,255,255,0.16)" />
+              <text x={Math.min(Math.max(xOf(hovered), pad.left + 58), width - pad.right - 58)} y={pad.top + 20} textAnchor="middle" fontSize="10" fontWeight="700" fill="#e7e5e4">
+                Day {baseSeries[hovered].day}
+              </text>
+              {seriesGroups.map((group, index) => (
+                <text key={group.label} x={Math.min(Math.max(xOf(hovered), pad.left + 58), width - pad.right - 58)} y={pad.top + 36 + index * 12} textAnchor="middle" fontSize="10" fontWeight="700" fill={group.stroke}>
+                  {group.label}: {group.series[hovered]?.value ?? 0}
+                </text>
+              ))}
+            </g>
+          )}
+
+          {baseSeries.map((item, index) => {
+            const hitW = baseSeries.length > 1 ? chartW / (baseSeries.length - 1) : chartW;
+            return (
+              <rect
+                key={item.date}
+                x={Math.max(pad.left, xOf(index) - hitW / 2)}
+                y={pad.top}
+                width={hitW}
+                height={chartH}
+                fill="transparent"
+                onMouseEnter={() => setHovered(index)}
+                onMouseLeave={() => setHovered(null)}
+              />
+            );
+          })}
+
+          {baseSeries.map((item, index) =>
+            index % 3 === 0 || index === baseSeries.length - 1 ? (
+              <text key={`label-${item.date}`} x={xOf(index)} y={height - 5} textAnchor="middle" fontSize="9" fill="rgba(120,113,108,0.85)">
+                {item.day}
+              </text>
+            ) : null
+          )}
+        </svg>
       </div>
     </section>
   );
@@ -425,7 +619,7 @@ function StreakLineGraph({ series, daysInMonth }) {
   );
 }
 
-export default function ScoreStreakAnalysis() {
+export default function OthersAnalysis() {
   const [selectedYear, setSelectedYear] = useState(YEARS[0]);
   const [selectedMonth, setSelectedMonth] = useState("04");
 
@@ -444,20 +638,34 @@ export default function ScoreStreakAnalysis() {
     [selectedMonth, selectedYear]
   );
 
-  const overallDayRatingSeries = useMemo(() => buildOverallWeekdayRatingSeries(monthLogs), [monthLogs]);
   const weeklyScoreSeries = useMemo(() => buildWeeklyScoreSeries(monthLogs), [monthLogs]);
   const streakSeries = useMemo(() => buildStreakSeries(monthLogs, selectedYear, selectedMonth), [monthLogs, selectedMonth, selectedYear]);
   const missedDaySeries = useMemo(() => buildMissedByWeekdaySeries(monthLogs), [monthLogs]);
+  const reflectionLogs = useMemo(
+    () =>
+      REFLECTION_LOGS.filter(
+        (entry) => entry.date.startsWith(selectedYear) && entry.date.slice(5, 7) === selectedMonth
+      ).sort((a, b) => a.date.localeCompare(b.date)),
+    [selectedMonth, selectedYear]
+  );
+  const winSeries = useMemo(
+    () => buildMonthlySeries(reflectionLogs, selectedYear, selectedMonth, "wins"),
+    [reflectionLogs, selectedMonth, selectedYear]
+  );
+  const mistakeSeries = useMemo(
+    () => buildMonthlySeries(reflectionLogs, selectedYear, selectedMonth, "mistakes"),
+    [reflectionLogs, selectedMonth, selectedYear]
+  );
+  const achievementSeries = useMemo(
+    () => buildMonthlySeries(reflectionLogs, selectedYear, selectedMonth, "achievements"),
+    [reflectionLogs, selectedMonth, selectedYear]
+  );
+  const totalWins = sumBy(reflectionLogs, "wins");
+  const totalAchievements = sumBy(reflectionLogs, "achievements");
+  const totalMistakes = sumBy(reflectionLogs, "mistakes");
+  const topMistakes = topRepeated(reflectionLogs, "mistakeTags", 5);
+  const topDistractions = topRepeated(reflectionLogs, "distractionTags", 5);
 
-  const validWeekdayRatings = overallDayRatingSeries.filter((item) => item.value > 0);
-  const highestRatedDay = validWeekdayRatings.length
-    ? [...validWeekdayRatings].sort((a, b) => b.value - a.value)[0]
-    : null;
-  const lowestRatedDay = validWeekdayRatings.length
-    ? [...validWeekdayRatings].sort((a, b) => a.value - b.value)[0]
-    : null;
-
-  const avgDayRating = round(average(monthLogs.filter((entry) => entry.logged).map((entry) => entry.rating)));
   const avgWeeklyScore = round(average(weeklyScoreSeries.filter((item) => item.value > 0).map((item) => item.value)));
   const longestJournalStreak = Math.max(...streakSeries.map((item) => item.value), 0);
   const streakBreaks = countStreakBreaks(monthLogs);
@@ -465,19 +673,29 @@ export default function ScoreStreakAnalysis() {
 
   const insights = [
     {
-      title: "Highest Rated Day",
-      value: highestRatedDay ? `${highestRatedDay.label} · ${highestRatedDay.value}%` : "No data",
-      description: "Weekday with the highest average overall rating this month.",
+      title: "Total Wins This Month",
+      value: `${totalWins}`,
+      description: "Total number of wins recorded in the selected month.",
     },
     {
-      title: "Lowest Rated Day",
-      value: lowestRatedDay ? `${lowestRatedDay.label} · ${lowestRatedDay.value}%` : "No data",
-      description: "Weekday with the lowest average overall rating this month.",
+      title: "Total Achievements This Month",
+      value: `${totalAchievements}`,
+      description: "Total number of achievements recorded in the selected month.",
     },
     {
-      title: "Avg Day Rating This Month",
-      value: `${avgDayRating}%`,
-      description: "Average overall day rating across all logged days this month.",
+      title: "Total Mistakes This Month",
+      value: `${totalMistakes}`,
+      description: "Total number of mistakes recorded in the selected month.",
+    },
+    {
+      title: "Top 5 Repeated Mistakes",
+      value: topMistakes.length ? topMistakes.map((item) => item.label).join(", ") : "No data",
+      description: toListSummary(topMistakes, "No repeated mistakes found."),
+    },
+    {
+      title: "Top 5 Repeated Distractions",
+      value: topDistractions.length ? topDistractions.map((item) => item.label).join(", ") : "No data",
+      description: toListSummary(topDistractions, "No repeated distractions found."),
     },
     {
       title: "Avg Weekly Score",
@@ -544,43 +762,21 @@ export default function ScoreStreakAnalysis() {
         </label>
       </div>
 
-      <div className="flex items-start gap-5">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div
           className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
           style={{ maxHeight: "calc(100vh - 350px)" }}
         >
           <div className="space-y-6 p-6">
+            <CombinedMonthlyLineGraph
+              seriesGroups={[
+                { label: "Wins", series: winSeries, stroke: "#10b981" },
+                { label: "Mistakes", series: mistakeSeries, stroke: "#ef4444" },
+                { label: "Achievements", series: achievementSeries, stroke: "#f59e0b" },
+              ]}
+            />
+
             <StreakLineGraph series={streakSeries} daysInMonth={daysInMonth} />
-
-            <VerticalBarGraph
-              title="Overall Day Rating Analysis"
-              subtitle="Overall Rating by Weekday"
-              series={overallDayRatingSeries}
-              yMax={100}
-              ticks={[0, 20, 40, 60, 80, 100]}
-              valueSuffix="%"
-              theme={{
-                dot: "bg-cyan-300",
-                fill: "bg-cyan-500/70 bg-gradient-to-t from-cyan-900/95 to-cyan-300/90",
-                border: "border-cyan-200/25",
-                value: "text-cyan-200",
-              }}
-            />
-
-            <VerticalBarGraph
-              title="Weekly Score Analysis (4 Weeks)"
-              subtitle="Week-wise Score"
-              series={weeklyScoreSeries}
-              yMax={100}
-              ticks={[0, 20, 40, 60, 80, 100]}
-              valueSuffix="%"
-              theme={{
-                dot: "bg-amber-300",
-                fill: "bg-amber-500/70 bg-gradient-to-t from-amber-900/95 to-amber-300/90",
-                border: "border-amber-200/25",
-                value: "text-amber-200",
-              }}
-            />
 
             <VerticalBarGraph
               title="Missed Day Analysis"
@@ -599,8 +795,8 @@ export default function ScoreStreakAnalysis() {
         </div>
 
         <div
-          className="-mt-12 journal-scroll flex w-full max-w-[360px] shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
-          style={{ maxHeight: "calc(100vh - 180px)" }}
+          className="journal-scroll flex w-full self-start flex-col gap-2 overflow-hidden scroll-smooth lg:max-w-[360px] lg:shrink-0"
+          style={{ height: "calc(100vh - 350px)", maxHeight: "calc(100vh - 350px)" }}
         >
           <InsightRail insights={insights} />
         </div>

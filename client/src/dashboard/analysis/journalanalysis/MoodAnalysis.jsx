@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion as Motion } from "framer-motion";
-import monkGreetingsLogo from "../../../assets/monkgreetingslogo.png";
+import littleMonkLogo from "../../../assets/littlemonklogo.png";
 
 const MOOD_META = {
   Motivated: { emoji: "🔥", color: "#f59e0b", text: "text-amber-200", glow: "rgba(245,158,11,0.28)" },
@@ -137,7 +137,7 @@ function InsightRail({ insights }) {
               transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
             />
             <Motion.img
-              src={monkGreetingsLogo}
+              src={littleMonkLogo}
               alt="Little Monk AI Assistant"
               className="relative z-10 h-20 w-20 object-contain drop-shadow-[0_10px_18px_rgba(245,158,11,0.16)]"
               whileHover={{ scale: 1.08, rotate: -3 }}
@@ -167,12 +167,12 @@ function InsightRail({ insights }) {
                   : "border-amber-100/10 bg-stone-950/45 hover:border-amber-400/20"
               }`}
             >
-              <div className="grid grid-cols-[1fr_auto] items-start gap-3">
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
                 <div className="min-w-0">
                   <span className={`text-xs font-semibold ${insight.meta.text}`}>
                     {insight.title}
                   </span>
-                  <p className="text-sm font-semibold text-stone-200">{insight.value}</p>
+                  <p className="text-sm font-semibold text-stone-200 break-words">{insight.value}</p>
                   {isSelected && (
                     <Motion.p
                       initial={{ opacity: 0, y: -4 }}
@@ -214,8 +214,8 @@ function MoodVsGraph({ data, daysLogged }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Comparison</p>
-          <div className="mt-2 flex items-center gap-3">
-            <h4 className="text-xl font-semibold text-amber-50">Mood vs Energy and Overall Day Rate</h4>
+          <div className="mt-2 flex flex-wrap items-center gap-2.5">
+            <h4 className="text-lg font-semibold leading-tight text-amber-50 sm:text-xl">Mood vs Energy and Overall Day Rate</h4>
             <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300">
               {data.length} mood type{data.length !== 1 ? "s" : ""} logged
             </span>
@@ -230,93 +230,95 @@ function MoodVsGraph({ data, daysLogged }) {
         </div>
       </div>
 
-      <div className="mt-6 flex gap-3">
-        {/* Y-axis labels — aligned to bar area only */}
-        <div
-          className="flex shrink-0 flex-col justify-between text-right text-[11px] text-stone-500"
-          style={{ height: BAR_H, marginBottom: LABEL_H }}
-        >
-          {[100, 80, 60, 40, 20, 0].map((mark) => (
-            <span key={mark}>{mark}</span>
-          ))}
-        </div>
+      <div className="mt-6 overflow-x-auto pb-1">
+        <div className="flex min-w-[560px] gap-3 pr-1">
+          {/* Y-axis labels — aligned to bar area only */}
+          <div
+            className="flex shrink-0 flex-col justify-between text-right text-[11px] text-stone-500"
+            style={{ height: BAR_H, marginBottom: LABEL_H }}
+          >
+            {[100, 80, 60, 40, 20, 0].map((mark) => (
+              <span key={mark}>{mark}</span>
+            ))}
+          </div>
 
-        {/* Chart area */}
-        <div className="relative flex-1" style={{ height: BAR_H + LABEL_H }}>
-          {/* Grid lines — positioned from bottom of bar area only */}
-          {[0, 20, 40, 60, 80, 100].map((mark) => (
-            <div
-              key={mark}
-              className="absolute left-0 right-0 border-t border-dashed border-white/6"
-              style={{ bottom: LABEL_H + (mark / 100) * BAR_H }}
-            />
-          ))}
+          {/* Chart area */}
+          <div className="relative flex-1" style={{ height: BAR_H + LABEL_H }}>
+            {/* Grid lines — positioned from bottom of bar area only */}
+            {[0, 20, 40, 60, 80, 100].map((mark) => (
+              <div
+                key={mark}
+                className="absolute left-0 right-0 border-t border-dashed border-white/6"
+                style={{ bottom: LABEL_H + (mark / 100) * BAR_H }}
+              />
+            ))}
 
-          {/* Bars + labels */}
-          <div className="absolute inset-0 flex items-end justify-around gap-2">
-            {data.map((item, idx) => {
-              const meta = MOOD_META[item.mood];
-              const eH = Math.round((item.energy / 100) * BAR_H);
-              const rH = Math.round((item.rating / 100) * BAR_H);
-              return (
-                <Motion.div
-                  key={item.mood}
-                  className="flex min-w-0 flex-1 flex-col items-center"
-                  style={{
-                    height: BAR_H + LABEL_H,
-                    opacity: hovered !== null && hovered !== idx ? 0.35 : 1,
-                    transition: "opacity 0.18s ease",
-                  }}
-                  initial={{ opacity: 0, y: 18 }}
-                  animate={{ opacity: hovered !== null && hovered !== idx ? 0.35 : 1, y: 0 }}
-                  transition={{ duration: 0.35, delay: idx * 0.07, ease: "easeOut" }}
-                  onMouseEnter={() => setHovered(idx)}
-                  onMouseLeave={() => setHovered(null)}
-                >
-                  {/* Bars sit at the bottom of the bar area */}
-                  <div className="flex items-end justify-center gap-1.5" style={{ height: BAR_H, marginBottom: 0 }}>
-                    <div className="flex flex-col items-center justify-end gap-1">
-                      <Motion.span
-                        className="text-[10px] font-semibold text-amber-300"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: idx * 0.07 + 0.35 }}
-                      >
-                        {item.energy}
-                      </Motion.span>
-                      <Motion.div
-                        className="w-6 rounded-t-lg border border-amber-200/20 bg-gradient-to-t from-amber-700/90 to-amber-300/90"
-                        initial={{ height: 0 }}
-                        animate={{ height: eH }}
-                        transition={{ duration: 0.5, delay: idx * 0.07, ease: [0.34, 1.56, 0.64, 1] }}
-                      />
+            {/* Bars + labels */}
+            <div className="absolute inset-0 flex items-end justify-around gap-2">
+              {data.map((item, idx) => {
+                const meta = MOOD_META[item.mood];
+                const eH = Math.round((item.energy / 100) * BAR_H);
+                const rH = Math.round((item.rating / 100) * BAR_H);
+                return (
+                  <Motion.div
+                    key={item.mood}
+                    className="flex min-w-0 flex-1 flex-col items-center"
+                    style={{
+                      height: BAR_H + LABEL_H,
+                      opacity: hovered !== null && hovered !== idx ? 0.35 : 1,
+                      transition: "opacity 0.18s ease",
+                    }}
+                    initial={{ opacity: 0, y: 18 }}
+                    animate={{ opacity: hovered !== null && hovered !== idx ? 0.35 : 1, y: 0 }}
+                    transition={{ duration: 0.35, delay: idx * 0.07, ease: "easeOut" }}
+                    onMouseEnter={() => setHovered(idx)}
+                    onMouseLeave={() => setHovered(null)}
+                  >
+                    {/* Bars sit at the bottom of the bar area */}
+                    <div className="flex items-end justify-center gap-1.5" style={{ height: BAR_H, marginBottom: 0 }}>
+                      <div className="flex flex-col items-center justify-end gap-1">
+                        <Motion.span
+                          className="text-[10px] font-semibold text-amber-300"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: idx * 0.07 + 0.35 }}
+                        >
+                          {item.energy}
+                        </Motion.span>
+                        <Motion.div
+                          className="w-6 rounded-t-lg border border-amber-200/20 bg-gradient-to-t from-amber-700/90 to-amber-300/90"
+                          initial={{ height: 0 }}
+                          animate={{ height: eH }}
+                          transition={{ duration: 0.5, delay: idx * 0.07, ease: [0.34, 1.56, 0.64, 1] }}
+                        />
+                      </div>
+                      <div className="flex flex-col items-center justify-end gap-1">
+                        <Motion.span
+                          className="text-[10px] font-semibold text-cyan-300"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: idx * 0.07 + 0.35 }}
+                        >
+                          {item.rating}
+                        </Motion.span>
+                        <Motion.div
+                          className="w-6 rounded-t-lg border border-cyan-200/20 bg-gradient-to-t from-cyan-700/90 to-cyan-300/90"
+                          initial={{ height: 0 }}
+                          animate={{ height: rH }}
+                          transition={{ duration: 0.5, delay: idx * 0.07 + 0.05, ease: [0.34, 1.56, 0.64, 1] }}
+                        />
+                      </div>
                     </div>
-                    <div className="flex flex-col items-center justify-end gap-1">
-                      <Motion.span
-                        className="text-[10px] font-semibold text-cyan-300"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: idx * 0.07 + 0.35 }}
-                      >
-                        {item.rating}
-                      </Motion.span>
-                      <Motion.div
-                        className="w-6 rounded-t-lg border border-cyan-200/20 bg-gradient-to-t from-cyan-700/90 to-cyan-300/90"
-                        initial={{ height: 0 }}
-                        animate={{ height: rH }}
-                        transition={{ duration: 0.5, delay: idx * 0.07 + 0.05, ease: [0.34, 1.56, 0.64, 1] }}
-                      />
+                    {/* Labels below */}
+                    <div className="flex flex-col items-center pt-2" style={{ height: LABEL_H }}>
+                      <p className="text-base leading-none">{meta?.emoji ?? "•"}</p>
+                      <p className="mt-1 max-w-[4.5rem] text-center text-[10px] font-semibold leading-tight text-stone-200 sm:text-[11px] break-words">{item.mood}</p>
+                      <p className="text-[10px] text-stone-500">{item.count} day{item.count !== 1 ? "s" : ""}</p>
                     </div>
-                  </div>
-                  {/* Labels below */}
-                  <div className="flex flex-col items-center pt-2" style={{ height: LABEL_H }}>
-                    <p className="text-base leading-none">{meta?.emoji ?? "•"}</p>
-                    <p className="mt-1 text-center text-[11px] font-semibold text-stone-200">{item.mood}</p>
-                    <p className="text-[10px] text-stone-500">{item.count} day{item.count !== 1 ? "s" : ""}</p>
-                  </div>
-                </Motion.div>
-              );
-            })}
+                  </Motion.div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -336,83 +338,85 @@ function DayWiseMoodGraph({ data }) {
         <h4 className="mt-2 text-xl font-semibold text-amber-50">Day-wise Mood Analysis</h4>
       </div>
 
-      <div className="mt-6 flex gap-3">
-        {/* Y-axis — aligned to bar area only */}
-        <div
-          className="flex shrink-0 flex-col justify-between text-right text-[11px] text-stone-500"
-          style={{ height: BAR_H, marginTop: TOP_LABEL_H, marginBottom: DAY_LABEL_H }}
-        >
-          {[100, 80, 60, 40, 20, 0].map((mark) => (
-            <span key={mark}>{mark}%</span>
-          ))}
-        </div>
+      <div className="mt-6 overflow-x-auto pb-1">
+        <div className="flex min-w-[620px] gap-3 pr-1">
+          {/* Y-axis — aligned to bar area only */}
+          <div
+            className="flex shrink-0 flex-col justify-between text-right text-[11px] text-stone-500"
+            style={{ height: BAR_H, marginTop: TOP_LABEL_H, marginBottom: DAY_LABEL_H }}
+          >
+            {[100, 80, 60, 40, 20, 0].map((mark) => (
+              <span key={mark}>{mark}%</span>
+            ))}
+          </div>
 
-        {/* Chart area: top-labels + bars + day-labels */}
-        <div className="relative flex-1" style={{ height: TOP_LABEL_H + BAR_H + DAY_LABEL_H }}>
-          {/* Grid lines sit inside the bar area */}
-          {[0, 20, 40, 60, 80, 100].map((mark) => (
-            <div
-              key={mark}
-              className="absolute left-0 right-0 border-t border-dashed border-white/6"
-              style={{ bottom: DAY_LABEL_H + (mark / 100) * BAR_H }}
-            />
-          ))}
+          {/* Chart area: top-labels + bars + day-labels */}
+          <div className="relative flex-1" style={{ height: TOP_LABEL_H + BAR_H + DAY_LABEL_H }}>
+            {/* Grid lines sit inside the bar area */}
+            {[0, 20, 40, 60, 80, 100].map((mark) => (
+              <div
+                key={mark}
+                className="absolute left-0 right-0 border-t border-dashed border-white/6"
+                style={{ bottom: DAY_LABEL_H + (mark / 100) * BAR_H }}
+              />
+            ))}
 
-          {/* Columns */}
-          <div className="absolute inset-0 flex items-end justify-around gap-2">
-            {data.map((item, idx) => {
-              const meta = MOOD_META[item.mood];
-              const barH = Math.max(8, Math.round((item.percentage / 100) * BAR_H));
-              return (
-                <Motion.div
-                  key={item.date}
-                  className="flex min-w-0 flex-1 flex-col items-center"
-                  style={{
-                    height: TOP_LABEL_H + BAR_H + DAY_LABEL_H,
-                    opacity: hovered !== null && hovered !== idx ? 0.35 : 1,
-                    transition: "opacity 0.18s ease",
-                  }}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: hovered !== null && hovered !== idx ? 0.35 : 1, y: 0 }}
-                  transition={{ duration: 0.35, delay: idx * 0.07, ease: "easeOut" }}
-                  onMouseEnter={() => setHovered(idx)}
-                  onMouseLeave={() => setHovered(null)}
-                >
-                  {/* Top: emoji + mood + % — above the bar */}
+            {/* Columns */}
+            <div className="absolute inset-0 flex items-end justify-around gap-2">
+              {data.map((item, idx) => {
+                const meta = MOOD_META[item.mood];
+                const barH = Math.max(8, Math.round((item.percentage / 100) * BAR_H));
+                return (
                   <Motion.div
-                    className="flex flex-col items-center justify-end pb-1"
-                    style={{ height: TOP_LABEL_H }}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: idx * 0.07 + 0.4 }}
+                    key={item.date}
+                    className="flex min-w-0 flex-1 flex-col items-center"
+                    style={{
+                      height: TOP_LABEL_H + BAR_H + DAY_LABEL_H,
+                      opacity: hovered !== null && hovered !== idx ? 0.35 : 1,
+                      transition: "opacity 0.18s ease",
+                    }}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: hovered !== null && hovered !== idx ? 0.35 : 1, y: 0 }}
+                    transition={{ duration: 0.35, delay: idx * 0.07, ease: "easeOut" }}
+                    onMouseEnter={() => setHovered(idx)}
+                    onMouseLeave={() => setHovered(null)}
                   >
-                    <span className="text-base leading-none">{meta?.emoji}</span>
-                    <span className={`mt-0.5 text-center text-[10px] font-semibold ${meta?.text ?? "text-stone-200"}`}>
-                      {item.mood}
-                    </span>
-                    <span className="text-[10px] text-stone-500">{item.percentage}%</span>
-                  </Motion.div>
-
-                  {/* Bar — grows from the 0% baseline */}
-                  <div className="flex w-full items-end justify-center" style={{ height: BAR_H }}>
+                    {/* Top: emoji + mood + % — above the bar */}
                     <Motion.div
-                      className="w-full max-w-[56px] rounded-t-2xl border border-white/10"
-                      style={{
-                        background: `linear-gradient(180deg, ${meta?.color ?? "#a8a29e"}, ${meta?.color ?? "#a8a29e"}66)`,
-                      }}
-                      initial={{ height: 0 }}
-                      animate={{ height: barH }}
-                      transition={{ duration: 0.55, delay: idx * 0.07, ease: [0.34, 1.56, 0.64, 1] }}
-                    />
-                  </div>
+                      className="flex flex-col items-center justify-end pb-1"
+                      style={{ height: TOP_LABEL_H }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: idx * 0.07 + 0.4 }}
+                    >
+                      <span className="text-base leading-none">{meta?.emoji}</span>
+                      <span className={`mt-0.5 hidden max-w-[3.9rem] text-center text-[10px] font-semibold leading-tight sm:block ${meta?.text ?? "text-stone-200"} break-words`}>
+                        {item.mood}
+                      </span>
+                      <span className="text-[10px] text-stone-500">{item.percentage}%</span>
+                    </Motion.div>
 
-                  {/* Bottom: day name */}
-                  <div className="flex items-start justify-center pt-1.5" style={{ height: DAY_LABEL_H }}>
-                    <span className="text-[11px] font-bold text-stone-300">{item.day}</span>
-                  </div>
-                </Motion.div>
-              );
-            })}
+                    {/* Bar — grows from the 0% baseline */}
+                    <div className="flex w-full items-end justify-center" style={{ height: BAR_H }}>
+                      <Motion.div
+                        className="w-full max-w-[56px] rounded-t-2xl border border-white/10"
+                        style={{
+                          background: `linear-gradient(180deg, ${meta?.color ?? "#a8a29e"}, ${meta?.color ?? "#a8a29e"}66)`,
+                        }}
+                        initial={{ height: 0 }}
+                        animate={{ height: barH }}
+                        transition={{ duration: 0.55, delay: idx * 0.07, ease: [0.34, 1.56, 0.64, 1] }}
+                      />
+                    </div>
+
+                    {/* Bottom: day name */}
+                    <div className="flex items-start justify-center pt-1.5" style={{ height: DAY_LABEL_H }}>
+                      <span className="text-[11px] font-bold text-stone-300">{item.day}</span>
+                    </div>
+                  </Motion.div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -660,11 +664,10 @@ export default function MoodAnalysis() {
         </label>
       </div>
 
-      <div className="flex items-start gap-5">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         {/* LEFT — one big scrollable container */}
         <div
-          className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-amber-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
-          style={{ maxHeight: "calc(100vh - 360px)" }}
+          className="journal-scroll min-w-0 flex-1 rounded-[2rem] border border-amber-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur lg:max-h-[calc(100vh-360px)] lg:overflow-y-auto"
         >
           <div className="space-y-6 p-6">
             <MoodVsGraph data={moodVsSeries} daysLogged={daysLogged} />
@@ -674,8 +677,7 @@ export default function MoodAnalysis() {
 
         {/* RIGHT — Little Monk panel + Mood Distribution */}
         <div
-          className="journal-scroll -mt-14 flex w-full max-w-[360px] shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto lg:-mt-14"
-          style={{ maxHeight: "calc(100vh - 180px)" }}
+          className="journal-scroll flex w-full self-start flex-col gap-2 lg:-mt-14 lg:max-h-[calc(100vh-180px)] lg:max-w-[360px] lg:shrink-0 lg:overflow-y-auto"
         >
           <InsightRail insights={littleMonkInsights} />
           <MoodDistributionGraph data={distribution} moodTypesLogged={moodTypesLogged} />

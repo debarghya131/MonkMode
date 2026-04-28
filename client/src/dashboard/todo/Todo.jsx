@@ -99,14 +99,14 @@ export default function Todo() {
   };
 
   return (
-    <div className="mx-auto max-w-8xl space-y-4">
+    <div className="w-full space-y-4">
 
       {/* TOP ROW — streak + navbar side by side, left-aligned */}
-      <div className="flex items-center gap-20">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
 
         {/* STREAK */}
         <Motion.div
-          className="flex items-center gap-2 px-4 py-2 rounded-xl shrink-0 bg-amber-950/50 border border-amber-500/25 shadow-lg"
+          className="flex w-full items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-950/50 px-4 py-2 shadow-lg md:w-auto md:shrink-0"
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
@@ -118,14 +118,14 @@ export default function Todo() {
             transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
           >🔥</Motion.div>
           <div className="flex flex-col leading-tight">
-            <span className="text-lg font-bold text-amber-400">
+            <span className="text-base font-bold text-amber-400 sm:text-lg">
               {streak.current} day streak
             </span>
           </div>
         </Motion.div>
 
         {/* NAVBAR — takes remaining space */}
-        <div className="flex-1 min-w-0">
+        <div className="w-full min-w-0 flex-1">
           <ToDoNavbar active={active} onChange={setActive} />
         </div>
 

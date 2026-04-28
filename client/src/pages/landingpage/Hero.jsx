@@ -58,7 +58,7 @@ export default function Hero() {
   }, [parallaxX, parallaxY]);
 
   return (
-    <main className="relative mx-auto flex min-h-[calc(100vh-110px)] w-full max-w-7xl flex-col items-center justify-center px-6 pb-16 pt-4 md:px-8">
+    <main className="relative mx-auto flex min-h-[calc(100vh-90px)] w-full max-w-7xl flex-col items-center justify-center px-4 pb-12 pt-2 sm:min-h-[calc(100vh-110px)] sm:px-6 sm:pb-16 sm:pt-4 md:px-8">
       {sparkles.map((sparkle) => (
         <MotionDiv
           key={sparkle.id}
@@ -83,7 +83,7 @@ export default function Hero() {
         />
       ))}
 
-      <div className="relative flex h-[390px] w-full items-center justify-center sm:h-[440px]">
+      <div className="relative flex h-[42vh] min-h-[240px] w-full items-center justify-center sm:h-[47vh] sm:min-h-[300px]">
         <MotionDiv
           className="absolute left-1/2 top-[72%] h-6 w-36 -translate-x-1/2 rounded-full bg-black/40 blur-xl sm:w-44"
           animate={{
@@ -148,7 +148,7 @@ export default function Hero() {
         whileTap={{ scale: 0.98, y: -2 }}
         transition={{ duration: 0.55, delay: 0.15 }}
         onClick={() => navigate("/signup")}
-        className="group relative overflow-hidden rounded-full border border-amber-200/45 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] px-8 py-3 text-sm font-black uppercase tracking-[0.16em] text-stone-950 shadow-[0_0_0_1px_rgba(255,236,178,0.24),0_0_30px_rgba(251,191,36,0.34),0_18px_42px_rgba(120,52,8,0.34)] transition duration-300 hover:border-amber-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/80"
+        className="group relative overflow-hidden rounded-full border border-amber-200/45 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] px-6 py-2.5 text-xs font-black uppercase tracking-[0.16em] text-stone-950 shadow-[0_0_0_1px_rgba(255,236,178,0.24),0_0_30px_rgba(251,191,36,0.34),0_18px_42px_rgba(120,52,8,0.34)] transition duration-300 hover:border-amber-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/80 sm:px-8 sm:py-3 sm:text-sm"
       >
         <span className="pointer-events-none absolute inset-y-0 left-[-35%] w-[32%] -skew-x-12 bg-white/35 opacity-0 blur-md transition duration-500 group-hover:left-[108%] group-hover:opacity-100" />
         <span className="relative z-10 transition duration-300 group-hover:tracking-[0.2em]">
@@ -162,11 +162,11 @@ export default function Hero() {
         transition={{ duration: 0.6, delay: 0.25 }}
         className="mt-12 max-w-3xl text-center"
       >
-        <h1 className="bg-gradient-to-r from-orange-400 via-amber-300 to-sky-400 bg-clip-text text-5xl font-black tracking-tight text-transparent font-heading sm:text-6xl md:text-7xl">
+        <h1 className="bg-gradient-to-r from-orange-400 via-amber-300 to-sky-400 bg-clip-text text-4xl font-black tracking-tight text-transparent font-heading sm:text-5xl md:text-6xl lg:text-7xl">
           MonkMode
         </h1>
-        <p className="mt-4 text-base text-stone-200/85 sm:text-lg">
-          Focus. Discipline. Growth.
+        <p className="mt-3 text-sm text-stone-200/85 sm:mt-4 sm:text-base md:text-lg">
+          Focus. Discipline. Growth. Analysis.
         </p>
       </MotionDiv>
     </main>

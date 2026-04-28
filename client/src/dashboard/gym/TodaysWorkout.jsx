@@ -592,7 +592,7 @@ export default function TodaysWorkout() {
 
   return (
     <>
-      <div className="flex min-h-0 max-h-[calc(100vh-17rem)] flex-col gap-4">
+      <div className="flex min-h-0 flex-col gap-4 md:max-h-[calc(100vh-17rem)]">
 
         {/* ── Day selector ── */}
         <div className="shrink-0 flex flex-wrap items-center gap-2 rounded-2xl border border-amber-100/10 bg-black/20 px-4 py-3">
@@ -609,10 +609,10 @@ export default function TodaysWorkout() {
           ))}
         </div>
 
-        <div className="flex min-h-0 items-start gap-4">
+        <div className="flex min-h-0 flex-col items-start gap-4 xl:flex-row">
 
           {/* ── Workout column ── */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.06),transparent_40%),linear-gradient(180deg,rgba(20,12,10,0.97),rgba(10,8,8,0.98))]">
+          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.06),transparent_40%),linear-gradient(180deg,rgba(20,12,10,0.97),rgba(10,8,8,0.98))]">
             <div className="shrink-0 border-b border-amber-100/10 px-5 py-3">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-sm font-semibold text-stone-100">
@@ -777,29 +777,31 @@ export default function TodaysWorkout() {
           </div>
 
           {/* ── Diet column ── */}
-          <div className="journal-scroll flex w-44 shrink-0 flex-col gap-3 overflow-y-auto scroll-smooth [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/40">
-            <p className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">Diet</p>
-            {dietCards.map(({ type, label, icon, color }, di) => (
-              <Motion.div
-                key={type}
-                className={`flex shrink-0 flex-col items-start gap-2 rounded-2xl border p-3 ${color}`}
-                initial={{ opacity: 0, x: 12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: di * 0.08, duration: 0.25 }}
-                whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)" }}
-              >
-                <span className="text-2xl">{icon}</span>
-                <p className="text-xs font-semibold leading-snug">{label}</p>
-                <p className="text-[10px] opacity-60">{formatDate(selectedDay)}</p>
-                <button
-                  type="button"
-                  onClick={() => setDietModal({ type, day: selectedDay })}
-                  className="mt-1 w-full rounded-lg border border-current/30 bg-black/20 py-1 text-[10px] font-semibold transition hover:bg-black/40"
+          <div className="journal-scroll w-full shrink-0 overflow-y-auto scroll-smooth xl:w-44 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/40">
+            <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">Diet</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              {dietCards.map(({ type, label, icon, color }, di) => (
+                <Motion.div
+                  key={type}
+                  className={`flex shrink-0 flex-col items-start gap-2 rounded-2xl border p-3 ${color}`}
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: di * 0.08, duration: 0.25 }}
+                  whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)" }}
                 >
-                  View
-                </button>
-              </Motion.div>
-            ))}
+                  <span className="text-2xl">{icon}</span>
+                  <p className="text-xs font-semibold leading-snug">{label}</p>
+                  <p className="text-[10px] opacity-60">{formatDate(selectedDay)}</p>
+                  <button
+                    type="button"
+                    onClick={() => setDietModal({ type, day: selectedDay })}
+                    className="mt-1 w-full rounded-lg border border-current/30 bg-black/20 py-1 text-[10px] font-semibold transition hover:bg-black/40"
+                  >
+                    View
+                  </button>
+                </Motion.div>
+              ))}
+            </div>
           </div>
 
         </div>

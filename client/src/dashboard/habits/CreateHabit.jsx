@@ -467,7 +467,7 @@ export default function CreateHabit({ entity = "habit" }) {
             </div>
 
             {/* Category + Priority */}
-            <div className="grid grid-cols-2 items-start gap-4">
+            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
               {/* Category */}
               <div className="space-y-2">
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
@@ -555,10 +555,10 @@ export default function CreateHabit({ entity = "habit" }) {
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Priority <span className="text-red-400">*</span>
                 </label>
-                <div className={`flex gap-1.5 rounded-lg p-0.5 transition ${fieldErr("priority") ? "ring-1 ring-red-400/50" : ""}`}>
+                <div className={`flex flex-wrap gap-1.5 rounded-lg p-0.5 transition ${fieldErr("priority") ? "ring-1 ring-red-400/50" : ""}`}>
                   {PRIORITIES.map((p) => (
                     <button key={p} type="button" onClick={() => setField("priority", p)}
-                      className={`flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-1.5 py-1.5 text-[10px] font-semibold transition ${form.priority===p ? PRIORITY_STYLES[p] : "border-amber-100/15 bg-white/5 text-stone-300"}`}>
+                      className={`flex min-w-[84px] flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-2 py-1.5 text-[10px] font-semibold transition ${form.priority===p ? PRIORITY_STYLES[p] : "border-amber-100/15 bg-white/5 text-stone-300"}`}>
                       <span>{p}</span><span>{PRIORITY_EMOJI[p]}</span>
                     </button>
                   ))}
@@ -568,7 +568,7 @@ export default function CreateHabit({ entity = "habit" }) {
             </div>
 
             {/* Repeat + Time */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Repeat <span className="text-red-400">*</span>
@@ -840,14 +840,17 @@ export default function CreateHabit({ entity = "habit" }) {
                   ) : (
                     /* ── Normal card ── */
                     <>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <p className="truncate text-sm font-semibold text-stone-100">{h.title}</p>
+                      <div className="space-y-1.5">
+                        <p className="truncate text-sm font-semibold text-stone-100">{h.title}</p>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${PRIORITY_STYLES[h.priority]}`}>
+                            {h.priority}
+                          </span>
                           {!isArchiveView && (
                             <button
                               type="button"
                               onClick={() => toggleHabitImportant(h.id)}
-                              className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${
+                              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${
                                 h.isImportant
                                   ? "border-amber-300/45 bg-amber-500/15 text-amber-200"
                                   : "border-amber-100/15 bg-white/5 text-stone-300 hover:border-amber-300/35 hover:text-amber-200"
@@ -856,11 +859,6 @@ export default function CreateHabit({ entity = "habit" }) {
                               {h.isImportant ? "Important ★" : "Mark Important"}
                             </button>
                           )}
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${PRIORITY_STYLES[h.priority]}`}>
-                            {h.priority}
-                          </span>
                           {!isArchiveView && (
                             <button type="button" onClick={() => startEdit(h)}
                               className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-400/20">

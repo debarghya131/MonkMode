@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion as Motion, AnimatePresence } from "framer-motion";
-import monkGreetingsLogo from "../../assets/monkgreetingslogo.png";
+import littleMonkLogo from "../../assets/littlemonklogo.png";
 
 const MISSED_JOURNAL_DAYS = [
   { date: "2026-04-16", note: "No journal submitted" },
@@ -191,10 +191,10 @@ export default function JournalWeeklyReport() {
   const selectedWeek = WEEKLY_AI_SUMMARIES.find((w) => w.id === selectedWeekId) ?? null;
 
   return (
-    <div className="flex items-start gap-5">
+    <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
 
       {/* ── LEFT: Main analysis panel ─────────────────────────── */}
-      <div className="journal-scroll min-w-0 flex-1 overflow-y-auto" style={{ maxHeight: "calc(100vh - 180px)" }}>
+      <div className="journal-scroll min-w-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-180px)]">
         <AnimatePresence mode="wait">
           {selectedWeek ? (
             <Motion.div
@@ -259,11 +259,11 @@ export default function JournalWeeklyReport() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur flex flex-col h-[250px]"
+                className="rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur flex flex-col h-[28vh]"
               >
                 <div className="mb-3 flex items-center gap-2">
                   <Motion.img
-                    src={monkGreetingsLogo}
+                    src={littleMonkLogo}
                     alt="Little Monk"
                     className="h-14 w-17 object-contain"
                     animate={{ y: [0, -3, 0] }}
@@ -280,7 +280,7 @@ export default function JournalWeeklyReport() {
               </Motion.div>
 
               {/* Stat cards grid */}
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 <AnalysisStatCard
                   icon="⚡"
                   title="Energy"
@@ -362,8 +362,8 @@ export default function JournalWeeklyReport() {
       </div>
 
       {/* ── RIGHT: Summary + Missed Days ──────────────────────── */}
-      <div className="grid w-full max-w-[360px] shrink-0 items-start gap-4">
-        <ReportCard className="flex h-[410px] flex-col overflow-hidden">
+      <div className="grid w-full items-start gap-4 lg:w-[360px] lg:shrink-0">
+        <ReportCard className="flex h-[46vh] flex-col overflow-hidden">
           <div className="mb-4 flex shrink-0 items-center gap-3">
             <Motion.div
               className="relative grid h-16 w-17 place-items-center"
@@ -376,7 +376,7 @@ export default function JournalWeeklyReport() {
                 transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
               />
               <Motion.img
-                src={monkGreetingsLogo}
+                src={littleMonkLogo}
                 alt="Little Monk AI Assistant"
                 className="relative z-10 h-20 w-20 object-contain drop-shadow-[0_10px_18px_rgba(245,158,11,0.16)]"
                 whileHover={{ scale: 1.08, rotate: -3 }}
@@ -428,7 +428,7 @@ export default function JournalWeeklyReport() {
           </div>
         </ReportCard>
 
-        <ReportCard className="flex h-[320px] flex-col overflow-hidden">
+        <ReportCard className="flex h-[36vh] flex-col overflow-hidden">
           <div className="mb-4 flex shrink-0 items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="text-base">📅</span>

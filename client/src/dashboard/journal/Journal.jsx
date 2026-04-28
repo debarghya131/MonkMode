@@ -125,11 +125,11 @@ function JournalViewModal({ form, customFields, date, onClose }) {
     : "Rough day, but you showed up 💪";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-2 sm:p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
       <div
-        className="relative z-10 my-8 w-full max-w-2xl rounded-2xl border border-amber-100/15 bg-[linear-gradient(160deg,#1e1208,#120d0c)] shadow-2xl shadow-black/60"
+        className="relative z-10 my-4 w-full max-w-2xl overflow-hidden rounded-2xl border border-amber-100/15 bg-[linear-gradient(160deg,#1e1208,#120d0c)] shadow-2xl shadow-black/60 sm:my-8"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Sticky header */}
@@ -150,10 +150,10 @@ function JournalViewModal({ form, customFields, date, onClose }) {
         </div>
 
         {/* Scrollable body */}
-        <div className="journal-scroll max-h-[78vh] space-y-6 overflow-y-auto p-6">
+        <div className="journal-scroll max-h-[calc(100vh-7.5rem)] space-y-6 overflow-y-auto p-4 sm:max-h-[78vh] sm:p-6">
 
           {/* Mood + Wake-up + Energy row */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Section icon="😊" title="Mood">
               {form.mood ? (
                 <div className="flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3">
@@ -231,7 +231,7 @@ function JournalViewModal({ form, customFields, date, onClose }) {
           </Section>
 
           {/* Gratitude + Achievement row */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Section icon="🙏" title="Gratitude">
               <ul className="space-y-2">
                 {form.gratitude.filter((g) => g.trim()).map((g, i) => (
@@ -435,7 +435,7 @@ export default function Journal() {
     const canEditToday = submittedDate === todayStr();
 
     return (
-      <div className="flex gap-6">
+      <div className="flex flex-col gap-6 lg:flex-row">
         <Motion.div
           className="flex-1 min-w-0 flex flex-col items-center justify-center py-24 space-y-5"
           initial={{ opacity: 0, scale: 0.95 }}
@@ -493,7 +493,7 @@ export default function Journal() {
           </div>
         </Motion.div>
 
-        <div className="w-64 shrink-0">
+        <div className="w-full lg:w-64 lg:shrink-0">
           <div className="sticky top-0">
             <JournalRightSidebar />
           </div>
@@ -513,7 +513,7 @@ export default function Journal() {
 
   /* ─────────── main wizard ─────────── */
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col gap-6 lg:flex-row">
       <div className="flex-1 min-w-0 space-y-5">
 
         {/* Streak badge */}
@@ -1083,7 +1083,7 @@ export default function Journal() {
       </div>
 
       {/* Right sidebar */}
-      <div className="w-64 shrink-0">
+      <div className="w-full lg:w-64 lg:shrink-0">
         <div className="sticky top-0">
           <JournalRightSidebar />
         </div>

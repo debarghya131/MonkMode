@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BODY_PART_GROUPS, EXERCISE_LIBRARY, WORKOUT_SPLITS } from "./workoutLibraryData";
 
-const PANEL_H = "720px";
+const PANEL_H = "min(720px, 78vh)";
 
 const GOAL_TYPES = [
   { value: "muscle-gain",  label: "💪 Muscle Gain"  },
@@ -440,6 +440,8 @@ export default function AddWorkout() {
   const searchRef = useRef(null);
   const splitDropRef = useRef(null);
   const goalDropRef = useRef(null);
+  const bodyGroupDropRef = useRef(null);
+  const workoutListRef = useRef(null);
 
   const [form, setForm] = useState({ ...BLANK_FORM, startDate: today });
   const [exercises, setExercises] = useState([]);
@@ -457,6 +459,7 @@ export default function AddWorkout() {
   const [showSplitDrop, setShowSplitDrop] = useState(false);
   const [showCustomSplit, setShowCustomSplit] = useState(false);
   const [customSplit, setCustomSplit] = useState("");
+  const [showBodyGroupDrop, setShowBodyGroupDrop] = useState(false);
   const [error, setError] = useState("");
   const [workouts, setWorkouts] = useState(() => {
     try {
@@ -483,6 +486,7 @@ export default function AddWorkout() {
       if (searchRef.current && !searchRef.current.contains(e.target)) setShowDrop(false);
       if (splitDropRef.current && !splitDropRef.current.contains(e.target)) setShowSplitDrop(false);
       if (goalDropRef.current && !goalDropRef.current.contains(e.target)) setShowGoalDrop(false);
+      if (bodyGroupDropRef.current && !bodyGroupDropRef.current.contains(e.target)) setShowBodyGroupDrop(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -808,14 +812,17 @@ export default function AddWorkout() {
     ? statusWorkouts
     : statusWorkouts.filter((w) => w.days?.includes(workoutDayFilter));
 
+  useEffect(() => {
+    if (workoutListRef.current) workoutListRef.current.scrollTop = 0;
+  }, [workoutsView, workoutDayFilter]);
+
   return (
     <div className="space-y-5">
-      <div className="schedule-layout">
+      <div className="flex min-w-0 flex-col gap-5 lg:flex-row lg:items-start">
 
         {/* ── FORM ── */}
         <div
-          className="schedule-main journal-scroll rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20"
-          style={{ height: PANEL_H, overflowY: "auto" }}
+          className="journal-scroll min-w-0 rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20 lg:w-80 xl:w-[32rem] lg:shrink-0 lg:overflow-y-auto lg:[height:min(720px,78vh)]"
         >
           <h3 className="mb-4 text-sm font-semibold text-amber-200">
             {editingId ? "Edit Workout" : "New Workout"}
@@ -1070,24 +1077,43 @@ export default function AddWorkout() {
                     </div>
                     <div>
                       <label className="mb-0.5 block text-[10px] text-stone-400">Muscle Group *</label>
-                      <select value={currentEx.bodyPartGroup}
-                        onChange={(e) => {
-                          const group = e.target.value;
-                          setCurrentEx((p) => ({
-                            ...p,
-                            bodyPartGroup: group,
-                            bodyPartSection: "",
-                            bodyPart: formatBodyPart(group, ""),
-                          }));
-                        }}
-                        className="w-full rounded-lg border border-amber-100/15 bg-stone-900 px-2 py-1 text-xs text-stone-100 outline-none focus:border-amber-300/35">
-                        <option value="" disabled style={{ backgroundColor: "#1c1917" }}>Select</option>
-                        {BODY_PART_GROUPS.map((bp) => (
-                          <option key={bp.group} value={bp.group} style={{ backgroundColor: "#1c1917", color: "#e7e5e4" }}>
-                            {bp.group}
-                          </option>
-                        ))}
-                      </select>
+                      <div ref={bodyGroupDropRef} className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setShowBodyGroupDrop((prev) => !prev)}
+                          className="relative w-full rounded-lg border border-amber-100/15 bg-stone-900 px-2 py-1 text-left text-xs text-stone-100 outline-none transition focus:border-amber-300/35"
+                        >
+                          {currentEx.bodyPartGroup || <span className="text-stone-500">Select</span>}
+                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-stone-400">▾</span>
+                        </button>
+                        {showBodyGroupDrop && (
+                          <div className="journal-scroll absolute z-50 mt-1 max-h-44 w-full overflow-y-auto rounded-lg border border-amber-100/15 bg-stone-900 py-1 shadow-xl shadow-black/50">
+                            {BODY_PART_GROUPS.map((bp) => (
+                              <button
+                                key={bp.group}
+                                type="button"
+                                onClick={() => {
+                                  const group = bp.group;
+                                  setCurrentEx((p) => ({
+                                    ...p,
+                                    bodyPartGroup: group,
+                                    bodyPartSection: "",
+                                    bodyPart: formatBodyPart(group, ""),
+                                  }));
+                                  setShowBodyGroupDrop(false);
+                                }}
+                                className={`w-full px-3 py-1.5 text-left text-[11px] transition hover:bg-amber-500/10 hover:text-amber-200 ${
+                                  currentEx.bodyPartGroup === bp.group
+                                    ? "bg-amber-500/15 text-amber-200"
+                                    : "text-stone-100"
+                                }`}
+                              >
+                                {bp.group}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     {selectedBodyPartSections.length > 0 && (
                       <div>
@@ -1240,11 +1266,10 @@ export default function AddWorkout() {
 
         {/* ── ALL WORKOUTS ── */}
         <section
-          className="schedule-all-tasks rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20"
-          style={{ height: PANEL_H }}
+          className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20 lg:flex-1 lg:[height:min(720px,78vh)]"
         >
-          <div className="mb-4 flex items-center justify-between">
-            <div>
+          <div className="mb-4 shrink-0 flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-amber-200">All Workouts</p>
               <p className="mt-0.5 text-xs text-stone-400">Your saved workout plans.</p>
               <div className="mt-2 flex items-center gap-1.5">
@@ -1291,12 +1316,12 @@ export default function AddWorkout() {
                 ))}
               </div>
             </div>
-            <span className="rounded-full border border-amber-100/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
+            <span className="shrink-0 rounded-full border border-amber-100/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
               {displayedWorkouts.length} total
             </span>
           </div>
 
-          <div className="journal-scroll space-y-2 overflow-y-auto pr-1" style={{ maxHeight: "calc(100% - 108px)" }}>
+          <div ref={workoutListRef} className="journal-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             {displayedWorkouts.length === 0 ? (
               <p className="mt-6 text-center text-xs text-stone-500">
                 {workoutsView === "active"
@@ -1311,15 +1336,15 @@ export default function AddWorkout() {
               displayedWorkouts.map((w, wi) => (
                 <Motion.article
                   key={w.id}
-                  className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
+                  className="min-w-0 overflow-hidden rounded-xl border border-amber-100/10 bg-white/5 p-3"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: wi * 0.06, duration: 0.22 }}
                   whileHover={{ y: -2, boxShadow: "0 10px 28px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="min-w-0 flex-1 text-sm font-semibold text-stone-100">{w.title}</p>
-                    <div className="flex shrink-0 items-center gap-1.5">
+                  <div className="min-w-0 space-y-2">
+                    <p className="w-full min-w-0 break-words pr-1 text-sm font-semibold leading-tight text-stone-100">{w.title}</p>
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
                         w.isActive
                           ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
@@ -1330,6 +1355,8 @@ export default function AddWorkout() {
                       <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${DIFFICULTY_STYLES[w.difficulty] || "border-amber-100/10 text-stone-300"}`}>
                         {w.difficulty}
                       </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <button type="button" onClick={() => setViewWorkout(w)}
                         className="rounded border border-amber-100/20 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-300 transition hover:text-stone-100">
                         View
@@ -1361,7 +1388,7 @@ export default function AddWorkout() {
                     </div>
                   </div>
 
-                  <div className="mt-9 flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px]">
                     {w.goalType && (
                       <span className="rounded-full border border-amber-300/35 bg-amber-500/15 px-2 py-0.5 font-semibold text-amber-200">
                         {GOAL_TYPES.find((g) => g.value === w.goalType)?.label ?? w.goalType}
@@ -1402,10 +1429,9 @@ export default function AddWorkout() {
         </section>
 
         {/* ── SIDEBAR: Logs ── */}
-        <aside className="schedule-sidebar">
+        <aside className="min-w-0 lg:w-52 xl:w-[22rem] lg:shrink-0">
           <div
-            className="flex h-full flex-col rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20"
-            style={{ height: PANEL_H }}
+            className="flex flex-col rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 lg:[height:min(720px,78vh)]"
           >
             <div className="mb-3 shrink-0 border-b border-amber-100/10 pb-3">
               <p className="text-sm font-semibold tracking-wide text-amber-200">Workout Logs</p>

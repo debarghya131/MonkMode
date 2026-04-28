@@ -526,7 +526,7 @@ export default function Schedule({
             </div>
 
             {/* Row 3: Category + Priority side-by-side */}
-            <div className="grid grid-cols-2 items-start gap-4">
+            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Category <span className="text-red-400">*</span>
@@ -651,13 +651,13 @@ export default function Schedule({
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Priority <span className="text-red-400">*</span>
                 </label>
-                <div className={`flex gap-1.5 rounded-lg p-0.5 transition ${fieldError("priority") ? "ring-1 ring-red-400/50" : ""}`}>
+                <div className={`flex flex-wrap gap-1.5 rounded-lg p-0.5 transition ${fieldError("priority") ? "ring-1 ring-red-400/50" : ""}`}>
                   {PRIORITIES.map((priority) => (
                     <button
                       key={priority}
                       type="button"
                       onClick={() => handleInputChange("priority", priority)}
-                      className={`flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-1.5 py-1.5 text-[10px] font-semibold transition ${
+                      className={`flex min-w-[84px] flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-2 py-1.5 text-[10px] font-semibold transition ${
                         form.priority === priority ? priorityStyles[priority] : "border-amber-100/15 bg-white/5 text-stone-300"
                       }`}
                     >
@@ -671,7 +671,7 @@ export default function Schedule({
             </div>
 
             {/* Row 4: Repetition + Date/Time */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Repeat <span className="text-red-400">*</span>

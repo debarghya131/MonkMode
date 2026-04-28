@@ -140,10 +140,10 @@ function EntryModal({ entry, onClose }) {
           </button>
         </div>
 
-        <div className="journal-scroll max-h-[calc(100dvh-11rem)] space-y-6 overflow-y-auto p-5 sm:p-6">
+        <div className="journal-scroll max-h-[calc(100dvh-8rem)] space-y-6 overflow-y-auto p-4 sm:max-h-[calc(100dvh-11rem)] sm:p-6">
 
           {/* Mood + Wake-up + Energy */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">😊 Mood</p>
               <div className="flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3">
@@ -218,7 +218,7 @@ function EntryModal({ entry, onClose }) {
           </div>
 
           {/* Gratitude + Achievement */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">🙏 Gratitude</p>
               <ul className="space-y-2">
@@ -365,7 +365,7 @@ export default function JournalRightSidebar() {
             <p className="text-label-md">Past Entries</p>
           </div>
 
-          <div className="h-[420px] overflow-y-auto space-y-3 pr-1 journal-scroll xl:h-[420px]">
+          <div className="h-[47vh] overflow-y-auto space-y-3 pr-1 journal-scroll xl:h-[47vh]">
             {MOCK_HISTORY.map((item, i) => {
               const formattedDate = new Date(item.date).toLocaleDateString("en-US", {
                 month: "short", day: "numeric", weekday: "short",

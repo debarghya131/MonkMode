@@ -345,7 +345,7 @@ export default function CreateGoal() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Start Date *
@@ -418,8 +418,8 @@ export default function CreateGoal() {
           className="schedule-all-tasks rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20"
           style={{ height: PANEL_H }}
         >
-          <div className="mb-4 flex items-center justify-between">
-            <div>
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-amber-200">All Goals</p>
               <p className="mt-0.5 text-xs text-stone-400">Your created goals appear here.</p>
               <div className="mt-2 flex items-center gap-1.5">
@@ -439,7 +439,7 @@ export default function CreateGoal() {
                 ))}
               </div>
             </div>
-            <span className="rounded-full border border-amber-100/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
+            <span className="shrink-0 rounded-full border border-amber-100/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
               {displayedGoals.length} total
             </span>
           </div>
@@ -461,11 +461,11 @@ export default function CreateGoal() {
                   transition={{ delay: i * 0.06, duration: 0.22 }}
                   whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="min-w-0 flex-1 break-all text-sm font-semibold leading-relaxed text-stone-100">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <p className="min-w-0 flex-1 break-words text-sm font-semibold leading-relaxed text-stone-100">
                       {goal.title}
                     </p>
-                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                    <div className="flex w-full flex-wrap items-center justify-start gap-1.5 sm:w-auto sm:shrink-0 sm:justify-end">
                       <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${PRIORITY_STYLES[goal.priority]}`}>
                         {goal.priority}
                       </span>
@@ -490,7 +490,7 @@ export default function CreateGoal() {
                     </div>
                   </div>
                   {goal.description && (
-                    <p className="mt-1 break-all text-xs leading-relaxed text-stone-400">{goal.description}</p>
+                    <p className="mt-1 break-words text-xs leading-relaxed text-stone-400">{goal.description}</p>
                   )}
                   <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] text-stone-300">
                     <span className="rounded-full border border-amber-300/35 bg-amber-500/15 px-2 py-0.5 font-semibold text-amber-200">
@@ -557,7 +557,7 @@ export default function CreateGoal() {
                               ? "Updated"
                               : "Created"}:
                       </span>{" "}
-                      <span className="break-all font-semibold text-stone-100">{log.title}</span> on {log.date} at {fmtTime(log.time)}
+                      <span className="break-words font-semibold text-stone-100">{log.title}</span> on {log.date} at {fmtTime(log.time)}
                     </p>
                     {log.action === "deleted" && log.deletedItem && (
                       <button
@@ -602,7 +602,7 @@ export default function CreateGoal() {
                 <textarea rows={2} value={archiveEditForm.description || ""} onChange={(e) => setArchiveEditForm((p) => ({ ...p, description: e.target.value }))}
                   className="w-full resize-none rounded-lg border border-amber-100/15 bg-white/5 px-3 py-1.5 text-sm text-stone-100 outline-none transition focus:border-amber-300/35" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Start Date</label>
                   <input type="date" value={archiveEditForm.startDate || ""} onChange={(e) => setArchiveEditForm((p) => ({ ...p, startDate: e.target.value }))}

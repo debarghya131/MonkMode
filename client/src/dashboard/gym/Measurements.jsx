@@ -432,7 +432,7 @@ export default function Measurements() {
 
   return (
     <>
-      <div className="mt-8 grid gap-6 md:h-[calc(100vh-17rem)] md:min-h-0 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <div className="mt-8 grid gap-6 lg:h-[calc(100vh-17rem)] lg:min-h-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.75rem] border border-amber-100/10 bg-[linear-gradient(180deg,rgba(251,191,36,0.06),rgba(255,255,255,0.02))] p-6 shadow-lg shadow-black/20">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -462,7 +462,7 @@ export default function Measurements() {
             </label>
 
             <div className="rounded-[1.5rem] border border-amber-100/10 bg-black/15 p-1">
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {MEASUREMENT_GROUPS.map((group) => (
                   <button
                     key={group.title}
@@ -572,7 +572,7 @@ export default function Measurements() {
               </p>
             </div>
           ) : (
-            <div className="mt-6 grid min-h-0 flex-1 gap-5 overflow-hidden lg:grid-cols-[minmax(0,1.3fr)_minmax(16rem,0.6fr)]">
+            <div className="mt-6 grid min-h-0 flex-1 gap-5 overflow-hidden xl:grid-cols-[minmax(0,1.3fr)_minmax(16rem,0.6fr)]">
               <div className="flex min-h-0 flex-col overflow-hidden rounded-[1.5rem] border border-amber-100/10 bg-white/5 p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -590,7 +590,7 @@ export default function Measurements() {
                 </div>
 
                 <div className="mt-5 rounded-[1.5rem] border border-amber-100/10 bg-black/15 p-1">
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {MEASUREMENT_GROUPS.map((group) => (
                       <button
                         key={group.title}
@@ -652,7 +652,7 @@ export default function Measurements() {
                 </div>
               </div>
 
-              <div className="flex min-h-0 min-w-0 w-full flex-col overflow-hidden rounded-[1.5rem] border border-amber-100/10 bg-black/20 p-4 lg:max-w-[18rem] lg:justify-self-end">
+              <div className="flex min-h-0 min-w-0 w-full flex-col overflow-hidden rounded-[1.5rem] border border-amber-100/10 bg-black/20 p-4 xl:max-w-[18rem] xl:justify-self-end">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-300">
                     Check-in History

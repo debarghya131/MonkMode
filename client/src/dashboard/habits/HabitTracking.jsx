@@ -151,7 +151,7 @@ export default function HabitTracking() {
 
       <section className="rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20">
         <div className="mb-2 overflow-x-auto">
-          <div className="min-w-[1120px] rounded-lg border border-amber-100/10 bg-black/30 px-3 py-2">
+          <div className="min-w-[780px] rounded-lg border border-amber-100/10 bg-black/30 px-3 py-2 lg:min-w-[1120px]">
             <div className="flex items-center gap-3">
               <label className="flex shrink-0 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-400">
                 Year
@@ -187,12 +187,12 @@ export default function HabitTracking() {
           </div>
         </div>
 
-        <div className="journal-scroll h-[calc(100vh-390px)] min-h-[22rem] overflow-auto rounded-xl border border-amber-100/10 bg-black/10 p-3">
-          <div className="min-w-[1120px]">
+        <div className="journal-scroll h-[calc(100vh-390px)] min-h-[22rem] overflow-x-auto overflow-y-auto rounded-xl border border-amber-100/10 bg-black/10 p-3">
+          <div className="min-w-[900px] lg:min-w-[1120px]">
             <table className="w-full border-separate border-spacing-x-1 border-spacing-y-1.5">
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-20 rounded-lg border border-amber-100/10 bg-black/40 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-stone-400">
+                  <th className="rounded-lg border border-amber-100/10 bg-black/40 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-stone-400">
                     Day
                   </th>
                   {visibleDays.map((day) => (
@@ -218,7 +218,7 @@ export default function HabitTracking() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: rowIdx * 0.04, duration: 0.25 }}
                     >
-                      <td className="sticky left-0 z-10 min-w-[380px] rounded-lg border border-amber-100/10 bg-black/45 px-3 py-2">
+                      <td className="min-w-[300px] rounded-lg border border-amber-100/10 bg-black/45 px-3 py-2 lg:min-w-[380px]">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex min-w-0 flex-wrap items-center gap-2">
                             <p className="truncate text-sm font-semibold text-stone-100">{habit.title}</p>

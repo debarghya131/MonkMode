@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
-import monkGreetingsLogo from "../../../assets/monkgreetingslogo.png";
+import littleMonkLogo from "../../../assets/littlemonklogo.png";
 
 const DAY_ORDER = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_OPTIONS = [
@@ -152,7 +152,7 @@ function InsightRail({ insights }) {
               transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
             />
             <Motion.img
-              src={monkGreetingsLogo}
+              src={littleMonkLogo}
               alt="Little Monk AI Assistant"
               className="relative z-10 h-20 w-20 object-contain drop-shadow-[0_10px_18px_rgba(245,158,11,0.16)]"
               whileHover={{ scale: 1.08, rotate: -3 }}
@@ -552,7 +552,7 @@ export default function ScoreStreakAnalysis() {
         </label>
       </div>
 
-      <div className="flex items-start gap-5">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div
           className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
           style={{ maxHeight: "calc(100vh - 350px)" }}
@@ -587,7 +587,7 @@ export default function ScoreStreakAnalysis() {
         </div>
 
         <div
-          className="journal-scroll flex w-full max-w-[360px] shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
+          className="journal-scroll flex w-full w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
           style={{ maxHeight: "calc(100vh - 180px)" }}
         >
           <InsightRail insights={insights} />

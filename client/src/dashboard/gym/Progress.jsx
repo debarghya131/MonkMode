@@ -468,15 +468,15 @@ function WorkoutProgress({ workouts }) {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-      <div className="rounded-2xl border border-amber-100/10 bg-black/20 p-4">
-        <div className="flex items-center justify-between gap-2">
+    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+      <div className="min-w-0 rounded-2xl border border-amber-100/10 bg-black/20 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Exercises</p>
-          <span className="rounded-full border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-300">
+          <span className="shrink-0 rounded-full border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-300">
             {visibleExercises.length} shown
           </span>
         </div>
-        <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
+        <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1 pr-1">
           {groups.map((group) => (
             <button
               key={group}
@@ -493,7 +493,7 @@ function WorkoutProgress({ workouts }) {
           ))}
         </div>
 
-        <div className="journal-scroll mt-3 max-h-[54vh] space-y-2 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
+        <div className="journal-scroll mt-3 max-h-[40vh] space-y-2 overflow-y-auto pr-1 sm:max-h-[54vh] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
           {visibleExercises.map((exercise, ei) => (
             <Motion.button
               key={exercise.exerciseId}
@@ -509,8 +509,8 @@ function WorkoutProgress({ workouts }) {
                   : "border-amber-100/10 bg-white/5 hover:bg-white/10"
               }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-xs font-semibold text-stone-100">{exercise.name}</p>
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <p className="min-w-0 truncate text-xs font-semibold text-stone-100">{exercise.name}</p>
                 <span className="rounded-full border border-amber-300/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
                   {exercise.logs.length}
                 </span>
@@ -523,7 +523,7 @@ function WorkoutProgress({ workouts }) {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="min-w-0 space-y-4">
         {selectedExercise && (
           <div className="rounded-2xl border border-amber-100/10 bg-black/20 p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
@@ -538,7 +538,7 @@ function WorkoutProgress({ workouts }) {
           </div>
         )}
 
-        <div className="journal-scroll max-h-[58vh] space-y-3 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
+        <div className="journal-scroll max-h-[42vh] space-y-3 overflow-y-auto pr-1 sm:max-h-[58vh] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
           {selectedExercise && WORKOUT_METRICS.map((metric, mi) => {
             const rawPoints = selectedExercise.logs
               .filter((log) => log[metric.key] != null)

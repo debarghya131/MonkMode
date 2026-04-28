@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion as Motion, AnimatePresence } from "framer-motion";
-import monkGreetingsLogo from "../../assets/monkgreetingslogo.png";
+import littleMonkLogo from "../../assets/littlemonklogo.png";
 
 const WEEKLY_HABIT_DATA = [
   {
@@ -227,10 +227,10 @@ export default function HabitWeeklyReport() {
   const habitTotals = selectedWeek ? getHabitSummary(selectedWeek.habits) : null;
 
   return (
-    <div className="flex items-start gap-5">
+    <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
 
       {/* ── LEFT: Main analysis panel ─────────────────────────── */}
-      <div className="journal-scroll min-w-0 flex-1 overflow-y-auto" style={{ maxHeight: "calc(100vh - 170px)" }}>
+      <div className="journal-scroll min-w-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-170px)]">
         <AnimatePresence mode="wait">
           {selectedWeek ? (
             <Motion.div
@@ -335,11 +335,11 @@ export default function HabitWeeklyReport() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur flex flex-col h-[220px]"
+                className="rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur flex flex-col h-[24vh]"
               >
                 <div className="mb-3 flex items-center gap-2">
                   <Motion.img
-                    src={monkGreetingsLogo}
+                    src={littleMonkLogo}
                     alt="Little Monk"
                     className="h-14 w-17 object-contain"
                     animate={{ y: [0, -3, 0] }}
@@ -356,11 +356,11 @@ export default function HabitWeeklyReport() {
               </Motion.div>
 
               {/* 2×2 card grid */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
                 {/* Card 1 — Habit Summary */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
-                  className="flex h-[178px] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
+                  className="flex h-[20vh] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
                 >
                   <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Habit Summary</p>
@@ -441,7 +441,7 @@ export default function HabitWeeklyReport() {
 
                 {/* Card 2 — Habit Performance + Streak (merged, spans both rows) */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.21 }}
-                  className="row-span-2 flex h-[400px] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
+                  className="row-span-2 flex h-[44vh] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
                 >
                   <div className="mb-3 flex shrink-0 flex-col gap-2">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Habit Performance</p>
@@ -511,7 +511,7 @@ export default function HabitWeeklyReport() {
 
                 {/* Card 3 — Daily Breakdown */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}
-                  className="flex h-[206px] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
+                  className="flex h-[23vh] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
                 >
                   <p className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Daily Breakdown</p>
                   <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
@@ -574,10 +574,10 @@ export default function HabitWeeklyReport() {
       </div>
 
       {/* ── RIGHT: Two cards ──────────────────────────────────── */}
-      <div className="grid w-full max-w-[360px] shrink-0 items-start gap-4">
+      <div className="grid w-full items-start gap-4 lg:w-[360px] lg:shrink-0">
 
         {/* Card 1 — Week Selector */}
-        <ReportCard className="flex h-[340px] flex-col overflow-hidden">
+        <ReportCard className="flex h-[38vh] flex-col overflow-hidden">
           <div className="mb-4 flex shrink-0 items-center gap-3">
             <Motion.div
               className="relative grid h-16 w-17 place-items-center"
@@ -590,7 +590,7 @@ export default function HabitWeeklyReport() {
                 transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
               />
               <Motion.img
-                src={monkGreetingsLogo}
+                src={littleMonkLogo}
                 alt="Little Monk AI Assistant"
                 className="relative z-10 h-20 w-20 object-contain drop-shadow-[0_10px_18px_rgba(245,158,11,0.16)]"
                 whileHover={{ scale: 1.08, rotate: -3 }}
@@ -643,7 +643,7 @@ export default function HabitWeeklyReport() {
         </ReportCard>
 
         {/* Card 2 — Category Performance */}
-        <ReportCard className="flex h-[380px] flex-col overflow-hidden">
+        <ReportCard className="flex h-[42vh] flex-col overflow-hidden">
           <div className="mb-4 shrink-0 space-y-3">
             <div className="flex items-center gap-2">
               <span className="text-base">📊</span>

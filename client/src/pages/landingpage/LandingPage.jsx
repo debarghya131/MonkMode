@@ -138,32 +138,36 @@ export default function LandingPage() {
         <LandingNavbar />
         <Hero />
       </div>
-      <div className="pointer-events-none fixed bottom-2 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-amber-200/10 bg-stone-950/25 px-3 py-1.5 text-center shadow-[0_10px_22px_rgba(0,0,0,0.2)] backdrop-blur md:bottom-4">
+      {/* Scroll to continue — raised on mobile so it clears the bottom badges */}
+      <div className="pointer-events-none fixed bottom-16 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-amber-200/10 bg-stone-950/25 px-3 py-1.5 text-center shadow-[0_10px_22px_rgba(0,0,0,0.2)] backdrop-blur sm:bottom-4 md:bottom-4">
         <span className="block h-2 w-2 animate-bounce rounded-full bg-amber-300/90 shadow-[0_0_12px_rgba(251,191,36,0.5)]" />
         <p className="text-[0.56rem] font-semibold uppercase tracking-[0.24em] text-amber-100/65 md:text-[0.62rem]">
           Scroll to continue
         </p>
       </div>
-      <div className="pointer-events-none fixed bottom-4 right-4 z-20 max-w-[calc(100vw-2rem)] rounded-2xl border border-amber-200/10 bg-stone-950/35 px-4 py-3 text-right shadow-[0_14px_34px_rgba(0,0,0,0.28)] backdrop-blur md:bottom-6 md:right-6 md:max-w-none md:px-5">
-        <p className="font-serif text-[0.72rem] font-bold uppercase tracking-[0.28em] text-amber-100/70 md:text-[0.78rem]">
-          Crafted with focus 
+
+      {/* Crafted with focus — bottom-right */}
+      <div className="pointer-events-none fixed bottom-3 right-3 z-20 rounded-2xl border border-amber-200/10 bg-stone-950/35 px-3 py-2 text-right shadow-[0_14px_34px_rgba(0,0,0,0.28)] backdrop-blur sm:bottom-4 sm:right-4 sm:px-4 sm:py-3 md:bottom-6 md:right-6 md:px-5">
+        <p className="font-serif text-[0.62rem] font-bold uppercase tracking-[0.22em] text-amber-100/70 sm:text-[0.72rem] md:text-[0.78rem]">
+          Crafted with focus
         </p>
         <p
-          className="mt-1 bg-gradient-to-r from-orange-300 via-amber-100 to-orange-200 bg-clip-text font-serif text-sm font-semibold italic tracking-[0.02em] text-transparent drop-shadow-[0_6px_14px_rgba(245,158,11,0.16)] sm:text-base md:text-[1.1rem]"
+          className="mt-0.5 bg-gradient-to-r from-orange-300 via-amber-100 to-orange-200 bg-clip-text font-serif text-xs font-semibold italic tracking-[0.02em] text-transparent drop-shadow-[0_6px_14px_rgba(245,158,11,0.16)] sm:mt-1 sm:text-sm md:text-[1.1rem]"
           style={{ fontFamily: "Georgia, Times New Roman, serif" }}
         >
-          <span className="bg-none text-orange-300 not-italic text-base md:text-lg"></span>{" "}
-         by Debarghya Bandyopadhyay 🧡
+          by Debarghya Bandyopadhyay 🧡
         </p>
       </div>
+
+      {/* Music toggle — bottom-left */}
       <button
         type="button"
         onClick={toggleMusic}
-        className="fixed bottom-4 left-4 z-20 inline-flex items-center gap-2 rounded-full border border-amber-100/55 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-stone-950 shadow-[0_0_0_1px_rgba(255,236,178,0.24),0_0_26px_rgba(251,191,36,0.34),0_14px_34px_rgba(120,52,8,0.28)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_0_1px_rgba(255,236,178,0.3),0_0_32px_rgba(251,191,36,0.44),0_18px_40px_rgba(120,52,8,0.34)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/80 md:bottom-6 md:left-6"
+        className="fixed bottom-3 left-3 z-20 inline-flex items-center gap-1.5 rounded-full border border-amber-100/55 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-stone-950 shadow-[0_0_0_1px_rgba(255,236,178,0.24),0_0_26px_rgba(251,191,36,0.34),0_14px_34px_rgba(120,52,8,0.28)] transition duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/80 sm:bottom-4 sm:left-4 sm:gap-2 sm:px-4 sm:py-2 sm:text-xs sm:tracking-[0.18em] md:bottom-6 md:left-6"
         aria-label={isMusicPlaying ? "Pause background music" : "Play background music"}
       >
-        <span className="text-base leading-none">{isMusicPlaying ? "⏸" : "🎵"}</span>
-        <span>{isMusicPlaying ? "Pause Music" : "Play Music"}</span>
+        <span className="text-sm leading-none">{isMusicPlaying ? "⏸" : "🎵"}</span>
+        <span className="hidden sm:inline">{isMusicPlaying ? "Pause Music" : "Play Music"}</span>
       </button>
     </div>
   );

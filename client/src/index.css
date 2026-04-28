@@ -2,6 +2,29 @@
 @import "@fontsource/cinzel";
 @import "@fontsource/cinzel/700.css";
 
+/* ── Global scrollbar theme (overrides OS teal/colored scrollbars) ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180, 130, 40, 0.35) transparent;
+}
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(180, 130, 40, 0.35);
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(251, 191, 36, 0.55);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* ── Calendar Heatmap overrides ── */
 .react-calendar-heatmap text { font-size: 6px; fill: #57534e; }
 .react-calendar-heatmap .react-calendar-heatmap-month-label { font-size: 6px; }
@@ -163,6 +186,14 @@ a {
 .journal-scroll {
   scroll-behavior: smooth;
 }
+
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
 .journal-scroll::-webkit-scrollbar {
   width: 4px;
 }
@@ -202,6 +233,7 @@ a {
 .schedule-layout {
   display: flex;
   flex-direction: column;
+  width: 100%;
   gap: 1.5rem;
 }
 
@@ -220,6 +252,7 @@ a {
 .today-layout {
   display: flex;
   flex-direction: column;
+  width: 100%;
   gap: 1.5rem;
 }
 
@@ -255,28 +288,28 @@ a {
   overflow-y: auto;
 }
 
-@media (min-width: 1180px) {
+@media (min-width: 1500px) {
   .schedule-layout {
     flex-direction: row;
     align-items: flex-start;
   }
 
   .schedule-main {
-    width: 468px;
-    flex: 0 0 468px;
+    width: 360px;
+    flex: 0 0 360px;
   }
 
   .schedule-all-tasks {
-    flex: 1 1 0%;
-    min-width: 0;
-    height: 650px;
+    flex: 1 1 420px;
+    min-width: 320px;
+    height: min(650px, 72vh);
     display: flex;
     flex-direction: column;
   }
 
   .schedule-sidebar {
-    width: 320px;
-    flex: 0 0 320px;
+    width: 260px;
+    flex: 0 0 260px;
   }
 
   .today-layout {
@@ -319,11 +352,36 @@ a {
   }
 }
 
+@media (min-width: 1440px) {
+  .schedule-main {
+    width: 500px;
+    flex: 0 0 500px;
+  }
+
+  .schedule-sidebar {
+    width: 340px;
+    flex: 0 0 340px;
+  }
+}
+
+@media (min-width: 1920px) {
+  .schedule-main {
+    width: 560px;
+    flex: 0 0 560px;
+  }
+
+  .schedule-sidebar {
+    width: 380px;
+    flex: 0 0 380px;
+  }
+}
+
 /* ===== UPCOMING LAYOUT ===== */
 
 .upcoming-layout {
   display: flex;
   flex-direction: column;
+  width: 100%;
   gap: 1.25rem;
 }
 
@@ -377,6 +435,7 @@ a {
 .important-layout {
   display: flex;
   flex-direction: column;
+  width: 100%;
   gap: 1.25rem;
 }
 
@@ -422,6 +481,40 @@ a {
     width: 360px;
     flex: 0 0 360px;
     height: 39rem;
+  }
+}
+
+@media (min-width: 1440px) {
+  .today-sidebar {
+    width: 400px;
+    flex: 0 0 400px;
+  }
+
+  .upcoming-card-tomorrow {
+    width: 360px;
+    flex: 0 0 360px;
+  }
+
+  .important-side {
+    width: 400px;
+    flex: 0 0 400px;
+  }
+}
+
+@media (min-width: 1920px) {
+  .today-sidebar {
+    width: 440px;
+    flex: 0 0 440px;
+  }
+
+  .upcoming-card-tomorrow {
+    width: 400px;
+    flex: 0 0 400px;
+  }
+
+  .important-side {
+    width: 440px;
+    flex: 0 0 440px;
   }
 }
 

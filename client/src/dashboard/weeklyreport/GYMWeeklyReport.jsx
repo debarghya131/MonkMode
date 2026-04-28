@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion as Motion } from "framer-motion";
-import monkGreetingsLogo from "../../assets/monkgreetingslogo.png";
+import littleMonkLogo from "../../assets/littlemonklogo.png";
 import photo1 from "../../assets/transformatiom image 1.png";
 import photo2 from "../../assets/transformatiom image 2.png";
 import photo3 from "../../assets/transformatiom image 3.png";
@@ -244,6 +244,20 @@ export default function GYMWeeklyReport() {
   const strengthFade = useFade(strengthRef, [selectedWeekId, bodyGroupFilter, filteredStrength.length]);
   const bodyFade    = useFade(bodyRef,      [selectedWeekId, selectedWeek.bodyProgress.length]);
 
+  useEffect(() => {
+    if (aiRef.current) aiRef.current.scrollTop = 0;
+    if (strengthRef.current) strengthRef.current.scrollTop = 0;
+    if (bodyRef.current) bodyRef.current.scrollTop = 0;
+  }, [selectedWeekId]);
+
+  useEffect(() => {
+    if (strengthRef.current) strengthRef.current.scrollTop = 0;
+  }, [bodyGroupFilter]);
+
+  useEffect(() => {
+    if (bodyRef.current) bodyRef.current.scrollTop = 0;
+  }, [bodyPartFilter]);
+
   return (
     <>
     {/* Progress Photos Modal */}
@@ -281,7 +295,7 @@ export default function GYMWeeklyReport() {
             </div>
 
             {/* Photo grid */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {selectedWeek.progressPhotos.map((entry, i) => (
                 <Motion.div
                   key={entry.day}
@@ -323,10 +337,10 @@ export default function GYMWeeklyReport() {
       )}
     </AnimatePresence>
 
-    <div className="flex items-start gap-5">
+    <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
 
       {/* ── LEFT: Main content ─────────────────────────────────── */}
-      <div className="journal-scroll min-w-0 flex-1 overflow-y-auto" style={{ maxHeight: "calc(100vh - 170px)" }}>
+      <div className="journal-scroll min-w-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-170px)]">
         <AnimatePresence mode="wait">
           <Motion.div
             key={selectedWeek.id}
@@ -428,10 +442,10 @@ export default function GYMWeeklyReport() {
             </ReportCard>
 
             {/* Little Monk AI Summary */}
-            <ReportCard className="flex h-[200px] flex-col overflow-hidden">
+            <ReportCard className="flex h-[22vh] flex-col overflow-hidden">
               <div className="mb-3 flex shrink-0 items-center gap-2">
                 <Motion.img
-                  src={monkGreetingsLogo}
+                  src={littleMonkLogo}
                   alt="Little Monk"
                   className="h-14 w-17 object-contain"
                   animate={{ y: [0, -3, 0] }}
@@ -448,19 +462,19 @@ export default function GYMWeeklyReport() {
             </ReportCard>
 
             {/* Strength Progress + Body Progress side by side */}
-            <div className="flex gap-5 items-start">
+            <div className="flex flex-col gap-5 items-start 2xl:flex-row">
 
               {/* Strength Progress */}
-              <ReportCard className="flex h-[400px] min-w-0 flex-1 flex-col overflow-hidden basis-0">
+              <ReportCard className="flex h-[44vh] min-h-[22rem] min-w-0 flex-1 flex-col overflow-hidden 2xl:basis-0">
                 <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3 bg-[#1d0f0c]/95 pb-2 backdrop-blur">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Strength Progress</p>
-                  <div className="flex items-center gap-1 rounded-full border border-amber-100/10 bg-stone-900/60 p-0.5">
+                  <div className="flex flex-wrap items-center gap-1 rounded-full border border-amber-100/10 bg-stone-900/60 p-0.5">
                     {BODY_GROUP_FILTERS.map((filter) => (
                       <button
                         key={filter}
                         type="button"
                         onClick={() => setBodyGroupFilter(filter)}
-                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors ${
+                        className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors ${
                           bodyGroupFilter === filter
                             ? "bg-amber-500/20 text-amber-300"
                             : "text-stone-500 hover:text-stone-300"
@@ -480,13 +494,13 @@ export default function GYMWeeklyReport() {
                     filteredStrength.map((ex) => (
                       <div key={ex.exercise} className="rounded-xl border border-stone-700/35 bg-stone-950/35 px-3 py-2.5">
                         <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-stone-200">{ex.exercise}</p>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-stone-200 break-words">{ex.exercise}</p>
                             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">{ex.bodyGroup}</p>
                           </div>
                           <p className="text-xs font-bold text-emerald-300">{ex.improvement}</p>
                         </div>
-                        <div className="mt-2 grid grid-cols-4 gap-2 text-[10px] font-semibold">
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] font-semibold sm:grid-cols-4">
                           <p className="rounded-md border border-stone-700/40 bg-black/15 px-2 py-1 text-stone-400">Last: {ex.previous}</p>
                           <p className="rounded-md border border-emerald-500/25 bg-emerald-500/8 px-2 py-1 text-emerald-200">Now: {ex.current}</p>
                           <p className={`rounded-md border px-2 py-1 ${ex.repsChange > 0 ? "border-emerald-500/25 bg-emerald-500/8 text-emerald-300" : ex.repsChange < 0 ? "border-rose-500/25 bg-rose-500/8 text-rose-300" : "border-stone-700/40 bg-black/15 text-stone-500"}`}>
@@ -503,16 +517,16 @@ export default function GYMWeeklyReport() {
               </ReportCard>
 
               {/* Body Progress */}
-              <ReportCard className="flex h-[400px] min-w-0 flex-1 flex-col overflow-hidden basis-0">
+              <ReportCard className="flex h-[44vh] min-h-[22rem] min-w-0 flex-1 flex-col overflow-hidden 2xl:basis-0">
                 <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2 bg-[#1d0f0c]/95 pb-2 backdrop-blur">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Body Progress</p>
-                  <div className="flex items-center gap-1 rounded-full border border-amber-100/10 bg-stone-900/60 p-0.5">
+                  <div className="flex flex-wrap items-center gap-1 rounded-full border border-amber-100/10 bg-stone-900/60 p-0.5">
                     {BODY_PART_FILTERS.map((f) => (
                       <button
                         key={f}
                         type="button"
                         onClick={() => setBodyPartFilter(f)}
-                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors ${
+                        className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors ${
                           bodyPartFilter === f
                             ? "bg-amber-500/20 text-amber-300"
                             : "text-stone-500 hover:text-stone-300"
@@ -549,10 +563,10 @@ export default function GYMWeeklyReport() {
       </div>
 
       {/* ── RIGHT: Week selector + Nutrition ──────────────────── */}
-      <div className="grid w-full max-w-[360px] shrink-0 items-start gap-4">
+      <div className="grid w-full items-start gap-4 lg:w-[360px] lg:shrink-0">
 
         {/* Week selector card */}
-        <ReportCard className="flex h-[400px] flex-col overflow-hidden">
+        <ReportCard className="flex h-[44vh] flex-col overflow-hidden">
           <div className="mb-4 flex shrink-0 items-center gap-3">
             <Motion.div
               className="relative grid h-16 w-17 place-items-center"
@@ -565,7 +579,7 @@ export default function GYMWeeklyReport() {
                 transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
               />
               <Motion.img
-                src={monkGreetingsLogo}
+                src={littleMonkLogo}
                 alt="Little Monk AI Assistant"
                 className="relative z-10 h-20 w-20 object-contain drop-shadow-[0_10px_18px_rgba(245,158,11,0.16)]"
                 whileHover={{ scale: 1.08, rotate: -3 }}
@@ -623,7 +637,7 @@ export default function GYMWeeklyReport() {
               <p className="text-label-md">Nutrition Summary</p>
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
             {[
               ["Avg Protein",   selectedWeek.nutrition.avgProtein],
               ["Avg Carbs",     selectedWeek.nutrition.avgCarbs],

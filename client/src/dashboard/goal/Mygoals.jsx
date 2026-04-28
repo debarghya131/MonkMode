@@ -22,11 +22,30 @@ const getDaysLeft = (deadlineISO) => {
   return Math.floor((deadline - todayStart) / msPerDay);
 };
 
+function DeadlineBadge({ deadline }) {
+  if (!deadline) return null;
+  const days = getDaysLeft(deadline);
+  const label =
+    days > 0 ? `Due ${deadline} · ${days}d left` : days === 0 ? `Due today · ${deadline}` : `Overdue · ${deadline}`;
+  const cls =
+    days > 3
+      ? "border-sky-400/30 bg-sky-500/8 text-sky-300"
+      : days >= 0
+        ? "border-amber-400/30 bg-amber-500/8 text-amber-300"
+        : "border-rose-400/30 bg-rose-500/8 text-rose-300";
+  return (
+    <span className={`mt-0.5 inline-block rounded-full border px-2 py-0.5 text-[10px] font-semibold ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
 export default function Mygoals({ importantByGoal, setImportantByGoal, milestonesByGoal, setMilestonesByGoal }) {
   const navigate = useNavigate();
   const [addPopupGoalId, setAddPopupGoalId] = useState(null);
   const [popupGoalId, setPopupGoalId] = useState(null);
   const [newSubgoal, setNewSubgoal] = useState("");
+  const [newDeadline, setNewDeadline] = useState("");
 
   const addPopupGoal = GOALS.find((goal) => goal.id === addPopupGoalId) || null;
   const popupGoal = GOALS.find((goal) => goal.id === popupGoalId) || null;
@@ -53,18 +72,19 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
 
   const addSubgoal = () => {
     const title = newSubgoal.trim();
-    if (!title || !addPopupGoal) return;
+    if (!title || !newDeadline || !addPopupGoal) return;
 
     const id = `${addPopupGoal.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     setMilestonesByGoal((prev) => ({
       ...prev,
-      [addPopupGoal.id]: [...(prev[addPopupGoal.id] || []), { id, title, completed: false }],
+      [addPopupGoal.id]: [...(prev[addPopupGoal.id] || []), { id, title, deadline: newDeadline, completed: false }],
     }));
     setNewSubgoal("");
+    setNewDeadline("");
   };
 
   return (
-    <div className="h-[700px] rounded-[2rem] border border-amber-100/10 bg-white/6 p-6 shadow-2xl shadow-black/25 backdrop-blur flex flex-col">
+    <div className="h-[78vh] rounded-[2rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur flex flex-col sm:p-6">
       <p className="text-label-lg">My Goals</p>
       <h2 className="mt-2 text-2xl font-bold text-amber-100">All Goals</h2>
       <p className="text-body-md mt-3 text-stone-300/90">
@@ -84,7 +104,7 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
               whileHover={{ y: -3, boxShadow: "0 12px 32px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0 flex-1">
                   <h3 className="text-lg font-semibold text-amber-100">{goal.title}</h3>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${TYPE_BADGE[goal.type]}`}>
@@ -124,7 +144,7 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex w-full flex-wrap items-center justify-start gap-1.5 sm:w-auto sm:justify-end sm:gap-2">
                   <button
                     type="button"
                     onClick={() =>
@@ -133,7 +153,7 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                         [goal.id]: !prev[goal.id],
                       }))
                     }
-                    className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold transition ${
+                    className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold transition sm:text-[11px] ${
                       importantByGoal[goal.id]
                         ? "border-amber-300/45 bg-amber-500/15 text-amber-200"
                         : "border-amber-100/15 bg-white/5 text-stone-300 hover:border-amber-300/35 hover:text-amber-200"
@@ -141,11 +161,11 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                   >
                     {importantByGoal[goal.id] ? "Important ★" : "Mark Important"}
                   </button>
-                  <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${PRIORITY_BADGE[goal.priority]}`}>
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold sm:text-[11px] ${PRIORITY_BADGE[goal.priority]}`}>
                     {goal.priority}
                   </span>
                   <span
-                    className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                    className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold sm:text-[11px] ${
                       goal.status === "Archived"
                         ? "border-blue-400/30 bg-blue-500/10 text-blue-200"
                         : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
@@ -158,15 +178,16 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                     onClick={() => {
                       setAddPopupGoalId(goal.id);
                       setNewSubgoal("");
+                      setNewDeadline("");
                     }}
-                    className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20"
+                    className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-400/20 sm:text-[11px]"
                   >
                     Add Sub-goals
                   </button>
                   <button
                     type="button"
                     onClick={() => setPopupGoalId(goal.id)}
-                    className="rounded border border-sky-300/25 bg-sky-400/10 px-2 py-0.5 text-[11px] font-semibold text-sky-200 transition hover:bg-sky-400/20"
+                    className="rounded border border-sky-300/25 bg-sky-400/10 px-2 py-0.5 text-[10px] font-semibold text-sky-200 transition hover:bg-sky-400/20 sm:text-[11px]"
                   >
                     Update Progress
                   </button>
@@ -178,9 +199,9 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
       </div>
 
       {addPopupGoal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.95),rgba(12,8,8,0.97))] p-5 shadow-2xl shadow-black/50 backdrop-blur">
-            <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/65 p-3 sm:items-center sm:p-4">
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.95),rgba(12,8,8,0.97))] shadow-2xl shadow-black/50 backdrop-blur">
+            <div className="sticky top-0 z-10 mb-4 flex items-start justify-between gap-3 border-b border-amber-100/10 bg-[#1a100c]/95 px-4 py-3 sm:px-5">
               <div>
                 <p className="text-label-lg">Add Sub-goals</p>
                 <h3 className="mt-1 text-xl font-semibold text-amber-100">{addPopupGoal.title}</h3>
@@ -194,7 +215,7 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
               </button>
             </div>
 
-            <div className="space-y-3 text-sm">
+            <div className="journal-scroll max-h-[calc(100dvh-9rem)] space-y-3 overflow-y-auto px-4 pb-4 text-sm sm:px-5 sm:pb-5">
               <div className="rounded-lg border border-amber-100/10 bg-white/5 p-3">
                 <p className="mb-2 text-sm font-semibold text-amber-200">1. Create Habit</p>
                 <button
@@ -225,10 +246,25 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                     placeholder="e.g. Complete DBMS revision"
                     className="w-full rounded-lg border border-amber-100/15 bg-black/20 px-3 py-1.5 text-sm text-stone-100 outline-none transition focus:border-amber-300/35"
                   />
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="flex flex-1 flex-col gap-1">
+                    <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">
+                      Deadline <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={newDeadline}
+                      min={new Date().toISOString().split("T")[0]}
+                      onChange={(e) => setNewDeadline(e.target.value)}
+                      className="rounded-lg border border-amber-100/15 bg-black/20 px-3 py-1.5 text-sm text-stone-100 outline-none transition focus:border-amber-300/35 [color-scheme:dark]"
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={addSubgoal}
-                    className="rounded border border-sky-300/25 bg-sky-400/10 px-3 py-1.5 text-xs font-semibold text-sky-200 transition hover:bg-sky-400/20"
+                    disabled={!newSubgoal.trim() || !newDeadline}
+                    className="self-end rounded border border-sky-300/25 bg-sky-400/10 px-4 py-1.5 text-xs font-semibold text-sky-200 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Add
                   </button>
@@ -243,9 +279,9 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
       )}
 
       {popupGoal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
-          <div className="w-full max-w-4xl rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.95),rgba(12,8,8,0.97))] p-5 shadow-2xl shadow-black/50 backdrop-blur">
-            <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/65 p-3 sm:items-center sm:p-4">
+          <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.95),rgba(12,8,8,0.97))] shadow-2xl shadow-black/50 backdrop-blur">
+            <div className="sticky top-0 z-10 mb-4 flex items-start justify-between gap-3 border-b border-amber-100/10 bg-[#1a100c]/95 px-4 py-3 sm:px-5">
               <div>
                 <p className="text-label-lg">Update Progress</p>
                 <h3 className="mt-1 text-xl font-semibold text-amber-100">{popupGoal.title}</h3>
@@ -259,8 +295,9 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
               </button>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <section className="flex h-[420px] flex-col rounded-xl border border-amber-100/10 bg-white/5 p-3">
+            <div className="journal-scroll max-h-[calc(100dvh-9rem)] overflow-y-auto px-4 pb-4 sm:px-5 sm:pb-5">
+              <div className="grid gap-4 md:grid-cols-2">
+              <section className="flex h-[47vh] flex-col rounded-xl border border-amber-100/10 bg-white/5 p-3">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-semibold text-amber-200">Pending</p>
                   <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5 text-[11px] text-stone-300">
@@ -273,7 +310,10 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                   <div className="journal-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
                     {pendingMilestones.map((milestone) => (
                       <div key={milestone.id} className="flex items-start justify-between gap-2 rounded-lg border border-amber-100/10 bg-black/20 px-2.5 py-2">
-                        <p className="min-w-0 flex-1 break-all text-sm leading-relaxed text-stone-100">{milestone.title}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-all text-sm leading-relaxed text-stone-100">{milestone.title}</p>
+                          <DeadlineBadge deadline={milestone.deadline} />
+                        </div>
                         <button
                           type="button"
                           onClick={() => updateMilestoneStatus(popupGoal.id, milestone.id, true)}
@@ -287,7 +327,7 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                 )}
               </section>
 
-              <section className="flex h-[420px] flex-col rounded-xl border border-amber-100/10 bg-white/5 p-3">
+              <section className="flex h-[47vh] flex-col rounded-xl border border-amber-100/10 bg-white/5 p-3">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-semibold text-amber-200">Completed</p>
                   <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5 text-[11px] text-stone-300">
@@ -300,7 +340,10 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                   <div className="journal-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
                     {completedMilestones.map((milestone) => (
                       <div key={milestone.id} className="flex items-start justify-between gap-2 rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-2.5 py-2">
-                        <p className="min-w-0 flex-1 break-all text-sm leading-relaxed text-emerald-100">{milestone.title}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-all text-sm leading-relaxed text-emerald-100">{milestone.title}</p>
+                          <DeadlineBadge deadline={milestone.deadline} />
+                        </div>
                         <button
                           type="button"
                           onClick={() => updateMilestoneStatus(popupGoal.id, milestone.id, false)}
@@ -313,6 +356,7 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                   </div>
                 )}
               </section>
+              </div>
             </div>
           </div>
         </div>

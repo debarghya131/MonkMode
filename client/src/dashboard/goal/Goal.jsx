@@ -41,7 +41,7 @@ export default function Goal() {
   };
 
   return (
-    <div className="mx-auto max-w-8xl space-y-4">
+    <div className="w-full space-y-4">
       <div className="min-w-0 flex-1">
         <GoalNav activeTab={activeTab} onTabChange={setActiveTab} />
       </div>

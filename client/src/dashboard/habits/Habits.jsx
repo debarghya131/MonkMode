@@ -25,10 +25,10 @@ export default function Habits() {
   };
 
   return (
-    <div className="mx-auto max-w-8xl space-y-4">
-      <div className="flex items-center gap-20">
+    <div className="w-full space-y-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
         <Motion.div
-          className="flex shrink-0 items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-950/50 px-4 py-2 shadow-lg"
+          className="flex w-full items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-950/50 px-4 py-2 shadow-lg md:w-auto md:shrink-0"
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
@@ -40,10 +40,10 @@ export default function Habits() {
             transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
           >🔥</Motion.div>
           <div className="flex flex-col leading-tight">
-            <span className="text-lg font-bold text-amber-400">{streakDays} day streak</span>
+            <span className="text-base font-bold text-amber-400 sm:text-lg">{streakDays} day streak</span>
           </div>
         </Motion.div>
-        <div className="min-w-0 flex-1">
+        <div className="w-full min-w-0 flex-1">
           <HabitsNav activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
       </div>

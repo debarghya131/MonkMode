@@ -7,9 +7,9 @@ export const GOALS = [
     status: "Active",
     deadline: "2027-01-04",
     milestones: [
-      { id: "gate-dsa", title: "Complete DSA", completed: false },
-      { id: "gate-os", title: "Revise OS", completed: false },
-      { id: "gate-pyq", title: "Solve PYQs", completed: true },
+      { id: "gate-dsa", title: "Complete DSA", deadline: "2026-08-31", completed: false },
+      { id: "gate-os", title: "Revise OS", deadline: "2026-10-31", completed: false },
+      { id: "gate-pyq", title: "Solve PYQs", deadline: "2026-12-31", completed: true },
     ],
   },
   {
@@ -20,9 +20,9 @@ export const GOALS = [
     status: "Active",
     deadline: "2026-05-30",
     milestones: [
-      { id: "web-react", title: "Complete React fundamentals", completed: true },
-      { id: "web-projects", title: "Build 2 portfolio projects", completed: false },
-      { id: "web-deploy", title: "Deploy full-stack app", completed: false },
+      { id: "web-react", title: "Complete React fundamentals", deadline: "2026-04-15", completed: true },
+      { id: "web-projects", title: "Build 2 portfolio projects", deadline: "2026-05-15", completed: false },
+      { id: "web-deploy", title: "Deploy full-stack app", deadline: "2026-05-28", completed: false },
     ],
   },
   {
@@ -33,9 +33,9 @@ export const GOALS = [
     status: "Archived",
     deadline: "2026-04-11",
     milestones: [
-      { id: "dsa-arrays", title: "Arrays & Strings", completed: true },
-      { id: "dsa-graphs", title: "Trees + Graphs", completed: true },
-      { id: "dsa-mocks", title: "Mock assessments", completed: false },
+      { id: "dsa-arrays", title: "Arrays & Strings", deadline: "2026-03-20", completed: true },
+      { id: "dsa-graphs", title: "Trees + Graphs", deadline: "2026-04-01", completed: true },
+      { id: "dsa-mocks", title: "Mock assessments", deadline: "2026-04-10", completed: false },
     ],
   },
   {
@@ -46,9 +46,9 @@ export const GOALS = [
     status: "Active",
     deadline: "2026-11-20",
     milestones: [
-      { id: "sd-hld", title: "Complete HLD fundamentals", completed: false },
-      { id: "sd-lld", title: "Practice LLD interview problems", completed: false },
-      { id: "sd-case", title: "Solve 20 system design case studies", completed: true },
+      { id: "sd-hld", title: "Complete HLD fundamentals", deadline: "2026-07-31", completed: false },
+      { id: "sd-lld", title: "Practice LLD interview problems", deadline: "2026-09-30", completed: false },
+      { id: "sd-case", title: "Solve 20 system design case studies", deadline: "2026-06-30", completed: true },
     ],
   },
   {
@@ -59,9 +59,9 @@ export const GOALS = [
     status: "Active",
     deadline: "2026-12-15",
     milestones: [
-      { id: "ml-math", title: "Revise linear algebra + statistics", completed: true },
-      { id: "ml-models", title: "Implement core ML models from scratch", completed: false },
-      { id: "ml-deploy", title: "Deploy an ML project", completed: false },
+      { id: "ml-math", title: "Revise linear algebra + statistics", deadline: "2026-06-30", completed: true },
+      { id: "ml-models", title: "Implement core ML models from scratch", deadline: "2026-09-30", completed: false },
+      { id: "ml-deploy", title: "Deploy an ML project", deadline: "2026-12-01", completed: false },
     ],
   },
   {
@@ -72,9 +72,9 @@ export const GOALS = [
     status: "Active",
     deadline: "2026-06-28",
     milestones: [
-      { id: "api-auth", title: "JWT auth + refresh flow", completed: false },
-      { id: "api-tests", title: "Write integration tests", completed: false },
-      { id: "api-docs", title: "Generate API docs", completed: true },
+      { id: "api-auth", title: "JWT auth + refresh flow", deadline: "2026-05-15", completed: false },
+      { id: "api-tests", title: "Write integration tests", deadline: "2026-06-10", completed: false },
+      { id: "api-docs", title: "Generate API docs", deadline: "2026-04-30", completed: true },
     ],
   },
   {
@@ -85,9 +85,9 @@ export const GOALS = [
     status: "Active",
     deadline: "2026-07-10",
     milestones: [
-      { id: "rn-ui", title: "Complete app UI screens", completed: true },
-      { id: "rn-state", title: "Set up global state", completed: false },
-      { id: "rn-release", title: "Publish beta build", completed: false },
+      { id: "rn-ui", title: "Complete app UI screens", deadline: "2026-05-01", completed: true },
+      { id: "rn-state", title: "Set up global state", deadline: "2026-06-01", completed: false },
+      { id: "rn-release", title: "Publish beta build", deadline: "2026-07-05", completed: false },
     ],
   },
   {
@@ -98,9 +98,9 @@ export const GOALS = [
     status: "Active",
     deadline: "2026-06-15",
     milestones: [
-      { id: "cp-800", title: "Solve 30 problems (800-1000)", completed: true },
-      { id: "cp-1200", title: "Solve 20 problems (1100-1300)", completed: false },
-      { id: "cp-contest", title: "Participate in 6 contests", completed: false },
+      { id: "cp-800", title: "Solve 30 problems (800-1000)", deadline: "2026-04-20", completed: true },
+      { id: "cp-1200", title: "Solve 20 problems (1100-1300)", deadline: "2026-05-20", completed: false },
+      { id: "cp-contest", title: "Participate in 6 contests", deadline: "2026-06-10", completed: false },
     ],
   },
   {
@@ -111,9 +111,9 @@ export const GOALS = [
     status: "Active",
     deadline: "2026-05-27",
     milestones: [
-      { id: "res-bullets", title: "Rewrite impact bullets", completed: true },
-      { id: "res-projects", title: "Add top 3 projects", completed: false },
-      { id: "res-site", title: "Deploy updated portfolio site", completed: false },
+      { id: "res-bullets", title: "Rewrite impact bullets", deadline: "2026-04-20", completed: true },
+      { id: "res-projects", title: "Add top 3 projects", deadline: "2026-05-10", completed: false },
+      { id: "res-site", title: "Deploy updated portfolio site", deadline: "2026-05-25", completed: false },
     ],
   },
   {
@@ -124,9 +124,9 @@ export const GOALS = [
     status: "Active",
     deadline: "2026-08-30",
     milestones: [
-      { id: "fit-diet", title: "Weekly calorie tracking", completed: false },
-      { id: "fit-cardio", title: "4 cardio sessions/week", completed: true },
-      { id: "fit-lift", title: "Strength training consistency", completed: false },
+      { id: "fit-diet", title: "Weekly calorie tracking", deadline: "2026-07-31", completed: false },
+      { id: "fit-cardio", title: "4 cardio sessions/week", deadline: "2026-05-31", completed: true },
+      { id: "fit-lift", title: "Strength training consistency", deadline: "2026-08-25", completed: false },
     ],
   },
   {
@@ -137,9 +137,9 @@ export const GOALS = [
     status: "Active",
     deadline: "2026-06-05",
     milestones: [
-      { id: "sql-basics", title: "Revise joins and group by", completed: true },
-      { id: "sql-hard", title: "Solve 60 medium/hard SQL queries", completed: false },
-      { id: "sql-opt", title: "Learn indexing + optimization", completed: false },
+      { id: "sql-basics", title: "Revise joins and group by", deadline: "2026-04-25", completed: true },
+      { id: "sql-hard", title: "Solve 60 medium/hard SQL queries", deadline: "2026-05-25", completed: false },
+      { id: "sql-opt", title: "Learn indexing + optimization", deadline: "2026-06-03", completed: false },
     ],
   },
   {
@@ -159,10 +159,10 @@ export const GOALS = [
     status: "Archived",
     deadline: "2026-03-31",
     milestones: [
-      { id: "oss-pick", title: "Find a beginner-friendly repo", completed: true },
-      { id: "oss-issue", title: "Pick a good first issue", completed: true },
-      { id: "oss-pr", title: "Submit a pull request", completed: true },
-      { id: "oss-merged", title: "Get PR merged", completed: true },
+      { id: "oss-pick", title: "Find a beginner-friendly repo", deadline: "2026-01-31", completed: true },
+      { id: "oss-issue", title: "Pick a good first issue", deadline: "2026-02-15", completed: true },
+      { id: "oss-pr", title: "Submit a pull request", deadline: "2026-03-15", completed: true },
+      { id: "oss-merged", title: "Get PR merged", deadline: "2026-03-31", completed: true },
     ],
   },
 ];

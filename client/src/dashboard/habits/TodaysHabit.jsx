@@ -135,13 +135,13 @@ function PriorityFilter({ selected, onChange }) {
   };
 
   return (
-    <div className="mt-3 flex gap-1.5">
+    <div className="mt-3 flex flex-wrap gap-1.5">
       {["All", "High", "Medium", "Low"].map((level) => (
         <button
           key={level}
           type="button"
           onClick={() => onChange(level)}
-          className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${colorMap(level, selected === level)}`}
+          className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold leading-5 transition ${colorMap(level, selected === level)}`}
         >
           {level}
         </button>
@@ -246,18 +246,18 @@ export default function TodaysHabit() {
           </div>
 
           <Motion.div
-            className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3"
+            className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2 2xl:grid-cols-3"
             initial="hidden"
             animate="visible"
             variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
           >
             <Motion.section
-              className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5"
+              className="today-scroll-card min-w-0 rounded-2xl border border-amber-100/10 bg-black/10 p-5"
               variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
               transition={{ duration: 0.3 }}
             >
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-amber-200">1. All Habits</p>
                   <p className="mt-1 text-xs text-stone-400">Grouped by category for your full daily habit view.</p>
                 </div>
@@ -289,12 +289,12 @@ export default function TodaysHabit() {
             </Motion.section>
 
             <Motion.section
-              className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5"
+              className="today-scroll-card min-w-0 rounded-2xl border border-amber-100/10 bg-black/10 p-5"
               variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
               transition={{ duration: 0.3 }}
             >
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-amber-200">2. Pending</p>
                   <p className="mt-1 text-xs text-stone-400">Habits still waiting to be completed today.</p>
                 </div>
@@ -351,12 +351,12 @@ export default function TodaysHabit() {
             </Motion.section>
 
             <Motion.section
-              className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5"
+              className="today-scroll-card min-w-0 rounded-2xl border border-amber-100/10 bg-black/10 p-5"
               variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
               transition={{ duration: 0.3 }}
             >
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-amber-200">3. Completed</p>
                   <p className="mt-1 text-xs text-stone-400">Habits you have already finished today.</p>
                 </div>
@@ -389,8 +389,8 @@ export default function TodaysHabit() {
 
         <aside className="today-sidebar">
           <section className="today-scroll-card rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
                 <p className="text-sm font-semibold text-amber-200">Habit Streak Summary</p>
                 <p className="mt-1 text-xs text-stone-400">All habits filtered by priority with streak details.</p>
               </div>
@@ -408,7 +408,7 @@ export default function TodaysHabit() {
                 sidebarHabits.map((habit) => (
                   <article key={`summary-${habit.id}`} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
                     <p className="text-sm font-semibold text-stone-100">{habit.title}</p>
-                    <div className="mt-2 flex gap-4 text-[11px] text-stone-300">
+                    <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-stone-300">
                       <div className="flex-1 space-y-1">
                         <p>No. of Streak Break: <span className="font-semibold text-rose-200">{habit.streakBreaks ?? 0}</span></p>
                         <p>End Date: <span className="font-semibold text-amber-100">{habit.endDate ?? "Never Ends"}</span></p>
@@ -420,7 +420,7 @@ export default function TodaysHabit() {
                           );
                         })()}
                       </div>
-                      <div className="space-y-1 text-right">
+                      <div className="min-w-[140px] space-y-1 text-left sm:text-right">
                         <p>Target Streak: <span className="font-semibold text-amber-100">{habit.targetStreak ?? "--"}</span></p>
                         <p>Current Streak: <span className="font-semibold text-emerald-200">{habit.currentStreak ?? 0}</span></p>
                         <p>Max Streak: <span className="font-semibold text-amber-100">{habit.maxStreak ?? "--"}</span></p>

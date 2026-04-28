@@ -151,10 +151,10 @@ function PriorityFilter({ selected, onChange }) {
     return { All: "border-amber-300/50 bg-amber-500/20 text-amber-100", High: "border-red-400/50 bg-red-500/20 text-red-100", Medium: "border-yellow-400/50 bg-yellow-500/20 text-yellow-100", Low: "border-green-400/50 bg-green-500/20 text-green-100" }[level];
   };
   return (
-    <div className="mt-3 flex gap-1.5">
+    <div className="mt-3 flex flex-wrap gap-1.5">
       {["All", "High", "Medium", "Low"].map((level) => (
         <button key={level} type="button" onClick={() => onChange(level)}
-          className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${colorMap(level, selected === level)}`}>
+          className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold leading-5 transition ${colorMap(level, selected === level)}`}>
           {level}
         </button>
       ))}
@@ -226,19 +226,19 @@ export default function Today() {
           </div>
 
           <Motion.div
-            className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3"
+            className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2 2xl:grid-cols-3"
             initial="hidden"
             animate="visible"
             variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
           >
             {/* 1. All Tasks */}
             <Motion.section
-              className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5"
+              className="today-scroll-card min-w-0 rounded-2xl border border-amber-100/10 bg-black/10 p-5"
               variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
               transition={{ duration: 0.3 }}
             >
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-amber-200">1. All Tasks</p>
                   <p className="mt-1 text-xs text-stone-400">Grouped according to category for a full daily overview.</p>
                 </div>
@@ -271,12 +271,12 @@ export default function Today() {
 
             {/* 2. Pending */}
             <Motion.section
-              className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5"
+              className="today-scroll-card min-w-0 rounded-2xl border border-amber-100/10 bg-black/10 p-5"
               variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
               transition={{ duration: 0.3 }}
             >
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-amber-200">2. Pending</p>
                   <p className="mt-1 text-xs text-stone-400">Tasks that still need attention today.</p>
                 </div>
@@ -332,12 +332,12 @@ export default function Today() {
 
             {/* 3. Completed */}
             <Motion.section
-              className="today-scroll-card rounded-2xl border border-amber-100/10 bg-black/10 p-5"
+              className="today-scroll-card min-w-0 rounded-2xl border border-amber-100/10 bg-black/10 p-5"
               variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
               transition={{ duration: 0.3 }}
             >
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-amber-200">3. Completed</p>
                   <p className="mt-1 text-xs text-stone-400">Tasks already finished and closed for today.</p>
                 </div>

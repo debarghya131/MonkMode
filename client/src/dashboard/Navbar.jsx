@@ -117,7 +117,7 @@ function StreakStat({ label, value, days, suffix = "days", icon, labelClass, val
 
   return (
     <Motion.div
-      className="group relative flex flex-col gap-0.5 rounded-xl border-l border-amber-100/15 px-4 py-2"
+      className="group relative flex flex-col gap-0.5 rounded-xl border-l border-amber-100/15 px-3 py-2 lg:px-4"
       whileHover={{ y: -3, scale: 1.03 }}
       transition={{ type: "spring", stiffness: 320, damping: 22 }}
     >
@@ -135,9 +135,9 @@ function StreakStat({ label, value, days, suffix = "days", icon, labelClass, val
         transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
         style={{ backgroundColor: glowColor }}
       />
-      <p className={`text-body-xs ${labelClass}`}>{label}</p>
+      <p className={`text-body-xs whitespace-nowrap ${labelClass}`}>{label}</p>
       <Motion.p
-        className={`text-body-sm font-semibold ${valueClass}`}
+        className={`text-body-sm font-semibold whitespace-nowrap ${valueClass}`}
         animate={{
           textShadow: [
             "0 0 0px rgba(255,255,255,0)",
@@ -157,7 +157,7 @@ function StreakStat({ label, value, days, suffix = "days", icon, labelClass, val
         </Motion.span>
       </Motion.p>
       {tooltip && (
-        <div className="pointer-events-none absolute right-0 top-[calc(100%+0.6rem)] z-50 w-72 rounded-xl border border-amber-100/15 bg-stone-950/95 p-3 text-left text-[11px] leading-relaxed text-stone-300 opacity-0 shadow-2xl shadow-black/40 backdrop-blur transition duration-200 group-hover:opacity-100">
+        <div className="pointer-events-none absolute right-0 top-[calc(100%+0.6rem)] z-50 w-64 max-w-[90vw] rounded-xl border border-amber-100/15 bg-stone-950/95 p-3 text-left text-[11px] leading-relaxed text-stone-300 opacity-0 shadow-2xl shadow-black/40 backdrop-blur transition duration-200 group-hover:opacity-100">
           <p className="font-semibold text-amber-200">{tooltip.title}</p>
           <ul className="mt-2 list-disc space-y-1 pl-4">
             {tooltip.rules.map((rule) => (
@@ -171,10 +171,11 @@ function StreakStat({ label, value, days, suffix = "days", icon, labelClass, val
   );
 }
 
-export default function Navbar({ user }) {
+export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
   const firstName = user?.name || "Friend";
   const [monkStreak, setMonkStreak] = useState(0);
   const [consistencyScore, setConsistencyScore] = useState(0);
+  const [showMobileStats, setShowMobileStats] = useState(false);
   const currentDate = formatDate(new Date());
 
   const journalStreak = getStreak("monkmode_journal_streak") || DEMO_STREAKS.journal;
@@ -197,49 +198,96 @@ export default function Navbar({ user }) {
     };
   }, []);
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1280) setShowMobileStats(false);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   return (
-    <div className="relative overflow-visible px-6 py-3">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: "linear-gradient(120deg, #07192f 0%, #1a2e58 32%, #1b1741 55%, #190b12 100%)",
-          backgroundSize: "280% 280%",
-          animation: "navbarGradientShift 6s ease-in-out infinite",
-        }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 left-[-12%] w-[42%]"
-        style={{
-          background: "linear-gradient(90deg, transparent 0%, rgba(125,211,252,0.2) 40%, rgba(251,191,36,0.22) 65%, transparent 100%)",
-          filter: "blur(10px)",
-          animation: "navbarLightSweep 5s linear infinite",
-        }}
-      />
-      <NavbarBirdBackground />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_18%),linear-gradient(180deg,rgba(5,10,22,0.12),rgba(10,8,18,0.2)_64%,rgba(7,5,14,0.34))]"
-      />
+    <div className="relative px-3 py-2 sm:px-5 sm:py-3 lg:px-6 lg:py-3">
+      {/* Animated backgrounds — clipped so they never bleed outside the navbar */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div
+          className="absolute inset-0"
+          style={{
+            background: "linear-gradient(120deg, #07192f 0%, #1a2e58 32%, #1b1741 55%, #190b12 100%)",
+            backgroundSize: "280% 280%",
+            animation: "navbarGradientShift 6s ease-in-out infinite",
+          }}
+        />
+        <div
+          className="absolute inset-y-0 left-[-12%] w-[42%]"
+          style={{
+            background: "linear-gradient(90deg, transparent 0%, rgba(125,211,252,0.2) 40%, rgba(251,191,36,0.22) 65%, transparent 100%)",
+            filter: "blur(10px)",
+            animation: "navbarLightSweep 5s linear infinite",
+          }}
+        />
+        <NavbarBirdBackground />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_18%),linear-gradient(180deg,rgba(5,10,22,0.12),rgba(10,8,18,0.2)_64%,rgba(7,5,14,0.34))]" />
+      </div>
 
-      <div className="relative z-10 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+      <div className="relative z-10 flex items-center gap-2 sm:gap-3">
 
-        {/* LEFT: Logo + Welcome */}
-        <div className="flex min-w-0 items-center gap-0">
-          <img src={monkLogo} alt="MonkMode" className="h-20 w-auto translate-x-12 scale-[2.2] object-contain shrink-0" />
-          <div className="min-w-0 pl-36 text-left">
-            <p className="text-label-sm text-amber-300/70">Welcome back</p>
-            <h1 className="mt-0.5 truncate text-heading-md text-amber-50 md:text-heading-lg">{firstName}</h1>
+        {/* Hamburger — visible only below lg */}
+        <button
+          type="button"
+          onClick={onMenuToggle}
+          aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+          className="lg:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-100/15 bg-white/5 text-amber-200 transition hover:border-amber-300/30 hover:bg-white/10"
+        >
+          {mobileMenuOpen ? (
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          )}
+        </button>
+
+        {/* Logo + Welcome — always visible */}
+        <div className="flex min-w-0 flex-1 items-center gap-0">
+          <img
+            src={monkLogo}
+            alt="MonkMode"
+            className="h-14 w-auto translate-x-8 scale-[1.8] object-contain shrink-0 sm:h-16 sm:translate-x-10 sm:scale-[2] lg:h-20 lg:translate-x-12 lg:scale-[2.2]"
+          />
+          <div className="min-w-0 pl-20 text-left sm:pl-24 lg:pl-36">
+            <p className="hidden text-label-sm text-amber-300/70 sm:block">Welcome back</p>
+            <h1 className="truncate text-sm font-bold text-amber-50 sm:text-heading-md md:text-heading-lg">
+              {firstName}
+            </h1>
           </div>
         </div>
 
-        {/* RIGHT: Info */}
-        <div className="flex items-center gap-5 justify-end">
+        <div className="ml-auto xl:hidden">
+          <button
+            type="button"
+            aria-label={showMobileStats ? "Hide stats" : "Show stats"}
+            onClick={() => setShowMobileStats((prev) => !prev)}
+            className="grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-black/45 text-white transition hover:bg-black/65"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="4" y="4" width="7" height="7" rx="1.3" />
+              <circle cx="16.5" cy="7.5" r="3.5" />
+              <rect x="4" y="13" width="7" height="7" rx="1.3" />
+              <rect x="13" y="13" width="7" height="7" rx="1.3" />
+            </svg>
+          </button>
+        </div>
 
-          <div className="flex flex-col gap-0.5">
-            <p className="text-body-xs text-stone-400">Today</p>
-            <p className="text-body-sm text-amber-50 font-medium">{currentDate}</p>
+        {/* Right stats */}
+        <div className={`${showMobileStats ? "flex" : "hidden"} absolute left-3 right-3 top-[calc(100%+8px)] z-20 flex-wrap items-center gap-1 rounded-2xl border border-amber-100/12 bg-[#100a18]/95 p-2 shadow-xl shadow-black/40 backdrop-blur xl:static xl:left-auto xl:right-auto xl:top-auto xl:z-auto xl:flex xl:flex-nowrap xl:rounded-none xl:border-0 xl:bg-transparent xl:p-0 xl:shadow-none xl:backdrop-blur-0`}>
+
+          {/* Date */}
+          <div className="flex shrink-0 flex-col gap-0.5 border-l border-amber-100/15 px-3 py-2 lg:px-4">
+            <p className="text-body-xs text-stone-400 whitespace-nowrap">Today</p>
+            <p className="text-body-sm font-medium text-amber-50 whitespace-nowrap">{currentDate}</p>
           </div>
 
           <StreakStat
@@ -354,7 +402,6 @@ export default function Navbar({ user }) {
           />
 
         </div>
-
       </div>
     </div>
   );

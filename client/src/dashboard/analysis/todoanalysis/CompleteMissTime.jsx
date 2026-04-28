@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
-import monkGreetingsLogo from "../../../assets/monkgreetingslogo.png";
+import littleMonkLogo from "../../../assets/littlemonklogo.png";
 
 const DAY_ORDER = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const TIME_RANGES = ["6 AM - 9 AM", "9 AM - 12 PM", "12 PM - 3 PM", "3 PM - 6 PM", "6 PM - 12 AM"];
@@ -148,7 +148,7 @@ function InsightRail({ insights }) {
               transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
             />
             <Motion.img
-              src={monkGreetingsLogo}
+              src={littleMonkLogo}
               alt="Little Monk AI Assistant"
               className="relative z-10 h-20 w-20 object-contain drop-shadow-[0_10px_18px_rgba(245,158,11,0.16)]"
               whileHover={{ scale: 1.08, rotate: -3 }}
@@ -211,7 +211,7 @@ function InsightRail({ insights }) {
   );
 }
 
-function RateByDayGraph({ title, subtitle, series, theme }) {
+function CombinedDayRateGraph({ series }) {
   const [hovered, setHovered] = useState(null);
   const drawableBarH = BAR_H - CHART_HEADROOM;
   const ticks = [0, 20, 40, 60, 80, 100];
@@ -224,69 +224,89 @@ function RateByDayGraph({ title, subtitle, series, theme }) {
 
   return (
     <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">{subtitle}</p>
-          <h4 className="mt-2 text-xl font-semibold text-sky-50">{title}</h4>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Weekly Overview</p>
+          <h4 className="mt-2 text-xl font-semibold text-sky-50">Completion & Missed Rate by Day</h4>
         </div>
-        <span className="flex items-center gap-2 text-xs text-stone-400">
-          <span className={`h-2.5 w-2.5 rounded-full ${theme.dot}`} />Rate
-        </span>
+        <div className="flex items-center gap-3 text-xs text-stone-400">
+          <span className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
+            Completion rate
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-rose-300" />
+            Missed rate
+          </span>
+        </div>
       </div>
 
-      <div className="mt-6 flex gap-3">
-        <div
-          className="relative z-10 shrink-0 w-9 text-right text-[11px] font-semibold text-stone-300"
-          style={{ height: BAR_H, marginBottom: LABEL_H }}
-        >
-          {ticks.map((tick) => (
-            <span
-              key={tick}
-              className="absolute right-0 rounded bg-stone-950/55 px-0.5"
-              style={{ bottom: `${yLabelBottom(tick)}px` }}
-            >
-              {tick}
-            </span>
-          ))}
-        </div>
-
-        <div className="relative flex-1">
-          <div className="relative" style={{ height: BAR_H + LABEL_H }}>
+      <div className="mt-6 overflow-x-auto pb-1">
+        <div className="flex min-w-[620px] gap-3 pr-1">
+          <div
+            className="relative z-10 shrink-0 w-9 text-right text-[11px] font-semibold text-stone-300"
+            style={{ height: BAR_H, marginBottom: LABEL_H }}
+          >
             {ticks.map((tick) => (
-              <div
+              <span
                 key={tick}
-                className="absolute left-0 right-0 border-t border-dashed border-white/6"
-                style={{ bottom: LABEL_H + (tick / 100) * drawableBarH }}
-              />
-            ))}
-
-            <div className="absolute inset-0 flex items-end gap-2" style={{ paddingBottom: `${LABEL_H}px` }}>
-              {series.map((item, index) => (
-                <div
-                  key={item.label}
-                  className="flex min-w-0 flex-1 flex-col items-center justify-end"
-                  style={{ opacity: hovered !== null && hovered !== index ? 0.4 : 1, transition: "opacity 0.18s ease", cursor: "default" }}
-                  onMouseEnter={() => setHovered(index)}
-                  onMouseLeave={() => setHovered(null)}
-                >
-                  <span className={`mb-1 text-[10px] font-semibold ${theme.value}`}>{item.value}%</span>
-                  <Motion.div
-                    className={`w-full max-w-[42px] rounded-t-xl border ${theme.border} ${theme.fill}`}
-                    initial={{ height: 0 }}
-                    animate={{ height: Math.max(10, Math.round((item.value / 100) * drawableBarH)) }}
-                    transition={{ duration: 0.4, delay: index * 0.04 }}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-1 flex items-center text-[10px] text-stone-500">
-            {series.map((item) => (
-              <span key={`x-${item.label}`} className="flex-1 text-center">
-                {item.label}
+                className="absolute right-0 rounded bg-stone-950/55 px-0.5"
+                style={{ bottom: `${yLabelBottom(tick)}px` }}
+              >
+                {tick}
               </span>
             ))}
+          </div>
+
+          <div className="relative flex-1">
+            <div className="relative" style={{ height: BAR_H + LABEL_H }}>
+              {ticks.map((tick) => (
+                <div
+                  key={tick}
+                  className="absolute left-0 right-0 border-t border-dashed border-white/6"
+                  style={{ bottom: LABEL_H + (tick / 100) * drawableBarH }}
+                />
+              ))}
+
+              <div className="absolute inset-0 flex items-end gap-2" style={{ paddingBottom: `${LABEL_H}px` }}>
+                {series.map((item, index) => (
+                  <div
+                    key={item.label}
+                    className="flex min-w-0 flex-1 items-end justify-center gap-1.5"
+                    style={{ opacity: hovered !== null && hovered !== index ? 0.4 : 1, transition: "opacity 0.18s ease", cursor: "default" }}
+                    onMouseEnter={() => setHovered(index)}
+                    onMouseLeave={() => setHovered(null)}
+                  >
+                    <div className="flex w-full max-w-[22px] flex-col items-center justify-end">
+                      <span className="mb-1 text-[10px] font-semibold text-emerald-200">{item.completionRate}%</span>
+                      <Motion.div
+                        className="w-full rounded-t-lg border border-emerald-200/25 bg-gradient-to-t from-emerald-900/95 to-emerald-300/90"
+                        initial={{ height: 0 }}
+                        animate={{ height: Math.max(10, Math.round((item.completionRate / 100) * drawableBarH)) }}
+                        transition={{ duration: 0.4, delay: index * 0.04 }}
+                      />
+                    </div>
+                    <div className="flex w-full max-w-[22px] flex-col items-center justify-end">
+                      <span className="mb-1 text-[10px] font-semibold text-rose-200">{item.missedRate}%</span>
+                      <Motion.div
+                        className="w-full rounded-t-lg border border-rose-200/25 bg-gradient-to-t from-rose-900/95 to-rose-300/90"
+                        initial={{ height: 0 }}
+                        animate={{ height: Math.max(10, Math.round((item.missedRate / 100) * drawableBarH)) }}
+                        transition={{ duration: 0.4, delay: index * 0.04 + 0.05 }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-1 flex items-center text-[10px] text-stone-500">
+              {series.map((item) => (
+                <span key={`x-${item.label}`} className="flex-1 text-center">
+                  {item.label}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -487,8 +507,11 @@ export default function CompleteMissTime() {
     [timeWiseData]
   );
 
-  const completionRateSeries = orderedWeekData.map((item) => ({ label: item.day, value: item.completionRate }));
-  const missedRateSeries = orderedWeekData.map((item) => ({ label: item.day, value: item.missedRate }));
+  const combinedDaySeries = orderedWeekData.map((item) => ({
+    label: item.day,
+    completionRate: item.completionRate,
+    missedRate: item.missedRate,
+  }));
 
   const insights = [
     {
@@ -566,42 +589,20 @@ export default function CompleteMissTime() {
         </label>
       </div>
 
-      <div className="flex items-start gap-5">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div
           className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
           style={{ maxHeight: "calc(100vh - 350px)" }}
         >
           <div className="space-y-6 p-6">
-            <RateByDayGraph
-              title="Completion Rate by Day"
-              subtitle="Weekly Completion"
-              series={completionRateSeries}
-              theme={{
-                dot: "bg-emerald-300",
-                fill: "bg-gradient-to-t from-emerald-900/95 to-emerald-300/90",
-                border: "border-emerald-200/25",
-                value: "text-emerald-200",
-              }}
-            />
-
-            <RateByDayGraph
-              title="Missed Rate by Day"
-              subtitle="Weekly Missed"
-              series={missedRateSeries}
-              theme={{
-                dot: "bg-rose-300",
-                fill: "bg-gradient-to-t from-rose-900/95 to-rose-300/90",
-                border: "border-rose-200/25",
-                value: "text-rose-200",
-              }}
-            />
+            <CombinedDayRateGraph series={combinedDaySeries} />
 
             <TimeWiseAnalysisGraph series={timeWiseData} />
           </div>
         </div>
 
         <div
-          className="journal-scroll flex w-full max-w-[360px] shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
+          className="journal-scroll flex w-full w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
           style={{ maxHeight: "calc(100vh - 180px)" }}
         >
           <InsightRail insights={insights} />

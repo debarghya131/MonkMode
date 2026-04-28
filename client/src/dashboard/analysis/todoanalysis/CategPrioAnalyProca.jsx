@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
-import monkGreetingsLogo from "../../../assets/monkgreetingslogo.png";
+import littleMonkLogo from "../../../assets/littlemonklogo.png";
 
 const DAY_ORDER = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const PRIORITY_ORDER = ["High", "Medium", "Low"];
@@ -185,7 +185,7 @@ function InsightRail({ insights }) {
               transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
             />
             <Motion.img
-              src={monkGreetingsLogo}
+              src={littleMonkLogo}
               alt="Little Monk AI Assistant"
               className="relative z-10 h-20 w-20 object-contain drop-shadow-[0_10px_18px_rgba(245,158,11,0.16)]"
               whileHover={{ scale: 1.08, rotate: -3 }}
@@ -261,7 +261,7 @@ function DualBarCountGraph({ title, subtitle, series, legends, theme, note }) {
   };
 
   return (
-    <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+    <section className="overflow-hidden rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">{subtitle}</p>
@@ -366,7 +366,7 @@ function SingleBarCountGraph({ title, subtitle, series, colorTheme, note }) {
   };
 
   return (
-    <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+    <section className="overflow-hidden rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">{subtitle}</p>
@@ -599,11 +599,8 @@ export default function CategPrioAnalyProca() {
         </label>
       </div>
 
-      <div className="flex items-start gap-5">
-        <div
-          className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
-          style={{ maxHeight: "calc(100vh - 350px)" }}
-        >
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-start">
+        <div className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur xl:max-h-[calc(100vh-350px)]">
           <div className="space-y-6 p-6">
             <DualBarCountGraph
               title="Category Wise Analysis (Complete & Miss)"
@@ -667,10 +664,7 @@ export default function CategPrioAnalyProca() {
           </div>
         </div>
 
-        <div
-          className="journal-scroll flex w-full max-w-[360px] shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
-          style={{ maxHeight: "calc(100vh - 180px)" }}
-        >
+        <div className="journal-scroll flex w-full flex-col gap-2 scroll-smooth overflow-y-auto xl:max-h-[calc(100vh-180px)] xl:max-w-[360px] xl:shrink-0 xl:self-start">
           <InsightRail insights={insights} />
         </div>
       </div>
