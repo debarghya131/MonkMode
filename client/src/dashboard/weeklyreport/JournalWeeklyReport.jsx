@@ -115,6 +115,10 @@ function scoreColor(score) {
   return                   { text: "text-rose-300",   border: "border-rose-400/20",     bg: "bg-rose-500/10"    };
 }
 
+function clampPercent(value) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 function ReportCard({ children, className = "" }) {
   return (
     <Motion.section
@@ -144,12 +148,20 @@ function StatRow({ label, value, accent = "stone" }) {
   );
 }
 
-function AnalysisStatCard({ icon, title, mainLabel, mainValue, mainAccent = "amber", highest, lowest, unit = "" }) {
+function AnalysisStatCard({ icon, title, mainLabel, mainValue, mainAccent = "amber", highest, lowest, unit = "", progressPercent = 0 }) {
+  const progressColor =
+    mainAccent === "emerald"
+      ? "from-emerald-300 via-emerald-400 to-teal-400"
+      : mainAccent === "rose"
+        ? "from-rose-300 via-rose-400 to-orange-400"
+        : "from-amber-300 via-amber-400 to-orange-400";
+
   return (
     <Motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl border border-amber-100/10 bg-stone-950/45 p-4"
+      whileHover={{ y: -4 }}
+      className="dashboard-glow-card rounded-2xl border border-amber-100/10 bg-stone-950/45 p-4"
     >
       <div className="mb-3 flex items-center gap-2">
         <span className="text-base leading-none">{icon}</span>
@@ -161,6 +173,21 @@ function AnalysisStatCard({ icon, title, mainLabel, mainValue, mainAccent = "amb
         <p className={`text-2xl font-bold leading-none ${mainAccent === "amber" ? "text-amber-300" : mainAccent === "emerald" ? "text-emerald-300" : mainAccent === "rose" ? "text-rose-300" : "text-stone-200"}`}>
           {mainValue}{unit}
         </p>
+      </div>
+
+      <div className="mb-3">
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Momentum</span>
+          <span className="text-[10px] font-semibold text-stone-400">{clampPercent(progressPercent)}%</span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-white/5">
+          <Motion.div
+            className={`progress-sheen h-full rounded-full bg-gradient-to-r ${progressColor}`}
+            initial={{ width: 0, opacity: 0.7 }}
+            animate={{ width: `${clampPercent(progressPercent)}%`, opacity: 1 }}
+            transition={{ duration: 0.75, ease: "easeOut" }}
+          />
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -206,7 +233,7 @@ export default function JournalWeeklyReport() {
               className="space-y-4"
             >
               {/* Heading */}
-              <div className="rounded-2xl border border-amber-100/10 bg-white/6 px-6 py-4 shadow-xl shadow-black/25 backdrop-blur">
+              <div className="dashboard-glow-card rounded-2xl border border-amber-100/10 bg-white/6 px-6 py-4 shadow-xl shadow-black/25 backdrop-blur">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-label-md">Weekly Summary</p>
@@ -243,13 +270,30 @@ export default function JournalWeeklyReport() {
                   </div>
                   <div className="flex items-center gap-2">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Longest Streak</p>
-                    <div className="flex items-center gap-1.5 rounded-full border border-orange-400/20 bg-orange-500/10 px-3 py-1">
+                    <Motion.div
+                      className="relative flex items-center gap-1.5 overflow-hidden rounded-full border border-orange-400/25 bg-orange-500/10 px-3 py-1"
+                      animate={{
+                        boxShadow: [
+                          "0 0 0px rgba(251,146,60,0)",
+                          "0 0 10px rgba(251,146,60,0.38)",
+                          "0 0 0px rgba(251,146,60,0)",
+                        ],
+                      }}
+                      transition={{
+                        boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+                      }}
+                    >
+                      <Motion.span
+                        className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                        animate={{ left: ["-40%", "130%"] }}
+                        transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                      />
                       <span className="text-base leading-none">🔥</span>
-                      <span className="text-xs font-bold text-orange-300">
+                      <span className="relative z-10 text-xs font-bold text-orange-300">
                         {selectedWeek.longestStreak}
                         <span className="text-[10px] font-semibold text-stone-500"> days</span>
                       </span>
-                    </div>
+                    </Motion.div>
                   </div>
                 </div>
               </div>
@@ -259,13 +303,13 @@ export default function JournalWeeklyReport() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur flex flex-col h-[28vh]"
+                className="flex max-h-48 flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
               >
-                <div className="mb-3 flex items-center gap-2">
+                <div className="mb-2 flex items-center gap-2">
                   <Motion.img
                     src={littleMonkLogo}
                     alt="Little Monk"
-                    className="h-14 w-17 object-contain"
+                    className="h-12 w-14 object-contain"
                     animate={{ y: [0, -3, 0] }}
                     transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
                   />
@@ -288,6 +332,7 @@ export default function JournalWeeklyReport() {
                   mainValue={selectedWeek.stats.energy.avg}
                   highest={selectedWeek.stats.energy.highest}
                   lowest={selectedWeek.stats.energy.lowest}
+                  progressPercent={selectedWeek.stats.energy.avg}
                 />
                 <AnalysisStatCard
                   icon="⭐"
@@ -296,6 +341,7 @@ export default function JournalWeeklyReport() {
                   mainValue={selectedWeek.stats.rating.avg}
                   highest={selectedWeek.stats.rating.highest}
                   lowest={selectedWeek.stats.rating.lowest}
+                  progressPercent={selectedWeek.stats.rating.avg}
                 />
                 <AnalysisStatCard
                   icon="✅"
@@ -306,6 +352,7 @@ export default function JournalWeeklyReport() {
                   highest={selectedWeek.stats.wins.highest}
                   lowest={selectedWeek.stats.wins.lowest}
                   unit=" wins"
+                  progressPercent={selectedWeek.stats.wins.total * 5}
                 />
                 <AnalysisStatCard
                   icon="×"
@@ -316,6 +363,7 @@ export default function JournalWeeklyReport() {
                   highest={selectedWeek.stats.mistakes.highest}
                   lowest={selectedWeek.stats.mistakes.lowest}
                   unit=" mistakes"
+                  progressPercent={100 - selectedWeek.stats.mistakes.total * 8}
                 />
                 <AnalysisStatCard
                   icon="🏆"
@@ -325,13 +373,56 @@ export default function JournalWeeklyReport() {
                   highest={selectedWeek.stats.achievements.highest}
                   lowest={selectedWeek.stats.achievements.lowest}
                   unit=" achieved"
+                  progressPercent={selectedWeek.stats.achievements.total * 6}
                 />
+                <Motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  whileHover={{ y: -4 }}
+                  className="dashboard-glow-card rounded-2xl border border-amber-100/10 bg-stone-950/45 p-4"
+                >
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="text-base leading-none">🔥</span>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-stone-400">Longest Streak</p>
+                  </div>
+
+                  <div className="mb-3 flex items-end justify-between gap-2 rounded-xl border border-orange-400/15 bg-orange-500/8 px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-widest text-stone-500">Journal Streak</p>
+                    <p className="text-2xl font-bold leading-none text-orange-300">
+                      {selectedWeek.longestStreak}
+                      <span className="ml-1 text-sm text-stone-400">days</span>
+                    </p>
+                  </div>
+
+                  <div className="mb-3">
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Weekly Consistency</span>
+                      <span className="text-[10px] font-semibold text-stone-400">
+                        {clampPercent((selectedWeek.longestStreak / 7) * 100)}%
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-white/5">
+                      <Motion.div
+                        className="progress-sheen h-full rounded-full bg-gradient-to-r from-orange-300 via-amber-400 to-yellow-300"
+                        initial={{ width: 0, opacity: 0.7 }}
+                        animate={{ width: `${clampPercent((selectedWeek.longestStreak / 7) * 100)}%`, opacity: 1 }}
+                        transition={{ duration: 0.75, ease: "easeOut" }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <StatRow label="Current Best Run" value={`${selectedWeek.longestStreak} days`} accent="amber" />
+                    <StatRow label="Weekly Target" value="7 days" accent="emerald" />
+                  </div>
+                </Motion.div>
 
                 {/* Sleep card – custom layout */}
                 <Motion.div
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="rounded-2xl border border-amber-100/10 bg-stone-950/45 p-4"
+                  whileHover={{ y: -4 }}
+                  className="dashboard-glow-card rounded-2xl border border-amber-100/10 bg-stone-950/45 p-4"
                 >
                   <div className="mb-3 flex items-center gap-2">
                     <span className="text-base leading-none">😴</span>

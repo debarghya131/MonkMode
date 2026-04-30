@@ -136,7 +136,7 @@ function StatusCard({ label, className = "", viewHref, actions = [], children })
         {viewHref && (
           <Link
             to={viewHref}
-            className="text-body-xs rounded-lg border border-amber-100/15 px-2.5 py-1 text-amber-400/70 transition hover:border-amber-400/40 hover:text-amber-300"
+            className="text-body-xs rounded-full border border-amber-100/15 px-3 py-1 text-amber-400/70 transition duration-300 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)]"
           >
             View
           </Link>
@@ -150,7 +150,7 @@ function StatusCard({ label, className = "", viewHref, actions = [], children })
               key={`${href}-${actionLabel}`}
               to={href}
               state={state}
-              className="text-body-xs rounded-lg border border-amber-100/15 px-2.5 py-1 text-amber-400/70 transition hover:border-amber-400/40 hover:text-amber-300"
+              className="text-body-xs rounded-full border border-amber-100/15 px-3 py-1 text-amber-400/70 transition duration-300 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)]"
             >
               {actionLabel}
             </Link>
@@ -344,9 +344,9 @@ export default function Overview() {
         <div className="grid gap-6 xl:grid-cols-[5fr_7fr]">
           {/* Main Content Area */}
           <Motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
           >
             <section className="rounded-[2rem] border border-amber-100/10 bg-white/6 p-8 shadow-2xl shadow-black/25 backdrop-blur">
               <p className="text-label-lg">Overview</p>
@@ -421,9 +421,9 @@ export default function Overview() {
 
           {/* Heatmap Sidebar */}
           <Motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
           >
             <div className="rounded-[2rem] border border-amber-100/10 bg-white/6 px-3 py-4 shadow-2xl shadow-black/25 backdrop-blur h-[82vh] sticky top-2">
               <OverviewHeatmap />

@@ -840,25 +840,12 @@ export default function CreateHabit({ entity = "habit" }) {
                   ) : (
                     /* ── Normal card ── */
                     <>
-                      <div className="space-y-1.5">
-                        <p className="truncate text-sm font-semibold text-stone-100">{h.title}</p>
-                        <div className="flex flex-wrap items-center gap-1.5">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <p className="min-w-0 flex-1 truncate text-sm font-semibold text-stone-100">{h.title}</p>
+                        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${PRIORITY_STYLES[h.priority]}`}>
                             {h.priority}
                           </span>
-                          {!isArchiveView && (
-                            <button
-                              type="button"
-                              onClick={() => toggleHabitImportant(h.id)}
-                              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${
-                                h.isImportant
-                                  ? "border-amber-300/45 bg-amber-500/15 text-amber-200"
-                                  : "border-amber-100/15 bg-white/5 text-stone-300 hover:border-amber-300/35 hover:text-amber-200"
-                              }`}
-                            >
-                              {h.isImportant ? "Important ★" : "Mark Important"}
-                            </button>
-                          )}
                           {!isArchiveView && (
                             <button type="button" onClick={() => startEdit(h)}
                               className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-400/20">

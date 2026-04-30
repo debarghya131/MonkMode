@@ -20,7 +20,7 @@ export default function WeeklyReport() {
   const activeReport = REPORT_TABS.find((tab) => tab.id === activeTab) ?? REPORT_TABS[0];
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full space-y-4 lg:-mt-6 xl:-mt-8">
       {/* Mobile: hamburger dropdown */}
       <div className="relative sm:hidden">
         <button

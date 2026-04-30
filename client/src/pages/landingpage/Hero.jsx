@@ -102,7 +102,7 @@ export default function Hero() {
         />
 
         <MotionDiv
-          className="relative z-10"
+          className="relative z-10 -translate-x-3 sm:translate-x-0"
           style={{
             x: monkX,
             y: monkY

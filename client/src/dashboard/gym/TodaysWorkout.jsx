@@ -718,20 +718,46 @@ export default function TodaysWorkout() {
                                 <p className="mt-0.5 text-[10px] text-stone-500">{ex.bodyPart}</p>
                               </div>
                               <div className="flex shrink-0 gap-1.5">
-                                <button
+                                <Motion.button
                                   type="button"
                                   onClick={() => setViewProgressModal(ex)}
-                                  className="rounded-lg border border-amber-300/25 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-500/20"
+                                  whileHover={{
+                                    scale: 1.08,
+                                    boxShadow: "0 0 16px rgba(251,191,36,0.5), 0 0 32px rgba(251,191,36,0.15)",
+                                  }}
+                                  whileTap={{ scale: 0.93 }}
+                                  transition={{ duration: 0.18 }}
+                                  className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)]"
                                 >
                                   View Progress
-                                </button>
-                                <button
+                                </Motion.button>
+                                <Motion.button
                                   type="button"
                                   onClick={() => setProgressModal(ex)}
-                                  className="rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
+                                  animate={{
+                                    boxShadow: [
+                                      "0 0 0px rgba(52,211,153,0)",
+                                      "0 0 8px rgba(52,211,153,0.4)",
+                                      "0 0 0px rgba(52,211,153,0)",
+                                    ],
+                                  }}
+                                  transition={{
+                                    boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+                                  }}
+                                  whileHover={{
+                                    scale: 1.08,
+                                    boxShadow: "0 0 18px rgba(52,211,153,0.65), 0 0 36px rgba(52,211,153,0.2)",
+                                  }}
+                                  whileTap={{ scale: 0.88, boxShadow: "0 0 26px rgba(52,211,153,0.8)" }}
+                                  className="relative overflow-hidden rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold text-emerald-200 transition-colors duration-200 hover:border-emerald-300/70 hover:bg-emerald-500/30 hover:text-emerald-100"
                                 >
-                                  Update Progress
-                                </button>
+                                  <Motion.span
+                                    className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                                    animate={{ left: ["-40%", "130%"] }}
+                                    transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                                  />
+                                  <span className="relative z-10">Update Progress</span>
+                                </Motion.button>
                               </div>
                             </div>
                             <div className="mt-2 flex flex-wrap gap-2">
@@ -783,7 +809,7 @@ export default function TodaysWorkout() {
               {dietCards.map(({ type, label, icon, color }, di) => (
                 <Motion.div
                   key={type}
-                  className={`flex shrink-0 flex-col items-start gap-2 rounded-2xl border p-3 ${color}`}
+                  className={`dashboard-glow-card flex shrink-0 flex-col items-start gap-2 rounded-2xl border p-3 ${color}`}
                   initial={{ opacity: 0, x: 12 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: di * 0.08, duration: 0.25 }}
@@ -792,13 +818,20 @@ export default function TodaysWorkout() {
                   <span className="text-2xl">{icon}</span>
                   <p className="text-xs font-semibold leading-snug">{label}</p>
                   <p className="text-[10px] opacity-60">{formatDate(selectedDay)}</p>
-                  <button
+                  <Motion.button
                     type="button"
                     onClick={() => setDietModal({ type, day: selectedDay })}
-                    className="mt-1 w-full rounded-lg border border-current/30 bg-black/20 py-1 text-[10px] font-semibold transition hover:bg-black/40"
+                    whileHover={{ scale: 1.03, boxShadow: "0 0 12px rgba(255,255,255,0.22)" }}
+                    whileTap={{ scale: 0.95 }}
+                    className="relative mt-1 w-full overflow-hidden rounded-lg border border-current/30 bg-black/20 py-1 text-[10px] font-semibold transition hover:bg-black/40"
                   >
-                    View
-                  </button>
+                    <Motion.span
+                      className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                      animate={{ left: ["-40%", "130%"] }}
+                      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                    />
+                    <span className="relative z-10">View</span>
+                  </Motion.button>
                 </Motion.div>
               ))}
             </div>

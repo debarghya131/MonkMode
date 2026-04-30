@@ -76,7 +76,7 @@ export default function GoalAnalysis() {
               key={section.id}
               type="button"
               onClick={() => setActiveSection(section.id)}
-              whileHover={!isActive ? { scale: 1.01 } : {}}
+              whileHover={!isActive ? { scale: 1.01, boxShadow: "0 0 14px rgba(251,191,36,0.14)" } : {}}
               whileTap={{ scale: 0.98 }}
               animate={
                 isActive
@@ -84,14 +84,21 @@ export default function GoalAnalysis() {
                   : { boxShadow: "0 0 0px rgba(251,191,36,0)" }
               }
               transition={{ duration: 0.2 }}
-              className={`flex min-w-[7rem] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+              className={`relative flex min-w-[7rem] flex-1 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
                 isActive
                   ? "border border-amber-300/30 bg-amber-500/15 text-amber-100"
                   : "border border-transparent text-stone-400 hover:text-stone-200"
               }`}
             >
-              <span className="text-sm leading-none">{section.icon}</span>
-              <span className="text-center">{section.label}</span>
+              {!isActive && (
+                <Motion.span
+                  className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/20 blur-sm"
+                  animate={{ left: ["-40%", "130%"] }}
+                  transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                />
+              )}
+              <span className="relative z-10 text-sm leading-none">{section.icon}</span>
+              <span className="relative z-10 text-center">{section.label}</span>
             </Motion.button>
           );
         })}

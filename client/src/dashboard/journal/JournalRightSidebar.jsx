@@ -146,21 +146,21 @@ function EntryModal({ entry, onClose }) {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">😊 Mood</p>
-              <div className="flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3">
+            <div className="dashboard-glow-card flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3">
                 <span className="text-2xl">{entry.mood.emoji}</span>
                 <span className="text-sm font-semibold text-amber-200">{entry.mood.label}</span>
               </div>
             </div>
             <div>
               <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">🌅 Wake-up Time</p>
-              <div className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
+              <div className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
                 <p className="text-2xl font-bold text-amber-200">{entry.wakeUpTime || "--:--"}</p>
                 <p className="mt-1 text-xs text-stone-400">Morning start</p>
               </div>
             </div>
             <div>
               <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">⚡ Energy Level</p>
-              <div className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
+              <div className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
                 <p className="text-3xl font-bold text-amber-200">{entry.energyLevel}</p>
                 <p className="mt-1 text-xs text-stone-400">{energyLabel}</p>
               </div>
@@ -172,7 +172,7 @@ function EntryModal({ entry, onClose }) {
           {/* Summary */}
           <div>
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">📝 Summary</p>
-            <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">{entry.summary}</p>
+            <p className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">{entry.summary}</p>
           </div>
 
           {/* Wins */}
@@ -180,7 +180,7 @@ function EntryModal({ entry, onClose }) {
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">✅ Wins</p>
             <ul className="space-y-2">
               {entry.wins.map((w, i) => (
-                <li key={i} className="flex items-start gap-2 rounded-xl border border-emerald-400/15 bg-emerald-500/8 px-4 py-2.5 text-sm text-stone-200">
+                <li key={i} className="dashboard-glow-card flex items-start gap-2 rounded-xl border border-emerald-400/15 bg-emerald-500/8 px-4 py-2.5 text-sm text-stone-200">
                   <span className="mt-0.5 shrink-0 font-bold text-emerald-400">{i + 1}.</span>{w}
                 </li>
               ))}
@@ -192,7 +192,7 @@ function EntryModal({ entry, onClose }) {
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">❌ Mistakes</p>
             <ul className="space-y-2">
               {entry.mistakes.map((m, i) => (
-                <li key={i} className="flex items-start gap-2 rounded-xl border border-red-400/15 bg-red-500/8 px-4 py-2.5 text-sm text-stone-200">
+                <li key={i} className="dashboard-glow-card flex items-start gap-2 rounded-xl border border-red-400/15 bg-red-500/8 px-4 py-2.5 text-sm text-stone-200">
                   <span className="mt-0.5 shrink-0 font-bold text-red-400">{i + 1}.</span>{m}
                 </li>
               ))}
@@ -202,7 +202,7 @@ function EntryModal({ entry, onClose }) {
           {/* Insight */}
           <div>
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">💡 Lesson of the Day</p>
-            <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">{entry.insight}</p>
+            <p className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">{entry.insight}</p>
           </div>
 
           {/* Distraction */}
@@ -210,7 +210,7 @@ function EntryModal({ entry, onClose }) {
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">🚫 Biggest Distraction</p>
             <ul className="space-y-2">
               {(entry.distractions || [entry.distraction]).filter(Boolean).map((item, i) => (
-                <li key={i} className="flex items-start gap-2 rounded-xl border border-red-400/15 bg-red-500/8 px-4 py-2.5 text-sm text-stone-200">
+                <li key={i} className="dashboard-glow-card flex items-start gap-2 rounded-xl border border-red-400/15 bg-red-500/8 px-4 py-2.5 text-sm text-stone-200">
                   <span className="mt-0.5 shrink-0 font-bold text-red-400">{i + 1}.</span>{item}
                 </li>
               ))}

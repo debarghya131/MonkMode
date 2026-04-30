@@ -156,7 +156,7 @@ function JournalViewModal({ form, customFields, date, onClose }) {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Section icon="😊" title="Mood">
               {form.mood ? (
-                <div className="flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3">
+                <div className="dashboard-glow-card rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3">
                   <span className="text-2xl">{moodObj?.emoji}</span>
                   <span className="text-sm font-semibold text-amber-200">{form.mood}</span>
                 </div>
@@ -164,14 +164,14 @@ function JournalViewModal({ form, customFields, date, onClose }) {
             </Section>
 
             <Section icon="🌅" title="Wake-up Time">
-              <div className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
+              <div className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
                 <p className="text-2xl font-bold text-amber-200">{form.wakeUpTime || "--:--"}</p>
                 <p className="mt-1 text-xs text-stone-400">Morning start</p>
               </div>
             </Section>
 
             <Section icon="⚡" title="Energy Level">
-              <div className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
+              <div className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
                 <p className="text-3xl font-bold text-amber-200">{form.energyLevel}</p>
                 <p className="mt-1 text-xs text-stone-400">{energyLabel}</p>
               </div>
@@ -182,7 +182,7 @@ function JournalViewModal({ form, customFields, date, onClose }) {
 
           {/* Summary */}
           <Section icon="📝" title="Summary">
-            <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">
+            <p className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">
               {form.summary || <span className="text-stone-600">Not answered</span>}
             </p>
           </Section>
@@ -191,7 +191,7 @@ function JournalViewModal({ form, customFields, date, onClose }) {
           <Section icon="✅" title="Wins">
             <ul className="space-y-2">
               {form.wins.filter((w) => w.trim()).map((w, i) => (
-                <li key={i} className="flex items-start gap-2 rounded-xl border border-emerald-400/15 bg-emerald-500/8 px-4 py-2.5 text-sm text-stone-200">
+                <li key={i} className="dashboard-glow-card flex items-start gap-2 rounded-xl border border-emerald-400/15 bg-emerald-500/8 px-4 py-2.5 text-sm text-stone-200">
                   <span className="mt-0.5 text-emerald-400 font-bold shrink-0">{i + 1}.</span>{w}
                 </li>
               ))}
@@ -203,7 +203,7 @@ function JournalViewModal({ form, customFields, date, onClose }) {
           <Section icon="❌" title="Mistakes">
             <ul className="space-y-2">
               {form.mistakes.filter((m) => m.trim()).map((m, i) => (
-                <li key={i} className="flex items-start gap-2 rounded-xl border border-red-400/15 bg-red-500/8 px-4 py-2.5 text-sm text-stone-200">
+                <li key={i} className="dashboard-glow-card flex items-start gap-2 rounded-xl border border-red-400/15 bg-red-500/8 px-4 py-2.5 text-sm text-stone-200">
                   <span className="mt-0.5 text-red-400 font-bold shrink-0">{i + 1}.</span>{m}
                 </li>
               ))}
@@ -213,7 +213,7 @@ function JournalViewModal({ form, customFields, date, onClose }) {
 
           {/* Insight */}
           <Section icon="💡" title="Lesson of the Day">
-            <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">
+            <p className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">
               {form.insight || <span className="text-stone-600">Not answered</span>}
             </p>
           </Section>
@@ -222,7 +222,7 @@ function JournalViewModal({ form, customFields, date, onClose }) {
           <Section icon="🚫" title="Biggest Distraction">
             <ul className="space-y-2">
               {form.distractions.filter((item) => item.trim()).map((item, i) => (
-                <li key={i} className="flex items-start gap-2 rounded-xl border border-red-400/15 bg-red-500/8 px-4 py-2.5 text-sm text-stone-200">
+                <li key={i} className="dashboard-glow-card flex items-start gap-2 rounded-xl border border-red-400/15 bg-red-500/8 px-4 py-2.5 text-sm text-stone-200">
                   <span className="mt-0.5 shrink-0 font-bold text-red-400">{i + 1}.</span>{item}
                 </li>
               ))}

@@ -1,3 +1,4 @@
+import { motion as Motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Hero from "./Hero";
@@ -147,7 +148,24 @@ export default function LandingPage() {
       </div>
 
       {/* Crafted with focus — bottom-right */}
-      <div className="pointer-events-none fixed bottom-3 right-3 z-20 rounded-2xl border border-amber-200/10 bg-stone-950/35 px-3 py-2 text-right shadow-[0_14px_34px_rgba(0,0,0,0.28)] backdrop-blur sm:bottom-4 sm:right-4 sm:px-4 sm:py-3 md:bottom-6 md:right-6 md:px-5">
+      <Motion.div
+        className="pointer-events-none fixed bottom-3 right-3 z-20 overflow-hidden rounded-2xl border border-amber-200/10 bg-stone-950/35 px-3 py-2 text-right shadow-[0_14px_34px_rgba(0,0,0,0.28)] backdrop-blur sm:bottom-4 sm:right-4 sm:px-4 sm:py-3 md:bottom-6 md:right-6 md:px-5"
+        animate={{
+          boxShadow: [
+            "0 14px 34px rgba(0,0,0,0.28)",
+            "0 0 24px rgba(251,191,36,0.24), 0 14px 34px rgba(0,0,0,0.28)",
+            "0 14px 34px rgba(0,0,0,0.28)",
+          ],
+        }}
+        transition={{
+          boxShadow: { duration: 2.4, repeat: Infinity, ease: "easeInOut" },
+        }}
+      >
+        <Motion.span
+          className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/20 blur-sm"
+          animate={{ left: ["-40%", "130%"] }}
+          transition={{ duration: 2, repeat: Infinity, repeatDelay: 1.6, ease: "easeInOut" }}
+        />
         <p className="font-serif text-[0.62rem] font-bold uppercase tracking-[0.22em] text-amber-100/70 sm:text-[0.72rem] md:text-[0.78rem]">
           Crafted with focus
         </p>
@@ -157,7 +175,7 @@ export default function LandingPage() {
         >
           by Debarghya Bandyopadhyay 🧡
         </p>
-      </div>
+      </Motion.div>
 
       {/* Music toggle — bottom-left */}
       <button

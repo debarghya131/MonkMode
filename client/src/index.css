@@ -187,6 +187,176 @@ a {
   scroll-behavior: smooth;
 }
 
+@keyframes msgSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.msg-slide-in {
+  animation: msgSlideIn 0.32s ease-out both;
+}
+
+@keyframes panelRiseIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes softFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes amberGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 rgba(251, 191, 36, 0),
+      0 12px 26px rgba(0, 0, 0, 0.22);
+  }
+  50% {
+    box-shadow:
+      0 0 24px rgba(251, 191, 36, 0.16),
+      0 16px 32px rgba(0, 0, 0, 0.28);
+  }
+}
+
+@keyframes sheenSweep {
+  0% {
+    background-position: 200% 50%;
+  }
+  100% {
+    background-position: -200% 50%;
+  }
+}
+
+@keyframes dashboardPulseGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 rgba(251, 191, 36, 0),
+      0 14px 32px rgba(0, 0, 0, 0.24);
+  }
+  50% {
+    box-shadow:
+      0 0 20px rgba(251, 191, 36, 0.12),
+      0 20px 36px rgba(0, 0, 0, 0.3);
+  }
+}
+
+@keyframes progressShimmer {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  35%,
+  65% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(220%);
+    opacity: 0;
+  }
+}
+
+@keyframes skeletonShift {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.panel-rise-in {
+  animation: panelRiseIn 0.55s ease-out both;
+}
+
+.soft-float {
+  animation: softFloat 5.2s ease-in-out infinite;
+}
+
+.amber-glow {
+  animation: amberGlow 4.8s ease-in-out infinite;
+}
+
+.shimmer-text {
+  background-image: linear-gradient(
+    120deg,
+    rgba(251, 191, 36, 0.35) 0%,
+    rgba(253, 230, 138, 0.95) 18%,
+    rgba(251, 191, 36, 0.35) 36%,
+    rgba(251, 191, 36, 0.35) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: sheenSweep 3.6s linear infinite;
+}
+
+.dashboard-glow-card {
+  position: relative;
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease,
+    background-color 220ms ease;
+}
+
+.dashboard-glow-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(251, 191, 36, 0.22);
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.32),
+    0 0 24px rgba(251, 191, 36, 0.12);
+}
+
+.dashboard-active-glow {
+  animation: dashboardPulseGlow 3.8s ease-in-out infinite;
+}
+
+.progress-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 42%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+  animation: progressShimmer 2.8s ease-in-out infinite;
+}
+
+.skeleton-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.11) 20%,
+    rgba(255, 255, 255, 0.05) 40%
+  );
+  background-size: 220% 100%;
+  animation: skeletonShift 1.6s linear infinite;
+}
+
 .scrollbar-none {
   scrollbar-width: none;
   -ms-overflow-style: none;

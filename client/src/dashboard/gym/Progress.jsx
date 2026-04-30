@@ -752,17 +752,40 @@ export default function Progress({ initialTab = "measurements" }) {
               key={id}
               type="button"
               onClick={() => setTab(id)}
-              whileHover={!isActive ? { scale: 1.02 } : {}}
-              whileTap={{ scale: 0.98 }}
-              animate={isActive ? { boxShadow: "0 0 14px rgba(251,191,36,0.18)" } : { boxShadow: "0 0 0px rgba(251,191,36,0)" }}
-              transition={{ duration: 0.2 }}
-              className={`flex-1 rounded-xl py-2 text-xs font-semibold transition-colors ${
+              animate={isActive
+                ? { scale: 1, boxShadow: "0 0 20px rgba(251,191,36,0.35)" }
+                : {
+                    scale: [1, 1.04, 1],
+                    boxShadow: [
+                      "0 0 0px rgba(251,191,36,0)",
+                      "0 0 12px rgba(251,191,36,0.4)",
+                      "0 0 0px rgba(251,191,36,0)",
+                    ],
+                  }
+              }
+              transition={isActive
+                ? { duration: 0.2 }
+                : { duration: 2, repeat: Infinity, ease: "easeInOut" }
+              }
+              whileHover={!isActive ? {
+                scale: 1.06,
+                boxShadow: "0 0 18px rgba(251,191,36,0.55), 0 0 36px rgba(251,191,36,0.2)",
+              } : {}}
+              whileTap={{ scale: 0.95 }}
+              className={`relative flex-1 overflow-hidden rounded-xl py-2.5 text-xs font-semibold transition duration-200 ${
                 isActive
-                  ? "bg-amber-500/15 border border-amber-300/30 text-amber-100"
-                  : "border border-transparent text-stone-400 hover:text-stone-200"
+                  ? "border border-amber-300/40 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] text-stone-950"
+                  : "border border-amber-100/10 text-stone-400 hover:border-amber-300/25 hover:bg-amber-500/10 hover:text-amber-200"
               }`}
             >
-              {label}
+              {!isActive && (
+                <Motion.span
+                  className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/15 blur-sm"
+                  animate={{ left: ["-40%", "130%"] }}
+                  transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.4, ease: "easeInOut" }}
+                />
+              )}
+              <span className="relative z-10">{label}</span>
             </Motion.button>
           );
         })}

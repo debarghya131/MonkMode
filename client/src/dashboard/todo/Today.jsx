@@ -311,11 +311,29 @@ export default function Today() {
                           <Motion.button
                             type="button"
                             onClick={() => markComplete(task.id)}
-                            whileHover={{ scale: 1.05, boxShadow: "0 0 12px rgba(52,211,153,0.3)" }}
-                            whileTap={{ scale: 0.95 }}
-                            className="shrink-0 rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/20"
+                            animate={{
+                              boxShadow: [
+                                "0 0 0px rgba(52,211,153,0)",
+                                "0 0 10px rgba(52,211,153,0.45)",
+                                "0 0 0px rgba(52,211,153,0)",
+                              ],
+                            }}
+                            transition={{
+                              boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+                            }}
+                            whileHover={{
+                              scale: 1.12,
+                              boxShadow: "0 0 20px rgba(52,211,153,0.65), 0 0 40px rgba(52,211,153,0.2)",
+                            }}
+                            whileTap={{ scale: 0.88, boxShadow: "0 0 28px rgba(52,211,153,0.8)" }}
+                            className="relative shrink-0 overflow-hidden rounded-full border border-emerald-300/40 bg-emerald-500/15 px-3 py-1 text-[11px] font-bold text-emerald-200 transition-colors duration-200 hover:border-emerald-300/70 hover:bg-emerald-500/30 hover:text-emerald-100"
                           >
-                            ✓ Done
+                            <Motion.span
+                              className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                              animate={{ left: ["−40%", "130%"] }}
+                              transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                            />
+                            <span className="relative z-10">✓ Done</span>
                           </Motion.button>
                         </div>
                         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-stone-300">
@@ -480,9 +498,14 @@ export default function Today() {
                               onClick={() => setLatePrompt({ taskId: task.id, time: "" })}
                               whileHover={{ scale: 1.04, boxShadow: "0 0 12px rgba(52,211,153,0.25)" }}
                               whileTap={{ scale: 0.95 }}
-                              className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/20"
+                              className="relative overflow-hidden rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/20"
                             >
-                              Mark as Complete
+                              <Motion.span
+                                className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                                animate={{ left: ["-40%", "130%"] }}
+                                transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                              />
+                              <span className="relative z-10">Mark as Complete</span>
                             </Motion.button>
                             <span className={`rounded-full border px-2 py-1 ${STATUS_STYLES[task.status]}`}>
                               {STATUS_LABELS[task.status]}

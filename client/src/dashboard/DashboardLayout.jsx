@@ -4,17 +4,18 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import Navbar from "./Navbar";
 import Sidebar from "./Sidebar";
+import WelcomePopup from "./WelcomePopup";
 
 export default function DashboardLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { isBootstrapping, isAuthenticated, user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  // Close drawer whenever the route changes
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [location.pathname]);
+  const [showWelcome, setShowWelcome] = useState(() => {
+    if (sessionStorage.getItem("welcome_shown")) return false;
+    sessionStorage.setItem("welcome_shown", "1");
+    return true;
+  });
 
   // Prevent body scroll when drawer is open
   useEffect(() => {
@@ -25,8 +26,20 @@ export default function DashboardLayout({ children }) {
   if (isBootstrapping) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_34%),linear-gradient(180deg,#17110f_0%,#241714_45%,#120d0c_100%)] px-6 py-10 text-white">
-        <div className="rounded-2xl border border-amber-100/10 bg-white/6 px-6 py-5 text-sm text-stone-200 backdrop-blur">
-          Loading your MonkMode session...
+        <div className="w-full max-w-xl rounded-[1.75rem] border border-amber-100/10 bg-white/6 p-6 shadow-2xl shadow-black/25 backdrop-blur">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <div className="skeleton-shimmer h-4 w-36 rounded-full" />
+              <div className="skeleton-shimmer mt-3 h-3 w-52 rounded-full opacity-70" />
+            </div>
+            <div className="skeleton-shimmer h-11 w-11 rounded-2xl" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="skeleton-shimmer h-24 rounded-2xl" />
+            <div className="skeleton-shimmer h-24 rounded-2xl" />
+            <div className="skeleton-shimmer h-24 rounded-2xl" />
+          </div>
+          <p className="mt-5 text-sm text-stone-300">Loading your MonkMode session...</p>
         </div>
       </div>
     );
@@ -40,6 +53,21 @@ export default function DashboardLayout({ children }) {
     logout();
     navigate("/login", { replace: true });
   };
+
+  const isOverviewRoute = location.pathname === "/dashboard";
+  const pageTransition = isOverviewRoute
+    ? {
+        initial: { opacity: 0, y: 6 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0 },
+        transition: { duration: 0.14, ease: "easeOut" },
+      }
+    : {
+        initial: { opacity: 0, y: 18, filter: "blur(6px)" },
+        animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+        exit: { opacity: 0, y: -10, filter: "blur(4px)" },
+        transition: { duration: 0.26, ease: "easeOut" },
+      };
 
   return (
     <div className="dashboard-shell h-screen flex flex-col bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_34%),linear-gradient(180deg,#17110f_0%,#241714_45%,#120d0c_100%)] text-white">
@@ -57,7 +85,7 @@ export default function DashboardLayout({ children }) {
       <div className="flex flex-1 overflow-hidden">
 
         {/* Desktop sidebar */}
-        <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-amber-100/10 bg-black/10 backdrop-blur overflow-y-auto">
+        <aside className="hidden lg:flex w-64 shrink-0 flex-col overflow-y-auto border-r border-amber-100/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur">
           <Sidebar onLogout={handleLogout} />
         </aside>
 
@@ -101,7 +129,7 @@ export default function DashboardLayout({ children }) {
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
-                  <Sidebar onLogout={handleLogout} />
+                  <Sidebar onLogout={handleLogout} onNavigate={() => setMobileMenuOpen(false)} />
                 </div>
               </Motion.aside>
             </>
@@ -110,10 +138,22 @@ export default function DashboardLayout({ children }) {
 
         {/* Main content */}
         <main className="flex-1 min-w-0 overflow-y-auto px-3 py-5 sm:px-5 sm:py-7 md:px-6 md:py-8 lg:px-6 lg:py-10">
-          {children}
+          <AnimatePresence mode="wait">
+            <Motion.div
+              key={location.pathname}
+              initial={pageTransition.initial}
+              animate={pageTransition.animate}
+              exit={pageTransition.exit}
+              transition={pageTransition.transition}
+            >
+              {children}
+            </Motion.div>
+          </AnimatePresence>
         </main>
 
       </div>
+
+      {showWelcome && <WelcomePopup onClose={() => setShowWelcome(false)} />}
     </div>
   );
 }

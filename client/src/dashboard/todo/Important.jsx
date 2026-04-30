@@ -112,7 +112,7 @@ export default function Important({
       </div>
 
       <div className="important-layout">
-        <section className="important-main flex min-h-0 flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-2xl shadow-black/25 backdrop-blur">
+        <section className="dashboard-glow-card important-main flex min-h-0 flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-2xl shadow-black/25 backdrop-blur">
           <div className="mb-4">
             <p className="text-sm font-semibold text-amber-200">Important Categories</p>
             <p className="mt-0.5 text-xs text-stone-400">Default: Health and Bill & Payment. Custom starred categories appear here.</p>
@@ -155,7 +155,7 @@ export default function Important({
               <p className="mt-6 text-center text-xs text-stone-500">No tasks in this important category yet.</p>
             ) : (
               categoryTasks.map((task) => (
-                <article key={`${selectedCategory}-${task.id}`} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
+                <article key={`${selectedCategory}-${task.id}`} className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 p-3">
                   <p className="text-sm font-semibold text-stone-100">{task.title}</p>
                   <TaskMeta task={task} />
                 </article>
@@ -164,7 +164,7 @@ export default function Important({
           </div>
         </section>
 
-        <section className="important-side flex min-h-0 flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-2xl shadow-black/25 backdrop-blur">
+        <section className="dashboard-glow-card important-side flex min-h-0 flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-2xl shadow-black/25 backdrop-blur">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-amber-200">User Created Tasks</p>
@@ -195,7 +195,7 @@ export default function Important({
               <p className="mt-8 text-center text-xs text-stone-500">No tasks found for this priority filter.</p>
             ) : (
               filteredByPriority.map((task) => (
-                <article key={task.id} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
+                <article key={task.id} className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-semibold text-stone-100">{task.title}</p>
                     <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${priorityStyles[task.priority]}`}>

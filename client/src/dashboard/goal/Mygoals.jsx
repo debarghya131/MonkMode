@@ -173,24 +173,41 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                   >
                     {goal.status}
                   </span>
-                  <button
+                  <Motion.button
                     type="button"
                     onClick={() => {
                       setAddPopupGoalId(goal.id);
                       setNewSubgoal("");
                       setNewDeadline("");
                     }}
-                    className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-400/20 sm:text-[11px]"
+                    whileHover={{
+                      scale: 1.08,
+                      boxShadow: "0 0 16px rgba(251,191,36,0.5), 0 0 32px rgba(251,191,36,0.15)",
+                    }}
+                    whileTap={{ scale: 0.93 }}
+                    transition={{ duration: 0.18 }}
+                    className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)] sm:text-[11px]"
                   >
                     Add Sub-goals
-                  </button>
-                  <button
+                  </Motion.button>
+                  <Motion.button
                     type="button"
                     onClick={() => setPopupGoalId(goal.id)}
-                    className="rounded border border-sky-300/25 bg-sky-400/10 px-2 py-0.5 text-[10px] font-semibold text-sky-200 transition hover:bg-sky-400/20 sm:text-[11px]"
+                    whileHover={{
+                      scale: 1.08,
+                      boxShadow: "0 0 16px rgba(56,189,248,0.5), 0 0 32px rgba(56,189,248,0.15)",
+                    }}
+                    whileTap={{ scale: 0.93 }}
+                    transition={{ duration: 0.18 }}
+                    className="relative overflow-hidden rounded-full border border-sky-300/30 bg-sky-400/10 px-2.5 py-0.5 text-[10px] font-semibold text-sky-200 transition duration-200 hover:border-sky-300/60 hover:bg-sky-400/25 hover:text-sky-100 hover:shadow-[0_0_16px_rgba(56,189,248,0.4)] sm:text-[11px]"
                   >
-                    Update Progress
-                  </button>
+                    <Motion.span
+                      className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                      animate={{ left: ["-40%", "130%"] }}
+                      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                    />
+                    <span className="relative z-10">Update Progress</span>
+                  </Motion.button>
                 </div>
               </div>
             </Motion.article>
@@ -314,13 +331,33 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                           <p className="break-all text-sm leading-relaxed text-stone-100">{milestone.title}</p>
                           <DeadlineBadge deadline={milestone.deadline} />
                         </div>
-                        <button
+                        <Motion.button
                           type="button"
                           onClick={() => updateMilestoneStatus(popupGoal.id, milestone.id, true)}
-                          className="shrink-0 rounded border border-emerald-300/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
+                          animate={{
+                            boxShadow: [
+                              "0 0 0px rgba(52,211,153,0)",
+                              "0 0 8px rgba(52,211,153,0.45)",
+                              "0 0 0px rgba(52,211,153,0)",
+                            ],
+                          }}
+                          transition={{
+                            boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+                          }}
+                          whileHover={{
+                            scale: 1.12,
+                            boxShadow: "0 0 18px rgba(52,211,153,0.65), 0 0 36px rgba(52,211,153,0.2)",
+                          }}
+                          whileTap={{ scale: 0.88, boxShadow: "0 0 26px rgba(52,211,153,0.8)" }}
+                          className="relative shrink-0 overflow-hidden rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-200 transition-colors duration-200 hover:border-emerald-300/70 hover:bg-emerald-500/30 hover:text-emerald-100"
                         >
-                          Mark as Done
-                        </button>
+                          <Motion.span
+                            className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                            animate={{ left: ["-40%", "130%"] }}
+                            transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                          />
+                          <span className="relative z-10">Mark as Done</span>
+                        </Motion.button>
                       </div>
                     ))}
                   </div>

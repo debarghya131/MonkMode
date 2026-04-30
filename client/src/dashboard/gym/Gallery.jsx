@@ -109,7 +109,8 @@ function Lightbox({ logs, startDate, startIndex, onClose }) {
         <button
           type="button"
           onClick={onClose}
-          className="absolute -top-10 right-0 text-stone-400 transition hover:text-stone-100"
+          className="absolute right-3 top-3 z-20 rounded-full border border-amber-100/15 bg-black/70 px-3 py-1.5 text-xs font-semibold text-stone-200 shadow-lg shadow-black/35 backdrop-blur transition hover:border-amber-200/35 hover:bg-black/85 hover:text-amber-100"
+          aria-label="Close gallery preview"
         >
           ✕ Close
         </button>
@@ -276,16 +277,32 @@ export default function Gallery() {
                 <span className="text-xs font-semibold text-stone-400">
                   {totalImages} photo{totalImages !== 1 ? "s" : ""} across {logs.length} check-in{logs.length !== 1 ? "s" : ""}
                 </span>
-                <button
+                <Motion.button
                   type="button"
                   onClick={() => {
                     const oldest = [...logs].sort((a, b) => a.date.localeCompare(b.date))[0];
                     if (oldest) setLightbox({ date: oldest.date, index: 0, mode: "all-asc" });
                   }}
-                  className="shrink-0 rounded-lg border border-amber-300/25 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-500/20"
+                  animate={{
+                    scale: [1, 1.06, 1],
+                    boxShadow: [
+                      "0 0 0px rgba(251,191,36,0)",
+                      "0 0 12px rgba(251,191,36,0.5)",
+                      "0 0 0px rgba(251,191,36,0)",
+                    ],
+                  }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  whileHover={{ scale: 1.1, boxShadow: "0 0 20px rgba(251,191,36,0.65), 0 0 40px rgba(251,191,36,0.2)" }}
+                  whileTap={{ scale: 0.93 }}
+                  className="relative shrink-0 overflow-hidden rounded-full border border-amber-300/40 bg-amber-500/15 px-3 py-1 text-[10px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950"
                 >
-                  View All
-                </button>
+                  <Motion.span
+                    className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/30 blur-sm"
+                    animate={{ left: ["-40%", "130%"] }}
+                    transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.2, ease: "easeInOut" }}
+                  />
+                  <span className="relative z-10">View All</span>
+                </Motion.button>
               </div>
             )}
           </div>

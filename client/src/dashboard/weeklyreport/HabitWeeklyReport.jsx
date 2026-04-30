@@ -242,7 +242,7 @@ export default function HabitWeeklyReport() {
               className="space-y-4"
             >
               {/* Summary header */}
-              <div className="rounded-2xl border border-amber-100/10 bg-white/6 px-5 py-2.5 shadow-xl shadow-black/25 backdrop-blur">
+              <div className="dashboard-glow-card rounded-2xl border border-amber-100/10 bg-white/6 px-5 py-2.5 shadow-xl shadow-black/25 backdrop-blur">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-baseline gap-2">
                     <p className="text-label-md">Weekly Summary</p>
@@ -273,13 +273,30 @@ export default function HabitWeeklyReport() {
                     </span>
                   </div>
                   {/* Streak Break */}
-                  <div className="flex items-center gap-1.5 rounded-full border border-rose-400/20 bg-rose-500/10 px-3 py-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Streak Break</p>
-                    <span className="text-xs font-bold text-rose-300">
+                  <Motion.div
+                    className="relative flex items-center gap-1.5 overflow-hidden rounded-full border border-rose-400/25 bg-rose-500/10 px-3 py-1"
+                    animate={{
+                      boxShadow: [
+                        "0 0 0px rgba(251,113,133,0)",
+                        "0 0 10px rgba(251,113,133,0.36)",
+                        "0 0 0px rgba(251,113,133,0)",
+                      ],
+                    }}
+                    transition={{
+                      boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+                    }}
+                  >
+                    <Motion.span
+                      className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                      animate={{ left: ["-40%", "130%"] }}
+                      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                    />
+                    <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Streak Break</p>
+                    <span className="relative z-10 text-xs font-bold text-rose-300">
                       {habitTotals.missed}
                       <span className="text-[10px] font-semibold text-stone-500">/{habitTotals.total}</span>
                     </span>
-                  </div>
+                  </Motion.div>
                   {/* Longest Streak */}
                   <div className="flex items-center gap-1.5 rounded-full border border-orange-400/20 bg-orange-500/10 px-3 py-1">
                     <span className="text-sm leading-none">🔥</span>
@@ -294,13 +311,30 @@ export default function HabitWeeklyReport() {
                     const activeDays = parseInt(selectedWeek.signal);
                     const consistencyPct = Math.round((activeDays / 7) * 100);
                     return (
-                      <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1 ${
+                      <Motion.div
+                        className={`relative flex items-center gap-1.5 overflow-hidden rounded-full border px-3 py-1 ${
                         consistencyPct >= 75 ? "border-violet-400/20 bg-violet-500/10" :
                         consistencyPct >= 55 ? "border-amber-400/20 bg-amber-500/10" :
                         "border-rose-400/20 bg-rose-500/10"
-                      }`}>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Consistency</p>
-                        <span className={`text-xs font-bold ${
+                      }`}
+                        animate={{
+                          boxShadow: [
+                            "0 0 0px rgba(167,139,250,0)",
+                            "0 0 10px rgba(167,139,250,0.36)",
+                            "0 0 0px rgba(167,139,250,0)",
+                          ],
+                        }}
+                        transition={{
+                          boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+                        }}
+                      >
+                        <Motion.span
+                          className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                          animate={{ left: ["-40%", "130%"] }}
+                          transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                        />
+                        <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Consistency</p>
+                        <span className={`relative z-10 text-xs font-bold ${
                           consistencyPct >= 75 ? "text-violet-300" :
                           consistencyPct >= 55 ? "text-amber-300" :
                           "text-rose-300"
@@ -308,7 +342,7 @@ export default function HabitWeeklyReport() {
                           {consistencyPct}%
                           <span className="text-[10px] font-semibold text-stone-500"> ({activeDays}/7d)</span>
                         </span>
-                      </div>
+                      </Motion.div>
                     );
                   })()}
                   {/* Score */}
@@ -335,7 +369,7 @@ export default function HabitWeeklyReport() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur flex flex-col h-[24vh]"
+                className="dashboard-glow-card rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur flex flex-col h-[24vh]"
               >
                 <div className="mb-3 flex items-center gap-2">
                   <Motion.img
@@ -360,7 +394,7 @@ export default function HabitWeeklyReport() {
 
                 {/* Card 1 — Habit Summary */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
-                  className="flex h-[20vh] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
+                  className="dashboard-glow-card flex h-[20vh] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
                 >
                   <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Habit Summary</p>
@@ -441,7 +475,7 @@ export default function HabitWeeklyReport() {
 
                 {/* Card 2 — Habit Performance + Streak (merged, spans both rows) */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.21 }}
-                  className="row-span-2 flex h-[44vh] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
+                  className="dashboard-glow-card row-span-2 flex h-[44vh] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
                 >
                   <div className="mb-3 flex shrink-0 flex-col gap-2">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Habit Performance</p>
@@ -471,7 +505,6 @@ export default function HabitWeeklyReport() {
                           if (habits.length === 0)
                             return <p className="text-center text-[11px] text-stone-600">No habits in this time slot</p>;
                           return habits.map((h) => {
-                            const pct = Math.round((h.completedDays / h.totalDays) * 100);
                             const streakPct = Math.round((h.streak / h.targetStreak) * 100);
                             const broken = h.streak === 0;
                             return (
@@ -511,7 +544,7 @@ export default function HabitWeeklyReport() {
 
                 {/* Card 3 — Daily Breakdown */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}
-                  className="flex h-[23vh] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
+                  className="dashboard-glow-card flex h-[23vh] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
                 >
                   <p className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Daily Breakdown</p>
                   <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">

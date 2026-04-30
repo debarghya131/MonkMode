@@ -1,3 +1,4 @@
+import { motion as Motion } from "framer-motion";
 import { useState } from "react";
 
 const MEAL_SECTIONS = [
@@ -306,7 +307,7 @@ function PlanViewModal({ title, plans, dayFilter, setDayFilter, copyingId, setCo
                 const remaining = getRemainingDays(plan);
                 const isCopying = copyingId === plan.id;
                 return (
-                  <article key={plan.id} className="rounded-xl border border-amber-100/10 bg-white/5 p-4">
+                  <article key={plan.id} className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="rounded-full border border-amber-300/40 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-200">{plan.day}</span>
@@ -394,10 +395,14 @@ function MealGroup({ sections, meals, setMeals, inputs, setInputs }) {
             <div className="mb-2 flex items-center justify-between">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-200/70">{label}</p>
               {meals[key].length > 0 && (
-                <button type="button" onClick={() => setViewingKey(key)}
-                  className="rounded border border-amber-300/20 bg-amber-400/8 px-2 py-0.5 text-[9px] font-semibold text-amber-300/80 transition hover:border-amber-300/35 hover:text-amber-200">
+                <Motion.button type="button" onClick={() => setViewingKey(key)}
+                  animate={{ scale: [1, 1.06, 1], boxShadow: ["0 0 0px rgba(251,191,36,0)", "0 0 10px rgba(251,191,36,0.45)", "0 0 0px rgba(251,191,36,0)"] }}
+                  transition={{ scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }, boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
+                  whileHover={{ scale: 1.1, boxShadow: "0 0 14px rgba(251,191,36,0.65)", transition: { duration: 0.18 } }}
+                  whileTap={{ scale: 0.93, transition: { duration: 0.1 } }}
+                  className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-0.5 text-[9px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_14px_rgba(251,191,36,0.4)]">
                   View ({meals[key].length})
-                </button>
+                </Motion.button>
               )}
             </div>
             <div className="flex gap-1.5">
@@ -773,10 +778,14 @@ export default function DietChart() {
                 </div>
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
                   <DaySelector selected={selectedDietDay} onSelect={setSelectedDietDay} inline />
-                  <button type="button" onClick={() => { setShowDietView(true); setDietDayFilter("all"); setCopyingDietId(null); }}
-                    className="shrink-0 rounded-lg border border-amber-300/25 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
+                  <Motion.button type="button" onClick={() => { setShowDietView(true); setDietDayFilter("all"); setCopyingDietId(null); }}
+                    animate={{ scale: [1, 1.05, 1], boxShadow: ["0 0 0px rgba(251,191,36,0)", "0 0 12px rgba(251,191,36,0.5)", "0 0 0px rgba(251,191,36,0)"] }}
+                    transition={{ scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }, boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
+                    whileHover={{ scale: 1.1, boxShadow: "0 0 18px rgba(251,191,36,0.65), 0 0 36px rgba(251,191,36,0.2)", transition: { duration: 0.18 } }}
+                    whileTap={{ scale: 0.93, transition: { duration: 0.1 } }}
+                    className="shrink-0 rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)]">
                     View ({savedDiets.length})
-                  </button>
+                  </Motion.button>
                 </div>
               </div>
             </div>
@@ -821,10 +830,14 @@ export default function DietChart() {
                   </div>
                   <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
                     <DaySelector selected={selectedWnDay} onSelect={setSelectedWnDay} inline />
-                    <button type="button" onClick={() => { setShowWnView(true); setWnDayFilter("all"); setCopyingWnId(null); }}
-                      className="shrink-0 rounded-lg border border-amber-300/25 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
+                    <Motion.button type="button" onClick={() => { setShowWnView(true); setWnDayFilter("all"); setCopyingWnId(null); }}
+                      animate={{ scale: [1, 1.05, 1], boxShadow: ["0 0 0px rgba(251,191,36,0)", "0 0 12px rgba(251,191,36,0.5)", "0 0 0px rgba(251,191,36,0)"] }}
+                      transition={{ scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }, boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
+                      whileHover={{ scale: 1.1, boxShadow: "0 0 18px rgba(251,191,36,0.65), 0 0 36px rgba(251,191,36,0.2)", transition: { duration: 0.18 } }}
+                      whileTap={{ scale: 0.93, transition: { duration: 0.1 } }}
+                      className="shrink-0 rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)]">
                       View ({savedWn.length})
-                    </button>
+                    </Motion.button>
                   </div>
                 </div>
               </div>
@@ -863,10 +876,14 @@ export default function DietChart() {
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
                   <DaySelector selected={selectedSuppDay} onSelect={setSelectedSuppDay} inline />
                   <div className="shrink-0">
-                    <button type="button" onClick={() => { setShowSuppView(true); setSuppDayFilter("all"); setCopyingSuppId(null); setShowSuppDraftView(false); }}
-                      className="rounded-lg border border-amber-300/25 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
+                    <Motion.button type="button" onClick={() => { setShowSuppView(true); setSuppDayFilter("all"); setCopyingSuppId(null); setShowSuppDraftView(false); }}
+                      animate={{ scale: [1, 1.05, 1], boxShadow: ["0 0 0px rgba(251,191,36,0)", "0 0 12px rgba(251,191,36,0.5)", "0 0 0px rgba(251,191,36,0)"] }}
+                      transition={{ scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }, boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
+                      whileHover={{ scale: 1.1, boxShadow: "0 0 18px rgba(251,191,36,0.65), 0 0 36px rgba(251,191,36,0.2)", transition: { duration: 0.18 } }}
+                      whileTap={{ scale: 0.93, transition: { duration: 0.1 } }}
+                      className="rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)]">
                       View ({savedSupps.length})
-                    </button>
+                    </Motion.button>
                   </div>
                 </div>
               </div>
@@ -880,7 +897,7 @@ export default function DietChart() {
                   <button
                     type="button"
                     onClick={() => setShowSuppDraftView(true)}
-                    className="rounded border border-amber-300/20 bg-amber-400/8 px-2 py-0.5 text-[9px] font-semibold text-amber-300/80 transition hover:border-amber-300/35 hover:text-amber-200"
+                    className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-0.5 text-[9px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_14px_rgba(251,191,36,0.4)]"
                   >
                     View ({suppItems.length})
                   </button>
@@ -934,10 +951,14 @@ export default function DietChart() {
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <DaySelector selected={selectedMacroDay} onSelect={setSelectedMacroDay} compact />
-                  <button type="button" onClick={() => { setShowMacrosView(true); setMacrosDayFilter("all"); setCopyingMacroId(null); }}
-                    className="shrink-0 rounded-lg border border-amber-300/25 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
+                  <Motion.button type="button" onClick={() => { setShowMacrosView(true); setMacrosDayFilter("all"); setCopyingMacroId(null); }}
+                    animate={{ scale: [1, 1.05, 1], boxShadow: ["0 0 0px rgba(251,191,36,0)", "0 0 12px rgba(251,191,36,0.5)", "0 0 0px rgba(251,191,36,0)"] }}
+                    transition={{ scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }, boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
+                    whileHover={{ scale: 1.1, boxShadow: "0 0 18px rgba(251,191,36,0.65), 0 0 36px rgba(251,191,36,0.2)", transition: { duration: 0.18 } }}
+                    whileTap={{ scale: 0.93, transition: { duration: 0.1 } }}
+                    className="shrink-0 rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)]">
                     View ({savedMacros.length})
-                  </button>
+                  </Motion.button>
                 </div>
               </div>
               <p className="mt-2 text-xs text-stone-400">Set your daily macro targets.</p>

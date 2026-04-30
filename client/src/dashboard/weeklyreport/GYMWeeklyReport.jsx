@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../assets/littlemonklogo.png";
 import photo1 from "../../assets/transformatiom image 1.png";
@@ -261,81 +262,85 @@ export default function GYMWeeklyReport() {
   return (
     <>
     {/* Progress Photos Modal */}
-    <AnimatePresence>
-      {showPhotos && (
-        <Motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          onClick={() => setShowPhotos(false)}
-        >
-          <Motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 16 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 8 }}
-            transition={{ duration: 0.2 }}
-            className="relative w-full max-w-2xl rounded-2xl border border-amber-100/10 bg-[#1a0d0a] p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal header */}
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <p className="text-label-md">Progress Photos</p>
-                <p className="mt-0.5 text-xs font-semibold text-stone-500">{selectedWeek.date}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowPhotos(false)}
-                className="rounded-full border border-stone-700 px-3 py-1 text-xs font-semibold text-stone-400 transition-colors hover:border-stone-500 hover:text-stone-200"
+    {typeof document !== "undefined" &&
+      createPortal(
+        <AnimatePresence>
+          {showPhotos && (
+            <Motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="fixed inset-0 z-[100] flex items-end justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-4"
+              onClick={() => setShowPhotos(false)}
+            >
+              <Motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.2 }}
+                className="journal-scroll relative max-h-[82vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-amber-100/10 bg-[#1a0d0a] p-4 shadow-2xl sm:p-6"
+                onClick={(e) => e.stopPropagation()}
               >
-                ✕ Close
-              </button>
-            </div>
-
-            {/* Photo grid */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {selectedWeek.progressPhotos.map((entry, i) => (
-                <Motion.div
-                  key={entry.day}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className={`relative overflow-hidden rounded-xl border ${
-                    entry.photo
-                      ? "border-amber-400/20 bg-stone-900"
-                      : "border-dashed border-stone-700/50 bg-stone-950/60"
-                  }`}
-                  style={{ aspectRatio: "3/4" }}
-                >
-                  {entry.photo ? (
-                    <img
-                      src={entry.photo}
-                      alt={entry.day}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-2">
-                      <span className="text-2xl opacity-20">📷</span>
-                      <p className="text-[10px] font-semibold text-stone-600">No photo</p>
-                    </div>
-                  )}
-                  <div className="absolute bottom-0 inset-x-0 bg-black/50 px-2 py-1.5">
-                    <p className="text-center text-[10px] font-semibold text-stone-400">{entry.day}</p>
+                {/* Modal header */}
+                <div className="mb-5 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-label-md">Progress Photos</p>
+                    <p className="mt-0.5 text-xs font-semibold text-stone-500">{selectedWeek.date}</p>
                   </div>
-                </Motion.div>
-              ))}
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPhotos(false)}
+                    className="shrink-0 rounded-full border border-stone-700 px-3 py-1 text-xs font-semibold text-stone-400 transition-colors hover:border-stone-500 hover:text-stone-200"
+                  >
+                    ✕ Close
+                  </button>
+                </div>
 
-            {/* Uploaded count */}
-            <p className="mt-4 text-center text-[11px] font-semibold text-stone-500">
-              {selectedWeek.progressPhotos.filter((p) => p.photo).length} of {selectedWeek.progressPhotos.length} photos uploaded
-            </p>
-          </Motion.div>
-        </Motion.div>
+                {/* Photo grid */}
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {selectedWeek.progressPhotos.map((entry, i) => (
+                    <Motion.div
+                      key={entry.day}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className={`relative overflow-hidden rounded-xl border ${
+                        entry.photo
+                          ? "border-amber-400/20 bg-stone-900"
+                          : "border-dashed border-stone-700/50 bg-stone-950/60"
+                      }`}
+                      style={{ aspectRatio: "3/4" }}
+                    >
+                      {entry.photo ? (
+                        <img
+                          src={entry.photo}
+                          alt={entry.day}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full flex-col items-center justify-center gap-2">
+                          <span className="text-2xl opacity-20">📷</span>
+                          <p className="text-[10px] font-semibold text-stone-600">No photo</p>
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 inset-x-0 bg-black/50 px-2 py-1.5">
+                        <p className="text-center text-[10px] font-semibold text-stone-400">{entry.day}</p>
+                      </div>
+                    </Motion.div>
+                  ))}
+                </div>
+
+                {/* Uploaded count */}
+                <p className="mt-4 text-center text-[11px] font-semibold text-stone-500">
+                  {selectedWeek.progressPhotos.filter((p) => p.photo).length} of {selectedWeek.progressPhotos.length} photos uploaded
+                </p>
+              </Motion.div>
+            </Motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
       )}
-    </AnimatePresence>
 
     <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
 
@@ -369,13 +374,20 @@ export default function GYMWeeklyReport() {
                   <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-300">
                     ⚡ {selectedWeek.workoutDays} / {selectedWeek.totalDays} days
                   </span>
-                  <button
+                  <Motion.button
                     type="button"
                     onClick={() => setShowPhotos(true)}
-                    className="rounded-full border border-violet-400/30 bg-violet-500/10 px-3 py-1 text-[11px] font-semibold text-violet-300 transition-colors hover:border-violet-400/50 hover:bg-violet-500/20"
+                    whileHover={{ scale: 1.05, boxShadow: "0 0 14px rgba(167,139,250,0.38)" }}
+                    whileTap={{ scale: 0.95 }}
+                    className="relative overflow-hidden rounded-full border border-violet-400/30 bg-violet-500/10 px-3 py-1 text-[11px] font-semibold text-violet-300 transition-colors hover:border-violet-400/50 hover:bg-violet-500/20"
                   >
-                    📸 Progress Photos
-                  </button>
+                    <Motion.span
+                      className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                      animate={{ left: ["-40%", "130%"] }}
+                      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                    />
+                    <span className="relative z-10">📸 Progress Photos</span>
+                  </Motion.button>
                 </div>
               </div>
 
@@ -403,10 +415,27 @@ export default function GYMWeeklyReport() {
                       <span className="text-xs font-bold text-sky-300">{selectedWeek.avgWorkoutTime}</span>
                     </div>
 
-                    <div className="flex items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Avg Volume Lifted</p>
-                      <span className="text-xs font-bold text-violet-300">{selectedWeek.avgVolumeLifted}</span>
-                    </div>
+                    <Motion.div
+                      className="relative flex items-center gap-1.5 overflow-hidden rounded-full border border-violet-400/25 bg-violet-500/10 px-3 py-1"
+                      animate={{
+                        boxShadow: [
+                          "0 0 0px rgba(167,139,250,0)",
+                          "0 0 10px rgba(167,139,250,0.36)",
+                          "0 0 0px rgba(167,139,250,0)",
+                        ],
+                      }}
+                      transition={{
+                        boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+                      }}
+                    >
+                      <Motion.span
+                        className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                        animate={{ left: ["-40%", "130%"] }}
+                        transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                      />
+                      <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Avg Volume Lifted</p>
+                      <span className="relative z-10 text-xs font-bold text-violet-300">{selectedWeek.avgVolumeLifted}</span>
+                    </Motion.div>
 
                     <div className="flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Consistency</p>
@@ -430,9 +459,27 @@ export default function GYMWeeklyReport() {
                       {topMuscles.map((group) => {
                         const c = GROUP_COLORS[group] ?? { text: "text-stone-300", border: "border-stone-400/25", bg: "bg-stone-500/10" };
                         return (
-                          <span key={group} className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${c.border} ${c.bg} ${c.text}`}>
-                            🔥 {group}
-                          </span>
+                          <Motion.span
+                            key={group}
+                            className={`relative shrink-0 overflow-hidden rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${c.border} ${c.bg} ${c.text}`}
+                            animate={{
+                              boxShadow: [
+                                "0 0 0px rgba(251,146,60,0)",
+                                "0 0 9px rgba(251,146,60,0.32)",
+                                "0 0 0px rgba(251,146,60,0)",
+                              ],
+                            }}
+                            transition={{
+                              boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+                            }}
+                          >
+                            <Motion.span
+                              className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                              animate={{ left: ["-40%", "130%"] }}
+                              transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                            />
+                            <span className="relative z-10">🔥 {group}</span>
+                          </Motion.span>
                         );
                       })}
                     </div>

@@ -1343,18 +1343,20 @@ export default function AddWorkout() {
                   whileHover={{ y: -2, boxShadow: "0 10px 28px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
                 >
                   <div className="min-w-0 space-y-2">
-                    <p className="w-full min-w-0 break-words pr-1 text-sm font-semibold leading-tight text-stone-100">{w.title}</p>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                        w.isActive
-                          ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
-                          : "border-stone-500/20 bg-white/5 text-stone-400"
-                      }`}>
-                        {w.isActive ? "Active" : "Inactive"}
-                      </span>
-                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${DIFFICULTY_STYLES[w.difficulty] || "border-amber-100/10 text-stone-300"}`}>
-                        {w.difficulty}
-                      </span>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <p className="min-w-0 flex-1 break-words pr-1 text-sm font-semibold leading-tight text-stone-100">{w.title}</p>
+                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                          w.isActive
+                            ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                            : "border-stone-500/20 bg-white/5 text-stone-400"
+                        }`}>
+                          {w.isActive ? "Active" : "Inactive"}
+                        </span>
+                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${DIFFICULTY_STYLES[w.difficulty] || "border-amber-100/10 text-stone-300"}`}>
+                          {w.difficulty}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <button type="button" onClick={() => setViewWorkout(w)}

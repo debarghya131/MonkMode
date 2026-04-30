@@ -169,22 +169,56 @@ export default function GoalWeeklyReport() {
               </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1.5 rounded-full border border-sky-400/20 bg-sky-500/10 px-3 py-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Avg Progress</p>
-                  <span className="text-xs font-bold text-sky-300">{avgProgress}%</span>
-                </div>
+                <Motion.div
+                  className="relative flex items-center gap-1.5 overflow-hidden rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1"
+                  animate={{
+                    boxShadow: [
+                      "0 0 0px rgba(56,189,248,0)",
+                      "0 0 10px rgba(56,189,248,0.36)",
+                      "0 0 0px rgba(56,189,248,0)",
+                    ],
+                  }}
+                  transition={{
+                    boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+                  }}
+                >
+                  <Motion.span
+                    className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                    animate={{ left: ["-40%", "130%"] }}
+                    transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                  />
+                  <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Avg Progress</p>
+                  <span className="relative z-10 text-xs font-bold text-sky-300">{avgProgress}%</span>
+                </Motion.div>
                 <div className="flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Goals Completed</p>
                   <span className="text-xs font-bold text-emerald-300">
                     {completedGoals}<span className="text-[10px] font-semibold text-stone-500">/{goalCount}</span>
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 rounded-full border border-rose-400/20 bg-rose-500/10 px-3 py-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Sub Goal Pending</p>
-                  <span className="text-xs font-bold text-rose-300">
+                <Motion.div
+                  className="relative flex items-center gap-1.5 overflow-hidden rounded-full border border-rose-400/25 bg-rose-500/10 px-3 py-1"
+                  animate={{
+                    boxShadow: [
+                      "0 0 0px rgba(251,113,133,0)",
+                      "0 0 10px rgba(251,113,133,0.36)",
+                      "0 0 0px rgba(251,113,133,0)",
+                    ],
+                  }}
+                  transition={{
+                    boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+                  }}
+                >
+                  <Motion.span
+                    className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                    animate={{ left: ["-40%", "130%"] }}
+                    transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                  />
+                  <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Sub Goal Pending</p>
+                  <span className="relative z-10 text-xs font-bold text-rose-300">
                     {pendingMilestones}<span className="text-[10px] font-semibold text-stone-500">/{totalMilestones}</span>
                   </span>
-                </div>
+                </Motion.div>
                 <div className="flex items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Sub Goal Done This Week</p>
                   <span className="text-xs font-bold text-violet-300">{completedMilestonesThisWeek}</span>

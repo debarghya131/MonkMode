@@ -11,7 +11,7 @@ import Goal from "./dashboard/goal/Goal";
 import Gym from "./dashboard/gym/Gym";
 import Analytics from "./dashboard/analysis/Analytics";
 import WeeklyReport from "./dashboard/weeklyreport/WeeklyReport";
-import AICoach from "./dashboard/ai_coach/AICoach";
+import AIGuru from "./dashboard/ai_guru/AIGuru";
 
 export default function App() {
   return (
@@ -31,7 +31,8 @@ export default function App() {
         <Route path="/dashboard/analytics" element={<DashboardLayout><Analytics /></DashboardLayout>} />
         <Route path="/dashboard/weeklyreport" element={<DashboardLayout><WeeklyReport /></DashboardLayout>} />
         <Route path="/dashboard/weeklyreview" element={<Navigate to="/dashboard/weeklyreport" replace />} />
-        <Route path="/dashboard/ai_coach" element={<DashboardLayout><AICoach /></DashboardLayout>} />
+        <Route path="/dashboard/ai_coach" element={<Navigate to="/dashboard/ai_guru" replace />} />
+        <Route path="/dashboard/ai_guru" element={<DashboardLayout><AIGuru /></DashboardLayout>} />
       </Routes>
     </BrowserRouter>
   );

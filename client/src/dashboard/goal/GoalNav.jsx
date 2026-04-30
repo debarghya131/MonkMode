@@ -54,7 +54,7 @@ export default function GoalNav({ activeTab, onTabChange }) {
       </div>
 
       {/* Desktop: horizontal scrollable nav */}
-      <nav className="hidden sm:flex items-center gap-1 w-full overflow-x-auto rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur scrollbar-none">
+      <nav className="hidden w-full grid-cols-3 gap-1 rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur sm:grid">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -70,7 +70,7 @@ export default function GoalNav({ activeTab, onTabChange }) {
                   : { boxShadow: "0 0 0px rgba(251,191,36,0)" }
               }
               transition={{ duration: 0.2 }}
-              className={`flex min-w-[6rem] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors duration-200 ${
+              className={`flex min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors duration-200 ${
                 isActive
                   ? "bg-gradient-to-r from-amber-400/20 to-orange-400/15 border border-amber-400/30 text-amber-300"
                   : "border border-transparent text-stone-400 hover:text-amber-200"

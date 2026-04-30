@@ -170,40 +170,51 @@ export default function ExerciseLibrary() {
           <div className="w-full rounded-[1.5rem] border border-amber-100/10 bg-black/20 p-4 lg:p-5 xl:min-w-0 xl:flex-1">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
-                <button
-                  type="button"
-                  onClick={() => setSelectedGroup("all")}
-                  className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
-                    selectedGroup === "all"
-                      ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
-                      : "border-amber-100/10 bg-white/5 text-stone-300 hover:border-amber-300/20 hover:text-stone-100"
-                  }`}
-                >
-                  All Groups ({allExercises.length})
-                </button>
-                {groupCounts.map(({ group, count }) => (
-                  <button
-                    key={group}
-                    type="button"
-                    onClick={() => setSelectedGroup(group)}
-                    className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
-                      selectedGroup === group
-                        ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
-                        : "border-amber-100/10 bg-white/5 text-stone-300 hover:border-amber-300/20 hover:text-stone-100"
-                    }`}
-                  >
-                    {group} ({count})
-                  </button>
-                ))}
+                {[{ group: "all", label: `All Groups (${allExercises.length})` }, ...groupCounts.map(({ group, count }) => ({ group, label: `${group} (${count})` }))].map(({ group, label }) => {
+                  const isActive = selectedGroup === group;
+                  return (
+                    <Motion.button
+                      key={group}
+                      type="button"
+                      onClick={() => setSelectedGroup(group)}
+                      whileHover={!isActive ? { scale: 1.06, boxShadow: "0 0 14px rgba(251,191,36,0.4)" } : {}}
+                      whileTap={{ scale: 0.93 }}
+                      transition={{ duration: 0.18 }}
+                      className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] font-semibold transition duration-200 ${
+                        isActive
+                          ? "border-amber-300/45 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] text-stone-950 shadow-[0_0_16px_rgba(251,191,36,0.4)]"
+                          : "border-amber-100/10 bg-white/5 text-stone-300 hover:border-amber-300/30 hover:bg-amber-500/10 hover:text-amber-200"
+                      }`}
+                    >
+                      {label}
+                    </Motion.button>
+                  );
+                })}
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <button
+                <Motion.button
                   type="button"
                   onClick={() => setShowAddModal(true)}
-                  className="whitespace-nowrap rounded-full border border-amber-300/30 bg-amber-500/15 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-500/25"
+                  animate={{
+                    scale: [1, 1.06, 1],
+                    boxShadow: [
+                      "0 0 0px rgba(251,191,36,0)",
+                      "0 0 14px rgba(251,191,36,0.55)",
+                      "0 0 0px rgba(251,191,36,0)",
+                    ],
+                  }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  whileHover={{ scale: 1.1, boxShadow: "0 0 20px rgba(251,191,36,0.65), 0 0 40px rgba(251,191,36,0.2)" }}
+                  whileTap={{ scale: 0.93 }}
+                  className="relative overflow-hidden whitespace-nowrap rounded-full border border-amber-300/40 bg-amber-500/15 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950"
                 >
-                  + Add Workout
-                </button>
+                  <Motion.span
+                    className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/30 blur-sm"
+                    animate={{ left: ["-40%", "130%"] }}
+                    transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.2, ease: "easeInOut" }}
+                  />
+                  <span className="relative z-10">+ Add Workout</span>
+                </Motion.button>
                 <div className="whitespace-nowrap rounded-full border border-amber-100/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-stone-300">
                   {selectedGroup === "all" ? `${totalVisibleExercises} workouts` : `${totalVisibleExercises} in ${selectedGroup}`}
                 </div>

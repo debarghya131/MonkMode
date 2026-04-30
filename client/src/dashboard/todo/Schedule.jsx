@@ -808,7 +808,7 @@ export default function Schedule({
               </p>
             ) : (
               displayedTasks.map((task) => (
-                <article key={task.id} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
+                <article key={task.id} className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 p-3">
                   {false ? (
                     /* ── Inline edit form ── */
                     <div className="space-y-2">
