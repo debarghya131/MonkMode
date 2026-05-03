@@ -6,16 +6,139 @@ import Navbar from "./Navbar";
 import Sidebar from "./Sidebar";
 import WelcomePopup from "./WelcomePopup";
 
+const MUTATING_ACTION_PATTERN = /\b(add|create|delete|remove|save|submit|mark|done|complete|undo|upload|copy|activate|deactivate|update|edit|send|start|finish|reset)\b/i;
+const WELCOME_HIDE_KEY = "monkmode_hide_welcome";
+const WELCOME_SESSION_KEY = "monkmode_welcome_session_dismissed";
+const DEMO_ALLOWED_BUTTON_LABELS = new Set([
+  "today",
+  "upcoming",
+  "schedule",
+  "important",
+  "my goals",
+  "progress",
+  "track your habit",
+  "diet chart",
+  "measurements",
+  "gallery",
+  "workout library",
+  "journal",
+  "todo",
+  "habits",
+  "goals",
+  "gym",
+  "journal analysis",
+  "to-do analysis",
+  "habit analysis",
+  "goal analysis",
+  "gym analysis",
+  "active",
+  "archived",
+  "all",
+  "high",
+  "medium",
+  "low",
+]);
+
+const getControlLabel = (element) =>
+  [
+    element?.textContent,
+    element?.getAttribute?.("aria-label"),
+    element?.getAttribute?.("title"),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim()
+    .replace(/[^a-zA-Z0-9\s-]/g, "")
+    .replace(/\s+/g, " ");
+
+const isTextEntry = (target) => {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  if (target.tagName === "TEXTAREA") return true;
+  if (target.tagName !== "INPUT") return false;
+
+  const type = target.getAttribute("type") || "text";
+  return ["email", "number", "password", "search", "tel", "text", "time", "url", "date"].includes(type);
+};
+
+const shouldBlockDemoButton = (button) => {
+  if (!button) return false;
+  if (button.closest("[data-demo-allow='true']")) return false;
+  if (button.closest("nav")) return false;
+
+  const normalizedLabel = getControlLabel(button).toLowerCase();
+  if (DEMO_ALLOWED_BUTTON_LABELS.has(normalizedLabel)) return false;
+
+  return MUTATING_ACTION_PATTERN.test(normalizedLabel);
+};
+
 export default function DashboardLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isBootstrapping, isAuthenticated, user, logout } = useAuth();
+  const { isBootstrapping, isAuthenticated, isDemoMode, user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [demoNotice, setDemoNotice] = useState("");
   const [showWelcome, setShowWelcome] = useState(() => {
-    if (sessionStorage.getItem("welcome_shown")) return false;
-    sessionStorage.setItem("welcome_shown", "1");
+    if (isDemoMode) return false;
+    if (localStorage.getItem(WELCOME_HIDE_KEY) === "true") return false;
+    if (sessionStorage.getItem(WELCOME_SESSION_KEY) === "true") return false;
     return true;
   });
+
+  const handleCloseWelcome = ({ dontShowAgain = false } = {}) => {
+    if (dontShowAgain) {
+      localStorage.setItem(WELCOME_HIDE_KEY, "true");
+    } else {
+      sessionStorage.setItem(WELCOME_SESSION_KEY, "true");
+    }
+    setShowWelcome(false);
+  };
+
+  const showDemoNotice = () => {
+    setDemoNotice("Demo Mode is read-only. You can explore, but changes are disabled and will not be saved.");
+  };
+
+  const blockDemoEvent = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showDemoNotice();
+  };
+
+  const handleDemoClickCapture = (event) => {
+    if (!isDemoMode) return;
+    const button = event.target.closest?.("button");
+    if (shouldBlockDemoButton(button)) {
+      blockDemoEvent(event);
+    }
+  };
+
+  const handleDemoSubmitCapture = (event) => {
+    if (isDemoMode) {
+      blockDemoEvent(event);
+    }
+  };
+
+  const handleDemoBeforeInputCapture = (event) => {
+    if (isDemoMode && isTextEntry(event.target)) {
+      blockDemoEvent(event);
+    }
+  };
+
+  const handleDemoKeyDownCapture = (event) => {
+    if (!isDemoMode || !isTextEntry(event.target)) return;
+
+    const allowedKeys = ["Tab", "Escape", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"];
+    if (allowedKeys.includes(event.key)) return;
+
+    blockDemoEvent(event);
+  };
+
+  useEffect(() => {
+    if (!demoNotice) return undefined;
+
+    const timerId = window.setTimeout(() => setDemoNotice(""), 3200);
+    return () => window.clearTimeout(timerId);
+  }, [demoNotice]);
 
   // Prevent body scroll when drawer is open
   useEffect(() => {
@@ -50,6 +173,7 @@ export default function DashboardLayout({ children }) {
   }
 
   const handleLogout = () => {
+    sessionStorage.removeItem(WELCOME_SESSION_KEY);
     logout();
     navigate("/login", { replace: true });
   };
@@ -85,7 +209,7 @@ export default function DashboardLayout({ children }) {
       <div className="flex flex-1 overflow-hidden">
 
         {/* Desktop sidebar */}
-        <aside className="hidden lg:flex w-64 shrink-0 flex-col overflow-y-auto border-r border-amber-100/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur">
+        <aside className="hidden lg:flex w-64 shrink-0 flex-col overflow-y-auto overflow-x-hidden border-r border-amber-100/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur">
           <Sidebar onLogout={handleLogout} />
         </aside>
 
@@ -111,7 +235,7 @@ export default function DashboardLayout({ children }) {
                 animate={{ x: 0 }}
                 exit={{ x: -288 }}
                 transition={{ type: "spring", stiffness: 320, damping: 32 }}
-                className="fixed left-0 top-0 bottom-0 z-50 flex w-72 flex-col border-r border-amber-100/10 bg-[#17110f] overflow-y-auto lg:hidden"
+                className="fixed left-0 top-0 bottom-0 z-50 flex w-72 flex-col border-r border-amber-100/10 bg-[#17110f] overflow-y-auto overflow-x-hidden lg:hidden"
               >
                 {/* Drawer header with close button */}
                 <div className="flex items-center justify-between border-b border-amber-100/10 px-5 py-4">
@@ -137,7 +261,28 @@ export default function DashboardLayout({ children }) {
         </AnimatePresence>
 
         {/* Main content */}
-        <main className="flex-1 min-w-0 overflow-y-auto px-3 py-5 sm:px-5 sm:py-7 md:px-6 md:py-8 lg:px-6 lg:py-10">
+        <main
+          className="flex-1 min-w-0 overflow-y-auto px-3 py-5 sm:px-5 sm:py-7 md:px-6 md:py-8 lg:px-6 lg:py-10"
+          onBeforeInputCapture={handleDemoBeforeInputCapture}
+          onClickCapture={handleDemoClickCapture}
+          onKeyDownCapture={handleDemoKeyDownCapture}
+          onSubmitCapture={handleDemoSubmitCapture}
+        >
+          <AnimatePresence>
+            {demoNotice && (
+              <Motion.div
+                key="demo-readonly-notice-mobile"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.18 }}
+                className="mb-4 rounded-2xl border border-amber-200/25 bg-stone-950/95 px-4 py-3 text-center text-xs font-semibold leading-snug text-amber-100 shadow-[0_14px_34px_rgba(0,0,0,0.35),0_0_24px_rgba(251,191,36,0.14)] backdrop-blur sm:hidden"
+              >
+                {demoNotice}
+              </Motion.div>
+            )}
+          </AnimatePresence>
+
           <AnimatePresence mode="wait">
             <Motion.div
               key={location.pathname}
@@ -153,7 +298,22 @@ export default function DashboardLayout({ children }) {
 
       </div>
 
-      {showWelcome && <WelcomePopup onClose={() => setShowWelcome(false)} />}
+      <AnimatePresence>
+        {demoNotice && (
+          <Motion.div
+            key="demo-readonly-notice-desktop"
+            initial={{ opacity: 0, y: 18, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.96 }}
+            transition={{ duration: 0.2 }}
+            className="pointer-events-none fixed bottom-5 left-1/2 z-[1000] hidden w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 rounded-2xl border border-amber-200/25 bg-stone-950/95 px-5 py-3 text-center text-sm font-semibold leading-snug text-amber-100 shadow-[0_20px_60px_rgba(0,0,0,0.45),0_0_30px_rgba(251,191,36,0.14)] backdrop-blur sm:block"
+          >
+            {demoNotice}
+          </Motion.div>
+        )}
+      </AnimatePresence>
+
+      {showWelcome && <WelcomePopup onClose={handleCloseWelcome} />}
     </div>
   );
 }

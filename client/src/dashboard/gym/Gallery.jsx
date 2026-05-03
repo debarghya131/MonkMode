@@ -6,6 +6,7 @@ import transformatiomImage3 from "../../assets/transformatiom image 3.png";
 import transformatiomImage4 from "../../assets/transformatiom image 4.png";
 import transformatiomImage5 from "../../assets/transformatiom image 5.png";
 import transformatiomImage6 from "../../assets/transformatiom image 6.png";
+import useAuth from "../../hooks/useAuth";
 
 const STORAGE_KEY = "monkmode_gallery";
 
@@ -177,12 +178,14 @@ function Lightbox({ logs, startDate, startIndex, onClose }) {
 }
 
 export default function Gallery() {
+  const { isDemoMode } = useAuth();
   const [logs, setLogs] = useState(loadLogs);
   const [dragging, setDragging] = useState(false);
   const [lightbox, setLightbox] = useState(null); // { date, index, mode? }
   const fileRef = useRef();
 
   const processFiles = (files) => {
+    if (isDemoMode) return;
     const imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
     if (!imageFiles.length) return;
 
@@ -244,11 +247,18 @@ export default function Gallery() {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
             {/* ── Upload zone ── */}
             <div
-              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (!isDemoMode) setDragging(true);
+              }}
               onDragLeave={() => setDragging(false)}
-              onDrop={handleDrop}
-              onClick={() => fileRef.current.click()}
-              className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-2 transition ${
+              onDrop={isDemoMode ? undefined : handleDrop}
+              onClick={isDemoMode ? undefined : () => fileRef.current.click()}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-2 transition ${
+                isDemoMode
+                  ? "cursor-not-allowed border-amber-100/10 bg-white/[0.03] opacity-60"
+                  : "cursor-pointer"
+              } ${
                 dragging
                   ? "border-amber-300/60 bg-amber-500/10"
                   : "border-amber-100/15 bg-white/5 hover:border-amber-300/30 hover:bg-white/8"
@@ -259,13 +269,18 @@ export default function Gallery() {
               </div>
               <div className="text-left">
                 <p className="text-sm font-semibold text-stone-200">Drop images here or click to upload</p>
-                <p className="text-xs text-stone-500">JPG, PNG, WEBP — multiple files supported</p>
+                <p className="text-xs text-stone-500">
+                  {isDemoMode
+                    ? "Disabled in demo mode"
+                    : "JPG, PNG, WEBP — multiple files supported"}
+                </p>
               </div>
               <input
                 ref={fileRef}
                 type="file"
                 accept="image/*"
                 multiple
+                disabled={isDemoMode}
                 className="hidden"
                 onChange={(e) => processFiles(e.target.files)}
               />

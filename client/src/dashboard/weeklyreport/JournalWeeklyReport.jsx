@@ -416,24 +416,6 @@ export default function JournalWeeklyReport() {
                     <StatRow label="Weekly Target" value="7 days" accent="emerald" />
                   </div>
                 </Motion.div>
-
-                {/* Sleep card – custom layout */}
-                <Motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  whileHover={{ y: -4 }}
-                  className="dashboard-glow-card rounded-2xl border border-amber-100/10 bg-stone-950/45 p-4"
-                >
-                  <div className="mb-3 flex items-center gap-2">
-                    <span className="text-base leading-none">😴</span>
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-stone-400">Sleep & Wake</p>
-                  </div>
-                  <div className="space-y-2">
-                    <StatRow label="Avg Wake-Up Time"      value={selectedWeek.stats.sleep.avgWakeUp}    accent="amber"   />
-                    <StatRow label="Avg Sleep Time"        value={selectedWeek.stats.sleep.avgSleepTime} accent="amber"   />
-                    <StatRow label="Avg Sleep Duration/day" value={selectedWeek.stats.sleep.avgDuration}  accent="emerald" />
-                  </div>
-                </Motion.div>
               </div>
             </Motion.div>
           ) : (

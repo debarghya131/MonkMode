@@ -1,5 +1,7 @@
 import { motion as Motion } from "framer-motion";
 import { useState } from "react";
+import { createPortal } from "react-dom";
+import { DEMO_DIETS, DEMO_WORKOUT_NUTRITION, DEMO_SUPP_PLANS, DEMO_MACRO_PLANS } from "../../../data/GymDummyData";
 
 const MEAL_SECTIONS = [
   { key: "morning",   label: "Morning"   },
@@ -39,228 +41,20 @@ const fmtTime = (t) => {
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 };
 
-/* ── Demo Data ───────────────────────────────────────────── */
-const DEMO_DIETS = [
-  {
-    id: "demo-diet-mon", day: "Mon", isActive: true, copiedFromId: null,
-    meals: {
-      morning:   [{ id: "dm-1", name: "Warm lemon water", time: "06:00" }, { id: "dm-2", name: "Soaked almonds (10)", time: "06:10" }],
-      breakfast: [{ id: "dm-3", name: "Oats with banana & honey", time: "08:00" }, { id: "dm-4", name: "2 boiled eggs", time: "08:05" }],
-      lunch:     [{ id: "dm-5", name: "Brown rice (1 cup)", time: "13:00" }, { id: "dm-6", name: "Grilled chicken (150g)", time: "13:00" }, { id: "dm-7", name: "Cucumber salad", time: "13:05" }],
-      evening:   [{ id: "dm-8", name: "Whey protein shake", time: "17:00" }, { id: "dm-9", name: "Apple", time: "17:05" }],
-      dinner:    [{ id: "dm-10", name: "Grilled salmon (120g)", time: "20:00" }, { id: "dm-11", name: "Steamed broccoli", time: "20:00" }, { id: "dm-12", name: "Sweet potato (half)", time: "20:05" }],
-    },
-  },
-  {
-    id: "demo-diet-tue", day: "Tue", isActive: true, copiedFromId: null,
-    meals: {
-      morning:   [{ id: "dt-1", name: "Green tea", time: "06:15" }],
-      breakfast: [{ id: "dt-2", name: "Multigrain toast (2)", time: "08:00" }, { id: "dt-3", name: "Peanut butter (1 tbsp)", time: "08:00" }],
-      lunch:     [{ id: "dt-4", name: "Quinoa bowl", time: "13:00" }, { id: "dt-5", name: "Grilled paneer (100g)", time: "13:00" }],
-      evening:   [{ id: "dt-6", name: "Greek yogurt with nuts", time: "16:30" }],
-      dinner:    [{ id: "dt-7", name: "Dal (1 bowl)", time: "20:00" }, { id: "dt-8", name: "Chapati (2)", time: "20:00" }],
-    },
-  },
-  {
-    id: "demo-diet-wed", day: "Wed", isActive: true, copiedFromId: null,
-    meals: {
-      morning:   [{ id: "dw-1", name: "Apple cider vinegar water", time: "06:10" }],
-      breakfast: [{ id: "dw-2", name: "Protein pancakes (3)", time: "08:15" }, { id: "dw-3", name: "Mixed berries", time: "08:20" }],
-      lunch:     [{ id: "dw-4", name: "Chicken wrap", time: "13:00" }, { id: "dw-5", name: "Side salad", time: "13:05" }],
-      evening:   [{ id: "dw-6", name: "Casein protein shake", time: "17:30" }],
-      dinner:    [{ id: "dw-7", name: "Egg white omelette (4 eggs)", time: "20:00" }, { id: "dw-8", name: "Sauteed spinach", time: "20:05" }],
-    },
-  },
-  {
-    id: "demo-diet-thu", day: "Thu", isActive: true, copiedFromId: null,
-    meals: {
-      morning:   [{ id: "dth-1", name: "Warm water + lemon", time: "06:00" }],
-      breakfast: [{ id: "dth-2", name: "Scrambled eggs (3)", time: "08:00" }, { id: "dth-3", name: "Whole wheat toast", time: "08:05" }],
-      lunch:     [{ id: "dth-4", name: "Grilled chicken rice bowl", time: "13:00" }],
-      evening:   [{ id: "dth-5", name: "Protein shake", time: "17:00" }],
-      dinner:    [{ id: "dth-6", name: "Stir fry veggies + tofu", time: "20:00" }],
-    },
-  },
-  {
-    id: "demo-diet-fri", day: "Fri", isActive: false, copiedFromId: null,
-    meals: {
-      morning:   [{ id: "df-1", name: "Apple cider vinegar water", time: "06:00" }],
-      breakfast: [{ id: "df-2", name: "Protein pancakes (3)", time: "08:30" }, { id: "df-3", name: "Mixed berries", time: "08:35" }],
-      lunch:     [{ id: "df-4", name: "Chicken wrap", time: "13:00" }, { id: "df-5", name: "Side salad", time: "13:05" }],
-      evening:   [{ id: "df-6", name: "Casein protein shake", time: "17:30" }],
-      dinner:    [{ id: "df-7", name: "Egg white omelette (4 eggs)", time: "20:00" }, { id: "df-8", name: "Sauteed spinach", time: "20:05" }],
-    },
-  },
-  {
-    id: "demo-diet-sat", day: "Sat", isActive: false, copiedFromId: null,
-    meals: {
-      morning:   [{ id: "ds-1", name: "Black coffee", time: "06:30" }],
-      breakfast: [{ id: "ds-2", name: "Pancakes + honey", time: "08:30" }],
-      lunch:     [{ id: "ds-3", name: "Pasta + chicken", time: "13:15" }],
-      evening:   [{ id: "ds-4", name: "Banana + peanut butter", time: "17:20" }],
-      dinner:    [{ id: "ds-5", name: "Rice + dal + sabzi", time: "20:15" }],
-    },
-  },
-  {
-    id: "demo-diet-sun", day: "Sun", isActive: false, copiedFromId: null,
-    meals: {
-      morning:   [{ id: "dsn-1", name: "Herbal tea", time: "07:00" }],
-      breakfast: [{ id: "dsn-2", name: "Poha + curd", time: "09:00" }],
-      lunch:     [{ id: "dsn-3", name: "Rajma chawal", time: "13:30" }],
-      evening:   [{ id: "dsn-4", name: "Sprouts chaat", time: "17:30" }],
-      dinner:    [{ id: "dsn-5", name: "Soup + bread", time: "20:30" }],
-    },
-  },
-];
-
-const DEMO_WORKOUT_NUTRITION = [
-  {
-    id: "demo-wn-mon", day: "Mon", isActive: true, copiedFromId: null,
-    meals: {
-      preWorkout:  [{ id: "wn-1", name: "Banana + black coffee", time: "16:30" }, { id: "wn-2", name: "BCAA drink", time: "16:45" }],
-      postWorkout: [{ id: "wn-3", name: "Whey protein shake", time: "18:30" }, { id: "wn-4", name: "Rice cakes (3)", time: "18:35" }],
-    },
-  },
-  {
-    id: "demo-wn-tue", day: "Tue", isActive: true, copiedFromId: null,
-    meals: {
-      preWorkout:  [{ id: "wn-t-1", name: "Oats + honey", time: "06:45" }, { id: "wn-t-2", name: "Espresso", time: "07:00" }],
-      postWorkout: [{ id: "wn-t-3", name: "Protein shake + milk", time: "09:00" }, { id: "wn-t-4", name: "Banana", time: "09:05" }],
-    },
-  },
-  {
-    id: "demo-wn-wed", day: "Wed", isActive: true, copiedFromId: null,
-    meals: {
-      preWorkout:  [{ id: "wn-5", name: "Oats + honey", time: "06:45" }, { id: "wn-6", name: "Espresso", time: "07:00" }],
-      postWorkout: [{ id: "wn-7", name: "Protein shake + milk", time: "09:00" }, { id: "wn-8", name: "Banana", time: "09:05" }],
-    },
-  },
-  {
-    id: "demo-wn-thu", day: "Thu", isActive: true, copiedFromId: null,
-    meals: {
-      preWorkout:  [{ id: "wn-th-1", name: "Banana + black coffee", time: "17:00" }],
-      postWorkout: [{ id: "wn-th-2", name: "Whey isolate shake", time: "19:00" }],
-    },
-  },
-  {
-    id: "demo-wn-fri", day: "Fri", isActive: false, copiedFromId: null,
-    meals: {
-      preWorkout:  [{ id: "wn-f-1", name: "Toast + jam", time: "09:00" }],
-      postWorkout: [{ id: "wn-f-2", name: "Chocolate milk (300ml)", time: "11:00" }, { id: "wn-f-3", name: "Handful of almonds", time: "11:10" }],
-    },
-  },
-  {
-    id: "demo-wn-sat", day: "Sat", isActive: false, copiedFromId: null,
-    meals: {
-      preWorkout:  [{ id: "wn-9", name: "Toast + jam", time: "09:00" }],
-      postWorkout: [{ id: "wn-10", name: "Chocolate milk (300ml)", time: "11:00" }, { id: "wn-11", name: "Handful of almonds", time: "11:10" }],
-    },
-  },
-  {
-    id: "demo-wn-sun", day: "Sun", isActive: false, copiedFromId: null,
-    meals: {
-      preWorkout:  [{ id: "wn-su-1", name: "Light fruit snack", time: "08:30" }],
-      postWorkout: [{ id: "wn-su-2", name: "Protein smoothie", time: "10:30" }],
-    },
-  },
-];
-
-const DEMO_SUPP_PLANS = [
-  {
-    id: "demo-sp-mon", day: "Mon", isActive: true, copiedFromId: null,
-    items: [
-      { id: "sp-1", name: "Creatine (5g)",        time: "08:00" },
-      { id: "sp-2", name: "Vitamin D3 (2000 IU)", time: "08:30" },
-      { id: "sp-3", name: "Omega-3 (1000mg)",     time: "13:00" },
-      { id: "sp-4", name: "Magnesium (400mg)",    time: "21:00" },
-    ],
-  },
-  {
-    id: "demo-sp-tue", day: "Tue", isActive: true, copiedFromId: null,
-    items: [
-      { id: "sp-5", name: "Creatine (5g)",        time: "08:00" },
-      { id: "sp-6", name: "Vitamin D3 (2000 IU)", time: "08:30" },
-      { id: "sp-7", name: "Zinc (25mg)",           time: "21:00" },
-    ],
-  },
-  {
-    id: "demo-sp-wed", day: "Wed", isActive: true, copiedFromId: null,
-    items: [
-      { id: "sp-w-1", name: "Creatine (5g)",    time: "08:00" },
-      { id: "sp-w-2", name: "Omega-3 (1000mg)", time: "13:00" },
-    ],
-  },
-  {
-    id: "demo-sp-thu", day: "Thu", isActive: true, copiedFromId: null,
-    items: [
-      { id: "sp-th-1", name: "Creatine (5g)",        time: "08:00" },
-      { id: "sp-th-2", name: "Vitamin D3 (2000 IU)", time: "08:30" },
-      { id: "sp-th-3", name: "Magnesium (400mg)",    time: "21:00" },
-    ],
-  },
-  {
-    id: "demo-sp-fri", day: "Fri", isActive: false, copiedFromId: null,
-    items: [
-      { id: "sp-8", name: "Pre-workout (1 scoop)", time: "16:30" },
-      { id: "sp-9", name: "Whey protein (30g)",    time: "18:30" },
-    ],
-  },
-  {
-    id: "demo-sp-sat", day: "Sat", isActive: false, copiedFromId: null,
-    items: [
-      { id: "sp-sa-1", name: "Creatine (5g)",    time: "08:00" },
-      { id: "sp-sa-2", name: "Omega-3 (1000mg)", time: "13:00" },
-    ],
-  },
-  {
-    id: "demo-sp-sun", day: "Sun", isActive: false, copiedFromId: null,
-    items: [
-      { id: "sp-su-1", name: "Vitamin D3 (2000 IU)", time: "08:30" },
-      { id: "sp-su-2", name: "Magnesium (400mg)",    time: "21:00" },
-    ],
-  },
-];
-
-const DEMO_MACRO_PLANS = [
-  {
-    id: "demo-mp-mon", day: "Mon", isActive: true, copiedFromId: null,
-    values: { protein: "180", carbs: "280", fats: "65", fiber: "35", calories: "2450", water: "3.5", sugar: "40", sodium: "1800" },
-  },
-  {
-    id: "demo-mp-tue", day: "Tue", isActive: true, copiedFromId: null,
-    values: { protein: "175", carbs: "260", fats: "60", fiber: "32", calories: "2300", water: "3", sugar: "35", sodium: "1700" },
-  },
-  {
-    id: "demo-mp-wed", day: "Wed", isActive: true, copiedFromId: null,
-    values: { protein: "175", carbs: "260", fats: "60", fiber: "32", calories: "2300", water: "3", sugar: "35", sodium: "1700" },
-  },
-  {
-    id: "demo-mp-thu", day: "Thu", isActive: true, copiedFromId: null,
-    values: { protein: "185", carbs: "290", fats: "68", fiber: "36", calories: "2500", water: "3.5", sugar: "42", sodium: "1850" },
-  },
-  {
-    id: "demo-mp-fri", day: "Fri", isActive: false, copiedFromId: null,
-    values: { protein: "160", carbs: "200", fats: "55", fiber: "30", calories: "1950", water: "3", sugar: "30", sodium: "1500" },
-  },
-  {
-    id: "demo-mp-sat", day: "Sat", isActive: false, copiedFromId: null,
-    values: { protein: "165", carbs: "270", fats: "62", fiber: "30", calories: "2350", water: "3", sugar: "38", sodium: "1750" },
-  },
-  {
-    id: "demo-mp-sun", day: "Sun", isActive: false, copiedFromId: null,
-    values: { protein: "150", carbs: "230", fats: "55", fiber: "28", calories: "2100", water: "2.5", sugar: "30", sodium: "1550" },
-  },
-];
+function ModalPortal({ children }) {
+  if (typeof document === "undefined") return null;
+  return createPortal(children, document.body);
+}
 
 /* ── Shared Plan View Modal ──────────────────────────────── */
 function PlanViewModal({ title, plans, dayFilter, setDayFilter, copyingId, setCopyingId, onToggleActive, onDelete, onCopy, onEdit, onClose, getRemainingDays, renderPlanContent }) {
   const filtered = dayFilter === "all" ? plans : plans.filter((p) => p.day === dayFilter);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <ModalPortal>
+    <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-4">
       <div
-        className="flex w-full max-w-2xl flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.97),rgba(12,8,8,0.98))] shadow-2xl shadow-black/60"
-        style={{ maxHeight: "85vh" }}
+        className="flex w-full max-w-2xl flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.97),rgba(12,8,8,0.98))] shadow-2xl shadow-black/60 max-h-[calc(100dvh-1.5rem)] sm:max-h-[85vh]"
       >
         {/* Header */}
         <div className="shrink-0 border-b border-amber-100/10 px-5 pb-4 pt-5">
@@ -364,6 +158,7 @@ function PlanViewModal({ title, plans, dayFilter, setDayFilter, copyingId, setCo
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }
 
@@ -424,8 +219,9 @@ function MealGroup({ sections, meals, setMeals, inputs, setInputs }) {
       </div>
 
       {viewingKey && viewingSection && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="flex w-full max-w-sm flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.07),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.97),rgba(12,8,8,0.98))] shadow-2xl shadow-black/60" style={{ maxHeight: "75vh" }}>
+        <ModalPortal>
+        <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-4">
+          <div className="flex w-full max-w-sm flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.07),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.97),rgba(12,8,8,0.98))] shadow-2xl shadow-black/60 max-h-[calc(100dvh-1.5rem)] sm:max-h-[75vh]">
             <div className="shrink-0 border-b border-amber-100/10 px-5 pb-4 pt-5">
               <div className="flex items-center justify-between">
                 <div>
@@ -460,6 +256,7 @@ function MealGroup({ sections, meals, setMeals, inputs, setInputs }) {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </>
   );
@@ -467,10 +264,10 @@ function MealGroup({ sections, meals, setMeals, inputs, setInputs }) {
 
 function SupplementDraftModal({ items, onRemove, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <ModalPortal>
+    <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-4">
       <div
-        className="flex w-full max-w-sm flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.07),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.97),rgba(12,8,8,0.98))] shadow-2xl shadow-black/60"
-        style={{ maxHeight: "75vh" }}
+        className="flex w-full max-w-sm flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.07),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.97),rgba(12,8,8,0.98))] shadow-2xl shadow-black/60 max-h-[calc(100dvh-1.5rem)] sm:max-h-[75vh]"
       >
         <div className="shrink-0 border-b border-amber-100/10 px-5 pb-4 pt-5">
           <div className="flex items-center justify-between">
@@ -512,6 +309,7 @@ function SupplementDraftModal({ items, onRemove, onClose }) {
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }
 

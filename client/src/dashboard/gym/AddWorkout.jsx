@@ -2,6 +2,7 @@ import { motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BODY_PART_GROUPS, EXERCISE_LIBRARY, WORKOUT_SPLITS } from "./workoutLibraryData";
+import { createDummyWorkouts, RETIRED_DEMO_WORKOUT_IDS, createDummyLogs } from "../../../data/GymDummyData";
 
 const PANEL_H = "min(720px, 78vh)";
 
@@ -66,255 +67,12 @@ const BLANK_FORM = {
   neverEnds: true, endDate: "", difficulty: "",
 };
 
-const shiftISO = (baseDate, offset) => {
-  const next = new Date(baseDate);
-  next.setDate(next.getDate() + offset);
-  return toISO(next);
+const DEMO_ACTIVE_WORKOUT_BY_DAY = {
+  Mon: "demo-push-strength",
+  Tue: "demo-upper-primer",
+  Wed: "demo-pull-builder",
 };
 
-const createDummyWorkouts = (baseDate) => [
-  {
-    id: "demo-push-strength",
-    title: "Push Strength",
-    isActive: true,
-    goalType: "muscle-gain",
-    workoutSplit: "bro-split",
-    totalEstimatedTime: "33",
-    days: ["Mon"],
-    startDate: shiftISO(baseDate, -2),
-    neverEnds: true,
-    endDate: "",
-    difficulty: "Advanced",
-    exercises: [
-      { id: "demo-ex-1", name: "Bench Press", sets: "5", reps: "5", weight: "85", duration: "6", restTime: "120", bodyPart: "Chest - Mid" },
-      { id: "demo-ex-2", name: "Overhead Press", sets: "4", reps: "8", weight: "40", duration: "5", restTime: "90", bodyPart: "Shoulders - Front" },
-      { id: "demo-ex-3", name: "Tricep Pushdown", sets: "3", reps: "12", weight: "25", duration: "4", restTime: "60", bodyPart: "Arms - Triceps" },
-      { id: "demo-ex-101", name: "Incline Cable Fly", sets: "3", reps: "12", weight: "16", duration: "4", restTime: "60", bodyPart: "Chest - Upper" },
-      { id: "demo-ex-102", name: "Weighted Dips", sets: "3", reps: "10", weight: "10", duration: "4", restTime: "75", bodyPart: "Chest - Lower" },
-    ],
-  },
-  {
-    id: "demo-push-volume",
-    title: "Push Volume",
-    isActive: true,
-    goalType: "muscle-gain",
-    workoutSplit: "ppl",
-    totalEstimatedTime: "41",
-    days: ["Mon"],
-    startDate: shiftISO(baseDate, -4),
-    neverEnds: false,
-    endDate: shiftISO(baseDate, 28),
-    difficulty: "Intermediate",
-    exercises: [
-      { id: "demo-ex-22", name: "Incline Dumbbell Press", sets: "4", reps: "10-12", weight: "28", duration: "5", restTime: "75", bodyPart: "Chest - Upper" },
-      { id: "demo-ex-23", name: "Cable Fly", sets: "3", reps: "12-15", weight: "18", duration: "4", restTime: "60", bodyPart: "Chest - Mid" },
-      { id: "demo-ex-24", name: "Lateral Raise", sets: "4", reps: "15", weight: "8", duration: "4", restTime: "45", bodyPart: "Shoulders - Side" },
-      { id: "demo-ex-103", name: "Machine Chest Press", sets: "4", reps: "10", weight: "55", duration: "5", restTime: "75", bodyPart: "Chest - Mid" },
-      { id: "demo-ex-104", name: "Rope Pushdown", sets: "3", reps: "15", weight: "22", duration: "4", restTime: "60", bodyPart: "Arms - Triceps" },
-    ],
-  },
-  {
-    id: "demo-upper-primer",
-    title: "Upper Primer",
-    isActive: true,
-    goalType: "endurance",
-    workoutSplit: "upper-lower",
-    totalEstimatedTime: "36",
-    days: ["Tue"],
-    startDate: shiftISO(baseDate, -6),
-    neverEnds: true,
-    endDate: "",
-    difficulty: "Beginner",
-    exercises: [
-      { id: "demo-ex-25", name: "Push-Up", sets: "4", reps: "15", weight: "0", duration: "4", restTime: "45", bodyPart: "Chest - Mid" },
-      { id: "demo-ex-26", name: "Cable Row", sets: "4", reps: "12", weight: "40", duration: "5", restTime: "60", bodyPart: "Back - Mid" },
-      { id: "demo-ex-27", name: "Plank", sets: "3", reps: "60 sec", weight: "0", duration: "5", restTime: "45", bodyPart: "Core - Upper" },
-      { id: "demo-ex-105", name: "Dumbbell Shoulder Press", sets: "3", reps: "12", weight: "16", duration: "4", restTime: "60", bodyPart: "Shoulders - Front" },
-      { id: "demo-ex-106", name: "Lat Pulldown", sets: "3", reps: "12", weight: "50", duration: "5", restTime: "60", bodyPart: "Back - Lats" },
-    ],
-  },
-  {
-    id: "demo-arms-blast",
-    title: "Arms Blast",
-    isActive: true,
-    goalType: "muscle-gain",
-    workoutSplit: "bro-split",
-    totalEstimatedTime: "30",
-    days: ["Tue"],
-    startDate: shiftISO(baseDate, -3),
-    neverEnds: true,
-    endDate: "",
-    difficulty: "Intermediate",
-    exercises: [
-      { id: "demo-ex-39", name: "Barbell Curl", sets: "4", reps: "10", weight: "25", duration: "4", restTime: "60", bodyPart: "Arms - Biceps" },
-      { id: "demo-ex-40", name: "Skull Crushers", sets: "4", reps: "12", weight: "25", duration: "4", restTime: "60", bodyPart: "Arms - Triceps" },
-      { id: "demo-ex-41", name: "Farmer's Walk", sets: "3", reps: "40 m", weight: "30", duration: "5", restTime: "60", bodyPart: "Arms - Forearms" },
-      { id: "demo-ex-107", name: "Cable Curl", sets: "3", reps: "12", weight: "18", duration: "4", restTime: "50", bodyPart: "Arms - Biceps" },
-      { id: "demo-ex-108", name: "Overhead Cable Extension", sets: "3", reps: "12", weight: "20", duration: "4", restTime: "60", bodyPart: "Arms - Triceps" },
-    ],
-  },
-  {
-    id: "demo-pull-builder",
-    title: "Pull Builder",
-    isActive: true,
-    goalType: "strength",
-    workoutSplit: "ppl",
-    totalEstimatedTime: "42",
-    days: ["Wed"],
-    startDate: shiftISO(baseDate, -1),
-    neverEnds: false,
-    endDate: shiftISO(baseDate, 21),
-    difficulty: "Intermediate",
-    exercises: [
-      { id: "demo-ex-4", name: "Pull-Up", sets: "4", reps: "8", weight: "0", duration: "5", restTime: "90", bodyPart: "Back - Lats" },
-      { id: "demo-ex-5", name: "Cable Row", sets: "4", reps: "10", weight: "55", duration: "5", restTime: "75", bodyPart: "Back - Mid" },
-      { id: "demo-ex-6", name: "Hammer Curl", sets: "3", reps: "12", weight: "15", duration: "4", restTime: "60", bodyPart: "Arms - Forearms" },
-      { id: "demo-ex-109", name: "Chest Supported Row", sets: "3", reps: "10", weight: "45", duration: "5", restTime: "75", bodyPart: "Back - Mid" },
-      { id: "demo-ex-110", name: "Face Pull", sets: "3", reps: "15", weight: "20", duration: "4", restTime: "45", bodyPart: "Shoulders - Rear" },
-    ],
-  },
-  {
-    id: "demo-core-engine",
-    title: "Core Engine",
-    isActive: true,
-    goalType: "endurance",
-    workoutSplit: "full-body",
-    totalEstimatedTime: "27",
-    days: ["Wed"],
-    startDate: shiftISO(baseDate, -2),
-    neverEnds: true,
-    endDate: "",
-    difficulty: "Beginner",
-    exercises: [
-      { id: "demo-ex-42", name: "Hanging Knee Raise", sets: "4", reps: "12", weight: "0", duration: "4", restTime: "45", bodyPart: "Core - Lower" },
-      { id: "demo-ex-43", name: "Cable Crunch", sets: "4", reps: "15", weight: "25", duration: "4", restTime: "45", bodyPart: "Core - Upper" },
-      { id: "demo-ex-44", name: "Side Plank", sets: "3", reps: "40 sec", weight: "0", duration: "4", restTime: "30", bodyPart: "Core - Obliques" },
-      { id: "demo-ex-111", name: "Russian Twist", sets: "3", reps: "20", weight: "8", duration: "4", restTime: "30", bodyPart: "Core - Obliques" },
-      { id: "demo-ex-112", name: "Plank Reach", sets: "3", reps: "16", weight: "0", duration: "4", restTime: "30", bodyPart: "Core - Upper" },
-    ],
-  },
-  {
-    id: "demo-back-density",
-    title: "Back Density",
-    isActive: true,
-    goalType: "strength",
-    workoutSplit: "bro-split",
-    totalEstimatedTime: "46",
-    days: ["Thu"],
-    startDate: shiftISO(baseDate, -5),
-    neverEnds: false,
-    endDate: shiftISO(baseDate, 24),
-    difficulty: "Advanced",
-    exercises: [
-      { id: "demo-ex-28", name: "T-Bar Row", sets: "5", reps: "8", weight: "55", duration: "6", restTime: "90", bodyPart: "Back - Mid" },
-      { id: "demo-ex-29", name: "Deadlift", sets: "4", reps: "5", weight: "120", duration: "7", restTime: "150", bodyPart: "Back - Lower" },
-      { id: "demo-ex-30", name: "Pull-Up", sets: "4", reps: "10", weight: "0", duration: "5", restTime: "75", bodyPart: "Back - Lats" },
-      { id: "demo-ex-113", name: "Barbell Shrugs", sets: "4", reps: "12", weight: "70", duration: "4", restTime: "60", bodyPart: "Back - Traps" },
-      { id: "demo-ex-114", name: "Straight Arm Pulldown", sets: "3", reps: "15", weight: "25", duration: "4", restTime: "45", bodyPart: "Back - Lats" },
-    ],
-  },
-  {
-    id: "demo-leg-power",
-    title: "Leg Power",
-    isActive: true,
-    goalType: "muscle-gain",
-    workoutSplit: "upper-lower",
-    totalEstimatedTime: "48",
-    days: ["Fri"],
-    startDate: shiftISO(baseDate, -3),
-    neverEnds: false,
-    endDate: shiftISO(baseDate, 14),
-    difficulty: "Advanced",
-    exercises: [
-      { id: "demo-ex-7", name: "Squat", sets: "5", reps: "5", weight: "100", duration: "7", restTime: "150", bodyPart: "Legs - Quads" },
-      { id: "demo-ex-8", name: "Romanian Deadlift", sets: "4", reps: "8", weight: "90", duration: "6", restTime: "120", bodyPart: "Legs - Hamstrings" },
-      { id: "demo-ex-9", name: "Calf Raise", sets: "4", reps: "15", weight: "40", duration: "4", restTime: "45", bodyPart: "Legs - Calves" },
-      { id: "demo-ex-115", name: "Leg Press", sets: "4", reps: "12", weight: "170", duration: "6", restTime: "90", bodyPart: "Legs - Quads" },
-      { id: "demo-ex-116", name: "Walking Lunges", sets: "3", reps: "20", weight: "12", duration: "5", restTime: "60", bodyPart: "Legs - Glutes" },
-    ],
-  },
-  {
-    id: "demo-leg-hypertrophy",
-    title: "Leg Hypertrophy",
-    isActive: true,
-    goalType: "muscle-gain",
-    workoutSplit: "ppl",
-    totalEstimatedTime: "52",
-    days: ["Fri"],
-    startDate: shiftISO(baseDate, -7),
-    neverEnds: false,
-    endDate: shiftISO(baseDate, 18),
-    difficulty: "Intermediate",
-    exercises: [
-      { id: "demo-ex-31", name: "Leg Press", sets: "4", reps: "12", weight: "160", duration: "6", restTime: "90", bodyPart: "Legs - Quads" },
-      { id: "demo-ex-32", name: "Hip Thrust", sets: "4", reps: "10", weight: "90", duration: "5", restTime: "75", bodyPart: "Legs - Glutes" },
-      { id: "demo-ex-33", name: "Calf Raise", sets: "5", reps: "20", weight: "35", duration: "4", restTime: "45", bodyPart: "Legs - Calves" },
-      { id: "demo-ex-117", name: "Leg Curl", sets: "4", reps: "12", weight: "45", duration: "5", restTime: "60", bodyPart: "Legs - Hamstrings" },
-      { id: "demo-ex-118", name: "Step-ups", sets: "3", reps: "12", weight: "14", duration: "4", restTime: "60", bodyPart: "Legs - Quads" },
-    ],
-  },
-  {
-    id: "demo-shoulder-sculpt",
-    title: "Shoulder Sculpt",
-    isActive: true,
-    goalType: "fat-loss",
-    workoutSplit: "arnold-split",
-    totalEstimatedTime: "34",
-    days: ["Sat"],
-    startDate: shiftISO(baseDate, -3),
-    neverEnds: true,
-    endDate: "",
-    difficulty: "Intermediate",
-    exercises: [
-      { id: "demo-ex-34", name: "Overhead Press", sets: "4", reps: "8", weight: "42", duration: "5", restTime: "75", bodyPart: "Shoulders - Front" },
-      { id: "demo-ex-35", name: "Lateral Raise", sets: "4", reps: "15", weight: "7", duration: "4", restTime: "45", bodyPart: "Shoulders - Side" },
-      { id: "demo-ex-36", name: "Face Pull", sets: "4", reps: "15", weight: "22", duration: "4", restTime: "45", bodyPart: "Shoulders - Rear" },
-      { id: "demo-ex-119", name: "Arnold Press", sets: "3", reps: "10", weight: "18", duration: "5", restTime: "75", bodyPart: "Shoulders - Front" },
-      { id: "demo-ex-120", name: "Upright Row", sets: "3", reps: "12", weight: "30", duration: "4", restTime: "60", bodyPart: "Shoulders - Side" },
-    ],
-  },
-  {
-    id: "demo-upper-volume-sat",
-    title: "Upper Volume",
-    isActive: true,
-    goalType: "muscle-gain",
-    workoutSplit: "upper-lower",
-    totalEstimatedTime: "40",
-    days: ["Sat"],
-    startDate: shiftISO(baseDate, -4),
-    neverEnds: true,
-    endDate: "",
-    difficulty: "Intermediate",
-    exercises: [
-      { id: "demo-ex-45", name: "Incline Dumbbell Press", sets: "4", reps: "10", weight: "30", duration: "5", restTime: "75", bodyPart: "Chest - Upper" },
-      { id: "demo-ex-46", name: "Lat Pulldown", sets: "4", reps: "12", weight: "60", duration: "5", restTime: "75", bodyPart: "Back - Lats" },
-      { id: "demo-ex-47", name: "Lateral Raise", sets: "4", reps: "15", weight: "8", duration: "4", restTime: "45", bodyPart: "Shoulders - Side" },
-      { id: "demo-ex-121", name: "Seated Cable Row", sets: "3", reps: "12", weight: "52", duration: "5", restTime: "70", bodyPart: "Back - Mid" },
-      { id: "demo-ex-122", name: "Bench Dips", sets: "3", reps: "15", weight: "0", duration: "4", restTime: "45", bodyPart: "Arms - Triceps" },
-    ],
-  },
-  {
-    id: "demo-deload-mobility",
-    title: "Deload Mobility",
-    isActive: true,
-    goalType: "endurance",
-    workoutSplit: "full-body",
-    totalEstimatedTime: "24",
-    days: ["Thu"],
-    startDate: shiftISO(baseDate, -8),
-    neverEnds: false,
-    endDate: shiftISO(baseDate, 14),
-    difficulty: "Beginner",
-    exercises: [
-      { id: "demo-ex-37", name: "Stretch Flow", sets: "3", reps: "10 min", weight: "0", duration: "10", restTime: "30", bodyPart: "Core - Obliques" },
-      { id: "demo-ex-38", name: "Bird Dog", sets: "3", reps: "12", weight: "0", duration: "5", restTime: "30", bodyPart: "Lower Back - Erector Spinae" },
-      { id: "demo-ex-125", name: "Dead Bug", sets: "3", reps: "16", weight: "0", duration: "4", restTime: "30", bodyPart: "Core - Lower" },
-      { id: "demo-ex-126", name: "Cat-Cow Mobility", sets: "3", reps: "60 sec", weight: "0", duration: "4", restTime: "20", bodyPart: "Lower Back - Erector Spinae" },
-    ],
-  },
-];
-
-const RETIRED_DEMO_WORKOUT_IDS = new Set(["demo-core-reset", "demo-sunday-conditioning"]);
 
 const mergeWithDemoWorkouts = (storedWorkouts, baseDate) => {
   const stored = (Array.isArray(storedWorkouts) ? storedWorkouts : []).filter(
@@ -351,89 +109,21 @@ const normalizeActiveByDay = (items) => {
   });
 };
 
-const createDummyLogs = (baseDate) => [
-  {
-    id: "demo-log-1",
-    action: "created",
-    title: "Push Strength",
-    date: shiftISO(baseDate, 0),
-    time: "06:15",
-  },
-  {
-    id: "demo-log-2",
-    action: "updated",
-    title: "Leg Power",
-    date: shiftISO(baseDate, -1),
-    time: "19:10",
-  },
-  {
-    id: "demo-log-3",
-    action: "copied",
-    title: "Pull Builder",
-    note: "to Tue, Thu",
-    date: shiftISO(baseDate, -2),
-    time: "07:40",
-  },
-  {
-    id: "demo-log-4",
-    action: "created",
-    title: "Core Reset",
-    date: shiftISO(baseDate, -4),
-    time: "18:05",
-  },
-  {
-    id: "demo-log-5",
-    action: "activated",
-    title: "Push Strength",
-    note: "for Mon",
-    date: shiftISO(baseDate, -1),
-    time: "06:20",
-  },
-  {
-    id: "demo-log-6",
-    action: "created",
-    title: "Push Volume",
-    date: shiftISO(baseDate, -5),
-    time: "05:55",
-  },
-  {
-    id: "demo-log-7",
-    action: "copied",
-    title: "Upper Primer",
-    note: "to Thu, Sat",
-    date: shiftISO(baseDate, -3),
-    time: "08:10",
-  },
-  {
-    id: "demo-log-8",
-    action: "updated",
-    title: "Back Density",
-    date: shiftISO(baseDate, -2),
-    time: "09:25",
-  },
-  {
-    id: "demo-log-9",
-    action: "activated",
-    title: "Shoulder Sculpt",
-    note: "for Sat",
-    date: shiftISO(baseDate, -1),
-    time: "07:05",
-  },
-  {
-    id: "demo-log-10",
-    action: "created",
-    title: "Leg Hypertrophy",
-    date: shiftISO(baseDate, -6),
-    time: "06:50",
-  },
-  {
-    id: "demo-log-11",
-    action: "updated",
-    title: "Deload Mobility",
-    date: shiftISO(baseDate, -10),
-    time: "08:35",
-  },
-];
+const enforceDemoActiveWorkouts = (items) =>
+  (Array.isArray(items) ? items : []).map((item) => {
+    const day = Array.isArray(item?.days) ? item.days[0] : null;
+    const preferredId = day ? DEMO_ACTIVE_WORKOUT_BY_DAY[day] : null;
+
+    if (!preferredId || !String(item?.id || "").startsWith("demo-")) {
+      return item;
+    }
+
+    return {
+      ...item,
+      isActive: item.id === preferredId,
+    };
+  });
+
 
 export default function AddWorkout() {
   const today = useMemo(() => toISO(new Date()), []);
@@ -465,9 +155,9 @@ export default function AddWorkout() {
     try {
       const stored = localStorage.getItem("monkmode_workouts");
       return stored
-        ? normalizeActiveByDay(mergeWithDemoWorkouts(JSON.parse(stored), new Date()))
-        : normalizeActiveByDay(createDummyWorkouts(new Date()));
-    } catch { return normalizeActiveByDay(createDummyWorkouts(new Date())); }
+        ? enforceDemoActiveWorkouts(normalizeActiveByDay(mergeWithDemoWorkouts(JSON.parse(stored), new Date())))
+        : enforceDemoActiveWorkouts(normalizeActiveByDay(createDummyWorkouts(new Date())));
+    } catch { return enforceDemoActiveWorkouts(normalizeActiveByDay(createDummyWorkouts(new Date()))); }
   });
   const [workoutsView, setWorkoutsView] = useState("active");
   const [workoutDayFilter, setWorkoutDayFilter] = useState("all");

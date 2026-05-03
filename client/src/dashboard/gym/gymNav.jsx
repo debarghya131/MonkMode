@@ -20,7 +20,7 @@ export default function GymNav({ active, onChange }) {
   return (
     <>
       {/* Mobile: hamburger dropdown */}
-      <div className="relative 2xl:hidden">
+      <div className="relative 2xl:hidden" data-demo-allow="true">
         <button
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
@@ -60,7 +60,7 @@ export default function GymNav({ active, onChange }) {
       </div>
 
       {/* Desktop: horizontal scrollable nav */}
-      <nav className="hidden 2xl:flex items-center gap-1 w-full overflow-x-auto rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur scrollbar-none">
+      <nav data-demo-allow="true" className="hidden 2xl:flex items-center gap-1 w-full overflow-x-auto rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur scrollbar-none">
         {TABS.map((tab) => {
           const isActive = active === tab.id;
           return (

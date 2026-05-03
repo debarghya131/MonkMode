@@ -150,16 +150,6 @@ export default function LandingPage() {
       {/* Crafted with focus — bottom-right */}
       <Motion.div
         className="pointer-events-none fixed bottom-3 right-3 z-20 overflow-hidden rounded-2xl border border-amber-200/10 bg-stone-950/35 px-3 py-2 text-right shadow-[0_14px_34px_rgba(0,0,0,0.28)] backdrop-blur sm:bottom-4 sm:right-4 sm:px-4 sm:py-3 md:bottom-6 md:right-6 md:px-5"
-        animate={{
-          boxShadow: [
-            "0 14px 34px rgba(0,0,0,0.28)",
-            "0 0 24px rgba(251,191,36,0.24), 0 14px 34px rgba(0,0,0,0.28)",
-            "0 14px 34px rgba(0,0,0,0.28)",
-          ],
-        }}
-        transition={{
-          boxShadow: { duration: 2.4, repeat: Infinity, ease: "easeInOut" },
-        }}
       >
         <Motion.span
           className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/20 blur-sm"

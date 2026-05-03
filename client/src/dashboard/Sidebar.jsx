@@ -67,7 +67,7 @@ function SidebarSection({ title, items, activePath, onNavigate }) {
             <Motion.div
               key={item.name}
               className="w-full"
-              whileHover={active ? undefined : { x: 3 }}
+              whileHover={active ? undefined : { x: 0 }}
               whileTap={{ scale: 0.985 }}
             >
               <Link

@@ -4,37 +4,16 @@ import { Link } from "react-router-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import DashboardLayout from "../DashboardLayout";
-import { INITIAL_HABITS as TODAY_HABITS } from "../habits/TodaysHabit";
-import { INITIAL_TASKS as TODAY_TASKS } from "../todo/Today";
+import { GYM_GALLERY_DEMO_DATES, DEMO_OVERVIEW_STATS } from "../../../data/DummyData";
+import { INITIAL_HABITS as TODAY_HABITS } from "../../../data/HabitDummyData";
+import { INITIAL_TASKS as TODAY_TASKS } from "../../../data/ToDoDummyData";
 import OverviewHeatmap from "./OverviewHeatmap";
 
 const JOURNAL_LOGGED_DAYS_KEY = "monkmode_journal_logged_days";
 const JOURNAL_WEEKLY_STATS_KEY = "monkmode_journal_weekly_stats";
 const GYM_MEASUREMENTS_KEY = "monkmode_gym_measurements";
 const GYM_GALLERY_KEY = "monkmode_gallery";
-const GYM_GALLERY_DEMO_DATES = ["2026-01-01", "2026-02-01", "2026-02-15", "2026-03-01", "2026-03-15", "2026-04-01"];
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-const DEMO_OVERVIEW_STATS = {
-  journal: {
-    todayLogged: true,
-    daysThisWeek: 5,
-    winsThisWeek: 8,
-    achievementsThisWeek: 6,
-  },
-  goals: {
-    completed: 2,
-    total: 5,
-    subgoalsCompleted: 11,
-    subgoalsTotal: 18,
-  },
-  gym: {
-    completedProgress: 4,
-    totalProgress: 6,
-    pendingUpdates: 2,
-    lastMeasurementCheckInDate: "2026-04-15",
-    lastPicUploadedDate: "2026-04-01",
-  },
-};
 
 const toLocalISODate = (date) => {
   const year = date.getFullYear();

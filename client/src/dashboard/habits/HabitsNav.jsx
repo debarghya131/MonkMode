@@ -14,7 +14,7 @@ export default function HabitsNav({ activeTab, onTabChange }) {
   return (
     <>
       {/* Mobile: hamburger dropdown */}
-      <div className="relative sm:hidden">
+      <div className="relative sm:hidden" data-demo-allow="true">
         <button
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
@@ -54,7 +54,7 @@ export default function HabitsNav({ activeTab, onTabChange }) {
       </div>
 
       {/* Desktop: horizontal scrollable nav */}
-      <nav className="hidden sm:flex items-center gap-1 w-full overflow-x-auto rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur scrollbar-none">
+      <nav data-demo-allow="true" className="hidden sm:flex items-center gap-1 w-full overflow-x-auto rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur scrollbar-none">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           return (

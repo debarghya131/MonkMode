@@ -1,6 +1,7 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { WORKOUT_SPLITS } from "./workoutLibraryData";
+import { DEMO_FULL_DIET, DEMO_SUPPLEMENTS, DEMO_PREWORKOUT, DEMO_MACROS } from "../../../data/GymDummyData";
 
 const getSplitLabel = (val) => WORKOUT_SPLITS.find((s) => s.value === val)?.label || val || "";
 
@@ -32,47 +33,6 @@ const GOAL_LABELS = {
   "fat-loss":    "Fat Loss",
   "strength":    "Strength",
   "endurance":   "Endurance",
-};
-
-/* ── Demo Diet Data ── */
-const DEMO_FULL_DIET = {
-  Mon: { morning: ["Warm lemon water", "Soaked almonds (10)"], breakfast: ["Oats with banana & honey", "2 boiled eggs"], lunch: ["Brown rice (1 cup)", "Grilled chicken (150g)", "Cucumber salad"], evening: ["Whey protein shake", "Apple"], dinner: ["Grilled salmon (120g)", "Steamed broccoli"] },
-  Tue: { morning: ["Green tea"], breakfast: ["Multigrain toast (2)", "Peanut butter (1 tbsp)"], lunch: ["Quinoa bowl", "Grilled paneer (100g)"], evening: ["Greek yogurt with nuts"], dinner: ["Dal (1 bowl)", "Chapati (2)"] },
-  Wed: { morning: ["Apple cider vinegar water"], breakfast: ["Protein pancakes (3)", "Mixed berries"], lunch: ["Chicken wrap", "Side salad"], evening: ["Casein protein shake"], dinner: ["Egg white omelette", "Sauteed spinach"] },
-  Thu: { morning: ["Warm water + lemon"], breakfast: ["Scrambled eggs (3)", "Whole wheat toast"], lunch: ["Grilled chicken rice bowl"], evening: ["Protein shake"], dinner: ["Stir fry veggies + tofu"] },
-  Fri: { morning: ["Coconut water"], breakfast: ["Avocado toast", "2 eggs"], lunch: ["Tuna salad wrap"], evening: ["Trail mix"], dinner: ["Grilled fish + sweet potato"] },
-  Sat: { morning: ["Black coffee"], breakfast: ["Pancakes + honey"], lunch: ["Pasta + chicken"], evening: ["Banana + peanut butter"], dinner: ["Rice + dal + sabzi"] },
-  Sun: { morning: ["Herbal tea"], breakfast: ["Poha + curd"], lunch: ["Rajma chawal"], evening: ["Sprouts chaat"], dinner: ["Soup + bread"] },
-};
-
-const DEMO_SUPPLEMENTS = {
-  Mon: ["Creatine (5g) — 8:00 AM", "Vitamin D3 (2000 IU) — 8:30 AM", "Omega-3 (1000mg) — 1:00 PM", "Magnesium (400mg) — 9:00 PM"],
-  Tue: ["Creatine (5g) — 8:00 AM", "Vitamin D3 (2000 IU) — 8:30 AM", "Zinc (25mg) — 9:00 PM"],
-  Wed: ["Creatine (5g) — 8:00 AM", "Omega-3 (1000mg) — 1:00 PM"],
-  Thu: ["Creatine (5g) — 8:00 AM", "Vitamin D3 (2000 IU) — 8:30 AM", "Magnesium (400mg) — 9:00 PM"],
-  Fri: ["Pre-workout (1 scoop) — 4:30 PM", "Whey protein (30g) — 6:30 PM"],
-  Sat: ["Creatine (5g) — 8:00 AM", "Omega-3 (1000mg) — 1:00 PM"],
-  Sun: ["Vitamin D3 (2000 IU) — 8:30 AM", "Magnesium (400mg) — 9:00 PM"],
-};
-
-const DEMO_PREWORKOUT = {
-  Mon: { pre: ["Banana + black coffee — 4:30 PM", "BCAA drink — 4:45 PM"], post: ["Whey protein shake — 6:30 PM", "Rice cakes (3) — 6:35 PM"] },
-  Tue: { pre: ["Oats + honey — 6:45 AM", "Espresso — 7:00 AM"], post: ["Protein shake + milk — 9:00 AM"] },
-  Wed: { pre: ["Toast + jam — 9:00 AM"], post: ["Chocolate milk (300ml) — 11:00 AM", "Handful of almonds — 11:10 AM"] },
-  Thu: { pre: ["Banana — 5:00 PM", "Black coffee — 5:10 PM"], post: ["Whey isolate — 7:00 PM"] },
-  Fri: { pre: ["Pre-workout — 4:30 PM"], post: ["Protein shake — 6:30 PM", "Banana — 6:35 PM"] },
-  Sat: { pre: ["Coffee + banana — 8:00 AM"], post: ["Protein shake — 10:30 AM"] },
-  Sun: { pre: ["Light snack — 9:00 AM"], post: ["Protein smoothie — 11:00 AM"] },
-};
-
-const DEMO_MACROS = {
-  Mon: { protein: "180g", carbs: "280g", fats: "65g", fiber: "35g", calories: "2450 kcal", water: "3.5L", sugar: "40g", sodium: "1800mg" },
-  Tue: { protein: "175g", carbs: "260g", fats: "60g", fiber: "32g", calories: "2300 kcal", water: "3L", sugar: "35g", sodium: "1700mg" },
-  Wed: { protein: "160g", carbs: "200g", fats: "55g", fiber: "30g", calories: "1950 kcal", water: "3L", sugar: "30g", sodium: "1500mg" },
-  Thu: { protein: "185g", carbs: "290g", fats: "68g", fiber: "36g", calories: "2500 kcal", water: "3.5L", sugar: "42g", sodium: "1850mg" },
-  Fri: { protein: "170g", carbs: "240g", fats: "58g", fiber: "28g", calories: "2200 kcal", water: "3L", sugar: "33g", sodium: "1600mg" },
-  Sat: { protein: "165g", carbs: "270g", fats: "62g", fiber: "30g", calories: "2350 kcal", water: "3L", sugar: "38g", sodium: "1750mg" },
-  Sun: { protein: "150g", carbs: "230g", fats: "55g", fiber: "28g", calories: "2100 kcal", water: "2.5L", sugar: "30g", sodium: "1550mg" },
 };
 
 /* ── Diet Modal ── */

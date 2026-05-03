@@ -1,6 +1,6 @@
 import { motion as Motion } from "framer-motion";
 import { useState } from "react";
-import { GOALS } from "./goalDemoData";
+import { GOALS } from "../../../data/GoalDummyData";
 
 const PRIORITY_BADGE = {
   High: "border-red-400/30 bg-red-500/10 text-red-200",

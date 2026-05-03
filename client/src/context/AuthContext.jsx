@@ -5,6 +5,14 @@ const AuthContext = createContext(null);
 
 const TOKEN_KEY = "monkmode_token";
 const USER_KEY = "monkmode_user";
+const DEMO_MODE_KEY = "monkmode_demo_mode";
+
+const DEMO_USER = {
+  id: "demo-user",
+  name: "Demo Monk",
+  email: "demo@monkmode.com",
+  isDemo: true
+};
 
 const getStoredAuth = () => {
   const storedToken = localStorage.getItem(TOKEN_KEY);
@@ -37,6 +45,7 @@ export function AuthProvider({ children }) {
     setUser(nextUser);
     localStorage.setItem(TOKEN_KEY, nextToken);
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+    localStorage.removeItem(DEMO_MODE_KEY);
   };
 
   const clearAuth = () => {
@@ -44,6 +53,17 @@ export function AuthProvider({ children }) {
     setUser(null);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(DEMO_MODE_KEY);
+  };
+
+  const startDemoMode = () => {
+    const demoToken = `demo-mode-${Date.now()}`;
+    setToken(demoToken);
+    setUser(DEMO_USER);
+    localStorage.setItem(TOKEN_KEY, demoToken);
+    localStorage.setItem(USER_KEY, JSON.stringify(DEMO_USER));
+    localStorage.setItem(DEMO_MODE_KEY, "true");
+    return DEMO_USER;
   };
 
   const register = async (payload) => {
@@ -65,9 +85,11 @@ export function AuthProvider({ children }) {
   const value = {
     isAuthenticated: Boolean(token),
     isBootstrapping,
+    isDemoMode: localStorage.getItem(DEMO_MODE_KEY) === "true" || Boolean(user?.isDemo),
     login,
     logout,
     register,
+    startDemoMode,
     token,
     user
   };

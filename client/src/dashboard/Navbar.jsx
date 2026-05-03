@@ -1,8 +1,8 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import monkLogo from "../assets/monkmode-logo.png";
-import { INITIAL_HABITS } from "./habits/TodaysHabit";
-import { INITIAL_TASKS } from "./todo/Today";
+import { INITIAL_HABITS } from "../../data/HabitDummyData";
+import { INITIAL_TASKS } from "../../data/ToDoDummyData";
 import NavbarBirdBackground from "./NavbarBirdBackground";
 
 const formatDate = (date) => {
@@ -221,8 +221,7 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
         <div
           className="absolute inset-y-0 left-[-12%] w-[42%]"
           style={{
-            background: "linear-gradient(90deg, transparent 0%, rgba(125,211,252,0.2) 40%, rgba(251,191,36,0.22) 65%, transparent 100%)",
-            filter: "blur(10px)",
+            background: "linear-gradient(90deg, transparent 0%, rgba(125,211,252,0.18) 40%, rgba(251,191,36,0.2) 65%, transparent 100%)",
             animation: "navbarLightSweep 5s linear infinite",
           }}
         />

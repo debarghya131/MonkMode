@@ -22,7 +22,7 @@ export default function WeeklyReport() {
   return (
     <div className="w-full space-y-4 lg:-mt-6 xl:-mt-8">
       {/* Mobile: hamburger dropdown */}
-      <div className="relative sm:hidden">
+      <div className="relative sm:hidden" data-demo-allow="true">
         <button
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
@@ -61,7 +61,7 @@ export default function WeeklyReport() {
       </div>
 
       {/* Desktop: horizontal scrollable nav */}
-      <nav className="hidden sm:flex items-center gap-1 w-full overflow-x-auto rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur scrollbar-none">
+      <nav data-demo-allow="true" className="hidden sm:flex items-center gap-1 w-full overflow-x-auto rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur scrollbar-none">
         {REPORT_TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           return (

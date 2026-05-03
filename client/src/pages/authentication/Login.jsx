@@ -1,19 +1,41 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import monkIllustration from "../../assets/monk.png";
 import AuthBackground from "./AuthBackground";
 import AuthFloatingMonk from "./AuthFloatingMonk";
 import useAuth from "../../hooks/useAuth";
 
+const ENTRY_DURATION = 2100;
+
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [form, setForm] = useState({
-    email: "",
-    password: ""
-  });
+  const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEntering, setIsEntering] = useState(false);
+  const [entryProgress, setEntryProgress] = useState(0);
+
+  useEffect(() => {
+    if (!isEntering) return undefined;
+    const startTime = performance.now();
+    let frameId = 0;
+
+    const updateProgress = (now) => {
+      const next = Math.min((now - startTime) / ENTRY_DURATION, 1);
+      setEntryProgress(next);
+      if (next < 1) frameId = window.requestAnimationFrame(updateProgress);
+    };
+
+    frameId = window.requestAnimationFrame(updateProgress);
+    const timerId = window.setTimeout(() => navigate("/dashboard", { replace: true }), ENTRY_DURATION);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timerId);
+    };
+  }, [isEntering, navigate]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -32,17 +54,15 @@ export default function Login() {
     setIsSubmitting(true);
 
     try {
-      await login({
-        email: form.email.trim(),
-        password: form.password
-      });
-      navigate("/dashboard");
+      await login({ email: form.email.trim(), password: form.password });
+      setIsEntering(true);
     } catch (requestError) {
       setError(requestError.response?.data?.message ?? "Unable to login right now.");
-    } finally {
       setIsSubmitting(false);
     }
   };
+
+  const progressPercent = Math.round(Math.max(0, Math.min(entryProgress, 1)) * 100);
 
   return (
     <div className="auth-page relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-6 text-white sm:px-6 sm:py-8">
@@ -54,7 +74,7 @@ export default function Login() {
         <Motion.div
           className="-mt-8 w-full overflow-hidden rounded-[2rem] border border-amber-100/10 bg-white/6 shadow-2xl shadow-black/25 backdrop-blur sm:-mt-10"
           initial={{ opacity: 0, y: 28 }}
-          animate={{ opacity: 1, y: 0 }}
+          animate={isEntering ? { opacity: 0.18, y: -12, scale: 0.97, filter: "blur(8px)" } : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
           <div className="p-5 sm:p-8 md:p-10">
@@ -183,6 +203,84 @@ export default function Login() {
           </div>
         </Motion.div>
       </div>
+
+      <AnimatePresence>
+        {isEntering && (
+          <Motion.div
+            key="login-entry"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="absolute inset-0 z-40 flex items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,rgba(255,214,107,0.16),transparent_24%),linear-gradient(180deg,rgba(5,7,14,0.76)_0%,rgba(5,5,10,0.92)_38%,rgba(2,2,6,0.98)_100%)] backdrop-blur-md"
+          >
+            <Motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.42, ease: "easeOut" }}
+              className="relative flex w-full max-w-xl flex-col items-center px-6 text-center"
+            >
+              <div className="relative flex items-center justify-center">
+                <Motion.div
+                  className="absolute h-60 w-60 rounded-full bg-[radial-gradient(circle,rgba(255,215,120,0.55),rgba(255,176,66,0.18),transparent_68%)] blur-3xl"
+                  animate={{ scale: [0.92, 1.1, 0.96], opacity: [0.62, 0.95, 0.7] }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+                />
+                <Motion.div
+                  className="absolute h-80 w-80 rounded-full border border-amber-200/12"
+                  animate={{ scale: [0.88, 1.08], opacity: [0.38, 0] }}
+                  transition={{ duration: 1.9, repeat: Infinity, ease: "easeOut" }}
+                />
+                <Motion.div
+                  className="absolute h-[26rem] w-[26rem] rounded-full border border-amber-100/8"
+                  animate={{ scale: [0.94, 1.16], opacity: [0.22, 0] }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: "easeOut", delay: 0.3 }}
+                />
+                <Motion.div
+                  className="relative z-10"
+                  animate={{ y: [0, -10, 0], scale: [1, 1.035, 1] }}
+                  transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  <img
+                    src={monkIllustration}
+                    alt="Entering Monk Mode"
+                    className="w-[180px] drop-shadow-[0_26px_60px_rgba(0,0,0,0.5)] sm:w-[220px]"
+                  />
+                </Motion.div>
+              </div>
+
+              <Motion.div
+                className="relative z-10 mt-7"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.32 }}
+              >
+                <p className="text-[0.72rem] uppercase tracking-[0.42em] text-amber-200/70">Monk Mode</p>
+                <h2 className="mt-4 font-heading text-3xl font-bold text-amber-50 sm:text-[2.5rem]">
+                  Entering Focus State...
+                </h2>
+                <p className="mt-3 max-w-md text-sm leading-7 text-stone-300 sm:text-base">
+                  Quieting distractions, lighting the path, and opening your dashboard.
+                </p>
+              </Motion.div>
+
+              <div className="relative z-10 mt-8 w-full max-w-sm">
+                <div className="h-2 overflow-hidden rounded-full bg-white/8">
+                  <Motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-amber-200 via-yellow-300 to-orange-400"
+                    animate={{ width: `${progressPercent}%` }}
+                    transition={{ duration: 0.12, ease: "linear" }}
+                  />
+                </div>
+                <div className="mt-3 flex items-center justify-between text-[0.7rem] uppercase tracking-[0.2em] text-stone-400">
+                  <span>Settling In</span>
+                  <span>{progressPercent}%</span>
+                </div>
+              </div>
+            </Motion.div>
+          </Motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

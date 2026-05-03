@@ -27,10 +27,10 @@ export default function LandingNavbar() {
       },
     },
     {
-      label: "Demo Login",
+      label: "Try Demo",
       onClick: () => {
         setMobileOpen(false);
-        navigate("/login");
+        navigate("/demo-login");
       },
     },
     {

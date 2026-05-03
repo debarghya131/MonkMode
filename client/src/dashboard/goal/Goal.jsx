@@ -1,7 +1,7 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
-import { GOALS } from "./goalDemoData";
+import { GOALS } from "../../../data/GoalDummyData";
 import CreateGoal from "./CreateGoal";
 import GoalNav from "./GoalNav";
 import Mygoals from "./Mygoals";
