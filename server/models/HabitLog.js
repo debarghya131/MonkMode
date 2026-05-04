@@ -19,13 +19,12 @@ const habitLogSchema = new mongoose.Schema({
   }
 });
 
-habitLogSchema.pre("validate", function normalizeDayKey(next) {
+habitLogSchema.pre("validate", function normalizeDayKey() {
   if (!this.dayKey && this.date) {
     const day = new Date(this.date);
     day.setUTCHours(0, 0, 0, 0);
     this.dayKey = day.toISOString().slice(0, 10);
   }
-  next();
 });
 
 habitLogSchema.index(

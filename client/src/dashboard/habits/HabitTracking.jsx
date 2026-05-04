@@ -7,7 +7,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 const CURRENT_YEAR = new Date().getFullYear();
 const CURRENT_MONTH = new Date().getMonth();
-const YEAR_OPTIONS = Array.from({ length: 7 }, (_, i) => CURRENT_YEAR - 6 + i);
+const DEMO_YEAR_OPTIONS = Array.from({ length: 7 }, (_, i) => CURRENT_YEAR - 6 + i);
 const TARGET_STREAKS = {
   h1: 21,
   h2: 14,
@@ -98,6 +98,7 @@ export default function HabitTracking() {
   const [habits, setHabits] = useState(() => isDemoMode ? INITIAL_HABITS : []);
   const [loading, setLoading] = useState(!isDemoMode);
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
+  const [yearOptions, setYearOptions] = useState(() => (isDemoMode ? DEMO_YEAR_OPTIONS : [CURRENT_YEAR]));
   const [selectedMonth, setSelectedMonth] = useState(CURRENT_MONTH);
   const [habitView, setHabitView] = useState("active");
   const [importantOnly, setImportantOnly] = useState(false);
@@ -113,6 +114,46 @@ export default function HabitTracking() {
       window.removeEventListener("focus", refreshToday);
     };
   }, []);
+
+  useEffect(() => {
+    if (isDemoMode) {
+      setYearOptions(DEMO_YEAR_OPTIONS);
+      return;
+    }
+
+    let cancelled = false;
+    const fetchYearOptions = async () => {
+      try {
+        const { data } = await api.get("/habits/heatmap");
+        if (cancelled) return;
+        const years = Array.isArray(data?.years)
+          ? data.years
+              .map((year) => Number.parseInt(String(year), 10))
+              .filter((year) => Number.isFinite(year))
+          : [];
+        const nextOptions = [...new Set([CURRENT_YEAR, ...years])].sort((a, b) => b - a);
+        setYearOptions(nextOptions.length ? nextOptions : [CURRENT_YEAR]);
+      } catch {
+        if (!cancelled) setYearOptions([CURRENT_YEAR]);
+      }
+    };
+
+    fetchYearOptions();
+    window.addEventListener("focus", fetchYearOptions);
+    window.addEventListener("monkmode:habits-updated", fetchYearOptions);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", fetchYearOptions);
+      window.removeEventListener("monkmode:habits-updated", fetchYearOptions);
+    };
+  }, [isDemoMode]);
+
+  useEffect(() => {
+    if (!yearOptions.includes(selectedYear)) {
+      setSelectedYear(yearOptions[0] ?? CURRENT_YEAR);
+    }
+  }, [selectedYear, yearOptions]);
 
   /* fetch tracking data for real users */
   useEffect(() => {
@@ -268,7 +309,7 @@ export default function HabitTracking() {
                   onChange={(event) => setSelectedYear(Number(event.target.value))}
                   className="rounded-md border border-amber-200/20 bg-black/40 px-2 py-1 text-[11px] font-semibold text-stone-100 outline-none transition focus:border-amber-300/50"
                 >
-                  {YEAR_OPTIONS.map((year) => (
+                  {yearOptions.map((year) => (
                     <option key={year} value={year} className="bg-stone-900 text-stone-100">
                       {year}
                     </option>

@@ -9,52 +9,9 @@ import { INITIAL_HABITS as TODAY_HABITS } from "../../../data/HabitDummyData";
 import { INITIAL_TASKS as TODAY_TASKS } from "../../../data/ToDoDummyData";
 import OverviewHeatmap from "./OverviewHeatmap";
 
-const JOURNAL_LOGGED_DAYS_KEY = "monkmode_journal_logged_days";
-const JOURNAL_WEEKLY_STATS_KEY = "monkmode_journal_weekly_stats";
 const GYM_MEASUREMENTS_KEY = "monkmode_gym_measurements";
 const GYM_GALLERY_KEY = "monkmode_gallery";
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-
-const toLocalISODate = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const startOfWeek = (date) => {
-  const weekStart = new Date(date);
-  weekStart.setHours(0, 0, 0, 0);
-  const day = weekStart.getDay();
-  weekStart.setDate(weekStart.getDate() - ((day + 6) % 7));
-  return weekStart;
-};
-
-const readLocalJournalDates = () => {
-  try {
-    const stored = JSON.parse(localStorage.getItem(JOURNAL_LOGGED_DAYS_KEY));
-    if (!Array.isArray(stored)) return [];
-    return stored.filter((date) => ISO_DATE_REGEX.test(String(date)));
-  } catch {
-    return [];
-  }
-};
-
-const readLocalJournalStats = () => {
-  try {
-    const stored = JSON.parse(localStorage.getItem(JOURNAL_WEEKLY_STATS_KEY));
-    if (!Array.isArray(stored)) return [];
-    return stored
-      .filter((item) => ISO_DATE_REGEX.test(String(item?.date || "")))
-      .map((item) => ({
-        date: String(item.date),
-        achievementCount: Math.max(0, Number(item.achievementCount) || 0),
-        winCount: Math.max(0, Number(item.winCount) || 0),
-      }));
-  } catch {
-    return [];
-  }
-};
 
 const formatCheckInDate = (date) => {
   if (!ISO_DATE_REGEX.test(String(date || ""))) return "No check-in";
@@ -190,8 +147,12 @@ const containerVariants = {
 
 export default function Overview() {
   const { isDemoMode } = useAuth();
-  const [journalDates, setJournalDates] = useState(() => readLocalJournalDates());
-  const [journalStats, setJournalStats] = useState(() => readLocalJournalStats());
+  const [journalSummary, setJournalSummary] = useState(() => ({
+    todayLogged: false,
+    daysThisWeek: 0,
+    achievementsThisWeek: 0,
+    winsThisWeek: 0,
+  }));
   const [lastMeasurementCheckInDate, setLastMeasurementCheckInDate] = useState(() => readLastMeasurementCheckInDate());
   const [lastPicUploadedDate, setLastPicUploadedDate] = useState(() => readLastPicUploadedDate());
   const [habitSummary, setHabitSummary] = useState(() =>
@@ -205,41 +166,44 @@ export default function Overview() {
   );
 
   useEffect(() => {
+    if (isDemoMode) {
+      setJournalSummary(DEMO_OVERVIEW_STATS.journal);
+      return;
+    }
+
     let isMounted = true;
-
-    const refreshJournalDates = async () => {
-      const localDates = readLocalJournalDates();
-      const localStats = readLocalJournalStats();
-
+    const refreshJournalSummary = async () => {
       try {
-        const { data } = await api.get("/journal/heatmap");
+        const { data } = await api.get("/journal/summary");
         if (!isMounted) return;
 
-        const apiDates = Array.isArray(data?.values)
-          ? data.values
-              .map((item) => String(item?.date || ""))
-              .filter((date) => ISO_DATE_REGEX.test(date))
-          : [];
-
-        setJournalDates([...new Set([...localDates, ...apiDates])]);
-        setJournalStats(localStats);
+        setJournalSummary({
+          todayLogged: Boolean(data?.todayLogged),
+          daysThisWeek: Math.max(0, Number(data?.daysThisWeek || 0)),
+          achievementsThisWeek: Math.max(0, Number(data?.achievementsThisWeek || 0)),
+          winsThisWeek: Math.max(0, Number(data?.winsThisWeek || 0)),
+        });
       } catch {
         if (!isMounted) return;
-        setJournalDates(localDates);
-        setJournalStats(localStats);
+        setJournalSummary({
+          todayLogged: false,
+          daysThisWeek: 0,
+          achievementsThisWeek: 0,
+          winsThisWeek: 0,
+        });
       }
     };
 
-    refreshJournalDates();
-    window.addEventListener("storage", refreshJournalDates);
-    window.addEventListener("monkmode:journal-logged-days-updated", refreshJournalDates);
+    refreshJournalSummary();
+    window.addEventListener("focus", refreshJournalSummary);
+    window.addEventListener("monkmode:journal-logged-days-updated", refreshJournalSummary);
 
     return () => {
       isMounted = false;
-      window.removeEventListener("storage", refreshJournalDates);
-      window.removeEventListener("monkmode:journal-logged-days-updated", refreshJournalDates);
+      window.removeEventListener("focus", refreshJournalSummary);
+      window.removeEventListener("monkmode:journal-logged-days-updated", refreshJournalSummary);
     };
-  }, []);
+  }, [isDemoMode]);
 
   useEffect(() => {
     const refreshGymStats = () => {
@@ -258,46 +222,7 @@ export default function Overview() {
     };
   }, []);
 
-  const journalSummary = useMemo(() => {
-    const today = new Date();
-    const todayKey = toLocalISODate(today);
-    const weekStart = startOfWeek(today);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
-
-    const daysThisWeek = journalDates.filter((date) => {
-      const loggedDate = new Date(`${date}T00:00:00`);
-      return loggedDate >= weekStart && loggedDate <= weekEnd;
-    }).length;
-
-    const achievementsThisWeek = journalStats.reduce((total, item) => {
-      const loggedDate = new Date(`${item.date}T00:00:00`);
-      if (loggedDate < weekStart || loggedDate > weekEnd) return total;
-      return total + item.achievementCount;
-    }, 0);
-
-    const winsThisWeek = journalStats.reduce((total, item) => {
-      const loggedDate = new Date(`${item.date}T00:00:00`);
-      if (loggedDate < weekStart || loggedDate > weekEnd) return total;
-      return total + item.winCount;
-    }, 0);
-
-    return {
-      todayLogged: journalDates.includes(todayKey),
-      daysThisWeek,
-      achievementsThisWeek,
-      winsThisWeek,
-    };
-  }, [journalDates, journalStats]);
-
-  const displayJournalSummary = useMemo(() => {
-    const hasJournalActivity =
-      journalDates.length > 0 ||
-      journalStats.some((item) => item.achievementCount > 0 || item.winCount > 0);
-
-    return hasJournalActivity ? journalSummary : DEMO_OVERVIEW_STATS.journal;
-  }, [journalDates, journalStats, journalSummary]);
+  const displayJournalSummary = isDemoMode ? DEMO_OVERVIEW_STATS.journal : journalSummary;
 
   const taskSummary = useMemo(
     () => TODAY_TASKS.reduce(

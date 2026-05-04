@@ -1,5 +1,8 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import api from "../../api/axios";
+import useAuth from "../../hooks/useAuth";
 import JournalRightSidebar from "./JournalRightSidebar";
 
 const MOODS = [
@@ -65,6 +68,86 @@ const INITIAL_FORM = {
 const JOURNAL_LOGGED_DAYS_KEY = "monkmode_journal_logged_days";
 const JOURNAL_WEEKLY_STATS_KEY = "monkmode_journal_weekly_stats";
 
+const toLocalISODate = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const normalizeMoodLabel = (value) => {
+  if (!value || typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const fromOptions = MOODS.find((item) => item.label.toLowerCase() === trimmed.toLowerCase());
+  if (fromOptions) return fromOptions.label;
+  if (trimmed.toLowerCase() === "happy") return "Happy";
+  if (trimmed.toLowerCase() === "sad") return "Sad";
+  if (trimmed.toLowerCase() === "neutral") return "Neutral";
+  return trimmed;
+};
+
+const normalizeList = (value, fallbackCount = 1) => {
+  const list = Array.isArray(value) ? value : [];
+  const cleaned = list
+    .map((item) => (typeof item === "string" ? item : ""))
+    .filter((item) => item.length > 0);
+  if (cleaned.length) return cleaned;
+  return Array.from({ length: fallbackCount }, () => "");
+};
+
+const buildFormFromEntry = (entry) => ({
+  mood: normalizeMoodLabel(entry?.mood) || null,
+  wakeUpTime: entry?.wakeUpTime || "",
+  energyLevel: Number(entry?.energyLevel || 50),
+  energyTouched: entry?.energyLevel !== undefined && entry?.energyLevel !== null,
+  summary: entry?.summary || entry?.content || "",
+  wins: normalizeList(entry?.wins, 3),
+  mistakes: normalizeList(entry?.mistakes, 3),
+  insight: entry?.insight || "",
+  gratitude: normalizeList(entry?.gratitude, 2),
+  achievement: normalizeList(entry?.achievement, 2),
+  affirmation: entry?.affirmation || "",
+  tomorrowPlan: entry?.tomorrowPlan || "",
+  distractions: normalizeList(entry?.distractions, 1),
+  sleepTime: entry?.sleepTime || "",
+  overallRating: Number(entry?.overallRating || 50),
+  ratingTouched: entry?.overallRating !== undefined && entry?.overallRating !== null,
+});
+
+const buildPayloadFromForm = (form, customFields, date) => ({
+  date,
+  mood: form.mood,
+  wakeUpTime: form.wakeUpTime,
+  sleepTime: form.sleepTime,
+  energyLevel: form.energyLevel,
+  overallRating: form.overallRating,
+  summary: form.summary,
+  insight: form.insight,
+  affirmation: form.affirmation,
+  tomorrowPlan: form.tomorrowPlan,
+  wins: form.wins.filter((item) => item.trim()),
+  mistakes: form.mistakes.filter((item) => item.trim()),
+  gratitude: form.gratitude.filter((item) => item.trim()),
+  achievement: form.achievement.filter((item) => item.trim()),
+  distractions: form.distractions.filter((item) => item.trim()),
+  customFields: customFields
+    .map((item) => ({
+      title: (item.title || "").trim(),
+      description: (item.description || "").trim(),
+      answer: (item.answer || "").trim(),
+    }))
+    .filter((item) => item.title && item.answer),
+});
+
+const buildTemplatePayloadFromFields = (customFields) =>
+  customFields
+    .map((item) => ({
+      title: (item.title || "").trim(),
+      description: (item.description || "").trim()
+    }))
+    .filter((item) => item.title);
+
 const saveJournalProgress = (date, achievementCount, winCount) => {
   try {
     const stored = JSON.parse(localStorage.getItem(JOURNAL_LOGGED_DAYS_KEY));
@@ -124,12 +207,22 @@ function JournalViewModal({ form, customFields, date, onClose }) {
     : form.overallRating >= 40 ? "Average day 🤝"
     : "Rough day, but you showed up 💪";
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-2 sm:p-4" onClick={onClose}>
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto p-2 sm:p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
       <div
-        className="relative z-10 my-4 w-full max-w-2xl overflow-hidden rounded-2xl border border-amber-100/15 bg-[linear-gradient(160deg,#1e1208,#120d0c)] shadow-2xl shadow-black/60 sm:my-8"
+        className="relative z-10 flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-amber-100/15 bg-[linear-gradient(160deg,#1e1208,#120d0c)] shadow-2xl shadow-black/60"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Sticky header */}
@@ -150,7 +243,7 @@ function JournalViewModal({ form, customFields, date, onClose }) {
         </div>
 
         {/* Scrollable body */}
-        <div className="journal-scroll max-h-[calc(100vh-7.5rem)] space-y-6 overflow-y-auto p-4 sm:max-h-[78vh] sm:p-6">
+        <div className="journal-scroll min-h-0 flex-1 space-y-6 overflow-y-auto p-4 sm:p-6">
 
           {/* Mood + Wake-up + Energy row */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -301,21 +394,98 @@ function JournalViewModal({ form, customFields, date, onClose }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
 export default function Journal() {
+  const { isDemoMode } = useAuth();
   const [step, setStep]               = useState(1);
   const [form, setForm]               = useState(INITIAL_FORM);
   const [customFields, setCustomFields] = useState([]);
   const [submitted, setSubmitted]       = useState(false);
   const [submittedDate, setSubmittedDate] = useState(null);
   const [showJournalView, setShowJournalView] = useState(false);
+  const [loading, setLoading]           = useState(!isDemoMode);
+  const [saving, setSaving]             = useState(false);
+  const [submitError, setSubmitError]   = useState("");
+  const [journalConsistency, setJournalConsistency] = useState({
+    lifetimeConsistency: 0,
+    lifetimeLoggedDays: 0,
+    lifetimeExpectedDays: 0
+  });
+  const [refreshSidebarKey, setRefreshSidebarKey] = useState(0);
 
-  const streak = 7;
+  const todayStr = () => toLocalISODate(new Date());
 
-  const todayStr = () => new Date().toISOString().slice(0, 10);
+  const syncCustomFieldTemplates = async (fields) => {
+    if (isDemoMode) return;
+    try {
+      await api.put("/journal/custom-fields", {
+        templates: buildTemplatePayloadFromFields(fields)
+      });
+    } catch {
+      // Keep journaling flow smooth even if template sync fails.
+    }
+  };
+
+  useEffect(() => {
+    if (isDemoMode) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const loadJournalState = async () => {
+      setLoading(true);
+      try {
+        const today = todayStr();
+        const [todayRes, summaryRes, templatesRes] = await Promise.all([
+          api.get(`/journal?from=${today}&to=${today}`),
+          api.get("/journal/summary"),
+          api.get("/journal/custom-fields")
+        ]);
+        if (cancelled) return;
+
+        const todayEntries = Array.isArray(todayRes?.data)
+          ? todayRes.data
+          : Array.isArray(todayRes?.data?.entries)
+          ? todayRes.data.entries
+          : [];
+
+        const existingToday = todayEntries[0];
+        if (existingToday) {
+          setForm(buildFormFromEntry(existingToday));
+          setCustomFields(Array.isArray(existingToday.customFields) ? existingToday.customFields : []);
+          setSubmitted(true);
+          setSubmittedDate(today);
+        } else {
+          const templates = Array.isArray(templatesRes?.data?.templates)
+            ? templatesRes.data.templates
+            : [];
+          setCustomFields(templates.map((item) => ({
+            title: item.title || "",
+            description: item.description || "",
+            answer: ""
+          })));
+        }
+
+        setJournalConsistency({
+          lifetimeConsistency: Number(summaryRes?.data?.lifetimeConsistency || 0),
+          lifetimeLoggedDays: Number(summaryRes?.data?.lifetimeLoggedDays || 0),
+          lifetimeExpectedDays: Number(summaryRes?.data?.lifetimeExpectedDays || 0)
+        });
+      } catch {
+        // Keep local defaults on transient failure.
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadJournalState();
+    return () => { cancelled = true; };
+  }, [isDemoMode]);
 
   /* ── derived ── */
   const totalSteps  = MANDATORY_STEP_COUNT + customFields.length;
@@ -357,14 +527,18 @@ export default function Journal() {
 
   /* ── add / delete custom field ── */
   const addCustomField = () => {
-    setCustomFields((prev) => [...prev, { title: "", description: "", answer: "" }]);
+    const nextFields = [...customFields, { title: "", description: "", answer: "" }];
+    setCustomFields(nextFields);
     setStep(MANDATORY_STEP_COUNT + 1 + customFields.length); // jump to the new step
+    syncCustomFieldTemplates(nextFields);
   };
 
   const deleteCustomField = (idx) => {
-    setCustomFields((prev) => prev.filter((_, i) => i !== idx));
+    const nextFields = customFields.filter((_, i) => i !== idx);
+    setCustomFields(nextFields);
     // if we were on or after the deleted step, move back one
     if (step >= MANDATORY_STEP_COUNT + 1 + idx) setStep((s) => Math.max(1, s - 1));
+    syncCustomFieldTemplates(nextFields);
   };
 
   /* ── step validation ── */
@@ -421,14 +595,46 @@ export default function Journal() {
 
   const completedCount = allSteps.filter((s) => isStepComplete(s.id)).length;
   const allComplete    = completedCount === totalSteps;
-  const handleSubmitJournal = () => {
+  const handleSubmitJournal = async () => {
+    if (saving) return;
     const date = todayStr();
     const achievementCount = form.achievement.filter((item) => item.trim()).length;
     const winCount = form.wins.filter((item) => item.trim()).length;
+    setSaving(true);
+    setSubmitError("");
+
+    if (!isDemoMode) {
+      try {
+        await api.post("/journal", buildPayloadFromForm(form, customFields, date));
+        await syncCustomFieldTemplates(customFields);
+        const summaryRes = await api.get("/journal/summary");
+        setJournalConsistency({
+          lifetimeConsistency: Number(summaryRes?.data?.lifetimeConsistency || 0),
+          lifetimeLoggedDays: Number(summaryRes?.data?.lifetimeLoggedDays || 0),
+          lifetimeExpectedDays: Number(summaryRes?.data?.lifetimeExpectedDays || 0)
+        });
+      } catch (error) {
+        const backendMessage = error?.response?.data?.message;
+        setSubmitError(backendMessage || "Could not save journal entry. Please try again.");
+        setSaving(false);
+        return;
+      }
+    }
+
     saveJournalProgress(date, achievementCount, winCount);
     setSubmitted(true);
     setSubmittedDate(date);
+    setRefreshSidebarKey((value) => value + 1);
+    setSaving(false);
   };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[55vh] items-center justify-center">
+        <p className="text-sm text-stone-400">Loading journal...</p>
+      </div>
+    );
+  }
 
   /* ─────────── submitted screen ─────────── */
   if (submitted) {
@@ -449,7 +655,7 @@ export default function Journal() {
           >🎉</Motion.div>
           <h2 className="text-heading-xl text-center">Day Logged!</h2>
           <p className="text-sm text-stone-400 text-center max-w-sm leading-relaxed">
-            Your journal entry has been saved. Come back tomorrow and keep that streak alive.
+            Your journal entry has been saved. Come back tomorrow and keep your consistency alive.
           </p>
 
           {/* Editable-today badge */}
@@ -495,7 +701,7 @@ export default function Journal() {
 
         <div className="w-full lg:w-64 lg:shrink-0">
           <div className="sticky top-0">
-            <JournalRightSidebar />
+            <JournalRightSidebar refreshToken={refreshSidebarKey} />
           </div>
         </div>
 
@@ -516,7 +722,7 @@ export default function Journal() {
     <div className="flex flex-col gap-6 lg:flex-row">
       <div className="flex-1 min-w-0 space-y-5">
 
-        {/* Streak badge */}
+        {/* Consistency badge */}
         <Motion.div
           className="flex items-center gap-3"
           initial={{ opacity: 0, y: -10 }}
@@ -529,9 +735,14 @@ export default function Journal() {
               animate={{ scale: [1, 1.25, 1] }}
               transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
             >
-              🔥
+              📊
             </Motion.span>
-            <span className="text-sm font-semibold text-amber-300">{streak} day streak</span>
+            <span className="text-sm font-semibold text-amber-300">
+              Consistency {journalConsistency.lifetimeConsistency}%
+            </span>
+            <span className="rounded-full border border-amber-100/20 bg-black/20 px-2 py-0.5 text-[11px] text-amber-100/90">
+              Lifetime {journalConsistency.lifetimeLoggedDays}/{journalConsistency.lifetimeExpectedDays}
+            </span>
           </div>
           <p className="text-sm text-stone-400">Keep it up — consistency builds clarity.</p>
         </Motion.div>
@@ -1039,6 +1250,11 @@ export default function Journal() {
           </AnimatePresence>
 
           {/* ── Navigation ── */}
+          {submitError && (
+            <p className="mb-3 rounded-lg border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
+              {submitError}
+            </p>
+          )}
           <div className="journal-step-nav mt-8 flex items-center justify-between">
             <button
               type="button"
@@ -1069,12 +1285,12 @@ export default function Journal() {
             ) : (
               <button
                 type="button"
-                disabled={!allComplete}
+                disabled={!allComplete || saving}
                 onClick={handleSubmitJournal}
                 title={!allComplete ? `${totalSteps - completedCount} field(s) still unanswered` : ""}
                 className="rounded-full border border-amber-400/50 bg-gradient-to-r from-amber-400 to-orange-400 px-8 py-2.5 text-sm font-bold text-stone-950 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_28px_rgba(251,191,36,0.55)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
               >
-                {allComplete ? "Submit Journal ✓" : `${totalSteps - completedCount} left to answer`}
+                {saving ? "Saving..." : allComplete ? "Submit Journal ✓" : `${totalSteps - completedCount} left to answer`}
               </button>
             )}
           </div>
@@ -1085,7 +1301,7 @@ export default function Journal() {
       {/* Right sidebar */}
       <div className="w-full lg:w-64 lg:shrink-0">
         <div className="sticky top-0">
-          <JournalRightSidebar />
+          <JournalRightSidebar refreshToken={refreshSidebarKey} />
         </div>
       </div>
     </div>

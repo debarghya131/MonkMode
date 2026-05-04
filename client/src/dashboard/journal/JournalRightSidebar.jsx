@@ -1,7 +1,71 @@
 import { motion as Motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import api from "../../api/axios";
+import useAuth from "../../hooks/useAuth";
 import { MOCK_HISTORY } from "../../../data/JournalDummyData";
+
+const MOOD_EMOJI = {
+  Motivated: "🔥",
+  Happy: "😊",
+  Calm: "😌",
+  Neutral: "😐",
+  Sad: "😔",
+  Anxious: "😰",
+  Focused: "😤",
+  Tired: "😴",
+  Excited: "🤩",
+  Grateful: "🙏",
+  Inspired: "✨",
+  Frustrated: "😣",
+  Overwhelmed: "🥺",
+  Strong: "💪",
+  Peaceful: "🧘",
+  Bored: "😒",
+  Confident: "😎",
+  Curious: "🤔",
+  Emotional: "🥲",
+  Content: "🤗",
+  happy: "😊",
+  sad: "😔",
+  neutral: "😐"
+};
+
+const normalizeEntry = (entry) => {
+  const moodLabel = typeof entry?.mood === "string" ? entry.mood : entry?.mood?.label || "Neutral";
+  const customFields = Array.isArray(entry?.customFields)
+    ? entry.customFields
+        .map((item) => ({
+          title: typeof item?.title === "string" ? item.title : "",
+          description: typeof item?.description === "string" ? item.description : "",
+          answer: typeof item?.answer === "string" ? item.answer : "",
+        }))
+        .filter((item) => item.title.trim() || item.answer.trim() || item.description.trim())
+    : [];
+
+  return {
+    ...entry,
+    date: entry?.date || new Date().toISOString(),
+    mood: {
+      label: moodLabel,
+      emoji: MOOD_EMOJI[moodLabel] || "🙂"
+    },
+    wakeUpTime: entry?.wakeUpTime || "--:--",
+    energyLevel: Number(entry?.energyLevel || 0),
+    overallRating: Number(entry?.overallRating || 0),
+    summary: entry?.summary || entry?.content || "",
+    wins: Array.isArray(entry?.wins) ? entry.wins : [],
+    mistakes: Array.isArray(entry?.mistakes) ? entry.mistakes : [],
+    insight: entry?.insight || "",
+    distractions: Array.isArray(entry?.distractions) ? entry.distractions : [],
+    gratitude: Array.isArray(entry?.gratitude) ? entry.gratitude : [],
+    achievement: Array.isArray(entry?.achievement) ? entry.achievement : [],
+    affirmation: entry?.affirmation || "",
+    tomorrowPlan: entry?.tomorrowPlan || "",
+    sleepTime: entry?.sleepTime || "--:--",
+    customFields,
+  };
+};
 
 function EntryModal({ entry, onClose }) {
   const energyLabel =
@@ -31,11 +95,11 @@ function EntryModal({ entry, onClose }) {
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 sm:p-6 md:p-8" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto p-3 sm:p-4 md:p-6" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
       <div
-        className="relative z-10 my-4 w-full max-w-2xl overflow-hidden rounded-2xl border border-amber-100/15 bg-[linear-gradient(160deg,#1e1208,#120d0c)] shadow-2xl shadow-black/60 sm:my-8"
+        className="relative z-10 flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-amber-100/15 bg-[linear-gradient(160deg,#1e1208,#120d0c)] shadow-2xl shadow-black/60"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Sticky header */}
@@ -52,7 +116,7 @@ function EntryModal({ entry, onClose }) {
           </button>
         </div>
 
-        <div className="journal-scroll max-h-[calc(100dvh-8rem)] space-y-6 overflow-y-auto p-4 sm:max-h-[calc(100dvh-11rem)] sm:p-6">
+        <div className="journal-scroll min-h-0 flex-1 space-y-6 overflow-y-auto p-4 sm:p-6">
 
           {/* Mood + Wake-up + Energy */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -185,6 +249,28 @@ function EntryModal({ entry, onClose }) {
             </div>
           </div>
 
+          {/* Custom Fields */}
+          {entry.customFields.length > 0 && (
+            <>
+              <div className="border-t border-amber-100/8" />
+              <div className="space-y-4">
+                {entry.customFields.map((field, idx) => (
+                  <div key={`${field.title}-${idx}`}>
+                    <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">
+                      ✏️ {field.title || `Custom ${idx + 1}`}
+                    </p>
+                    {field.description ? (
+                      <p className="mb-2 text-xs text-stone-500">{field.description}</p>
+                    ) : null}
+                    <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">
+                      {field.answer || <span className="text-stone-600">Not answered</span>}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
         </div>
       </div>
     </div>,
@@ -192,43 +278,118 @@ function EntryModal({ entry, onClose }) {
   );
 }
 
-export default function JournalRightSidebar() {
+export default function JournalRightSidebar({ refreshToken = 0 }) {
+  const { isDemoMode } = useAuth();
   const [modalEntry, setModalEntry] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(!isDemoMode);
+
+  useEffect(() => {
+    if (isDemoMode) {
+      setHistory(MOCK_HISTORY.map(normalizeEntry));
+      setSummary(null);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const loadSidebar = async () => {
+      setLoading(true);
+      try {
+        const [entriesRes, summaryRes] = await Promise.all([
+          api.get("/journal?page=1&limit=14"),
+          api.get("/journal/summary")
+        ]);
+        if (cancelled) return;
+
+        const entries = Array.isArray(entriesRes?.data?.entries)
+          ? entriesRes.data.entries
+          : Array.isArray(entriesRes?.data)
+          ? entriesRes.data
+          : [];
+        setHistory(entries.map(normalizeEntry));
+        setSummary(summaryRes?.data || null);
+      } catch {
+        if (!cancelled) {
+          setHistory([]);
+          setSummary(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadSidebar();
+    return () => { cancelled = true; };
+  }, [isDemoMode, refreshToken]);
+
+  const entries = isDemoMode ? history : history;
+
+  const derivedStats = useMemo(() => {
+    if (!isDemoMode && summary?.currentWeek) {
+      const week = summary.currentWeek;
+      const weekTopMood = week?.topMood?.mood || "Neutral";
+      return {
+        topMood: {
+          label: weekTopMood,
+          emoji: MOOD_EMOJI[weekTopMood] || "😐"
+        },
+        stats: [
+          { icon: "⚡", label: "Avg Energy", value: Number(week?.avgEnergy || 0), color: "text-amber-300" },
+          { icon: "⭐", label: "Avg Day Rating", value: Number(week?.avgDayRating || 0), color: "text-yellow-300" },
+          { icon: "✅", label: "Total Wins", value: Number(week?.totalWins || 0), color: "text-emerald-400" },
+          { icon: "❌", label: "Total Mistakes", value: Number(week?.totalMistakes || 0), color: "text-red-400" },
+          { icon: "🏆", label: "Achievements", value: Number(week?.achievements || 0), color: "text-amber-400" },
+          { icon: "📓", label: "Days Logged", value: Number(week?.daysLogged || 0), color: "text-stone-300" },
+        ]
+      };
+    }
+
+    const count = entries.length || 1;
+    const moodFreq = {};
+    entries.forEach((entry) => {
+      const key = entry.mood.label || "Neutral";
+      moodFreq[key] = (moodFreq[key] || { count: 0, emoji: entry.mood.emoji || "🙂" });
+      moodFreq[key].count += 1;
+    });
+    const topMoodFromEntries = Object.entries(moodFreq).sort((a, b) => b[1].count - a[1].count)[0];
+    const topMoodFromSummary = summary?.topMoods?.[0];
+    const topMood = topMoodFromSummary
+      ? {
+          label: topMoodFromSummary.mood,
+          emoji: MOOD_EMOJI[topMoodFromSummary.mood] || "🙂"
+        }
+      : topMoodFromEntries
+      ? { label: topMoodFromEntries[0], emoji: topMoodFromEntries[1].emoji }
+      : { label: "Neutral", emoji: "😐" };
+
+    const avgEnergy = Math.round(entries.reduce((sum, entry) => sum + (entry.energyLevel || 0), 0) / count);
+    const avgRating = Math.round(entries.reduce((sum, entry) => sum + (entry.overallRating || 0), 0) / count);
+    const totalWins = entries.reduce((sum, entry) => sum + entry.wins.length, 0);
+    const totalMistakes = entries.reduce((sum, entry) => sum + entry.mistakes.length, 0);
+    const totalAchievements = entries.reduce((sum, entry) => sum + entry.achievement.length, 0);
+    const totalDays = Number(summary?.totalEntries || entries.length);
+
+    return {
+      topMood,
+      stats: [
+        { icon: "⚡", label: "Avg Energy", value: avgEnergy, color: "text-amber-300" },
+        { icon: "⭐", label: "Avg Day Rating", value: avgRating, color: "text-yellow-300" },
+        { icon: "✅", label: "Total Wins", value: totalWins, color: "text-emerald-400" },
+        { icon: "❌", label: "Total Mistakes", value: totalMistakes, color: "text-red-400" },
+        { icon: "🏆", label: "Achievements", value: totalAchievements, color: "text-amber-400" },
+        { icon: "📓", label: "Days Logged", value: totalDays, color: "text-stone-300" },
+      ]
+    };
+  }, [entries, summary]);
 
   return (
     <>
       <div className="space-y-4">
 
         {/* Weekly Analysis */}
-        {(() => {
-          const entries = MOCK_HISTORY;
-          const count = entries.length;
-
-          // Top mood
-          const moodFreq = {};
-          entries.forEach((e) => {
-            const key = e.mood.label;
-            moodFreq[key] = (moodFreq[key] || { count: 0, emoji: e.mood.emoji });
-            moodFreq[key].count += 1;
-          });
-          const topMood = Object.entries(moodFreq).sort((a, b) => b[1].count - a[1].count)[0];
-
-          const avgEnergy   = Math.round(entries.reduce((s, e) => s + e.energyLevel, 0) / count);
-          const totalWins   = entries.reduce((s, e) => s + e.wins.length, 0);
-          const totalMistakes = entries.reduce((s, e) => s + e.mistakes.length, 0);
-          const totalAchievements = entries.reduce((s, e) => s + e.achievement.length, 0);
-          const avgRating   = Math.round(entries.reduce((s, e) => s + e.overallRating, 0) / count);
-
-          const stats = [
-            { icon: "⚡", label: "Avg Energy",      value: avgEnergy,         color: "text-amber-300" },
-            { icon: "⭐", label: "Avg Day Rating",   value: avgRating,         color: "text-yellow-300" },
-            { icon: "✅", label: "Total Wins",       value: totalWins,         color: "text-emerald-400" },
-            { icon: "❌", label: "Total Mistakes",   value: totalMistakes,     color: "text-red-400" },
-            { icon: "🏆", label: "Achievements",     value: totalAchievements, color: "text-amber-400" },
-            { icon: "📓", label: "Days Logged",      value: count,             color: "text-stone-300" },
-          ];
-
-          return (
+        {(
             <section className="rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur">
               <div className="mb-3 flex items-center gap-2">
                 <span className="text-sm">📈</span>
@@ -241,13 +402,13 @@ export default function JournalRightSidebar() {
               <div className="mb-3 flex items-center justify-between rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-300/70">Top Mood</p>
                 <p className="text-xs font-bold text-amber-200">
-                  {topMood[1].emoji} {topMood[0]}
+                  {derivedStats.topMood.emoji} {derivedStats.topMood.label}
                 </p>
               </div>
 
               {/* Stats grid */}
               <div className="grid grid-cols-2 gap-2">
-                {stats.map((s, i) => (
+                {derivedStats.stats.map((s, i) => (
                   <Motion.div
                     key={s.label}
                     initial={{ opacity: 0, y: 12 }}
@@ -267,8 +428,7 @@ export default function JournalRightSidebar() {
                 ))}
               </div>
             </section>
-          );
-        })()}
+        )}
 
         {/* Past Entries */}
         <section className="rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur">
@@ -278,7 +438,11 @@ export default function JournalRightSidebar() {
           </div>
 
           <div className="h-[47vh] overflow-y-auto space-y-3 pr-1 journal-scroll xl:h-[47vh]">
-            {MOCK_HISTORY.map((item, i) => {
+            {loading ? (
+              <p className="text-xs text-stone-500">Loading entries...</p>
+            ) : entries.length === 0 ? (
+              <p className="text-xs text-stone-500">No journal entries yet.</p>
+            ) : entries.map((item, i) => {
               const formattedDate = new Date(item.date).toLocaleDateString("en-US", {
                 month: "short", day: "numeric", weekday: "short",
               });

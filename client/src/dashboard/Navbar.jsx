@@ -165,11 +165,11 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
   const firstName = user?.name || "Friend";
   const [monkStreak, setMonkStreak] = useState(0);
   const [consistencyScore, setConsistencyScore] = useState(0);
+  const [journalStreak, setJournalStreak] = useState(DEMO_STREAKS.journal);
   const [habitStreak, setHabitStreak] = useState(DEMO_STREAKS.habit);
   const [showMobileStats, setShowMobileStats] = useState(false);
   const currentDate = formatDate(new Date());
 
-  const journalStreak = getStreak("monkmode_journal_streak") || DEMO_STREAKS.journal;
   const todoStreak    = getStreak("monkmode_todo_streak") || DEMO_STREAKS.todo;
 
   useEffect(() => {
@@ -186,16 +186,17 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
 
         setMonkStreak(calculateMonkStreak(allSectionsComplete));
         setConsistencyScore(calculateConsistencyScoreFromLocalDemo());
+        setJournalStreak(DEMO_STREAKS.journal);
         setHabitStreak(DEMO_STREAKS.habit);
         return;
       }
 
       try {
         const todayKey = toLocalISODate(new Date());
-        const [habitRes, todoRes, journalRes] = await Promise.all([
+        const [habitRes, todoRes, journalSummaryRes] = await Promise.all([
           api.get("/habits/consistency"),
           api.get("/todos/heatmap"),
-          api.get("/journal/heatmap")
+          api.get("/journal/summary")
         ]);
         if (cancelled) return;
 
@@ -211,9 +212,8 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
         const todoCompleted = Math.max(0, Number(todoToday?.completed || 0));
         const todoScore = todoTotal > 0 ? (todoCompleted / todoTotal) * 100 : 0;
 
-        const journalTodaySubmitted = Array.isArray(journalRes?.data?.values)
-          ? journalRes.data.values.some((value) => String(value?.date || "") === todayKey)
-          : false;
+        const journalTodaySubmitted = Boolean(journalSummaryRes?.data?.todayLogged);
+        setJournalStreak(Math.max(0, Number(journalSummaryRes?.data?.currentStreakDays || 0)));
         const journalScore = journalTodaySubmitted ? 100 : 0;
 
         const consistency = Math.round((journalScore + todoScore + habitScore) / 3);

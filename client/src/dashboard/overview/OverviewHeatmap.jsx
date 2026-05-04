@@ -3,6 +3,7 @@ import "react-calendar-heatmap/dist/styles.css";
 import { motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import api from "../../api/axios";
+import useAuth from "../../hooks/useAuth";
 
 const TODAY = new Date();
 const CURRENT_YEAR = TODAY.getFullYear();
@@ -197,6 +198,7 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
 }
 
 export default function OverviewHeatmap() {
+  const { isDemoMode } = useAuth();
   const [gymAllValues, setGymAllValues] = useState([]);
   const [gymYears, setGymYears] = useState([]);
   const [journalAllValues, setJournalAllValues] = useState([]);
@@ -422,7 +424,7 @@ export default function OverviewHeatmap() {
   }, []);
 
   const yearOptions = useMemo(() => {
-    const years = new Set([CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2]);
+    const years = new Set(isDemoMode ? [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2] : [CURRENT_YEAR]);
     journalYears.forEach((year) => years.add(year));
     todoYears.forEach((year) => years.add(year));
     habitYears.forEach((year) => years.add(year));
@@ -448,8 +450,15 @@ export default function OverviewHeatmap() {
       const year = Number.parseInt(String(value?.date || "").slice(0, 4), 10);
       if (Number.isFinite(year)) years.add(year);
     });
-    return [...years].sort((a, b) => b - a);
-  }, [goalAllValues, goalYears, gymAllValues, gymYears, habitAllValues, habitYears, journalAllValues, journalYears, todoAllValues, todoYears]);
+    const sorted = [...years].sort((a, b) => b - a);
+    return sorted.length ? sorted : [CURRENT_YEAR];
+  }, [goalAllValues, goalYears, gymAllValues, gymYears, habitAllValues, habitYears, isDemoMode, journalAllValues, journalYears, todoAllValues, todoYears]);
+
+  useEffect(() => {
+    if (!yearOptions.includes(selectedYear)) {
+      setSelectedYear(yearOptions[0]);
+    }
+  }, [selectedYear, yearOptions]);
 
   const sectionData = useMemo(
     () =>
@@ -458,43 +467,43 @@ export default function OverviewHeatmap() {
           const real = byYear(journalAllValues, selectedYear);
           return {
             ...section,
-            values: real.length ? real : demoJournalSeries(section.seed, selectedYear, section.density),
+            values: !isDemoMode ? real : (real.length ? real : demoJournalSeries(section.seed, selectedYear, section.density)),
           };
         }
         if (section.id === "todo") {
           const real = byYear(todoAllValues, selectedYear);
           return {
             ...section,
-            values: real.length ? real : demoTodoSeries(section.seed, selectedYear, section.density),
+            values: !isDemoMode ? real : (real.length ? real : demoTodoSeries(section.seed, selectedYear, section.density)),
           };
         }
         if (section.id === "habit") {
           const real = byYear(habitAllValues, selectedYear);
           return {
             ...section,
-            values: real.length ? real : demoHabitSeries(section.seed, selectedYear, section.density),
+            values: !isDemoMode ? real : (real.length ? real : demoHabitSeries(section.seed, selectedYear, section.density)),
           };
         }
         if (section.id === "goal") {
           const real = byYear(goalAllValues, selectedYear);
           return {
             ...section,
-            values: real.length ? real : demoGoalSeries(section.seed, selectedYear, section.density),
+            values: !isDemoMode ? real : (real.length ? real : demoGoalSeries(section.seed, selectedYear, section.density)),
           };
         }
         if (section.id === "gym") {
           const real = byYear(gymAllValues, selectedYear);
           return {
             ...section,
-            values: real.length ? real : demoGymSeries(section.seed, selectedYear, section.density),
+            values: !isDemoMode ? real : (real.length ? real : demoGymSeries(section.seed, selectedYear, section.density)),
           };
         }
         return {
           ...section,
-          values: demoSeries(section.seed, selectedYear, section.density),
+          values: isDemoMode ? demoSeries(section.seed, selectedYear, section.density) : [],
         };
       }),
-    [goalAllValues, gymAllValues, habitAllValues, journalAllValues, selectedYear, todoAllValues]
+    [goalAllValues, gymAllValues, habitAllValues, isDemoMode, journalAllValues, selectedYear, todoAllValues]
   );
 
   return (
