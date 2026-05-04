@@ -1,5 +1,7 @@
 import { motion as Motion } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import api from "../../api/axios";
+import useAuth from "../../hooks/useAuth";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -44,13 +46,22 @@ const addDaysISO = (offsetDays) => {
   return toISODate(date);
 };
 
-const isHabitArchived = (habit, today) => Boolean(
-  habit.deletedAt || (habit.endDate && habit.endDate < today)
-);
+const isHabitArchived = (habit, today) => {
+  if (habit.deletedAt) return true;
+  if (habit.archivedReason === "ended") return true;
+  const endDate = habit.endDate
+    ? (typeof habit.endDate === "string" ? habit.endDate.slice(0, 10) : toISODate(new Date(habit.endDate)))
+    : null;
+  return Boolean(endDate && endDate < today);
+};
 
 const getArchiveLabel = (habit, today) => {
   if (habit.deletedAt) return "Deleted";
-  if (habit.endDate && habit.endDate < today) return "Ended";
+  if (habit.archivedReason === "ended") return "Ended";
+  const endDate = habit.endDate
+    ? (typeof habit.endDate === "string" ? habit.endDate.slice(0, 10) : toISODate(new Date(habit.endDate)))
+    : null;
+  if (endDate && endDate < today) return "Ended";
   return null;
 };
 
@@ -83,39 +94,111 @@ const INITIAL_HABITS = [
 }));
 
 export default function HabitTracking() {
-  const [habits, setHabits] = useState(INITIAL_HABITS);
+  const { isDemoMode } = useAuth();
+  const [habits, setHabits] = useState(() => isDemoMode ? INITIAL_HABITS : []);
+  const [loading, setLoading] = useState(!isDemoMode);
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
   const [selectedMonth, setSelectedMonth] = useState(CURRENT_MONTH);
   const [habitView, setHabitView] = useState("active");
-  const today = useMemo(() => toISODate(new Date()), []);
+  const [importantOnly, setImportantOnly] = useState(false);
+  const [endingSoonOnly, setEndingSoonOnly] = useState(false);
+  const [today, setToday] = useState(() => toISODate(new Date()));
+
+  useEffect(() => {
+    const refreshToday = () => setToday(toISODate(new Date()));
+    const interval = window.setInterval(refreshToday, 60 * 1000);
+    window.addEventListener("focus", refreshToday);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshToday);
+    };
+  }, []);
+
+  /* fetch tracking data for real users */
+  useEffect(() => {
+    if (isDemoMode) return;
+    let cancelled = false;
+    const fetchTracking = async () => {
+      setLoading(true);
+      try {
+        const { data } = await api.get(`/habits/tracking?month=${selectedMonth + 1}&year=${selectedYear}`);
+        if (cancelled) return;
+        const normalized = data.map((h) => ({
+          ...h,
+          id: h._id?.toString() ?? h.id,
+          completedDays: h.completedDays ?? [],
+          endDate: h.endDate
+            ? (typeof h.endDate === "string" ? h.endDate.slice(0, 10) : toISODate(new Date(h.endDate)))
+            : null,
+          deletedAt: h.deletedAt
+            ? (typeof h.deletedAt === "string" ? h.deletedAt.slice(0, 10) : toISODate(new Date(h.deletedAt)))
+            : null,
+        }));
+        setHabits(normalized);
+      } catch {
+        // silently fail — leave previous state
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchTracking();
+    return () => { cancelled = true; };
+  }, [isDemoMode, selectedMonth, selectedYear]);
 
   const sortedHabits = useMemo(
     () => [...habits].sort((a, b) => Number(Boolean(b.isImportant)) - Number(Boolean(a.isImportant))),
     [habits]
   );
-  const yearAdjustedHabits = useMemo(() => {
+
+  const adjustedHabits = useMemo(() => {
+    if (!isDemoMode) return sortedHabits; // real data from API needs no adjustment
     const shift = ((selectedYear - CURRENT_YEAR) % 31 + 31) % 31;
     return sortedHabits.map((habit) => ({
       ...habit,
       completedDays: habit.completedDays.map((day) => ((day + shift - 1) % 31) + 1),
     }));
-  }, [selectedYear, sortedHabits]);
+  }, [isDemoMode, selectedYear, sortedHabits]);
+
   const filteredHabits = useMemo(
-    () => yearAdjustedHabits.filter((habit) => (
-      habitView === "active"
-        ? !isHabitArchived(habit, today)
-        : isHabitArchived(habit, today)
-    )),
-    [habitView, today, yearAdjustedHabits]
+    () => adjustedHabits.filter((habit) => {
+      const archivedMatch = habitView === "active" ? !isHabitArchived(habit, today) : isHabitArchived(habit, today);
+      if (!archivedMatch) return false;
+
+      if (importantOnly && !habit.isImportant) return false;
+
+      if (endingSoonOnly) {
+        const endDateStr = habit.endDate
+          ? (typeof habit.endDate === "string" ? habit.endDate.slice(0, 10) : toISODate(new Date(habit.endDate)))
+          : null;
+        if (!endDateStr) return false;
+        const daysToEnd = Math.ceil((new Date(endDateStr) - new Date(today)) / (1000 * 60 * 60 * 24));
+        if (!(daysToEnd >= 0 && daysToEnd <= 7)) return false;
+      }
+
+      return true;
+    }),
+    [habitView, today, adjustedHabits, importantOnly, endingSoonOnly]
   );
+
   const visibleDays = useMemo(() => {
     const maxDay = new Date(selectedYear, selectedMonth + 1, 0).getDate();
     return DAYS.slice(0, maxDay);
   }, [selectedMonth, selectedYear]);
 
-  const toggleImportant = (id) => {
+  const toggleImportant = async (id) => {
+    // Optimistic update
     setHabits((prev) => prev.map((habit) => (habit.id === id ? { ...habit, isImportant: !habit.isImportant } : habit)));
+    if (!isDemoMode) {
+      try {
+        const habitId = habits.find((h) => h.id === id)?._id?.toString() ?? id;
+        await api.patch(`/habits/${habitId}/important`);
+      } catch {
+        // Revert on failure
+        setHabits((prev) => prev.map((habit) => (habit.id === id ? { ...habit, isImportant: !habit.isImportant } : habit)));
+      }
+    }
   };
+
   const getCurrentStreak = (completedDays, maxDay) => {
     const filtered = [...new Set(completedDays)].filter((day) => day >= 1 && day <= maxDay).sort((a, b) => a - b);
     if (!filtered.length) return 0;
@@ -127,25 +210,50 @@ export default function HabitTracking() {
     }
     return streak;
   };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-label-lg">Track Your Habit</p>
-        <div className="flex items-center gap-1 rounded-full border border-amber-100/10 bg-white/5 p-1">
-          {["active", "archived"].map((view) => (
-            <button
-              key={view}
-              type="button"
-              onClick={() => setHabitView(view)}
-              className={`rounded-full px-2.5 py-1 text-[10px] font-semibold capitalize transition ${
-                habitView === view
-                  ? "border border-amber-300/40 bg-amber-500/15 text-amber-200"
-                  : "border border-transparent text-stone-400 hover:text-amber-200"
-              }`}
-            >
-              {view}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-full border border-amber-100/10 bg-white/5 p-1">
+            {["active", "archived"].map((view) => (
+              <button
+                key={view}
+                type="button"
+                onClick={() => setHabitView(view)}
+                className={`rounded-full px-2.5 py-1 text-[10px] font-semibold capitalize transition ${
+                  habitView === view
+                    ? "border border-amber-300/40 bg-amber-500/15 text-amber-200"
+                    : "border border-transparent text-stone-400 hover:text-amber-200"
+                }`}
+              >
+                {view}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setImportantOnly((prev) => !prev)}
+            className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold transition ${
+              importantOnly
+                ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
+                : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-amber-200"
+            }`}
+          >
+            Important
+          </button>
+          <button
+            type="button"
+            onClick={() => setEndingSoonOnly((prev) => !prev)}
+            className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold transition ${
+              endingSoonOnly
+                ? "border-rose-300/45 bg-rose-500/15 text-rose-100"
+                : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-rose-200"
+            }`}
+          >
+            Ending Soon
+          </button>
         </div>
       </div>
 
@@ -189,91 +297,118 @@ export default function HabitTracking() {
 
         <div className="journal-scroll h-[calc(100vh-390px)] min-h-[22rem] overflow-x-auto overflow-y-auto rounded-xl border border-amber-100/10 bg-black/10 p-3">
           <div className="min-w-[900px] lg:min-w-[1120px]">
-            <table className="w-full border-separate border-spacing-x-1 border-spacing-y-1.5">
-              <thead>
-                <tr>
-                  <th className="rounded-lg border border-amber-100/10 bg-black/40 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-stone-400">
-                    Day
-                  </th>
-                  {visibleDays.map((day) => (
-                    <th
-                      key={`day-${day}`}
-                      className="h-7 w-7 rounded border border-amber-100/10 bg-black/25 text-center text-[10px] font-semibold text-stone-400"
-                    >
-                      {day}
+            {loading ? (
+              <div className="flex items-center justify-center py-16">
+                <p className="text-sm text-stone-400">Loading tracking data...</p>
+              </div>
+            ) : (
+              <table className="w-full border-separate border-spacing-x-1 border-spacing-y-1.5">
+                <thead>
+                  <tr>
+                    <th className="rounded-lg border border-amber-100/10 bg-black/40 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-stone-400">
+                      Day
                     </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredHabits.map((habit, rowIdx) => {
-                  const currentStreak = getCurrentStreak(habit.completedDays, visibleDays.length);
-                  const daysLeft = Math.max((habit.targetStreak ?? 0) - currentStreak, 0);
-                  const archiveLabel = getArchiveLabel(habit, today);
-
-                  return (
-                    <Motion.tr
-                      key={habit.id}
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: rowIdx * 0.04, duration: 0.25 }}
-                    >
-                      <td className="min-w-[300px] rounded-lg border border-amber-100/10 bg-black/45 px-3 py-2 lg:min-w-[380px]">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex min-w-0 flex-wrap items-center gap-2">
-                            <p className="truncate text-sm font-semibold text-stone-100">{habit.title}</p>
-                            <span className="shrink-0 rounded-full border border-orange-300/40 bg-orange-500/15 px-2 py-0.5 text-[10px] font-semibold text-orange-200">
-                              🔥 {currentStreak}
-                            </span>
-                            <span className="shrink-0 rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
-                              Target {habit.targetStreak}
-                            </span>
-                            {archiveLabel ? (
-                              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                                archiveLabel === "Deleted"
-                                  ? "border-rose-300/30 bg-rose-500/10 text-rose-200"
-                                  : "border-blue-300/30 bg-blue-500/10 text-blue-100"
-                              }`}>
-                                {archiveLabel}
-                              </span>
-                            ) : (
-                              <span className="shrink-0 rounded-full border border-sky-300/25 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-100">
-                                {daysLeft} day{daysLeft === 1 ? "" : "s"} left
-                              </span>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => toggleImportant(habit.id)}
-                            className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${
-                              habit.isImportant
-                                ? "border-amber-300/45 bg-amber-500/15 text-amber-200"
-                                : "border-amber-100/15 bg-white/5 text-stone-300 hover:border-amber-300/35 hover:text-amber-200"
-                            }`}
-                          >
-                            {habit.isImportant ? "Important" : "Mark Important"}
-                          </button>
-                        </div>
+                    {visibleDays.map((day) => (
+                      <th
+                        key={`day-${day}`}
+                        className="h-7 w-7 rounded border border-amber-100/10 bg-black/25 text-center text-[10px] font-semibold text-stone-400"
+                      >
+                        {day}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredHabits.length === 0 ? (
+                    <tr>
+                      <td colSpan={visibleDays.length + 1} className="py-12 text-center text-sm text-stone-500">
+                        {habitView === "active" ? "No active habits to track." : "No archived habits."}
                       </td>
-                      {visibleDays.map((day) => {
-                        const checked = habit.completedDays.includes(day);
-                        return (
-                          <td key={`${habit.id}-${day}`} className="text-center">
-                            <div
-                              className={`mx-auto h-5 w-5 rounded border ${
-                                checked
-                                  ? "border-amber-300/60 bg-gradient-to-br from-amber-400/40 to-orange-400/30"
-                                  : "border-amber-100/25 bg-black/20"
-                              }`}
-                            />
+                    </tr>
+                  ) : (
+                    filteredHabits.map((habit, rowIdx) => {
+                      const currentStreak = getCurrentStreak(habit.completedDays, visibleDays.length);
+                      const archiveLabel = getArchiveLabel(habit, today);
+                      const endDateStr = habit.endDate
+                        ? (typeof habit.endDate === "string" ? habit.endDate.slice(0, 10) : toISODate(new Date(habit.endDate)))
+                        : null;
+                      const daysToEnd = endDateStr
+                        ? Math.ceil((new Date(endDateStr) - new Date(today)) / (1000 * 60 * 60 * 24))
+                        : null;
+
+                      return (
+                        <Motion.tr
+                          key={habit.id}
+                          initial={{ opacity: 0, x: -12 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: rowIdx * 0.04, duration: 0.25 }}
+                        >
+                          <td className="min-w-[300px] rounded-lg border border-amber-100/10 bg-black/45 px-3 py-2 lg:min-w-[380px]">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                <p className="truncate text-sm font-semibold text-stone-100">{habit.title}</p>
+                                <span className="shrink-0 rounded-full border border-orange-300/40 bg-orange-500/15 px-2 py-0.5 text-[10px] font-semibold text-orange-200">
+                                  🔥 {currentStreak}
+                                </span>
+                                <span className="shrink-0 rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
+                                  Target {habit.targetStreak}
+                                </span>
+                                {archiveLabel ? (
+                                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                                    archiveLabel === "Deleted"
+                                      ? "border-rose-300/30 bg-rose-500/10 text-rose-200"
+                                      : "border-blue-300/30 bg-blue-500/10 text-blue-100"
+                                  }`}>
+                                    {archiveLabel}
+                                  </span>
+                                ) : endDateStr ? (
+                                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                                    daysToEnd <= 7 ? "border-rose-300/25 bg-rose-500/10 text-rose-200"
+                                    : daysToEnd <= 30 ? "border-yellow-300/25 bg-yellow-500/10 text-yellow-200"
+                                    : "border-sky-300/25 bg-sky-500/10 text-sky-100"
+                                  }`}>
+                                    {daysToEnd > 0 ? `${daysToEnd} days left` : "Ending today"}
+                                  </span>
+                                ) : (
+                                  <span className="shrink-0 rounded-full border border-emerald-300/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
+                                    Never Ends
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => toggleImportant(habit._id?.toString() ?? habit.id)}
+                                className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${
+                                  habit.isImportant
+                                    ? "border-amber-300/45 bg-amber-500/15 text-amber-200"
+                                    : "border-amber-100/15 bg-white/5 text-stone-300 hover:border-amber-300/35 hover:text-amber-200"
+                                }`}
+                              >
+                                {habit.isImportant ? "Important" : "Mark Important"}
+                              </button>
+                            </div>
                           </td>
-                        );
-                      })}
-                    </Motion.tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          {visibleDays.map((day) => {
+                            const checked = habit.completedDays.includes(day);
+                            return (
+                              <td key={`${habit.id}-${day}`} className="text-center">
+                                <div
+                                  className={`mx-auto h-5 w-5 rounded border ${
+                                    checked
+                                      ? "border-amber-300/60 bg-gradient-to-br from-amber-400/40 to-orange-400/30"
+                                      : "border-amber-100/25 bg-black/20"
+                                  }`}
+                                />
+                              </td>
+                            );
+                          })}
+                        </Motion.tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </section>

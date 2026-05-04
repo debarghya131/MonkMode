@@ -1,8 +1,10 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import api from "../api/axios";
 import monkLogo from "../assets/monkmode-logo.png";
 import { INITIAL_HABITS } from "../../data/HabitDummyData";
 import { INITIAL_TASKS } from "../../data/ToDoDummyData";
+import useAuth from "../hooks/useAuth";
 import NavbarBirdBackground from "./NavbarBirdBackground";
 
 const formatDate = (date) => {
@@ -55,16 +57,7 @@ const getJournalSubmittedToday = (today) => {
   return false;
 };
 
-const getTodoCompletedWithoutMiss = () =>
-  INITIAL_TASKS.length > 0 &&
-  INITIAL_TASKS.every((task) => task.status === "completed") &&
-  INITIAL_TASKS.every((task) => task.status !== "missed");
-
-const getHabitsCompletedToday = () =>
-  INITIAL_HABITS.length > 0 &&
-  INITIAL_HABITS.every((habit) => habit.status === "completed");
-
-const calculateConsistencyScore = () => {
+const calculateConsistencyScoreFromLocalDemo = () => {
   const today = toLocalISODate(new Date());
   const journalScore = getJournalSubmittedToday(today) ? 100 : 0;
   const todoScore = INITIAL_TASKS.length
@@ -77,13 +70,9 @@ const calculateConsistencyScore = () => {
   return Math.round((journalScore + todoScore + habitScore) / 3);
 };
 
-const calculateMonkStreak = () => {
+const calculateMonkStreak = (allSectionsComplete) => {
   const today = toLocalISODate(new Date());
   const yesterday = getYesterdayISODate();
-  const allSectionsComplete =
-    getJournalSubmittedToday(today) &&
-    getTodoCompletedWithoutMiss() &&
-    getHabitsCompletedToday();
 
   const stored = readJSON(MONK_STREAK_KEY);
   const currentCount = Math.max(0, Number(stored?.count) || 0);
@@ -172,31 +161,92 @@ function StreakStat({ label, value, days, suffix = "days", icon, labelClass, val
 }
 
 export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
+  const { isDemoMode } = useAuth();
   const firstName = user?.name || "Friend";
   const [monkStreak, setMonkStreak] = useState(0);
   const [consistencyScore, setConsistencyScore] = useState(0);
+  const [habitStreak, setHabitStreak] = useState(DEMO_STREAKS.habit);
   const [showMobileStats, setShowMobileStats] = useState(false);
   const currentDate = formatDate(new Date());
 
   const journalStreak = getStreak("monkmode_journal_streak") || DEMO_STREAKS.journal;
   const todoStreak    = getStreak("monkmode_todo_streak") || DEMO_STREAKS.todo;
-  const habitStreak   = getStreak("monkmode_habit_streak") || DEMO_STREAKS.habit;
 
   useEffect(() => {
-    const refreshNavbarStats = () => {
-      setMonkStreak(calculateMonkStreak());
-      setConsistencyScore(calculateConsistencyScore());
+    let cancelled = false;
+
+    const refreshNavbarStats = async () => {
+      if (isDemoMode) {
+        const allSectionsComplete =
+          getJournalSubmittedToday(toLocalISODate(new Date())) &&
+          INITIAL_TASKS.length > 0 &&
+          INITIAL_TASKS.every((task) => task.status === "completed") &&
+          INITIAL_HABITS.length > 0 &&
+          INITIAL_HABITS.every((habit) => habit.status === "completed");
+
+        setMonkStreak(calculateMonkStreak(allSectionsComplete));
+        setConsistencyScore(calculateConsistencyScoreFromLocalDemo());
+        setHabitStreak(DEMO_STREAKS.habit);
+        return;
+      }
+
+      try {
+        const todayKey = toLocalISODate(new Date());
+        const [habitRes, todoRes, journalRes] = await Promise.all([
+          api.get("/habits/consistency"),
+          api.get("/todos/heatmap"),
+          api.get("/journal/heatmap")
+        ]);
+        if (cancelled) return;
+
+        const habitCompleted = Math.max(0, Number(habitRes?.data?.completedToday || 0));
+        const habitExpected = Math.max(0, Number(habitRes?.data?.expectedToday || 0));
+        const habitScore = habitExpected > 0 ? (habitCompleted / habitExpected) * 100 : 0;
+        setHabitStreak(Number(habitRes?.data?.fullCompletionStreakDays || 0));
+
+        const todoToday = Array.isArray(todoRes?.data?.values)
+          ? todoRes.data.values.find((value) => String(value?.date || "") === todayKey)
+          : null;
+        const todoTotal = Math.max(0, Number(todoToday?.total || 0));
+        const todoCompleted = Math.max(0, Number(todoToday?.completed || 0));
+        const todoScore = todoTotal > 0 ? (todoCompleted / todoTotal) * 100 : 0;
+
+        const journalTodaySubmitted = Array.isArray(journalRes?.data?.values)
+          ? journalRes.data.values.some((value) => String(value?.date || "") === todayKey)
+          : false;
+        const journalScore = journalTodaySubmitted ? 100 : 0;
+
+        const consistency = Math.round((journalScore + todoScore + habitScore) / 3);
+        setConsistencyScore(consistency);
+
+        const allSectionsComplete =
+          journalTodaySubmitted &&
+          todoTotal > 0 &&
+          todoCompleted >= todoTotal &&
+          habitExpected > 0 &&
+          habitCompleted >= habitExpected;
+        setMonkStreak(calculateMonkStreak(allSectionsComplete));
+      } catch {
+        // keep previous values on transient failure
+      }
     };
 
     refreshNavbarStats();
     window.addEventListener("storage", refreshNavbarStats);
+    window.addEventListener("focus", refreshNavbarStats);
+    window.addEventListener("monkmode:habits-updated", refreshNavbarStats);
+    window.addEventListener("monkmode:todos-updated", refreshNavbarStats);
     window.addEventListener("monkmode:journal-logged-days-updated", refreshNavbarStats);
 
     return () => {
+      cancelled = true;
       window.removeEventListener("storage", refreshNavbarStats);
+      window.removeEventListener("focus", refreshNavbarStats);
+      window.removeEventListener("monkmode:habits-updated", refreshNavbarStats);
+      window.removeEventListener("monkmode:todos-updated", refreshNavbarStats);
       window.removeEventListener("monkmode:journal-logged-days-updated", refreshNavbarStats);
     };
-  }, []);
+  }, [isDemoMode]);
 
   useEffect(() => {
     const handleResize = () => {

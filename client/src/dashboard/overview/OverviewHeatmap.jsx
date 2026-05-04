@@ -286,9 +286,13 @@ export default function OverviewHeatmap() {
     };
 
     fetchHabitHeatmap();
+    window.addEventListener("focus", fetchHabitHeatmap);
+    window.addEventListener("monkmode:habits-updated", fetchHabitHeatmap);
 
     return () => {
       isMounted = false;
+      window.removeEventListener("focus", fetchHabitHeatmap);
+      window.removeEventListener("monkmode:habits-updated", fetchHabitHeatmap);
     };
   }, []);
 

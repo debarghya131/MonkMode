@@ -1,5 +1,7 @@
 import { motion as Motion } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import api from "../../api/axios";
+import useAuth from "../../hooks/useAuth";
 import { INITIAL_HABITS } from "../../../data/HabitDummyData";
 
 const toISODate = (date) => {
@@ -161,19 +163,43 @@ function TimeSlotFilter({ selected, onChange }) {
 }
 
 export default function TodaysHabit() {
-  const [habits, setHabits] = useState(INITIAL_HABITS);
+  const { isDemoMode } = useAuth();
+  const [habits, setHabits] = useState(isDemoMode ? INITIAL_HABITS : []);
+  const [loading, setLoading] = useState(!isDemoMode);
   const [allFilter, setAllFilter] = useState("All");
   const [pendingFilter, setPendingFilter] = useState("All");
   const [completedFilter, setCompletedFilter] = useState("All");
   const [sidebarPriorityFilter, setSidebarPriorityFilter] = useState("All");
   const [timeSlotFilter, setTimeSlotFilter] = useState("All");
+  const [todayISO, setTodayISO] = useState(() => toISODate(new Date()));
+
+  useEffect(() => {
+    if (isDemoMode) return;
+    api.get("/habits?view=active")
+      .then((res) => {
+        setHabits(res.data.map((h) => ({
+          ...h,
+          status: h.completedToday ? "completed" : "pending",
+        })));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [isDemoMode]);
 
   const todayLabel = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "short",
     day: "numeric",
   });
-  const todayISO = useMemo(() => toISODate(new Date()), []);
+  useEffect(() => {
+    const refreshToday = () => setTodayISO(toISODate(new Date()));
+    const interval = window.setInterval(refreshToday, 60 * 1000);
+    window.addEventListener("focus", refreshToday);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshToday);
+    };
+  }, []);
 
   const visibleHabits = useMemo(
     () => habits.filter((h) => matchesTimeSlot(h, timeSlotFilter)),
@@ -186,10 +212,6 @@ export default function TodaysHabit() {
   );
   const completedHabits = useMemo(
     () => visibleHabits.filter((h) => getHabitStatus(h, todayISO) === "completed"),
-    [visibleHabits, todayISO]
-  );
-  const brokenHabits = useMemo(
-    () => visibleHabits.filter((h) => getHabitStatus(h, todayISO) === "broken"),
     [visibleHabits, todayISO]
   );
   const sidebarHabits = useMemo(
@@ -207,15 +229,52 @@ export default function TodaysHabit() {
     [visibleHabits]
   );
 
-  const markDone = (id) => {
-    setHabits((prev) => prev.map((h) => (h.id === id ? { ...h, status: "completed" } : h)));
+  const refreshStreaks = async () => {
+    try {
+      const res = await api.get("/habits?view=active");
+      setHabits((prev) => {
+        const serverMap = Object.fromEntries(
+          res.data.map((h) => [(h._id ?? h.id)?.toString(), h])
+        );
+        return prev.map((h) => {
+          const key = (h._id ?? h.id)?.toString();
+          const s = serverMap[key];
+          if (!s) return h;
+          return { ...h, currentStreak: s.currentStreak, maxStreak: s.maxStreak, streakBreaks: s.streakBreaks };
+        });
+      });
+    } catch { /* silently fail */ }
   };
 
-  const markPending = (id) => {
-    setHabits((prev) =>
-      prev.map((h) => (h.id === id ? { ...h, status: "pending", scheduledDate: todayISO } : h))
-    );
+  const markDone = async (id) => {
+    setHabits((prev) => prev.map((h) => (h._id ?? h.id) === id ? { ...h, status: "completed" } : h));
+    if (!isDemoMode) {
+      try {
+        await api.post(`/habits/${id}/complete`);
+        await refreshStreaks();
+        window.dispatchEvent(new Event("monkmode:habits-updated"));
+      } catch { /* keep optimistic state */ }
+    }
   };
+
+  const markPending = async (id) => {
+    setHabits((prev) => prev.map((h) => (h._id ?? h.id) === id ? { ...h, status: "pending" } : h));
+    if (!isDemoMode) {
+      try {
+        await api.delete(`/habits/${id}/complete`);
+        await refreshStreaks();
+        window.dispatchEvent(new Event("monkmode:habits-updated"));
+      } catch { /* keep optimistic state */ }
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-60 items-center justify-center text-sm text-stone-400">
+        Loading your habits...
+      </div>
+    );
+  }
 
   return (
     <div className="habits-today-page space-y-5">
@@ -265,7 +324,7 @@ export default function TodaysHabit() {
                       </div>
                       <div className="space-y-2">
                         {filtered.map((habit) => (
-                          <HabitRow key={habit.id} habit={habit} status={getHabitStatus(habit, todayISO)} />
+                          <HabitRow key={habit._id ?? habit.id} habit={habit} status={getHabitStatus(habit, todayISO)} />
                         ))}
                       </div>
                     </div>
@@ -300,7 +359,7 @@ export default function TodaysHabit() {
                   ) : (
                     filtered.map((habit, i) => (
                       <Motion.article
-                        key={habit.id}
+                        key={habit._id ?? habit.id}
                         className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -315,7 +374,7 @@ export default function TodaysHabit() {
                           <div className="flex shrink-0 items-center gap-1.5">
                             <Motion.button
                               type="button"
-                              onClick={() => markDone(habit.id)}
+                              onClick={() => markDone(habit._id ?? habit.id)}
                               animate={{
                                 boxShadow: [
                                   "0 0 0px rgba(52,211,153,0)",
@@ -378,10 +437,10 @@ export default function TodaysHabit() {
                   ) : (
                     filtered.map((habit) => (
                       <HabitRow
-                        key={habit.id}
+                        key={habit._id ?? habit.id}
                         habit={habit}
                         status={getHabitStatus(habit, todayISO)}
-                        onUndo={() => markPending(habit.id)}
+                        onUndo={() => markPending(habit._id ?? habit.id)}
                       />
                     ))
                   );
@@ -410,17 +469,25 @@ export default function TodaysHabit() {
                 <p className="text-xs text-stone-500">No habits for this priority filter.</p>
               ) : (
                 sidebarHabits.map((habit) => (
-                  <article key={`summary-${habit.id}`} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
+                  <article key={`summary-${habit._id ?? habit.id}`} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
                     <p className="text-sm font-semibold text-stone-100">{habit.title}</p>
                     <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-stone-300">
                       <div className="flex-1 space-y-1">
                         <p>No. of Streak Break: <span className="font-semibold text-rose-200">{habit.streakBreaks ?? 0}</span></p>
-                        <p>End Date: <span className="font-semibold text-amber-100">{habit.endDate ?? "Never Ends"}</span></p>
-                        {habit.endDate && (() => {
-                          const msLeft = new Date(habit.endDate) - new Date(todayISO);
-                          const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+                        {(() => {
+                          const endDateStr = habit.endDate
+                            ? (typeof habit.endDate === "string" ? habit.endDate.slice(0, 10) : habit.endDate.toISOString?.().slice(0, 10))
+                            : null;
+                          const daysLeft = endDateStr
+                            ? Math.ceil((new Date(endDateStr) - new Date(todayISO)) / (1000 * 60 * 60 * 24))
+                            : null;
                           return (
-                            <p>Days Left: <span className={`font-semibold ${daysLeft <= 7 ? "text-rose-300" : daysLeft <= 30 ? "text-yellow-200" : "text-sky-200"}`}>{daysLeft > 0 ? `${daysLeft} days` : "Ended"}</span></p>
+                            <>
+                              <p>End Date: <span className="font-semibold text-amber-100">{endDateStr ?? "Never Ends"}</span></p>
+                              {endDateStr && (
+                                <p>Days Left: <span className={`font-semibold ${daysLeft <= 7 ? "text-rose-300" : daysLeft <= 30 ? "text-yellow-200" : "text-sky-200"}`}>{daysLeft > 0 ? `${daysLeft} days` : "Ending today"}</span></p>
+                              )}
+                            </>
                           );
                         })()}
                       </div>

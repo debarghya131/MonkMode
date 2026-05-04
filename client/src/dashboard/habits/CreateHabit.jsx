@@ -1,5 +1,7 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
+import api from "../../api/axios";
+import useAuth from "../../hooks/useAuth";
 
 /* ─── Constants ─────────────────────────────────────── */
 const PRIORITIES = ["High", "Medium", "Low"];
@@ -24,6 +26,7 @@ const DAY_SHORT = { Sun: "Su", Mon: "M", Tue: "T", Wed: "W", Thu: "Th", Fri: "F"
 const DEFAULT_CATEGORIES = [
   "Mindfulness", "Fitness", "Learning", "Discipline", "Health", "Productivity", "Personal",
 ];
+const CATEGORY_STORAGE_KEY = "monkmode.habit.custom_categories.v1";
 
 const toISO = (d) => {
   const y = d.getFullYear();
@@ -68,10 +71,153 @@ const fmtTime = (t) => {
 };
 
 const PANEL_H = "650px";
+const DELETE_UNDO_WINDOW_MS = 48 * 60 * 60 * 1000;
+const toLogAtISO = (dateStr, timeStr = "00:00") => {
+  if (!dateStr) return null;
+  const d = new Date(`${dateStr}T${timeStr}:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+};
+
+const getLocalHHMM = (iso) => {
+  if (!iso) return "00:00";
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
+
+const getDeleteUndoMeta = (deletedAt) => {
+  if (!deletedAt) return { canUndoDelete: false, deleteUndoExpiresAt: null, deleteUndoRemainingMs: 0 };
+  const deletedAtDate = new Date(deletedAt);
+  if (Number.isNaN(deletedAtDate.getTime())) {
+    return { canUndoDelete: false, deleteUndoExpiresAt: null, deleteUndoRemainingMs: 0 };
+  }
+  const expiresAt = new Date(deletedAtDate.getTime() + DELETE_UNDO_WINDOW_MS);
+  const remainingMs = Math.max(0, expiresAt.getTime() - Date.now());
+  return {
+    canUndoDelete: remainingMs > 0,
+    deleteUndoExpiresAt: expiresAt.toISOString(),
+    deleteUndoRemainingMs: remainingMs
+  };
+};
+
+const formatRemainingUndo = (remainingMs) => {
+  const safeMs = Math.max(0, Number(remainingMs) || 0);
+  const totalMinutes = Math.ceil(safeMs / (60 * 1000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours <= 0) return `${minutes}m`;
+  return `${hours}h ${minutes}m`;
+};
+
+const resolveLogHabitId = (log) => {
+  if (log?.deletedItem?.id) return String(log.deletedItem.id);
+  const rawId = String(log?.id || "");
+  if (rawId.includes("-activity-")) return rawId.split("-activity-")[0];
+  if (rawId.includes("-del-")) return rawId.split("-del-")[0];
+  if (rawId.includes("-edit-")) return rawId.split("-edit-")[0];
+  if (rawId.endsWith("-log")) return rawId.slice(0, -4);
+  return null;
+};
+
+const emitHabitsUpdated = () => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("monkmode:habits-updated"));
+  }
+};
+
+/* ─── normalizeHabit ─────────────────────────────────── */
+const toDateStr = (d) => {
+  if (!d) return null;
+  if (typeof d === "string") return d.length > 10 ? d.slice(0, 10) : d;
+  return toISO(new Date(d));
+};
+
+const normalizeHabit = (h, todayStr) => ({
+  ...h,
+  id: h._id?.toString() ?? h.id,
+  reason: h.note ?? h.reason ?? "",
+  startDate: toDateStr(h.startDate) || toDateStr(h.createdAt) || todayStr,
+  endDate: toDateStr(h.endDate),
+  repeatType: h.repeatType ?? h.frequency ?? "daily",
+  timeOfDay: h.timeOfDay ?? "",
+  days: h.days ?? [],
+  isImportant: h.isImportant ?? false,
+  canUndoDelete: Boolean(h.canUndoDelete),
+  deleteUndoExpiresAt: h.deleteUndoExpiresAt ?? null,
+  deleteUndoRemainingMs: Number.isFinite(Number(h.deleteUndoRemainingMs)) ? Number(h.deleteUndoRemainingMs) : 0,
+});
+
+/* ─── Demo data ──────────────────────────────────────── */
+const buildDemoHabits = (today) => [
+  {
+    id: "demo-habit-1",
+    title: "DSA",
+    reason: "Build problem-solving consistency.",
+    isImportant: true,
+    targetStreak: 21,
+    timeOfDay: "Morning",
+    category: "Fitness",
+    priority: "High",
+    repeatType: "21days",
+    time: "11:01",
+    startDate: today,
+    endDate: fixedEndDate(21, today),
+  },
+  {
+    id: "demo-habit-2",
+    title: "Evening Walk",
+    reason: "Improve energy and sleep quality.",
+    isImportant: false,
+    targetStreak: 14,
+    timeOfDay: "Evening",
+    category: "Health",
+    priority: "Medium",
+    repeatType: "daily",
+    time: "19:00",
+    startDate: today,
+    endDate: null,
+  },
+  {
+    id: "demo-habit-3-archived",
+    title: "Cold Shower",
+    reason: "Build resilience and discipline.",
+    isImportant: false,
+    targetStreak: 7,
+    timeOfDay: "Morning",
+    category: "Discipline",
+    priority: "Low",
+    repeatType: "7days",
+    time: "06:10",
+    startDate: addDays(-10, today),
+    endDate: addDays(-3, today),
+  },
+];
+
+const buildDemoLogs = (today) => [
+  { id: "demo-habit-log-1", title: "DSA", date: today, time: "11:01" },
+  { id: "demo-habit-log-2", title: "Evening Walk", date: today, time: "19:00", action: "edited" },
+  { id: "demo-habit-log-3", title: "Meditation", date: today, time: "06:45", action: "deleted" },
+];
+
+const loadStoredCategories = () => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CATEGORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+};
 
 /* ─── Component ─────────────────────────────────────── */
 export default function CreateHabit({ entity = "habit" }) {
   const today = useMemo(() => toISO(new Date()), []);
+  const { isDemoMode } = useAuth();
   const isGoal = entity === "goal";
   const singular = isGoal ? "Goal" : "Habit";
   const plural = isGoal ? "Goals" : "Habits";
@@ -93,64 +239,145 @@ export default function CreateHabit({ entity = "habit" }) {
   }, []);
 
   /* categories */
-  const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORIES);
+  const [categoryOptions, setCategoryOptions] = useState(() => {
+    const stored = loadStoredCategories();
+    const merged = new Map();
+    [...DEFAULT_CATEGORIES, ...stored].forEach((category) => {
+      const key = category.toLowerCase();
+      if (!merged.has(key)) merged.set(key, category);
+    });
+    return [...merged.values()];
+  });
   const [showCustomCat, setShowCustomCat] = useState(false);
   const [customCat, setCustomCat] = useState("");
   const [catError, setCatError] = useState("");
   const [catDeleteError, setCatDeleteError] = useState("");
+  const [toast, setToast] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [deletingHabitId, setDeletingHabitId] = useState(null);
+  const [restoringLogId, setRestoringLogId] = useState(null);
+  const [confirmState, setConfirmState] = useState({
+    open: false,
+    title: "",
+    message: "",
+    confirmLabel: "Confirm",
+    tone: "warning"
+  });
+  const confirmResolveRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const customOnly = categoryOptions.filter(
+      (category) => !DEFAULT_CATEGORIES.some((defaultCat) => defaultCat.toLowerCase() === category.toLowerCase())
+    );
+    window.localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(customOnly));
+  }, [categoryOptions]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 2600);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  const showToast = (message, tone = "success") => {
+    setToast({ id: Date.now(), message, tone });
+  };
+
+  const openConfirm = ({ title, message, confirmLabel = "Confirm", tone = "warning" }) =>
+    new Promise((resolve) => {
+      confirmResolveRef.current = resolve;
+      setConfirmState({ open: true, title, message, confirmLabel, tone });
+    });
+
+  const closeConfirm = (confirmed) => {
+    if (confirmResolveRef.current) {
+      confirmResolveRef.current(confirmed);
+      confirmResolveRef.current = null;
+    }
+    setConfirmState((prev) => ({ ...prev, open: false }));
+  };
 
   /* habits list */
-  const [habits, setHabits] = useState(() => [
-    {
-      id: "demo-habit-1",
-      title: "DSA",
-      reason: "Build problem-solving consistency.",
-      isImportant: true,
-      targetStreak: 21,
-      timeOfDay: "Morning",
-      category: "Fitness",
-      priority: "High",
-      repeatType: "21days",
-      time: "11:01",
-      startDate: today,
-      endDate: fixedEndDate(21, today),
-    },
-    {
-      id: "demo-habit-2",
-      title: "Evening Walk",
-      reason: "Improve energy and sleep quality.",
-      isImportant: false,
-      targetStreak: 14,
-      timeOfDay: "Evening",
-      category: "Health",
-      priority: "Medium",
-      repeatType: "daily",
-      time: "19:00",
-      startDate: today,
-      endDate: null,
-    },
-    {
-      id: "demo-habit-3-archived",
-      title: "Cold Shower",
-      reason: "Build resilience and discipline.",
-      isImportant: false,
-      targetStreak: 7,
-      timeOfDay: "Morning",
-      category: "Discipline",
-      priority: "Low",
-      repeatType: "7days",
-      time: "06:10",
-      startDate: addDays(-10, today),
-      endDate: addDays(-3, today),
-    },
-  ]);
-  const [habitLogs, setHabitLogs] = useState(() => [
-    { id: "demo-habit-log-1", title: "DSA", date: today, time: "11:01" },
-    { id: "demo-habit-log-2", title: "Evening Walk", date: today, time: "19:00", action: "edited" },
-    { id: "demo-habit-log-3", title: "Meditation", date: today, time: "06:45", action: "deleted" },
-  ]);
+  const [habits, setHabits] = useState(() => isDemoMode ? buildDemoHabits(toISO(new Date())) : []);
+  const [habitLogs, setHabitLogs] = useState(() => isDemoMode ? buildDemoLogs(toISO(new Date())) : []);
+  const [loading, setLoading] = useState(!isDemoMode);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
+
+  /* fetch habits for real users */
+  useEffect(() => {
+    if (isDemoMode) return;
+    let cancelled = false;
+    const fetchHabits = async () => {
+      try {
+        const { data } = await api.get("/habits?view=all");
+        if (cancelled) return;
+        const todayStr = toISO(new Date());
+        const normalized = data.map((h) => normalizeHabit(h, todayStr));
+        setHabits(normalized);
+
+        const persistedLogs = normalized.flatMap((habit) => {
+          const entries = Array.isArray(habit.activityLogs) ? habit.activityLogs : [];
+          const effectiveEntries = entries.length > 0
+            ? entries
+            : [{
+                action: habit.deletedAt && habit.archivedReason === "deleted" ? "deleted" : "created",
+                title: habit.title,
+                at: habit.deletedAt || habit.createdAt || new Date().toISOString()
+              }];
+          return effectiveEntries.map((entry, index) => {
+            const action = entry?.action || "created";
+            const at = entry?.at || habit.updatedAt || habit.createdAt || new Date().toISOString();
+            const date = toDateStr(at) || todayStr;
+            const time = getLocalHHMM(at);
+            const logAt = new Date(at).toISOString();
+
+            if (action === "deleted") {
+              const deletedAt = habit.deletedAt || at;
+              const undoMeta = getDeleteUndoMeta(deletedAt);
+              const canUndoDelete = Boolean(habit.deletedAt && habit.archivedReason === "deleted" && undoMeta.canUndoDelete);
+              const deleteUndoExpiresAt = canUndoDelete ? undoMeta.deleteUndoExpiresAt : null;
+              return {
+                id: `${habit.id}-activity-${entry?._id?.toString?.() || `${Date.parse(logAt)}-${index}`}`,
+                title: entry?.title || habit.title,
+                date,
+                time,
+                action,
+                deletedAt,
+                canUndoDelete,
+                deleteUndoExpiresAt,
+                logAt,
+                deletedItem: {
+                  ...habit,
+                  deletedAt,
+                  archivedReason: "deleted",
+                  canUndoDelete,
+                  deleteUndoExpiresAt
+                }
+              };
+            }
+
+            return {
+              id: `${habit.id}-activity-${entry?._id?.toString?.() || `${Date.parse(logAt)}-${index}`}`,
+              title: entry?.title || habit.title,
+              date,
+              time,
+              action,
+              logAt
+            };
+          });
+        });
+
+        setHabitLogs(persistedLogs);
+      } catch {
+        // silently fail — leave state empty
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchHabits();
+    return () => { cancelled = true; };
+  }, [isDemoMode]);
 
   /* calendar */
   const [viewMonth, setViewMonth] = useState(() => {
@@ -170,22 +397,74 @@ export default function CreateHabit({ entity = "habit" }) {
   const [habitsView, setHabitsView] = useState("active");
 
   /* ── derived ── */
-  const { activeHabits, endedLogs } = useMemo(() => {
-    const active = [], ended = [];
+  const activeHabits = useMemo(() => {
+    const active = [];
     habits.forEach((h) => {
-      if (h.endDate && h.endDate < today)
-        ended.push({ id: `${h.id}-ended`, title: h.title, date: h.endDate, time: h.time, action: "ended" });
-      else active.push(h);
+      const isDeleted = Boolean(h.deletedAt && h.archivedReason === "deleted");
+      const isEnded = h.archivedReason === "ended" || (h.endDate && h.endDate < today);
+
+      if (isDeleted) {
+        return;
+      }
+
+      if (isEnded) {
+        return;
+      } else {
+        active.push(h);
+      }
     });
-    return { activeHabits: active, endedLogs: ended };
+    return active;
   }, [habits, today]);
 
-  const allLogs = useMemo(() => [...endedLogs, ...habitLogs], [endedLogs, habitLogs]);
+  const allLogs = useMemo(() => {
+    const getLogTime = (log) => {
+      if (log.logAt) {
+        const direct = new Date(log.logAt).getTime();
+        if (Number.isFinite(direct)) return direct;
+      }
+      if (log.deletedAt) {
+        const deleted = new Date(log.deletedAt).getTime();
+        if (Number.isFinite(deleted)) return deleted;
+      }
+      const derived = toLogAtISO(log.date, log.time);
+      const derivedTime = derived ? new Date(derived).getTime() : 0;
+      return Number.isFinite(derivedTime) ? derivedTime : 0;
+    };
+
+    return [...habitLogs].sort((a, b) => getLogTime(b) - getLogTime(a));
+  }, [habitLogs]);
+
+  const undoEligibleLogIds = useMemo(() => {
+    const eligible = new Set();
+    const settledByHabit = new Set();
+
+    for (const log of allLogs) {
+      const habitId = resolveLogHabitId(log);
+      if (!habitId || settledByHabit.has(habitId)) continue;
+
+      if (log.action === "restored") {
+        settledByHabit.add(habitId);
+        continue;
+      }
+
+      if (log.action === "deleted") {
+        const undoMeta = getDeleteUndoMeta(log.deletedAt || log.deletedItem?.deletedAt);
+        if (log.deletedItem && undoMeta.canUndoDelete) {
+          eligible.add(log.id);
+        }
+        settledByHabit.add(habitId);
+      }
+    }
+
+    return eligible;
+  }, [allLogs]);
   const sortedActiveHabits = useMemo(() => {
     return [...activeHabits].sort((a, b) => Number(Boolean(b.isImportant)) - Number(Boolean(a.isImportant)));
   }, [activeHabits]);
   const sortedArchivedHabits = useMemo(() => {
-    const archived = habits.filter((h) => h.endDate && h.endDate < today);
+    const archived = habits.filter((h) =>
+      h.deletedAt || h.archivedReason === "ended" || (h.endDate && h.endDate < today)
+    );
     return [...archived].sort((a, b) => Number(Boolean(b.isImportant)) - Number(Boolean(a.isImportant)));
   }, [habits, today]);
   const displayedHabits = habitsView === "active" ? sortedActiveHabits : sortedArchivedHabits;
@@ -275,13 +554,22 @@ export default function CreateHabit({ entity = "habit" }) {
     return "";
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
     setTouched({ title:true, timeOfDay:true, category:true, priority:true, repeatType:true, time:true, startDate:true });
     const err = validate();
     if (err) { setError(err); return; }
+    setSubmitting(true);
 
     if (editingId) {
+      const editId = editingId;
+      const previousHabit = habits.find((h) => h.id === editId);
+      if (!previousHabit) {
+        setSubmitting(false);
+        return;
+      }
+
       const fixedDays2 = FIXED_DURATION[form.repeatType];
       const updated = {
         title: form.title.trim(), reason: form.reason.trim(),
@@ -293,14 +581,63 @@ export default function CreateHabit({ entity = "habit" }) {
           : { startDate: form.startDate, endDate: form.neverEnds ? null : form.endDate,
               ...(form.repeatType === "weekdays" ? { days: form.days } : {}) }),
       };
-      setHabits((p) => p.map((h) => h.id === editingId ? { ...h, ...updated } : h));
-      setHabitLogs((p) => [{ id:`${editingId}-edit-${Date.now()}`, title:form.title.trim(), date:form.startDate, time:form.time, action:"edited" }, ...p]);
+
+      // Optimistic update
+      setHabits((p) => p.map((h) => h.id === editId ? { ...h, ...updated } : h));
+      const editLoggedAt = new Date();
+      const optimisticLogId = `${editId}-edit-${Date.now()}`;
+      setHabitLogs((p) => [{
+        id: optimisticLogId,
+        title:form.title.trim(),
+        date: toDateStr(editLoggedAt) || today,
+        time: getLocalHHMM(editLoggedAt),
+        action:"edited",
+        logAt: editLoggedAt.toISOString()
+      }, ...p]);
       setEditingId(null);
       setError(""); setTouched({});
       setForm((p) => ({ ...p, title:"", reason:"", targetStreak:"", timeOfDay:"", category:"", priority:"", repeatType:"", time:"" }));
+
+      if (!isDemoMode) {
+        try {
+          const payload = {
+            title: form.title.trim(),
+            note: form.reason.trim(),
+            targetStreak: form.targetStreak ? Number(form.targetStreak) : null,
+            timeOfDay: form.timeOfDay,
+            category: form.category,
+            priority: form.priority,
+            time: form.time,
+            repeatType: form.repeatType,
+            startDate: form.startDate || null,
+            endDate: fixedDays2
+              ? fixedEndDate(fixedDays2, form.startDate)
+              : (form.neverEnds ? null : (form.endDate || null)),
+            days: form.repeatType === "weekdays" ? form.days : [],
+          };
+          const { data } = await api.patch(`/habits/${editId}`, payload);
+          const todayStr = toISO(new Date());
+          const normalized = normalizeHabit(data, todayStr);
+          setHabits((p) => p.map((h) => h.id === editId ? { ...h, ...normalized } : h));
+          emitHabitsUpdated();
+          showToast(`${singular} updated.`);
+        } catch (err) {
+          const backendMessage = err?.response?.data?.message;
+          setHabits((p) => p.map((h) => h.id === editId ? previousHabit : h));
+          setHabitLogs((p) => p.filter((log) => log.id !== optimisticLogId));
+          setError(backendMessage || `Could not update "${previousHabit.title}". Please try again.`);
+          setTimeout(() => setError(""), 4000);
+        }
+      }
+      if (isDemoMode) {
+        emitHabitsUpdated();
+        showToast(`${singular} updated.`);
+      }
+      setSubmitting(false);
       return;
     }
 
+    const fixedDays = FIXED_DURATION[form.repeatType];
     const base = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
       title: form.title.trim(),
@@ -311,71 +648,267 @@ export default function CreateHabit({ entity = "habit" }) {
       category: form.category, priority: form.priority,
       repeatType: form.repeatType, time: form.time,
     };
-    const fixedDays = FIXED_DURATION[form.repeatType];
     const habit = fixedDays
       ? { ...base, startDate: form.startDate, endDate: fixedEndDate(fixedDays, form.startDate) }
       : { ...base, startDate: form.startDate, endDate: form.neverEnds ? null : form.endDate,
           ...(form.repeatType === "weekdays" ? { days: form.days } : {}) };
 
-    setHabits((p) => [habit, ...p]);
-    const logDate = habit.startDate;
-    setHabitLogs((p) => [{ id: `${habit.id}-log`, title: habit.title, date: logDate, time: habit.time }, ...p]);
-    setSelectedDate(logDate);
-    setViewMonth(new Date(parseISO(logDate).getFullYear(), parseISO(logDate).getMonth(), 1));
-    setError(""); setTouched({});
-    setForm((p) => ({
-      ...p,
-      title:"",
-      reason:"",
-      targetStreak:"",
-      timeOfDay:"",
-      category:"",
-      priority:"",
-      repeatType:"",
-      time:"",
-    }));
+    if (isDemoMode) {
+      setHabits((p) => [habit, ...p]);
+      const createdLoggedAt = new Date();
+      const logDate = toDateStr(createdLoggedAt) || today;
+      setHabitLogs((p) => [{
+        id: `${habit.id}-log`,
+        title: habit.title,
+        date: logDate,
+        time: getLocalHHMM(createdLoggedAt),
+        action: "created",
+        logAt: createdLoggedAt.toISOString()
+      }, ...p]);
+      setSelectedDate(habit.startDate);
+      setViewMonth(new Date(parseISO(habit.startDate).getFullYear(), parseISO(habit.startDate).getMonth(), 1));
+      emitHabitsUpdated();
+      showToast(`${singular} created.`);
+      setError("");
+      setTouched({});
+      setForm((p) => ({
+        ...p,
+        title:"",
+        reason:"",
+        targetStreak:"",
+        timeOfDay:"",
+        category:"",
+        priority:"",
+        repeatType:"",
+        time:"",
+      }));
+    } else {
+      // API create
+      try {
+        const payload = {
+          title: form.title.trim(),
+          note: form.reason.trim(),
+          targetStreak: form.targetStreak ? Number(form.targetStreak) : 21,
+          timeOfDay: form.timeOfDay,
+          category: form.category,
+          priority: form.priority,
+          time: form.time,
+          repeatType: form.repeatType,
+          startDate: form.startDate || null,
+          endDate: fixedDays
+            ? fixedEndDate(fixedDays, form.startDate)
+            : (form.neverEnds ? null : (form.endDate || null)),
+          days: form.repeatType === "weekdays" ? form.days : [],
+        };
+        const { data } = await api.post("/habits", payload);
+        const todayStr = toISO(new Date());
+        const normalized = normalizeHabit(data, todayStr);
+        setHabits((p) => [normalized, ...p]);
+        const createdLoggedAt = new Date(data?.createdAt || new Date());
+        const logDate = toDateStr(createdLoggedAt) || todayStr;
+        setHabitLogs((p) => [{
+          id: `${normalized.id}-log`,
+          title: normalized.title,
+          date: logDate,
+          time: getLocalHHMM(createdLoggedAt),
+          action: "created",
+          logAt: createdLoggedAt.toISOString()
+        }, ...p]);
+        const selectedLogDate = normalized.startDate || todayStr;
+        setSelectedDate(selectedLogDate);
+        setViewMonth(new Date(parseISO(selectedLogDate).getFullYear(), parseISO(selectedLogDate).getMonth(), 1));
+        emitHabitsUpdated();
+        showToast(`${singular} created.`);
+        setError("");
+        setTouched({});
+        setForm((p) => ({
+          ...p,
+          title:"",
+          reason:"",
+          targetStreak:"",
+          timeOfDay:"",
+          category:"",
+          priority:"",
+          repeatType:"",
+          time:"",
+        }));
+      } catch {
+        setError(`Could not create ${lowerSingular}. Please try again.`);
+        setTimeout(() => setError(""), 4000);
+      }
+    }
+    setSubmitting(false);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const h = habits.find((x) => x.id === id);
+    if (!h) return;
+    if (deletingHabitId || restoringLogId) return;
+    const confirmedDelete = await openConfirm({
+      title: `Delete "${h.title}"?`,
+      message: "This will remove the habit from active lists and update today/consistency/heatmap totals from today onward. You can undo within 48 hours.",
+      confirmLabel: "Delete Habit",
+      tone: "danger"
+    });
+    if (!confirmedDelete) return;
+    setDeletingHabitId(id);
+
+    const deletedAtISO = new Date().toISOString();
+    const localUndoMeta = getDeleteUndoMeta(deletedAtISO);
+    const deletedItem = {
+      ...h,
+      deletedAt: deletedAtISO,
+      archivedReason: "deleted",
+      canUndoDelete: localUndoMeta.canUndoDelete,
+      deleteUndoExpiresAt: localUndoMeta.deleteUndoExpiresAt
+    };
+    const logId = `${id}-del-${Date.now()}`;
+
     setHabits((p) => p.filter((x) => x.id !== id));
-    setHabitLogs((p) => [{ id:`${id}-del-${Date.now()}`, title:h.title, date:h.startDate, time:h.time, action:"deleted", deletedItem:h }, ...p]);
+    setHabitLogs((p) => [{
+      id: logId,
+      title: h.title,
+      date: toDateStr(deletedAtISO) || today,
+      time: getLocalHHMM(deletedAtISO),
+      action: "deleted",
+      deletedAt: deletedAtISO,
+      canUndoDelete: localUndoMeta.canUndoDelete,
+      deleteUndoExpiresAt: localUndoMeta.deleteUndoExpiresAt,
+      logAt: deletedAtISO,
+      deletedItem
+    }, ...p]);
+    emitHabitsUpdated();
+    showToast(`${h.title} deleted. Undo available for 48h.`, "warning");
+
+    if (!isDemoMode) {
+      try {
+        const { data } = await api.delete(`/habits/${id}`);
+        const serverDeletedAt = data?.habit?.deletedAt || deletedAtISO;
+        const serverUndoMeta = {
+          canUndoDelete: typeof data?.canUndoDelete === "boolean"
+            ? data.canUndoDelete
+            : getDeleteUndoMeta(serverDeletedAt).canUndoDelete,
+          deleteUndoExpiresAt: data?.deleteUndoExpiresAt || getDeleteUndoMeta(serverDeletedAt).deleteUndoExpiresAt
+        };
+
+        setHabitLogs((p) => p.map((log) => {
+          if (log.id !== logId) return log;
+          return {
+            ...log,
+            date: toDateStr(serverDeletedAt) || log.date,
+            time: getLocalHHMM(serverDeletedAt),
+            deletedAt: serverDeletedAt,
+            logAt: serverDeletedAt,
+            ...serverUndoMeta,
+            deletedItem: {
+              ...log.deletedItem,
+              deletedAt: serverDeletedAt,
+              archivedReason: "deleted",
+              ...serverUndoMeta
+            }
+          };
+        }));
+      } catch {
+        setHabits((p) => [h, ...p.filter((habitItem) => habitItem.id !== h.id)]);
+        setHabitLogs((p) => p.filter((log) => log.id !== logId));
+        emitHabitsUpdated();
+        setError(`Could not delete "${h.title}". Please try again.`);
+        setTimeout(() => setError(""), 4000);
+      }
+    }
     if (editingId === id) setEditingId(null);
+    setDeletingHabitId(null);
   };
 
-  const handleUndoDelete = (logId) => {
+  const handleUndoDelete = async (logId) => {
     const log = habitLogs.find((l) => l.id === logId);
     if (!log?.deletedItem) return;
+    if (deletingHabitId || restoringLogId) return;
     const item = log.deletedItem;
+    const confirmedUndo = await openConfirm({
+      title: `Restore "${item.title}"?`,
+      message: "This will move the habit back to active lists and update today/consistency/heatmap totals from today onward.",
+      confirmLabel: "Restore Habit",
+      tone: "success"
+    });
+    if (!confirmedUndo) return;
+    setRestoringLogId(logId);
+
+    const undoMeta = getDeleteUndoMeta(log.deletedAt || item.deletedAt);
+    const canUndoDelete = typeof log.canUndoDelete === "boolean" ? log.canUndoDelete : undoMeta.canUndoDelete;
+    const deleteUndoExpiresAt = log.deleteUndoExpiresAt || item.deleteUndoExpiresAt || undoMeta.deleteUndoExpiresAt;
+    const expiredByTime = deleteUndoExpiresAt ? new Date() > new Date(deleteUndoExpiresAt) : !canUndoDelete;
     const nowDate = toISO(new Date());
-    const nowTime = new Date().toTimeString().slice(0, 5);
-    const expired = item.endDate && (
-      item.endDate < nowDate || (item.endDate === nowDate && item.time < nowTime)
-    );
-    if (expired) {
-      setUndoError(`Undo not possible — "${item.title}" has already passed its end date/time.`);
+    const expiredByEndDate = item.endDate && item.endDate < nowDate;
+
+    if (expiredByTime) {
+      setUndoError(`Undo expired — "${item.title}" can only be restored within 48 hours of deletion.`);
       setTimeout(() => setUndoError(""), 4000);
+      setRestoringLogId(null);
       return;
     }
-    setUndoError("");
-    setHabits((p) => [item, ...p]);
-    setHabitLogs((p) => p.filter((l) => l.id !== logId));
-  };
 
-  const toggleHabitImportant = (id) => {
-    setHabits((p) => p.map((h) => (h.id === id ? { ...h, isImportant: !h.isImportant } : h)));
+    if (expiredByEndDate) {
+      setUndoError(`Undo not possible — "${item.title}" has already passed its end date.`);
+      setTimeout(() => setUndoError(""), 4000);
+      setRestoringLogId(null);
+      return;
+    }
+
+    const restoredItem = {
+      ...item,
+      deletedAt: null,
+      archivedReason: null,
+      canUndoDelete: false,
+      deleteUndoExpiresAt: null
+    };
+
+    if (!isDemoMode) {
+      try {
+        await api.patch(`/habits/${item.id}/restore`);
+      } catch (err) {
+        const backendMessage = err?.response?.data?.message;
+        setUndoError(backendMessage || `Could not restore "${item.title}". Please try again.`);
+        setTimeout(() => setUndoError(""), 4000);
+        setRestoringLogId(null);
+        return;
+      }
+    }
+
+    setUndoError("");
+    setHabits((p) => [restoredItem, ...p]);
+    setHabitLogs((p) => p.filter((l) => l.id !== logId));
+    emitHabitsUpdated();
+    showToast(`${item.title} restored.`);
+    setRestoringLogId(null);
   };
 
   const startEdit = (h) => {
     setEditingId(h.id);
-    setForm({ title:h.title, reason:h.reason??h.description??"", targetStreak:h.targetStreak??"", timeOfDay:h.timeOfDay??"", category:h.category, priority:h.priority,
-      time:h.time, repeatType:h.repeatType, startDate:h.startDate??"",
-      endDate:h.endDate??"", neverEnds:h.endDate==null, days:h.days??[] });
+    const nextEdit = {
+      title: h.title,
+      reason: h.reason ?? h.description ?? "",
+      targetStreak: h.targetStreak ?? "",
+      timeOfDay: h.timeOfDay ?? "",
+      category: h.category,
+      priority: h.priority,
+      time: h.time,
+      repeatType: h.repeatType,
+      startDate: h.startDate ?? "",
+      endDate: h.endDate ?? "",
+      neverEnds: h.endDate == null,
+      days: h.days ?? []
+    };
+    setForm(nextEdit);
+    setEditForm(nextEdit);
   };
 
-  const handleUpdate = (id) => {
+  const handleUpdate = async (id) => {
     if (!editForm.title.trim()) return;
     if (editForm.targetStreak && Number(editForm.targetStreak) < 1) return;
+    const previousHabit = habits.find((h) => h.id === id);
+    if (!previousHabit) return;
+
     const updated = {
       title: editForm.title.trim(),
       reason: editForm.reason,
@@ -389,10 +922,57 @@ export default function CreateHabit({ entity = "habit" }) {
             days: editForm.repeatType==="weekdays"?editForm.days:undefined }),
     };
     setHabits((p) => p.map((h) => h.id===id ? {...h,...updated} : h));
-    setHabitLogs((p) => [{ id:`${id}-edit-${Date.now()}`, title:editForm.title.trim(),
-      date:editForm.startDate, time:editForm.time, action:"edited" }, ...p]);
+    const editLoggedAt = new Date();
+    const optimisticLogId = `${id}-edit-${Date.now()}`;
+    setHabitLogs((p) => [{
+      id: optimisticLogId,
+      title:editForm.title.trim(),
+      date: toDateStr(editLoggedAt) || today,
+      time: getLocalHHMM(editLoggedAt),
+      action:"edited",
+      logAt: editLoggedAt.toISOString()
+    }, ...p]);
     setEditingId(null);
+
+    if (!isDemoMode) {
+      try {
+        const payload = {
+          title: updated.title,
+          note: updated.reason ?? "",
+          targetStreak: updated.targetStreak,
+          timeOfDay: updated.timeOfDay,
+          category: updated.category,
+          priority: updated.priority,
+          time: updated.time,
+          repeatType: updated.repeatType,
+          startDate: updated.startDate || null,
+          endDate: updated.endDate || null,
+          days: updated.repeatType === "weekdays" ? (updated.days || []) : []
+        };
+        const { data } = await api.patch(`/habits/${id}`, payload);
+        const todayStr = toISO(new Date());
+        const normalized = normalizeHabit(data, todayStr);
+        setHabits((p) => p.map((h) => h.id === id ? { ...h, ...normalized } : h));
+        emitHabitsUpdated();
+      } catch (err) {
+        const backendMessage = err?.response?.data?.message;
+        setHabits((p) => p.map((h) => h.id === id ? previousHabit : h));
+        setHabitLogs((p) => p.filter((log) => log.id !== optimisticLogId));
+        setError(backendMessage || `Could not update "${previousHabit.title}". Please try again.`);
+        setTimeout(() => setError(""), 4000);
+      }
+    }
+    if (isDemoMode) emitHabitsUpdated();
   };
+
+  /* ─── Loading state ──────────────────────────────── */
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-sm text-stone-400">Loading habits...</p>
+      </div>
+    );
+  }
 
   /* ─── Render ─────────────────────────────────────── */
   return (
@@ -650,8 +1230,9 @@ export default function CreateHabit({ entity = "habit" }) {
             {error && <p className="text-xs text-red-300">{error}</p>}
 
             <button type="submit"
+              disabled={submitting}
               className="w-full rounded-lg border border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 px-4 py-2 text-xs font-semibold text-amber-200 transition hover:from-amber-400/25 hover:to-orange-400/20">
-              {editingId ? `Update ${singular}` : `Add ${singular}`}
+              {submitting ? "Saving..." : (editingId ? `Update ${singular}` : `Add ${singular}`)}
             </button>
             {editingId && (
               <button type="button"
@@ -708,7 +1289,7 @@ export default function CreateHabit({ entity = "habit" }) {
                   transition={{ delay: i * 0.05, duration: 0.22 }}
                   whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
                 >
-                  {false ? (
+                  {editingId === h.id ? (
                     /* ── Inline edit ── */
                     <div className="space-y-2">
                       <input type="text" value={editForm.title}
@@ -854,8 +1435,9 @@ export default function CreateHabit({ entity = "habit" }) {
                           )}
                           {!isArchiveView && (
                             <button type="button" onClick={() => handleDelete(h.id)}
+                              disabled={deletingHabitId === h.id || restoringLogId != null}
                               className="rounded border border-rose-400/25 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-300 transition hover:bg-rose-500/20">
-                              Delete
+                              {deletingHabitId === h.id ? "Deleting..." : "Delete"}
                             </button>
                           )}
                         </div>
@@ -931,11 +1513,13 @@ export default function CreateHabit({ entity = "habit" }) {
                 {calendarCells.map((cell, idx) => {
                   if (!cell) return <div key={`e-${idx}`} className="h-8 rounded" />;
                   const iso = toISO(cell);
-                  const count = habits.reduce((acc, h) => isHabitOnDate(h, iso) ? acc+1 : acc, 0);
+                  const count = displayedHabits.reduce((acc, h) => isHabitOnDate(h, iso) ? acc+1 : acc, 0);
                   const isToday = iso === today;
                   const isSel = iso === selectedDate;
                   return (
                     <button key={iso} type="button" onClick={() => setSelectedDate(iso)}
+                      title={`${count} ${lowerSingular}${count === 1 ? "" : "s"} scheduled`}
+                      aria-label={`${iso}: ${count} ${lowerSingular}${count === 1 ? "" : "s"} scheduled`}
                       className={`relative h-8 rounded text-xs transition ${isSel ? "border border-amber-300/60 bg-amber-400/15 text-amber-100" : "border border-amber-100/10 bg-white/5 text-stone-200 hover:border-amber-300/35"} ${isToday ? "ring-1 ring-amber-500/40" : ""}`}>
                       {cell.getDate()}
                       {count > 0 && <span className="absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-amber-400/90" />}
@@ -957,11 +1541,15 @@ export default function CreateHabit({ entity = "habit" }) {
                 <p className="text-sm text-stone-400">{`No ${lowerSingular} logs yet.`}</p>
               ) : (
                 <div className="journal-scroll min-h-0 flex-1 space-y-1.5 overflow-x-hidden overflow-y-auto scroll-smooth pr-1">
-                  {allLogs.map((log) => (
+                  {allLogs.map((log) => {
+                    const runtimeUndoMeta = getDeleteUndoMeta(log.deletedAt || log.deletedItem?.deletedAt);
+                    const canShowUndo = undoEligibleLogIds.has(log.id);
+                    return (
                     <div key={log.id} className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-[11px] ${
                       log.action==="deleted" ? "border-rose-400/20 bg-rose-500/5 text-stone-300"
                       : log.action==="edited" ? "border-amber-300/20 bg-amber-500/5 text-stone-300"
                       : log.action==="ended" ? "border-blue-400/20 bg-blue-500/5 text-stone-300"
+                      : log.action==="restored" ? "border-emerald-400/20 bg-emerald-500/5 text-stone-300"
                       : "border-amber-100/10 bg-white/5 text-stone-200"
                     }`}>
                       <p className="min-w-0 flex-1">
@@ -969,24 +1557,32 @@ export default function CreateHabit({ entity = "habit" }) {
                           log.action==="deleted" ? "text-rose-300"
                           : log.action==="edited" ? "text-amber-200"
                           : log.action==="ended" ? "text-blue-300"
+                          : log.action==="restored" ? "text-emerald-300"
                           : "text-emerald-300"
                         }`}>
-                          {log.action==="deleted" ? "Deleted" : log.action==="edited" ? "Edited" : log.action==="ended" ? "Ended" : "Created"}:
+                          {log.action==="deleted" ? "Deleted" : log.action==="edited" ? "Edited" : log.action==="ended" ? "Ended" : log.action==="restored" ? "Restored" : "Created"}:
                         </span>{" "}
                         <span className="break-all font-semibold text-stone-100">{log.title}</span> on {log.date} at {fmtTime(log.time)}
                       </p>
-                      {log.action==="deleted" && log.deletedItem && (
+                      {canShowUndo && (
                         <button
                           type="button"
                           onClick={() => handleUndoDelete(log.id)}
+                          disabled={restoringLogId === log.id || deletingHabitId != null}
                           className="shrink-0 rounded border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
-                          title="Undo delete"
+                          title="Undo delete (available for 48 hours)"
                         >
-                          ↺
+                          {restoringLogId === log.id ? "..." : "↺"}
                         </button>
                       )}
+                      {canShowUndo && (
+                        <span className="shrink-0 text-[10px] text-amber-200/80">
+                          {formatRemainingUndo(runtimeUndoMeta.deleteUndoRemainingMs)} left
+                        </span>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -995,6 +1591,47 @@ export default function CreateHabit({ entity = "habit" }) {
         </aside>
 
       </div>
+      {toast && (
+        <div className={`fixed bottom-5 right-5 z-[70] rounded-lg border px-3 py-2 text-xs font-semibold shadow-xl ${
+          toast.tone === "warning"
+            ? "border-amber-300/40 bg-amber-500/15 text-amber-100"
+            : toast.tone === "danger"
+            ? "border-rose-300/40 bg-rose-500/15 text-rose-100"
+            : "border-emerald-300/40 bg-emerald-500/15 text-emerald-100"
+        }`}>
+          {toast.message}
+        </div>
+      )}
+      {confirmState.open && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-amber-100/20 bg-stone-950/95 p-5 shadow-2xl shadow-black/60">
+            <p className="text-base font-semibold text-amber-100">{confirmState.title}</p>
+            <p className="mt-2 text-sm text-stone-300">{confirmState.message}</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => closeConfirm(false)}
+                className="rounded-lg border border-amber-100/20 bg-white/5 px-3 py-1.5 text-xs font-semibold text-stone-300 transition hover:text-stone-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => closeConfirm(true)}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                  confirmState.tone === "danger"
+                    ? "border-rose-300/45 bg-rose-500/15 text-rose-100 hover:bg-rose-500/25"
+                    : confirmState.tone === "success"
+                    ? "border-emerald-300/45 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25"
+                    : "border-amber-300/45 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25"
+                }`}
+              >
+                {confirmState.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

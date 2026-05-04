@@ -189,11 +189,20 @@ const containerVariants = {
 };
 
 export default function Overview() {
-  useAuth();
+  const { isDemoMode } = useAuth();
   const [journalDates, setJournalDates] = useState(() => readLocalJournalDates());
   const [journalStats, setJournalStats] = useState(() => readLocalJournalStats());
   const [lastMeasurementCheckInDate, setLastMeasurementCheckInDate] = useState(() => readLastMeasurementCheckInDate());
   const [lastPicUploadedDate, setLastPicUploadedDate] = useState(() => readLastPicUploadedDate());
+  const [habitSummary, setHabitSummary] = useState(() =>
+    TODAY_HABITS.reduce(
+      (summary, habit) => ({
+        completed: summary.completed + (habit.status === "completed" ? 1 : 0),
+        pending: summary.pending + (habit.status === "pending" ? 1 : 0),
+      }),
+      { completed: 0, pending: 0 }
+    )
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -303,16 +312,36 @@ export default function Overview() {
     []
   );
 
-  const habitSummary = useMemo(
-    () => TODAY_HABITS.reduce(
-      (summary, habit) => ({
-        completed: summary.completed + (habit.status === "completed" ? 1 : 0),
-        pending: summary.pending + (habit.status === "pending" ? 1 : 0),
-      }),
-      { completed: 0, pending: 0 }
-    ),
-    []
-  );
+  useEffect(() => {
+    if (isDemoMode) return;
+    let isMounted = true;
+
+    const refreshHabitSummary = async () => {
+      try {
+        const { data } = await api.get("/habits/consistency");
+        if (!isMounted) return;
+
+        const completed = Math.max(0, Number(data?.completedToday || 0));
+        const expected = Math.max(0, Number(data?.expectedToday || 0));
+        setHabitSummary({
+          completed,
+          pending: Math.max(0, expected - completed),
+        });
+      } catch {
+        // keep existing summary on failure
+      }
+    };
+
+    refreshHabitSummary();
+    window.addEventListener("focus", refreshHabitSummary);
+    window.addEventListener("monkmode:habits-updated", refreshHabitSummary);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("focus", refreshHabitSummary);
+      window.removeEventListener("monkmode:habits-updated", refreshHabitSummary);
+    };
+  }, [isDemoMode]);
 
   const displayedLastMeasurementDate = lastMeasurementCheckInDate || DEMO_OVERVIEW_STATS.gym.lastMeasurementCheckInDate;
   const displayedLastPicUploadedDate = lastPicUploadedDate || DEMO_OVERVIEW_STATS.gym.lastPicUploadedDate;
