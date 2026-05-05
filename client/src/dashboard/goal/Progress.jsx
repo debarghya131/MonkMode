@@ -1,6 +1,5 @@
 import { motion as Motion } from "framer-motion";
 import { useState } from "react";
-import { GOALS } from "../../../data/GoalDummyData";
 
 const PRIORITY_BADGE = {
   High: "border-red-400/30 bg-red-500/10 text-red-200",
@@ -31,19 +30,23 @@ const getBarColor = (pct) => {
 const FILTER_OPTIONS = ["All", "Active", "Archived"];
 const PRIORITY_FILTERS = ["All", "High", "Medium", "Low"];
 
-export default function Progress({ importantByGoal = {}, milestonesByGoal = {} }) {
+export default function Progress({ goals = [], importantByGoal = {}, milestonesByGoal = {} }) {
   const [statusFilter, setStatusFilter] = useState("All");
   const [priorityFilter, setPriorityFilter] = useState("All");
+  const visibleGoals = goals.filter((goal) => !(goal.deletedAt || goal.archiveReason === "deleted"));
 
-  const filtered = GOALS.filter((g) => {
+  const filtered = visibleGoals.filter((g) => {
     if (statusFilter !== "All" && g.status !== statusFilter) return false;
     if (priorityFilter !== "All" && g.priority !== priorityFilter) return false;
     return true;
   }).sort((a, b) => Number(Boolean(importantByGoal[b.id])) - Number(Boolean(importantByGoal[a.id])));
 
   const overall = (() => {
-    const total = GOALS.reduce((s, g) => s + g.milestones.length, 0);
-    const done = GOALS.reduce((s, g) => s + g.milestones.filter((m) => m.completed).length, 0);
+    const total = visibleGoals.reduce((s, g) => s + (milestonesByGoal[g.id] || g.milestones || []).length, 0);
+    const done = visibleGoals.reduce((s, g) => {
+      const milestones = milestonesByGoal[g.id] || g.milestones || [];
+      return s + milestones.filter((m) => m.completed).length;
+    }, 0);
     return total === 0 ? 0 : Math.round((done / total) * 100);
   })();
 
@@ -69,8 +72,11 @@ export default function Progress({ importantByGoal = {}, milestonesByGoal = {} }
           />
         </div>
         <p className="mt-1.5 text-[11px] text-stone-400">
-          {GOALS.reduce((s, g) => s + g.milestones.filter((m) => m.completed).length, 0)} of{" "}
-          {GOALS.reduce((s, g) => s + g.milestones.length, 0)} milestones completed across all goals
+          {visibleGoals.reduce((s, g) => {
+            const milestones = milestonesByGoal[g.id] || g.milestones || [];
+            return s + milestones.filter((m) => m.completed).length;
+          }, 0)} of{" "}
+          {visibleGoals.reduce((s, g) => s + (milestonesByGoal[g.id] || g.milestones || []).length, 0)} milestones completed across all goals
         </p>
       </div>
 

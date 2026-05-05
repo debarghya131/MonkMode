@@ -194,6 +194,12 @@ export default function Overview() {
       { completed: 0, pending: 0, missed: 0, importantToday: 0 }
     )
   );
+  const [goalSummary, setGoalSummary] = useState(() => ({
+    totalGoals: DEMO_OVERVIEW_STATS.goals.total,
+    completedGoals: DEMO_OVERVIEW_STATS.goals.completed,
+    totalSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsTotal,
+    completedSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsCompleted,
+  }));
 
   useEffect(() => {
     if (isDemoMode) {
@@ -291,6 +297,37 @@ export default function Overview() {
     if (isDemoMode) return;
     let isMounted = true;
 
+    const refreshGoalSummary = async () => {
+      try {
+        const { data } = await api.get("/goals/summary");
+        if (!isMounted) return;
+
+        setGoalSummary({
+          totalGoals: Math.max(0, Number(data?.totalGoals || 0)),
+          completedGoals: Math.max(0, Number(data?.completedGoals || 0)),
+          totalSubgoals: Math.max(0, Number(data?.totalSubgoals || 0)),
+          completedSubgoals: Math.max(0, Number(data?.completedSubgoals || 0)),
+        });
+      } catch {
+        // keep previous summary on transient failure
+      }
+    };
+
+    refreshGoalSummary();
+    window.addEventListener("focus", refreshGoalSummary);
+    window.addEventListener("monkmode:goals-updated", refreshGoalSummary);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("focus", refreshGoalSummary);
+      window.removeEventListener("monkmode:goals-updated", refreshGoalSummary);
+    };
+  }, [isDemoMode]);
+
+  useEffect(() => {
+    if (isDemoMode) return;
+    let isMounted = true;
+
     const refreshHabitSummary = async () => {
       try {
         const { data } = await api.get("/habits/consistency");
@@ -320,6 +357,14 @@ export default function Overview() {
 
   const displayedLastMeasurementDate = lastMeasurementCheckInDate || DEMO_OVERVIEW_STATS.gym.lastMeasurementCheckInDate;
   const displayedLastPicUploadedDate = lastPicUploadedDate || DEMO_OVERVIEW_STATS.gym.lastPicUploadedDate;
+  const displayedGoalSummary = isDemoMode
+    ? {
+        totalGoals: DEMO_OVERVIEW_STATS.goals.total,
+        completedGoals: DEMO_OVERVIEW_STATS.goals.completed,
+        totalSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsTotal,
+        completedSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsCompleted,
+      }
+    : goalSummary;
 
   return (
     <DashboardLayout>
@@ -379,8 +424,8 @@ export default function Overview() {
                     { label: "View Progress", href: "/dashboard/goal", state: { tab: "progress" } },
                   ]}
                 >
-                  <StatRow label="Goals done" value={`${DEMO_OVERVIEW_STATS.goals.completed} / ${DEMO_OVERVIEW_STATS.goals.total}`} accent="positive" />
-                  <StatRow label="Subgoals done" value={`${DEMO_OVERVIEW_STATS.goals.subgoalsCompleted} / ${DEMO_OVERVIEW_STATS.goals.subgoalsTotal}`} accent="positive" />
+                  <StatRow label="Goals done" value={`${displayedGoalSummary.completedGoals} / ${displayedGoalSummary.totalGoals}`} accent="positive" />
+                  <StatRow label="Subgoals done" value={`${displayedGoalSummary.completedSubgoals} / ${displayedGoalSummary.totalSubgoals}`} accent="positive" />
                 </StatusCard>
 
                 <StatusCard

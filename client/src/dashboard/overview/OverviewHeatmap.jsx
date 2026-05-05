@@ -74,15 +74,15 @@ const demoGoalSeries = (seed, year, density = 0.13) =>
     const intensity = Math.min(4, Math.max(1, value.count || 1));
 
     if (intensity === 4) {
-      return { date: value.date, count: 4, updates: 3, completedGoals: 1 };
+      return { date: value.date, count: 4, completedSubgoals: 4 };
     }
     if (intensity === 3) {
-      return { date: value.date, count: 3, updates: 4, completedGoals: 0 };
+      return { date: value.date, count: 3, completedSubgoals: 3 };
     }
     if (intensity === 2) {
-      return { date: value.date, count: 2, updates: 2, completedGoals: 0 };
+      return { date: value.date, count: 2, completedSubgoals: 2 };
     }
-    return { date: value.date, count: 1, updates: 1, completedGoals: 0 };
+    return { date: value.date, count: 1, completedSubgoals: 1 };
   });
 const demoGymSeries = (seed, year, density = 0.19) =>
   demoSeries(seed, year, density).map((value) => {
@@ -113,10 +113,10 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
     ? values.reduce((sum, value) => sum + (value.count > 0 ? 1 : 0), 0)
     : sectionId === "todo" || sectionId === "habit" || sectionId === "goal" || sectionId === "gym"
       ? values.reduce((sum, value) => {
-          if (sectionId === "goal") {
-            const updates = Number(value.updates);
-            return sum + (Number.isFinite(updates) ? updates : (value.count || 0));
-          }
+        if (sectionId === "goal") {
+          const completedSubgoals = Number(value.completedSubgoals);
+          return sum + (Number.isFinite(completedSubgoals) ? completedSubgoals : (value.count || 0));
+        }
           if (sectionId === "gym") {
             const updates = Number(value.updates);
             return sum + (Number.isFinite(updates) ? updates : (value.count || 0));
@@ -178,11 +178,10 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
                 }
               }
               if (sectionId === "goal") {
-                const updates = Number(value.updates) || 0;
-                const completedGoals = Number(value.completedGoals) || 0;
-                return completedGoals > 0
-                  ? `${value.date}: ${updates} progress updates, ${completedGoals} goal completed`
-                  : `${value.date}: ${updates} progress updates`;
+                const completedSubgoals = Number(value.completedSubgoals) || 0;
+                return completedSubgoals === 1
+                  ? `${value.date}: 1 sub-goal done`
+                  : `${value.date}: ${completedSubgoals} sub-goals done`;
               }
               if (sectionId === "gym") {
                 const updates = Number(value.updates) || 0;
@@ -353,8 +352,7 @@ export default function OverviewHeatmap() {
               .map((item) => ({
                 date: String(item.date),
                 count: Math.min(4, Math.max(1, Number(item.count) || 1)),
-                updates: Math.max(0, Number(item.updates) || 0),
-                completedGoals: Math.max(0, Number(item.completedGoals) || 0),
+                completedSubgoals: Math.max(0, Number(item.completedSubgoals) || 0),
               }))
           : [];
 
@@ -374,9 +372,13 @@ export default function OverviewHeatmap() {
     };
 
     fetchGoalHeatmap();
+    window.addEventListener("focus", fetchGoalHeatmap);
+    window.addEventListener("monkmode:goals-updated", fetchGoalHeatmap);
 
     return () => {
       isMounted = false;
+      window.removeEventListener("focus", fetchGoalHeatmap);
+      window.removeEventListener("monkmode:goals-updated", fetchGoalHeatmap);
     };
   }, []);
 

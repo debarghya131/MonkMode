@@ -1,7 +1,6 @@
 import { motion as Motion } from "framer-motion";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { GOALS } from "../../../data/GoalDummyData";
 
 const PRIORITY_BADGE = {
   High: "border-red-400/30 bg-red-500/10 text-red-200",
@@ -22,6 +21,26 @@ const getDaysLeft = (deadlineISO) => {
   return Math.floor((deadline - todayStart) / msPerDay);
 };
 
+const toStartOfDay = (value) => {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const toISODate = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+};
+
+const getSubgoalMinDate = (goal) => {
+  const today = toStartOfDay(new Date());
+  const goalStart = goal?.startDate ? toStartOfDay(goal.startDate) : null;
+  if (!goalStart) return toISODate(today);
+  return toISODate(goalStart > today ? goalStart : today);
+};
+
 function DeadlineBadge({ deadline }) {
   if (!deadline) return null;
   const days = getDaysLeft(deadline);
@@ -40,16 +59,32 @@ function DeadlineBadge({ deadline }) {
   );
 }
 
-export default function Mygoals({ importantByGoal, setImportantByGoal, milestonesByGoal, setMilestonesByGoal }) {
+export default function Mygoals({
+  goals = [],
+  importantByGoal,
+  onToggleImportant,
+  milestonesByGoal,
+  setMilestonesByGoal,
+  onAddSubgoal,
+  onUpdateSubgoalStatus,
+  onDeleteSubgoal
+}) {
   const navigate = useNavigate();
   const [addPopupGoalId, setAddPopupGoalId] = useState(null);
   const [popupGoalId, setPopupGoalId] = useState(null);
   const [newSubgoal, setNewSubgoal] = useState("");
   const [newDeadline, setNewDeadline] = useState("");
+  const [subgoalError, setSubgoalError] = useState("");
+  const [isSubmittingSubgoal, setIsSubmittingSubgoal] = useState(false);
+  const [pendingMilestoneActions, setPendingMilestoneActions] = useState({});
 
-  const addPopupGoal = GOALS.find((goal) => goal.id === addPopupGoalId) || null;
-  const popupGoal = GOALS.find((goal) => goal.id === popupGoalId) || null;
-  const sortedGoals = [...GOALS].sort((a, b) => {
+  const visibleGoals = goals.filter((goal) => !(goal.deletedAt || goal.archiveReason === "deleted"));
+  const addPopupGoal = visibleGoals.find((goal) => goal.id === addPopupGoalId) || null;
+  const popupGoal = visibleGoals.find((goal) => goal.id === popupGoalId) || null;
+  const subgoalMinDate = getSubgoalMinDate(addPopupGoal);
+  const subgoalMaxDate = addPopupGoal?.deadline || "";
+  const isSubgoalDateRangeInvalid = Boolean(subgoalMinDate && subgoalMaxDate && subgoalMinDate > subgoalMaxDate);
+  const sortedGoals = [...visibleGoals].sort((a, b) => {
     const aArchived = a.status === "Archived";
     const bArchived = b.status === "Archived";
 
@@ -61,26 +96,88 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
   const pendingMilestones = popupMilestones.filter((m) => !m.completed);
   const completedMilestones = popupMilestones.filter((m) => m.completed);
 
-  const updateMilestoneStatus = (goalId, milestoneId, completed) => {
-    setMilestonesByGoal((prev) => ({
-      ...prev,
-      [goalId]: (prev[goalId] || []).map((milestone) =>
-        milestone.id === milestoneId ? { ...milestone, completed } : milestone
-      ),
-    }));
+  const updateMilestoneStatus = async (goalId, milestoneId, completed) => {
+    if (!goalId || !milestoneId) return;
+    const actionKey = `${goalId}:${milestoneId}:${completed ? "done" : "undo"}`;
+    setSubgoalError("");
+    setPendingMilestoneActions((prev) => ({ ...prev, [actionKey]: true }));
+    try {
+      if (typeof onUpdateSubgoalStatus === "function") {
+        await onUpdateSubgoalStatus({
+          goalId,
+          subgoalId: milestoneId,
+          completed
+        });
+      } else {
+        setMilestonesByGoal((prev) => ({
+          ...prev,
+          [goalId]: (prev[goalId] || []).map((milestone) =>
+            milestone.id === milestoneId ? { ...milestone, completed } : milestone
+          ),
+        }));
+      }
+    } catch (error) {
+      setSubgoalError(error?.response?.data?.message || "Unable to update sub-goal progress. Please try again.");
+    } finally {
+      setPendingMilestoneActions((prev) => {
+        const next = { ...prev };
+        delete next[actionKey];
+        return next;
+      });
+    }
   };
 
-  const addSubgoal = () => {
+  const addSubgoal = async () => {
     const title = newSubgoal.trim();
     if (!title || !newDeadline || !addPopupGoal) return;
+    setSubgoalError("");
+    setIsSubmittingSubgoal(true);
+    try {
+      if (typeof onAddSubgoal === "function") {
+        await onAddSubgoal({
+          goalId: addPopupGoal.id,
+          title,
+          deadline: newDeadline
+        });
+      } else {
+        const id = `${addPopupGoal.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        setMilestonesByGoal((prev) => ({
+          ...prev,
+          [addPopupGoal.id]: [...(prev[addPopupGoal.id] || []), { id, title, deadline: newDeadline, completed: false }],
+        }));
+      }
+      setNewSubgoal("");
+      setNewDeadline("");
+    } catch (error) {
+      setSubgoalError(error?.response?.data?.message || "Unable to save sub-goal. Please try again.");
+    } finally {
+      setIsSubmittingSubgoal(false);
+    }
+  };
 
-    const id = `${addPopupGoal.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    setMilestonesByGoal((prev) => ({
-      ...prev,
-      [addPopupGoal.id]: [...(prev[addPopupGoal.id] || []), { id, title, deadline: newDeadline, completed: false }],
-    }));
-    setNewSubgoal("");
-    setNewDeadline("");
+  const deleteSubgoal = async (goalId, milestoneId) => {
+    if (!goalId || !milestoneId) return;
+    const actionKey = `${goalId}:${milestoneId}:delete`;
+    setSubgoalError("");
+    setPendingMilestoneActions((prev) => ({ ...prev, [actionKey]: true }));
+    try {
+      if (typeof onDeleteSubgoal === "function") {
+        await onDeleteSubgoal({ goalId, subgoalId: milestoneId });
+      } else {
+        setMilestonesByGoal((prev) => ({
+          ...prev,
+          [goalId]: (prev[goalId] || []).filter((milestone) => milestone.id !== milestoneId),
+        }));
+      }
+    } catch (error) {
+      setSubgoalError(error?.response?.data?.message || "Unable to delete sub-goal. Please try again.");
+    } finally {
+      setPendingMilestoneActions((prev) => {
+        const next = { ...prev };
+        delete next[actionKey];
+        return next;
+      });
+    }
   };
 
   return (
@@ -147,12 +244,7 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                 <div className="flex w-full flex-wrap items-center justify-start gap-1.5 sm:w-auto sm:justify-end sm:gap-2">
                   <button
                     type="button"
-                    onClick={() =>
-                      setImportantByGoal((prev) => ({
-                        ...prev,
-                        [goal.id]: !prev[goal.id],
-                      }))
-                    }
+                    onClick={() => onToggleImportant?.(goal.id)}
                     className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold transition sm:text-[11px] ${
                       importantByGoal[goal.id]
                         ? "border-amber-300/45 bg-amber-500/15 text-amber-200"
@@ -179,6 +271,7 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                       setAddPopupGoalId(goal.id);
                       setNewSubgoal("");
                       setNewDeadline("");
+                      setSubgoalError("");
                     }}
                     whileHover={{
                       scale: 1.08,
@@ -257,7 +350,7 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        addSubgoal();
+                        void addSubgoal();
                       }
                     }}
                     placeholder="e.g. Complete DBMS revision"
@@ -272,21 +365,32 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                     <input
                       type="date"
                       value={newDeadline}
-                      min={new Date().toISOString().split("T")[0]}
+                      min={subgoalMinDate}
+                      max={subgoalMaxDate}
+                      disabled={isSubgoalDateRangeInvalid}
                       onChange={(e) => setNewDeadline(e.target.value)}
                       className="rounded-lg border border-amber-100/15 bg-black/20 px-3 py-1.5 text-sm text-stone-100 outline-none transition focus:border-amber-300/35 [color-scheme:dark]"
                     />
                   </div>
                   <button
                     type="button"
-                    onClick={addSubgoal}
-                    disabled={!newSubgoal.trim() || !newDeadline}
+                    onClick={() => void addSubgoal()}
+                    disabled={!newSubgoal.trim() || !newDeadline || isSubmittingSubgoal || isSubgoalDateRangeInvalid}
                     className="self-end rounded border border-sky-300/25 bg-sky-400/10 px-4 py-1.5 text-xs font-semibold text-sky-200 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Add
+                    {isSubmittingSubgoal ? "Saving..." : "Add"}
                   </button>
                 </div>
+                {subgoalError ? <p className="mt-2 text-xs text-rose-300">{subgoalError}</p> : null}
+                {isSubgoalDateRangeInvalid ? (
+                  <p className="mt-2 text-xs text-rose-300">
+                    This goal cannot accept new sub-goals because its valid date window has already passed.
+                  </p>
+                ) : null}
                 <p className="mt-2 text-xs text-stone-400">
+                  Sub-goal deadline must be between {subgoalMinDate || "today"} and {subgoalMaxDate || "goal deadline"}.
+                </p>
+                <p className="mt-1 text-xs text-stone-400">
                   Added sub-goals will be visible in the `Update Progress` popup.
                 </p>
               </div>
@@ -313,6 +417,11 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
             </div>
 
             <div className="journal-scroll max-h-[calc(100dvh-9rem)] overflow-y-auto px-4 pb-4 sm:px-5 sm:pb-5">
+              {subgoalError ? (
+                <p className="mb-3 rounded-lg border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                  {subgoalError}
+                </p>
+              ) : null}
               <div className="grid gap-4 md:grid-cols-2">
               <section className="flex h-[47vh] flex-col rounded-xl border border-amber-100/10 bg-white/5 p-3">
                 <div className="mb-2 flex items-center justify-between">
@@ -331,33 +440,47 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                           <p className="break-all text-sm leading-relaxed text-stone-100">{milestone.title}</p>
                           <DeadlineBadge deadline={milestone.deadline} />
                         </div>
-                        <Motion.button
-                          type="button"
-                          onClick={() => updateMilestoneStatus(popupGoal.id, milestone.id, true)}
-                          animate={{
-                            boxShadow: [
-                              "0 0 0px rgba(52,211,153,0)",
-                              "0 0 8px rgba(52,211,153,0.45)",
-                              "0 0 0px rgba(52,211,153,0)",
-                            ],
-                          }}
-                          transition={{
-                            boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
-                          }}
-                          whileHover={{
-                            scale: 1.12,
-                            boxShadow: "0 0 18px rgba(52,211,153,0.65), 0 0 36px rgba(52,211,153,0.2)",
-                          }}
-                          whileTap={{ scale: 0.88, boxShadow: "0 0 26px rgba(52,211,153,0.8)" }}
-                          className="relative shrink-0 overflow-hidden rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-200 transition-colors duration-200 hover:border-emerald-300/70 hover:bg-emerald-500/30 hover:text-emerald-100"
-                        >
-                          <Motion.span
-                            className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
-                            animate={{ left: ["-40%", "130%"] }}
-                            transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
-                          />
-                          <span className="relative z-10">Mark as Done</span>
-                        </Motion.button>
+                        <div className="shrink-0 flex items-start gap-1.5">
+                          <Motion.button
+                            type="button"
+                            onClick={() => void updateMilestoneStatus(popupGoal.id, milestone.id, true)}
+                            disabled={Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:done`])}
+                            animate={{
+                              boxShadow: [
+                                "0 0 0px rgba(52,211,153,0)",
+                                "0 0 8px rgba(52,211,153,0.45)",
+                                "0 0 0px rgba(52,211,153,0)",
+                              ],
+                            }}
+                            transition={{
+                              boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+                            }}
+                            whileHover={{
+                              scale: 1.12,
+                              boxShadow: "0 0 18px rgba(52,211,153,0.65), 0 0 36px rgba(52,211,153,0.2)",
+                            }}
+                            whileTap={{ scale: 0.88, boxShadow: "0 0 26px rgba(52,211,153,0.8)" }}
+                            className="relative overflow-hidden rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-200 transition-colors duration-200 hover:border-emerald-300/70 hover:bg-emerald-500/30 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Motion.span
+                              className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                              animate={{ left: ["-40%", "130%"] }}
+                              transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                            />
+                            <span className="relative z-10">
+                              {pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:done`] ? "Saving..." : "Mark as Done"}
+                            </span>
+                          </Motion.button>
+                          <button
+                            type="button"
+                            onClick={() => void deleteSubgoal(popupGoal.id, milestone.id)}
+                            disabled={Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:delete`])}
+                            className="rounded-full border border-rose-400/35 bg-rose-500/10 px-2 py-0.5 text-[11px] font-bold text-rose-300 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                            title="Delete sub-goal"
+                          >
+                            {pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:delete`] ? "..." : "X"}
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -381,13 +504,25 @@ export default function Mygoals({ importantByGoal, setImportantByGoal, milestone
                           <p className="break-all text-sm leading-relaxed text-emerald-100">{milestone.title}</p>
                           <DeadlineBadge deadline={milestone.deadline} />
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => updateMilestoneStatus(popupGoal.id, milestone.id, false)}
-                          className="shrink-0 rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20"
-                        >
-                          Undo
-                        </button>
+                        <div className="shrink-0 flex items-start gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => void updateMilestoneStatus(popupGoal.id, milestone.id, false)}
+                            disabled={Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:undo`])}
+                            className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:undo`] ? "Saving..." : "Undo"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void deleteSubgoal(popupGoal.id, milestone.id)}
+                            disabled={Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:delete`])}
+                            className="rounded-full border border-rose-400/35 bg-rose-500/10 px-2 py-0.5 text-[11px] font-bold text-rose-300 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                            title="Delete sub-goal"
+                          >
+                            {pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:delete`] ? "..." : "X"}
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

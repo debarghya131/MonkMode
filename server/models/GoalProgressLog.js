@@ -33,4 +33,7 @@ const goalProgressLogSchema = new mongoose.Schema({
   }
 });
 
+goalProgressLogSchema.index({ userId: 1, date: -1 });
+goalProgressLogSchema.index({ goalId: 1, date: -1 });
+
 export default mongoose.model("GoalProgressLog", goalProgressLogSchema);
