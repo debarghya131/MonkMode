@@ -3,6 +3,7 @@ import User from "../models/User.js";
 import mongoose from "mongoose";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const APP_TIMEZONE = process.env.APP_TIMEZONE || "Asia/Kolkata";
 
 const MOOD_MAP = new Map([
   ["motivated", "Motivated"],
@@ -488,7 +489,7 @@ export const getJournalSummary = async (req, res) => {
                   $dateToString: {
                     format: "%Y-%m-%d",
                     date: "$date",
-                    timezone: "UTC"
+                    timezone: APP_TIMEZONE
                   }
                 }
               ]
@@ -532,6 +533,10 @@ export const getJournalSummary = async (req, res) => {
     const loggedDaySet = new Set(loggedDays);
     let currentStreakDays = 0;
     let cursor = getStartOfDay(today);
+    // Keep yesterday's streak visible after midnight until today's entry is added.
+    if (!todayEntry) {
+      cursor = new Date(cursor.getTime() - DAY_MS);
+    }
     while (loggedDaySet.has(toDayKey(cursor))) {
       currentStreakDays += 1;
       cursor = new Date(cursor.getTime() - DAY_MS);
@@ -612,7 +617,7 @@ export const getJournalHeatmap = async (req, res) => {
                   $dateToString: {
                     format: "%Y-%m-%d",
                     date: "$date",
-                    timezone: "UTC"
+                    timezone: APP_TIMEZONE
                   }
                 }
               ]
@@ -641,7 +646,7 @@ export const getJournalHeatmap = async (req, res) => {
                         $dateToString: {
                           format: "%Y-%m-%d",
                           date: "$date",
-                          timezone: "UTC"
+                          timezone: APP_TIMEZONE
                         }
                       }
                     ]

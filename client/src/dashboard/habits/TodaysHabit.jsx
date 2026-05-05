@@ -11,6 +11,14 @@ const toISODate = (date) => {
   return `${y}-${m}-${d}`;
 };
 
+const toDateOnly = (value) => {
+  if (!value) return null;
+  if (typeof value === "string") return value.slice(0, 10);
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return toISODate(parsed);
+};
+
 const PRIORITY_STYLES = {
   High: "border-red-400/30 bg-red-500/10 text-red-200",
   Medium: "border-yellow-400/30 bg-yellow-500/10 text-yellow-200",
@@ -62,10 +70,32 @@ const getTimeSlot = (timeValue) => {
 const matchesTimeSlot = (habit, selectedTimeSlot) =>
   selectedTimeSlot === "All" || getTimeSlot(habit.time) === selectedTimeSlot;
 
-const getHabitStatus = (habit, todayISO) => {
+const isHabitScheduledForDate = (habit, dateISO) => {
+  const target = new Date(`${dateISO}T00:00:00`);
+  if (Number.isNaN(target.getTime())) return false;
+
+  const startDate = toDateOnly(habit?.startDate || habit?.createdAt);
+  const endDate = toDateOnly(habit?.endDate);
+  if (startDate && dateISO < startDate) return false;
+  if (endDate && dateISO > endDate) return false;
+
+  const repeatType = String(habit?.repeatType || "daily").toLowerCase();
+  const dayIndex = target.getDay();
+
+  if (repeatType === "weekend") return dayIndex === 0 || dayIndex === 6;
+  if (repeatType === "weekdays") {
+    const selectedDays = Array.isArray(habit?.days) && habit.days.length
+      ? habit.days
+      : ["Mon", "Tue", "Wed", "Thu", "Fri"];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    return selectedDays.includes(dayNames[dayIndex]);
+  }
+
+  return true;
+};
+
+const getHabitStatus = (habit) => {
   if (habit.status === "completed") return "completed";
-  if (habit.status === "broken") return "broken";
-  if (habit.scheduledDate && habit.scheduledDate < todayISO) return "broken";
   return "pending";
 };
 
@@ -175,16 +205,33 @@ export default function TodaysHabit() {
 
   useEffect(() => {
     if (isDemoMode) return;
-    api.get("/habits?view=active")
-      .then((res) => {
+    let cancelled = false;
+
+    const refreshHabits = async () => {
+      try {
+        const res = await api.get("/habits?view=active");
+        if (cancelled) return;
         setHabits(res.data.map((h) => ({
           ...h,
           status: h.completedToday ? "completed" : "pending",
         })));
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [isDemoMode]);
+      } catch {
+        // keep existing values on transient failure
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    refreshHabits();
+    window.addEventListener("focus", refreshHabits);
+    window.addEventListener("monkmode:habits-updated", refreshHabits);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refreshHabits);
+      window.removeEventListener("monkmode:habits-updated", refreshHabits);
+    };
+  }, [isDemoMode, todayISO]);
 
   const todayLabel = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -202,16 +249,18 @@ export default function TodaysHabit() {
   }, []);
 
   const visibleHabits = useMemo(
-    () => habits.filter((h) => matchesTimeSlot(h, timeSlotFilter)),
-    [habits, timeSlotFilter]
+    () => habits
+      .filter((h) => isHabitScheduledForDate(h, todayISO))
+      .filter((h) => matchesTimeSlot(h, timeSlotFilter)),
+    [habits, timeSlotFilter, todayISO]
   );
 
   const pendingHabits = useMemo(
-    () => visibleHabits.filter((h) => getHabitStatus(h, todayISO) === "pending"),
+    () => visibleHabits.filter((h) => getHabitStatus(h) === "pending"),
     [visibleHabits, todayISO]
   );
   const completedHabits = useMemo(
-    () => visibleHabits.filter((h) => getHabitStatus(h, todayISO) === "completed"),
+    () => visibleHabits.filter((h) => getHabitStatus(h) === "completed"),
     [visibleHabits, todayISO]
   );
   const sidebarHabits = useMemo(
@@ -324,7 +373,7 @@ export default function TodaysHabit() {
                       </div>
                       <div className="space-y-2">
                         {filtered.map((habit) => (
-                          <HabitRow key={habit._id ?? habit.id} habit={habit} status={getHabitStatus(habit, todayISO)} />
+                          <HabitRow key={habit._id ?? habit.id} habit={habit} status={getHabitStatus(habit)} />
                         ))}
                       </div>
                     </div>
@@ -439,7 +488,7 @@ export default function TodaysHabit() {
                       <HabitRow
                         key={habit._id ?? habit.id}
                         habit={habit}
-                        status={getHabitStatus(habit, todayISO)}
+                        status={getHabitStatus(habit)}
                         onUndo={() => markPending(habit._id ?? habit.id)}
                       />
                     ))

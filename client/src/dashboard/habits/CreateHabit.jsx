@@ -63,6 +63,34 @@ const isHabitOnDate = (h, iso) => {
   if (h.repeatType === "weekdays") return h.days.includes(WEEK_DAYS[wd]);
   return false;
 };
+const hasOccurrenceInRange = (repeatType, startISO, endISO, days = []) => {
+  if (!startISO || !endISO) return true;
+  const start = parseISO(startISO);
+  const end = parseISO(endISO);
+  const rangeDays = Math.floor((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  if (rangeDays <= 0) return false;
+  if (repeatType === "daily" || repeatType === "7days" || repeatType === "21days") return true;
+
+  const startDay = start.getDay();
+  const includesDay = (dayIndex) => {
+    const offset = (dayIndex - startDay + 7) % 7;
+    return offset < rangeDays;
+  };
+
+  if (repeatType === "weekend") {
+    return includesDay(0) || includesDay(6);
+  }
+
+  if (repeatType === "weekdays") {
+    const selectedDays = Array.isArray(days) && days.length ? days : ["Mon", "Tue", "Wed", "Thu", "Fri"];
+    return selectedDays.some((dayLabel) => {
+      const dayIndex = WEEK_DAYS.indexOf(dayLabel);
+      return dayIndex >= 0 && includesDay(dayIndex);
+    });
+  }
+
+  return true;
+};
 const fmtTime = (t) => {
   if (!t) return "--";
   const [h, m] = t.split(":").map(Number);
@@ -226,13 +254,10 @@ export default function CreateHabit({ entity = "habit" }) {
 
   /* category dropdowns */
   const [isCatOpen, setIsCatOpen] = useState(false);
-  const [isEditCatOpen, setIsEditCatOpen] = useState(false);
   const catDropRef = useRef(null);
-  const editCatDropRef = useRef(null);
   useEffect(() => {
     const handler = (e) => {
       if (catDropRef.current && !catDropRef.current.contains(e.target)) setIsCatOpen(false);
-      if (editCatDropRef.current && !editCatDropRef.current.contains(e.target)) setIsEditCatOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -302,7 +327,6 @@ export default function CreateHabit({ entity = "habit" }) {
   const [habitLogs, setHabitLogs] = useState(() => isDemoMode ? buildDemoLogs(toISO(new Date())) : []);
   const [loading, setLoading] = useState(!isDemoMode);
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({});
 
   /* fetch habits for real users */
   useEffect(() => {
@@ -401,7 +425,7 @@ export default function CreateHabit({ entity = "habit" }) {
     const active = [];
     habits.forEach((h) => {
       const isDeleted = Boolean(h.deletedAt && h.archivedReason === "deleted");
-      const isEnded = h.archivedReason === "ended" || (h.endDate && h.endDate < today);
+      const isEnded = h.archivedReason === "ended" || (h.endDate && h.endDate <= today);
 
       if (isDeleted) {
         return;
@@ -463,7 +487,7 @@ export default function CreateHabit({ entity = "habit" }) {
   }, [activeHabits]);
   const sortedArchivedHabits = useMemo(() => {
     const archived = habits.filter((h) =>
-      h.deletedAt || h.archivedReason === "ended" || (h.endDate && h.endDate < today)
+      h.deletedAt || h.archivedReason === "ended" || (h.endDate && h.endDate <= today)
     );
     return [...archived].sort((a, b) => Number(Boolean(b.isImportant)) - Number(Boolean(a.isImportant)));
   }, [habits, today]);
@@ -521,7 +545,6 @@ export default function CreateHabit({ entity = "habit" }) {
     setCategoryOptions((p) => p.filter((c) => c.toLowerCase() !== name.toLowerCase()));
     setCatDeleteError("");
     setForm((p) => ({ ...p, category: p.category.toLowerCase() === name.toLowerCase() ? "" : p.category }));
-    if (editingId) setEditForm((p) => ({ ...p, category: p.category?.toLowerCase() === name.toLowerCase() ? "" : p.category }));
   };
 
   const validate = () => {
@@ -549,8 +572,13 @@ export default function CreateHabit({ entity = "habit" }) {
     if (!form.time) return "Time is required.";
     if (!form.startDate) return "Start date is required.";
     if (!form.neverEnds && !form.endDate) return "End date is required or select Never.";
-    if (!form.neverEnds && form.endDate < form.startDate) return "End date cannot be before start date.";
+    if (!form.neverEnds && form.endDate <= today) return "End date must be after today.";
+    if (!form.neverEnds && form.endDate <= form.startDate) return "End date must be after the start date.";
     if (form.repeatType === "weekdays" && form.days.length === 0) return "Select at least one day.";
+    if (!form.neverEnds && !hasOccurrenceInRange(form.repeatType, form.startDate, form.endDate, form.days)) {
+      if (form.repeatType === "weekend") return "Selected range has no weekend day. Choose a later end date.";
+      if (form.repeatType === "weekdays") return "Selected range has no chosen weekday. Adjust start/end date.";
+    }
     return "";
   };
 
@@ -571,6 +599,14 @@ export default function CreateHabit({ entity = "habit" }) {
       }
 
       const fixedDays2 = FIXED_DURATION[form.repeatType];
+      const hasStarted = Boolean(previousHabit.startDate && previousHabit.startDate <= today);
+      const timeChanged = String(previousHabit.time || "") !== String(form.time || "");
+      const previousEffectiveDays = Array.isArray(previousHabit.pendingDays) ? previousHabit.pendingDays : (previousHabit.days || []);
+      const nextDaysForEdit = form.repeatType === "weekdays" ? (form.days || []) : [];
+      const daysChanged = form.repeatType === "weekdays"
+        && JSON.stringify(previousEffectiveDays) !== JSON.stringify(nextDaysForEdit);
+      const shouldDeferTimeLocally = !isDemoMode && hasStarted && timeChanged;
+      const shouldDeferDaysLocally = !isDemoMode && hasStarted && daysChanged && form.repeatType === "weekdays";
       const updated = {
         title: form.title.trim(), reason: form.reason.trim(),
         targetStreak: form.targetStreak ? Number(form.targetStreak) : null,
@@ -581,9 +617,25 @@ export default function CreateHabit({ entity = "habit" }) {
           : { startDate: form.startDate, endDate: form.neverEnds ? null : form.endDate,
               ...(form.repeatType === "weekdays" ? { days: form.days } : {}) }),
       };
+      const optimisticUpdated = shouldDeferTimeLocally
+        ? {
+            ...updated,
+            time: previousHabit.time,
+            pendingTime: form.time,
+            timeChangeEffectiveFrom: new Date(Date.now() + (24 * 60 * 60 * 1000)).toISOString()
+          }
+        : updated;
+      const optimisticWithDeferredDays = shouldDeferDaysLocally
+        ? {
+            ...optimisticUpdated,
+            days: previousHabit.days || [],
+            pendingDays: [...nextDaysForEdit],
+            daysChangeEffectiveFrom: new Date(Date.now() + (24 * 60 * 60 * 1000)).toISOString()
+          }
+        : optimisticUpdated;
 
       // Optimistic update
-      setHabits((p) => p.map((h) => h.id === editId ? { ...h, ...updated } : h));
+      setHabits((p) => p.map((h) => h.id === editId ? { ...h, ...optimisticWithDeferredDays } : h));
       const editLoggedAt = new Date();
       const optimisticLogId = `${editId}-edit-${Date.now()}`;
       setHabitLogs((p) => [{
@@ -618,9 +670,79 @@ export default function CreateHabit({ entity = "habit" }) {
           const { data } = await api.patch(`/habits/${editId}`, payload);
           const todayStr = toISO(new Date());
           const normalized = normalizeHabit(data, todayStr);
-          setHabits((p) => p.map((h) => h.id === editId ? { ...h, ...normalized } : h));
+          const splitApplied = Boolean(data?.splitApplied) || (normalized.id && normalized.id !== editId);
+          const splitAtISO = data?.splitAt || new Date().toISOString();
+          if (splitApplied) {
+            const splitDate = toDateStr(splitAtISO) || todayStr;
+            setHabits((p) => {
+              const withoutCurrent = p.filter((h) => h.id !== editId && h.id !== normalized.id);
+              const endedHabit = {
+                ...previousHabit,
+                endDate: splitDate,
+                archivedReason: "ended",
+                deletedAt: null,
+                canUndoDelete: false,
+                deleteUndoExpiresAt: null,
+                deleteUndoRemainingMs: 0
+              };
+              return [normalized, endedHabit, ...withoutCurrent];
+            });
+            setHabitLogs((p) => [{
+              id: `${editId}-ended-${Date.now()}`,
+              title: previousHabit.title,
+              date: splitDate,
+              time: getLocalHHMM(splitAtISO),
+              action: "ended",
+              logAt: splitAtISO
+            }, ...p]);
+            showToast(`${singular} updated. Changes will continue from tomorrow.`);
+          } else {
+            setHabits((p) => p.map((h) => {
+              if (h.id !== editId) return h;
+              if (data?.reflectFromNextDay) {
+                const withDeferredTime = {
+                  ...h,
+                  ...normalized,
+                  pendingTime: form.time,
+                  timeChangeEffectiveFrom: data?.reflectsFromDate || normalized.timeChangeEffectiveFrom || h.timeChangeEffectiveFrom
+                };
+                if (data?.reflectDaysFromNextDay) {
+                  return {
+                    ...withDeferredTime,
+                    pendingDays: [...nextDaysForEdit],
+                    daysChangeEffectiveFrom: data?.reflectsDaysFromDate || normalized.daysChangeEffectiveFrom || h.daysChangeEffectiveFrom
+                  };
+                }
+                return withDeferredTime;
+              }
+              if (data?.reflectDaysFromNextDay) {
+                return {
+                  ...h,
+                  ...normalized,
+                  pendingDays: [...nextDaysForEdit],
+                  daysChangeEffectiveFrom: data?.reflectsDaysFromDate || normalized.daysChangeEffectiveFrom || h.daysChangeEffectiveFrom
+                };
+              }
+              return {
+                ...h,
+                ...normalized,
+                pendingTime: null,
+                timeChangeEffectiveFrom: null,
+                pendingDays: null,
+                daysChangeEffectiveFrom: null
+              };
+            }));
+            if (data?.reflectFromNextDay && data?.reflectDaysFromNextDay) {
+              showToast(`${singular} updated. Time and custom days will reflect from next day.`);
+            } else if (data?.reflectFromNextDay) {
+              showToast(`${singular} updated. Time will reflect from next day.`);
+            } else if (data?.reflectDaysFromNextDay) {
+              showToast(`${singular} updated. Custom days will reflect from next day.`);
+            } else {
+              showToast(`${singular} updated.`);
+            }
+          }
           emitHabitsUpdated();
-          showToast(`${singular} updated.`);
         } catch (err) {
           const backendMessage = err?.response?.data?.message;
           setHabits((p) => p.map((h) => h.id === editId ? previousHabit : h));
@@ -892,78 +1014,20 @@ export default function CreateHabit({ entity = "habit" }) {
       timeOfDay: h.timeOfDay ?? "",
       category: h.category,
       priority: h.priority,
-      time: h.time,
+      time: h.pendingTime || h.time,
       repeatType: h.repeatType,
       startDate: h.startDate ?? "",
       endDate: h.endDate ?? "",
       neverEnds: h.endDate == null,
-      days: h.days ?? []
+      days: h.pendingDays || h.days || []
     };
     setForm(nextEdit);
-    setEditForm(nextEdit);
   };
 
-  const handleUpdate = async (id) => {
-    if (!editForm.title.trim()) return;
-    if (editForm.targetStreak && Number(editForm.targetStreak) < 1) return;
-    const previousHabit = habits.find((h) => h.id === id);
-    if (!previousHabit) return;
 
-    const updated = {
-      title: editForm.title.trim(),
-      reason: editForm.reason,
-      targetStreak: editForm.targetStreak ? Number(editForm.targetStreak) : null,
-      timeOfDay: editForm.timeOfDay,
-      category: editForm.category, priority: editForm.priority,
-      time: editForm.time, repeatType: editForm.repeatType,
-      ...(FIXED_DURATION[editForm.repeatType]
-        ? { startDate:editForm.startDate, endDate:fixedEndDate(FIXED_DURATION[editForm.repeatType], editForm.startDate), days:undefined }
-        : { startDate:editForm.startDate, endDate:editForm.neverEnds?null:editForm.endDate,
-            days: editForm.repeatType==="weekdays"?editForm.days:undefined }),
-    };
-    setHabits((p) => p.map((h) => h.id===id ? {...h,...updated} : h));
-    const editLoggedAt = new Date();
-    const optimisticLogId = `${id}-edit-${Date.now()}`;
-    setHabitLogs((p) => [{
-      id: optimisticLogId,
-      title:editForm.title.trim(),
-      date: toDateStr(editLoggedAt) || today,
-      time: getLocalHHMM(editLoggedAt),
-      action:"edited",
-      logAt: editLoggedAt.toISOString()
-    }, ...p]);
-    setEditingId(null);
-
-    if (!isDemoMode) {
-      try {
-        const payload = {
-          title: updated.title,
-          note: updated.reason ?? "",
-          targetStreak: updated.targetStreak,
-          timeOfDay: updated.timeOfDay,
-          category: updated.category,
-          priority: updated.priority,
-          time: updated.time,
-          repeatType: updated.repeatType,
-          startDate: updated.startDate || null,
-          endDate: updated.endDate || null,
-          days: updated.repeatType === "weekdays" ? (updated.days || []) : []
-        };
-        const { data } = await api.patch(`/habits/${id}`, payload);
-        const todayStr = toISO(new Date());
-        const normalized = normalizeHabit(data, todayStr);
-        setHabits((p) => p.map((h) => h.id === id ? { ...h, ...normalized } : h));
-        emitHabitsUpdated();
-      } catch (err) {
-        const backendMessage = err?.response?.data?.message;
-        setHabits((p) => p.map((h) => h.id === id ? previousHabit : h));
-        setHabitLogs((p) => p.filter((log) => log.id !== optimisticLogId));
-        setError(backendMessage || `Could not update "${previousHabit.title}". Please try again.`);
-        setTimeout(() => setError(""), 4000);
-      }
-    }
-    if (isDemoMode) emitHabitsUpdated();
-  };
+  const startDateLocked = Boolean(editingId && form.startDate && form.startDate <= today);
+  const tomorrow = addDays(1, today);
+  const minEndDate = form.startDate && form.startDate >= tomorrow ? addDays(1, form.startDate) : tomorrow;
 
   /* ─── Loading state ──────────────────────────────── */
   if (loading) {
@@ -1156,13 +1220,15 @@ export default function CreateHabit({ entity = "habit" }) {
                 <select
                   value={form.repeatType}
                   onChange={(e) => setField("repeatType", e.target.value)}
-                  className={`w-full rounded-lg border bg-stone-900 px-2 py-1.5 text-xs text-stone-100 outline-none transition focus:border-amber-300/35 ${fieldErr("repeatType") ? "border-red-400/60" : "border-amber-100/15"}`}
+                  disabled={Boolean(editingId)}
+                  className={`w-full rounded-lg border bg-stone-900 px-2 py-1.5 text-xs text-stone-100 outline-none transition focus:border-amber-300/35 ${fieldErr("repeatType") ? "border-red-400/60" : "border-amber-100/15"} ${editingId ? "cursor-not-allowed opacity-60" : ""}`}
                 >
                   <option value="" disabled style={{ backgroundColor:"#1c1917", color:"#6b7280" }}>Select repeat</option>
                   {REPEAT_TYPES.map((r) => (
                     <option key={r.value} value={r.value} style={{ backgroundColor:"#1c1917", color:"#e7e5e4" }}>{r.label}</option>
                   ))}
                 </select>
+                {editingId && <p className="mt-1 text-[10px] text-stone-500">Repeat type cannot be changed in edit mode.</p>}
               </div>
               <div>
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
@@ -1182,9 +1248,15 @@ export default function CreateHabit({ entity = "habit" }) {
               <div className="space-y-2 rounded-lg border border-amber-100/10 bg-white/5 p-2.5">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Start Date <span className="text-red-400">*</span></label>
-                    <input type="date" value={form.startDate} onChange={(e) => setField("startDate", e.target.value)}
-                      className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
+                      Start Date {!startDateLocked && <span className="text-red-400">*</span>}
+                      {startDateLocked && <span className="ml-1 text-stone-500">🔒 Locked</span>}
+                    </label>
+                    <input type="date" value={form.startDate}
+                      readOnly={startDateLocked}
+                      onChange={startDateLocked ? undefined : (e) => setField("startDate", e.target.value)}
+                      className={`w-full rounded-lg border px-2 py-1 text-xs outline-none transition ${startDateLocked ? "cursor-not-allowed border-amber-100/10 bg-white/[0.03] text-stone-400" : "border-amber-100/15 bg-white/5 text-stone-100 focus:border-amber-300/35"}`}
+                    />
                   </div>
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">End Date (Auto)</label>
@@ -1192,20 +1264,30 @@ export default function CreateHabit({ entity = "habit" }) {
                       className="w-full cursor-not-allowed rounded-lg border border-amber-100/10 bg-white/[0.03] px-2 py-1 text-xs text-stone-400 outline-none" />
                   </div>
                 </div>
-                <p className="text-[10px] text-amber-300/60">End date is automatically set {FIXED_DURATION[form.repeatType]} days from the start date.</p>
+                {startDateLocked
+                  ? <p className="text-[10px] text-stone-500">Start date cannot be changed — this habit has already begun.</p>
+                  : <p className="text-[10px] text-amber-300/60">End date is automatically set {FIXED_DURATION[form.repeatType]} days from the start date.</p>
+                }
               </div>
             ) : form.repeatType ? (
               <div className="space-y-2 rounded-lg border border-amber-100/10 bg-white/5 p-2.5">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Start</label>
-                    <input type="date" value={form.startDate} onChange={(e) => setField("startDate", e.target.value)}
-                      className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
+                      Start
+                      {startDateLocked && <span className="ml-1 text-stone-500">🔒 Locked</span>}
+                    </label>
+                    <input type="date" value={form.startDate}
+                      readOnly={startDateLocked}
+                      onChange={startDateLocked ? undefined : (e) => setField("startDate", e.target.value)}
+                      className={`w-full rounded-lg border px-2 py-1 text-xs outline-none transition ${startDateLocked ? "cursor-not-allowed border-amber-100/10 bg-white/[0.03] text-stone-400" : "border-amber-100/15 bg-white/5 text-stone-100 focus:border-amber-300/35"}`}
+                    />
+                    {startDateLocked && <p className="mt-1 text-[10px] text-stone-500">Already started — cannot be changed.</p>}
                   </div>
                   {!form.neverEnds && (
                     <div>
                       <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">End</label>
-                      <input type="date" value={form.endDate} min={form.startDate||undefined} onChange={(e) => setField("endDate", e.target.value)}
+                      <input type="date" value={form.endDate} min={minEndDate} onChange={(e) => setField("endDate", e.target.value)}
                         className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
                     </div>
                   )}
@@ -1283,146 +1365,22 @@ export default function CreateHabit({ entity = "habit" }) {
               displayedHabits.map((h, i) => (
                 <Motion.article
                   key={h.id}
-                  className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
+                  className={`rounded-xl border bg-white/5 p-3 ${editingId === h.id ? "border-amber-300/40 ring-1 ring-amber-300/20" : "border-amber-100/10"}`}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05, duration: 0.22 }}
                   whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
                 >
-                  {editingId === h.id ? (
-                    /* ── Inline edit ── */
-                    <div className="space-y-2">
-                      <input type="text" value={editForm.title}
-                        onChange={(e) => setEditForm((p) => ({...p, title:e.target.value}))}
-                        className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2.5 py-1.5 text-sm text-stone-100 outline-none focus:border-amber-300/40" />
-                      <input type="text" value={editForm.reason}
-                        onChange={(e) => setEditForm((p) => ({...p, reason:e.target.value}))}
-                        placeholder="Reason / Purpose"
-                        className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2.5 py-1.5 text-xs text-stone-300 outline-none focus:border-amber-300/40" />
-                      <div className="grid grid-cols-2 gap-2">
-                        <input type="number" min={1} value={editForm.targetStreak}
-                          onChange={(e) => setEditForm((p) => ({...p, targetStreak:e.target.value}))}
-                          placeholder="Target streak (days)"
-                          className="rounded-lg border border-amber-100/15 bg-black/30 px-2 py-1.5 text-xs text-stone-100 outline-none" />
-                        <select value={editForm.timeOfDay}
-                          onChange={(e) => setEditForm((p) => ({...p, timeOfDay:e.target.value}))}
-                          className="rounded-lg border border-amber-100/15 bg-stone-900 px-2 py-1.5 text-[11px] text-stone-100 outline-none">
-                          <option value="" style={{backgroundColor:"#1c1917"}}>Time of day</option>
-                          {TIME_OF_DAY_OPTIONS.map((tod) => (
-                            <option key={tod} value={tod} style={{backgroundColor:"#1c1917"}}>{tod}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div ref={editCatDropRef} className="relative">
-                          <button
-                            type="button"
-                            onClick={() => setIsEditCatOpen((p) => !p)}
-                            className="relative h-9 w-full rounded-lg border border-amber-100/15 bg-stone-900 pl-2 pr-6 text-left text-[11px] text-stone-100 outline-none"
-                          >
-                            {editForm.category || <span className="text-stone-500">Category</span>}
-                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-stone-400">▾</span>
-                          </button>
-                          {isEditCatOpen && (
-                            <div className="journal-scroll absolute z-50 mt-1 max-h-40 w-full overflow-y-auto rounded-lg border border-amber-100/15 bg-stone-900 py-1 shadow-xl shadow-black/50">
-                              {categoryOptions.map((c) => (
-                                <button
-                                  key={c}
-                                  type="button"
-                                  onClick={() => { setEditForm((p) => ({...p, category:c})); setIsEditCatOpen(false); }}
-                                  className={`w-full px-3 py-1.5 text-left text-[11px] transition hover:bg-amber-500/10 hover:text-amber-200 ${editForm.category === c ? "bg-amber-500/15 text-amber-200" : "text-stone-100"}`}
-                                >
-                                  {c}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <input type="time" value={editForm.time}
-                          onChange={(e) => setEditForm((p) => ({...p, time:e.target.value}))}
-                          className="rounded-lg border border-amber-100/15 bg-black/30 px-2 py-1.5 text-xs text-stone-100 outline-none" />
-                      </div>
-                      <div className="flex gap-1.5">
-                        {PRIORITIES.map((pr) => (
-                          <button key={pr} type="button" onClick={() => setEditForm((p) => ({...p, priority:pr}))}
-                            className={`flex flex-1 items-center justify-center gap-1 rounded-lg border py-1 text-[10px] font-semibold transition ${editForm.priority===pr ? PRIORITY_STYLES[pr] : "border-amber-100/15 bg-white/5 text-stone-400"}`}>
-                            {pr} {PRIORITY_EMOJI[pr]}
-                          </button>
-                        ))}
-                      </div>
-                      <select value={editForm.repeatType} onChange={(e) => setEditForm((p) => ({...p, repeatType:e.target.value}))}
-                        className="w-full rounded-lg border border-amber-100/15 bg-stone-900 px-2 py-1.5 text-[11px] text-stone-100 outline-none">
-                        {REPEAT_TYPES.map((r) => <option key={r.value} value={r.value} style={{backgroundColor:"#1c1917"}}>{r.label}</option>)}
-                      </select>
-                      {FIXED_DURATION[editForm.repeatType] ? (
-                        <div className="space-y-1.5 rounded-lg border border-amber-100/10 bg-white/[0.03] p-2">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <p className="mb-1 text-[10px] uppercase tracking-wide text-stone-500">Start</p>
-                              <input type="date" value={editForm.startDate}
-                                onChange={(e) => setEditForm((p) => ({...p, startDate:e.target.value}))}
-                                className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2 py-1 text-[11px] text-stone-100 outline-none" />
-                            </div>
-                            <div>
-                              <p className="mb-1 text-[10px] uppercase tracking-wide text-stone-500">End (Auto)</p>
-                              <input type="date" value={fixedEndDate(FIXED_DURATION[editForm.repeatType], editForm.startDate)} readOnly
-                                className="w-full cursor-not-allowed rounded-lg border border-amber-100/10 bg-black/20 px-2 py-1 text-[11px] text-stone-400 outline-none" />
-                            </div>
-                          </div>
-                          <p className="text-[10px] text-amber-300/60">Auto-calculated: {FIXED_DURATION[editForm.repeatType]} days from start.</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-1.5 rounded-lg border border-amber-100/10 bg-white/[0.03] p-2">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <p className="mb-1 text-[10px] uppercase tracking-wide text-stone-500">Start</p>
-                              <input type="date" value={editForm.startDate}
-                                onChange={(e) => setEditForm((p) => ({...p, startDate:e.target.value}))}
-                                className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2 py-1 text-[11px] text-stone-100 outline-none" />
-                            </div>
-                            {!editForm.neverEnds && (
-                              <div>
-                                <p className="mb-1 text-[10px] uppercase tracking-wide text-stone-500">End</p>
-                                <input type="date" value={editForm.endDate} min={editForm.startDate||undefined}
-                                  onChange={(e) => setEditForm((p) => ({...p, endDate:e.target.value}))}
-                                  className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2 py-1 text-[11px] text-stone-100 outline-none" />
-                              </div>
-                            )}
-                          </div>
-                          <label className="flex items-center gap-2 text-[11px] text-stone-300">
-                            <input type="checkbox" checked={editForm.neverEnds}
-                              onChange={(e) => setEditForm((p) => ({...p, neverEnds:e.target.checked}))} className="accent-amber-400" />
-                            Never End
-                          </label>
-                          {editForm.repeatType === "weekdays" && (
-                            <div className="grid grid-cols-7 gap-1 pt-1">
-                              {WEEK_DAYS.map((d) => (
-                                <button key={d} type="button"
-                                  onClick={() => setEditForm((p) => ({...p, days: p.days.includes(d) ? p.days.filter((x) => x!==d) : [...p.days,d]}))}
-                                  className={`rounded border py-1 text-[10px] font-semibold transition ${editForm.days.includes(d) ? "border-amber-300/55 bg-amber-400/15 text-amber-100" : "border-amber-100/15 bg-white/5 text-stone-300"}`}>
-                                  {d}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <div className="flex gap-2 pt-1">
-                        <button type="button" onClick={() => handleUpdate(h.id)}
-                          className="flex-1 rounded-lg border border-amber-300/30 bg-amber-400/10 py-1.5 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
-                          Save
-                        </button>
-                        <button type="button" onClick={() => setEditingId(null)}
-                          className="flex-1 rounded-lg border border-amber-100/15 bg-white/5 py-1.5 text-[11px] font-semibold text-stone-400 transition hover:text-stone-200">
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    /* ── Normal card ── */
                     <>
                       <div className="flex flex-wrap items-start justify-between gap-2">
-                        <p className="min-w-0 flex-1 truncate text-sm font-semibold text-stone-100">{h.title}</p>
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-stone-100">{h.title}</p>
+                          {editingId === h.id && (
+                            <span className="shrink-0 rounded-full border border-amber-300/50 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
+                              Editing
+                            </span>
+                          )}
+                        </div>
                         <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${PRIORITY_STYLES[h.priority]}`}>
                             {h.priority}
@@ -1463,21 +1421,20 @@ export default function CreateHabit({ entity = "habit" }) {
                         <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
                           {REPEAT_TYPES.find((r) => r.value===h.repeatType)?.label ?? h.repeatType}
                         </span>
-                        <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">{fmtTime(h.time)}</span>
+                        <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">{fmtTime(h.pendingTime || h.time)}</span>
                         <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
                           {h.startDate}
                         </span>
                         <span className={`rounded-full border px-2 py-0.5 font-semibold ${h.endDate ? "border-rose-400/25 bg-rose-500/10 text-rose-200" : "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"}`}>
                           {h.endDate ? `Ends ${h.endDate}` : "Never Ends"}
                         </span>
-                        {h.repeatType==="weekdays" && h.days?.map((d) => (
+                        {h.repeatType==="weekdays" && (h.pendingDays || h.days || []).map((d) => (
                           <span key={d} className="rounded-full border border-amber-300/25 bg-amber-500/10 px-2 py-0.5 font-semibold text-amber-200">
                             {DAY_SHORT[d]}
                           </span>
                         ))}
                       </div>
                     </>
-                  )}
                 </Motion.article>
               ))
             )}

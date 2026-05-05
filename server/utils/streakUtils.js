@@ -3,11 +3,17 @@ const DAY_NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
 const normalizeDate = (value) => {
   const date = new Date(value);
-  date.setUTCHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
   return date;
 };
 
-const toDayKey = (value) => normalizeDate(value).toISOString().slice(0, 10);
+const toDayKey = (value) => {
+  const day = normalizeDate(value);
+  const year = day.getFullYear();
+  const month = String(day.getMonth() + 1).padStart(2, "0");
+  const date = String(day.getDate()).padStart(2, "0");
+  return `${year}-${month}-${date}`;
+};
 
 const normalizeDayName = (value) => {
   if (typeof value !== "string") return null;
@@ -24,7 +30,7 @@ const buildExplicitDaysSet = (habit) => {
 
 const isScheduledOnDate = (habit, date) => {
   const explicitDays = buildExplicitDaysSet(habit);
-  const dayName = DAY_NAMES[date.getUTCDay()];
+  const dayName = DAY_NAMES[date.getDay()];
   const repeatType = habit?.repeatType || "daily";
 
   if (explicitDays) return explicitDays.has(dayName);
@@ -34,7 +40,7 @@ const isScheduledOnDate = (habit, date) => {
 
   if (habit?.frequency === "weekly") {
     const reference = habit?.startDate || habit?.createdAt || new Date();
-    return normalizeDate(reference).getUTCDay() === date.getUTCDay();
+    return normalizeDate(reference).getDay() === date.getDay();
   }
 
   return true;
@@ -53,8 +59,8 @@ const isWithinHabitWindow = (habit, date) => {
   const deletedAt = habit?.deletedAt ? new Date(habit.deletedAt) : null;
   if (deletedAt && deletedAt < dayEnd) return false;
 
-  const endDate = habit?.endDate ? new Date(habit.endDate) : null;
-  if (endDate && endDate < dayEnd) return false;
+  const endDate = habit?.endDate ? normalizeDate(habit.endDate) : null;
+  if (endDate && endDate < dayStart) return false;
 
   if (habit?.archivedReason === "deleted" && !deletedAt) return false;
 
@@ -74,19 +80,22 @@ const findLastExpectedDate = (habit, today) => {
 
   while (cursor >= floorDate) {
     if (isExpectedOnDate(habit, cursor)) return new Date(cursor);
-    cursor.setUTCDate(cursor.getUTCDate() - 1);
+    cursor.setDate(cursor.getDate() - 1);
   }
 
   return null;
 };
 
 export const calculateStreak = (logs, habit = {}) => {
-  const completedSet = new Set(
-    logs
-      .filter((log) => log?.completed !== false)
-      .map((log) => log?.dayKey || toDayKey(log.date))
-      .filter(Boolean)
-  );
+  const completedSet = new Set();
+  logs
+    .filter((log) => log?.completed !== false)
+    .forEach((log) => {
+      const fromDayKey = typeof log?.dayKey === "string" ? log.dayKey : "";
+      const fromDate = log?.date ? toDayKey(log.date) : "";
+      if (fromDayKey) completedSet.add(fromDayKey);
+      if (fromDate) completedSet.add(fromDate);
+    });
 
   const today = normalizeDate(new Date());
   const firstExpectedDate = normalizeDate(habit?.startDate || habit?.createdAt || today);
@@ -101,7 +110,7 @@ export const calculateStreak = (logs, habit = {}) => {
   let streakBreaks = 0;
   let runningStreak = 0;
 
-  for (const cursor = new Date(firstExpectedDate); cursor <= lastExpectedDate; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+  for (const cursor = new Date(firstExpectedDate); cursor <= lastExpectedDate; cursor.setDate(cursor.getDate() + 1)) {
     if (!isExpectedOnDate(habit, cursor)) continue;
     const isComplete = completedSet.has(toDayKey(cursor));
     if (isComplete) {
@@ -113,7 +122,7 @@ export const calculateStreak = (logs, habit = {}) => {
     }
   }
 
-  for (const cursor = new Date(lastExpectedDate); cursor >= firstExpectedDate; cursor.setUTCDate(cursor.getUTCDate() - 1)) {
+  for (const cursor = new Date(lastExpectedDate); cursor >= firstExpectedDate; cursor.setDate(cursor.getDate() - 1)) {
     if (!isExpectedOnDate(habit, cursor)) continue;
     if (completedSet.has(toDayKey(cursor))) {
       currentStreak++;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import api from "../../api/axios";
@@ -8,6 +8,10 @@ import { GYM_GALLERY_DEMO_DATES, DEMO_OVERVIEW_STATS } from "../../../data/Dummy
 import { INITIAL_HABITS as TODAY_HABITS } from "../../../data/HabitDummyData";
 import { INITIAL_TASKS as TODAY_TASKS } from "../../../data/ToDoDummyData";
 import OverviewHeatmap from "./OverviewHeatmap";
+import {
+  DEFAULT_IMPORTANT_CATEGORIES,
+  IMPORTANT_TODO_CATEGORIES_STORAGE_KEY
+} from "../todo/todoShared";
 
 const GYM_MEASUREMENTS_KEY = "monkmode_gym_measurements";
 const GYM_GALLERY_KEY = "monkmode_gallery";
@@ -50,6 +54,21 @@ const readLastPicUploadedDate = () => {
       .sort((left, right) => right.localeCompare(left))[0] || null;
   } catch {
     return GYM_GALLERY_DEMO_DATES[GYM_GALLERY_DEMO_DATES.length - 1];
+  }
+};
+
+const readImportantTodoCategories = () => {
+  try {
+    const raw = localStorage.getItem(IMPORTANT_TODO_CATEGORIES_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    const custom = Array.isArray(parsed)
+      ? parsed
+          .map((value) => (typeof value === "string" ? value.trim() : ""))
+          .filter(Boolean)
+      : [];
+    return [...new Set([...DEFAULT_IMPORTANT_CATEGORIES, ...custom])];
+  } catch {
+    return DEFAULT_IMPORTANT_CATEGORIES;
   }
 };
 
@@ -164,6 +183,17 @@ export default function Overview() {
       { completed: 0, pending: 0 }
     )
   );
+  const [taskSummary, setTaskSummary] = useState(() =>
+    TODAY_TASKS.reduce(
+      (summary, task) => ({
+        completed: summary.completed + (task.status === "completed" ? 1 : 0),
+        pending: summary.pending + (task.status === "pending" ? 1 : 0),
+        missed: summary.missed + (task.status === "missed" ? 1 : 0),
+        importantToday: summary.importantToday + (task.priority === "High" ? 1 : 0),
+      }),
+      { completed: 0, pending: 0, missed: 0, importantToday: 0 }
+    )
+  );
 
   useEffect(() => {
     if (isDemoMode) {
@@ -224,18 +254,38 @@ export default function Overview() {
 
   const displayJournalSummary = isDemoMode ? DEMO_OVERVIEW_STATS.journal : journalSummary;
 
-  const taskSummary = useMemo(
-    () => TODAY_TASKS.reduce(
-      (summary, task) => ({
-        completed: summary.completed + (task.status === "completed" ? 1 : 0),
-        pending: summary.pending + (task.status === "pending" ? 1 : 0),
-        missed: summary.missed + (task.status === "missed" ? 1 : 0),
-        importantToday: summary.importantToday + (task.priority === "High" ? 1 : 0),
-      }),
-      { completed: 0, pending: 0, missed: 0, importantToday: 0 }
-    ),
-    []
-  );
+  useEffect(() => {
+    if (isDemoMode) return;
+    let isMounted = true;
+
+    const refreshTaskSummary = async () => {
+      try {
+        const importantCategories = readImportantTodoCategories();
+        const { data } = await api.get("/todos/summary", {
+          params: { importantCategories: importantCategories.join(",") }
+        });
+        if (!isMounted) return;
+        setTaskSummary({
+          completed: Math.max(0, Number(data?.today?.completed || 0)),
+          pending: Math.max(0, Number(data?.today?.pending || 0)),
+          missed: Math.max(0, Number(data?.today?.missed || 0)),
+          importantToday: Math.max(0, Number((data?.importantToday ?? data?.today?.important) || 0)),
+        });
+      } catch {
+        // keep existing summary on transient failure
+      }
+    };
+
+    refreshTaskSummary();
+    window.addEventListener("focus", refreshTaskSummary);
+    window.addEventListener("monkmode:todos-updated", refreshTaskSummary);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("focus", refreshTaskSummary);
+      window.removeEventListener("monkmode:todos-updated", refreshTaskSummary);
+    };
+  }, [isDemoMode]);
 
   useEffect(() => {
     if (isDemoMode) return;

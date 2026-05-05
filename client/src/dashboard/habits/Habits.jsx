@@ -50,11 +50,13 @@ export default function Habits() {
     };
 
     refreshConsistency();
+    const intervalId = window.setInterval(refreshConsistency, 60 * 1000);
     window.addEventListener("focus", refreshConsistency);
     window.addEventListener("monkmode:habits-updated", refreshConsistency);
 
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
       window.removeEventListener("focus", refreshConsistency);
       window.removeEventListener("monkmode:habits-updated", refreshConsistency);
     };

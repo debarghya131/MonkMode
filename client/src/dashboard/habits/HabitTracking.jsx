@@ -52,7 +52,7 @@ const isHabitArchived = (habit, today) => {
   const endDate = habit.endDate
     ? (typeof habit.endDate === "string" ? habit.endDate.slice(0, 10) : toISODate(new Date(habit.endDate)))
     : null;
-  return Boolean(endDate && endDate < today);
+  return Boolean(endDate && endDate <= today);
 };
 
 const getArchiveLabel = (habit, today) => {
@@ -61,7 +61,7 @@ const getArchiveLabel = (habit, today) => {
   const endDate = habit.endDate
     ? (typeof habit.endDate === "string" ? habit.endDate.slice(0, 10) : toISODate(new Date(habit.endDate)))
     : null;
-  if (endDate && endDate < today) return "Ended";
+  if (endDate && endDate <= today) return "Ended";
   return null;
 };
 
@@ -168,6 +168,9 @@ export default function HabitTracking() {
           ...h,
           id: h._id?.toString() ?? h.id,
           completedDays: h.completedDays ?? [],
+          startDate: h.startDate
+            ? (typeof h.startDate === "string" ? h.startDate.slice(0, 10) : toISODate(new Date(h.startDate)))
+            : null,
           endDate: h.endDate
             ? (typeof h.endDate === "string" ? h.endDate.slice(0, 10) : toISODate(new Date(h.endDate)))
             : null,
@@ -204,6 +207,7 @@ export default function HabitTracking() {
     () => adjustedHabits.filter((habit) => {
       const archivedMatch = habitView === "active" ? !isHabitArchived(habit, today) : isHabitArchived(habit, today);
       if (!archivedMatch) return false;
+      if (habitView === "active" && habit.startDate && habit.startDate > today) return false;
 
       if (importantOnly && !habit.isImportant) return false;
 
@@ -368,7 +372,9 @@ export default function HabitTracking() {
                     </tr>
                   ) : (
                     filteredHabits.map((habit, rowIdx) => {
-                      const currentStreak = getCurrentStreak(habit.completedDays, visibleDays.length);
+                      const currentStreak = Number.isFinite(Number(habit.currentStreak))
+                        ? Number(habit.currentStreak)
+                        : getCurrentStreak(habit.completedDays, visibleDays.length);
                       const archiveLabel = getArchiveLabel(habit, today);
                       const endDateStr = habit.endDate
                         ? (typeof habit.endDate === "string" ? habit.endDate.slice(0, 10) : toISODate(new Date(habit.endDate)))

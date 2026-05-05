@@ -15,15 +15,9 @@ const formatDate = (date) => {
   });
 };
 
-const getStreak = (key) => {
-  try {
-    const data = JSON.parse(localStorage.getItem(key));
-    return data?.count ?? 0;
-  } catch { return 0; }
-};
-
 const MONK_STREAK_KEY = "monkmode_monk_streak";
 const JOURNAL_LOGGED_DAYS_KEY = "monkmode_journal_logged_days";
+const CONSISTENCY_SCORE_KEY = "monkmode_consistency_score";
 const DEMO_STREAKS = {
   journal: 5,
   todo: 6,
@@ -48,6 +42,17 @@ const readJSON = (key) => {
     return JSON.parse(localStorage.getItem(key));
   } catch {
     return null;
+  }
+};
+
+const readNumber = (key, fallback = 0) => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null || raw === undefined || raw === "") return fallback;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
   }
 };
 
@@ -164,13 +169,12 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
   const { isDemoMode } = useAuth();
   const firstName = user?.name || "Friend";
   const [monkStreak, setMonkStreak] = useState(0);
-  const [consistencyScore, setConsistencyScore] = useState(0);
+  const [consistencyScore, setConsistencyScore] = useState(() => readNumber(CONSISTENCY_SCORE_KEY, 0));
   const [journalStreak, setJournalStreak] = useState(DEMO_STREAKS.journal);
   const [habitStreak, setHabitStreak] = useState(DEMO_STREAKS.habit);
+  const [todoStreak, setTodoStreak] = useState(DEMO_STREAKS.todo);
   const [showMobileStats, setShowMobileStats] = useState(false);
   const currentDate = formatDate(new Date());
-
-  const todoStreak    = getStreak("monkmode_todo_streak") || DEMO_STREAKS.todo;
 
   useEffect(() => {
     let cancelled = false;
@@ -188,14 +192,14 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
         setConsistencyScore(calculateConsistencyScoreFromLocalDemo());
         setJournalStreak(DEMO_STREAKS.journal);
         setHabitStreak(DEMO_STREAKS.habit);
+        setTodoStreak(DEMO_STREAKS.todo);
         return;
       }
 
       try {
-        const todayKey = toLocalISODate(new Date());
-        const [habitRes, todoRes, journalSummaryRes] = await Promise.all([
+        const [habitRes, todoSummaryRes, journalSummaryRes] = await Promise.all([
           api.get("/habits/consistency"),
-          api.get("/todos/heatmap"),
+          api.get("/todos/summary"),
           api.get("/journal/summary")
         ]);
         if (cancelled) return;
@@ -205,19 +209,26 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
         const habitScore = habitExpected > 0 ? (habitCompleted / habitExpected) * 100 : 0;
         setHabitStreak(Number(habitRes?.data?.fullCompletionStreakDays || 0));
 
-        const todoToday = Array.isArray(todoRes?.data?.values)
-          ? todoRes.data.values.find((value) => String(value?.date || "") === todayKey)
-          : null;
-        const todoTotal = Math.max(0, Number(todoToday?.total || 0));
-        const todoCompleted = Math.max(0, Number(todoToday?.completed || 0));
+        const todoTotal = Math.max(0, Number(todoSummaryRes?.data?.today?.total || 0));
+        const todoCompleted = Math.max(0, Number(todoSummaryRes?.data?.today?.completed || 0));
         const todoScore = todoTotal > 0 ? (todoCompleted / todoTotal) * 100 : 0;
+        setTodoStreak(Math.max(0, Number(todoSummaryRes?.data?.fullCompletionStreakDays || 0)));
 
         const journalTodaySubmitted = Boolean(journalSummaryRes?.data?.todayLogged);
         setJournalStreak(Math.max(0, Number(journalSummaryRes?.data?.currentStreakDays || 0)));
         const journalScore = journalTodaySubmitted ? 100 : 0;
 
         const consistency = Math.round((journalScore + todoScore + habitScore) / 3);
-        setConsistencyScore(consistency);
+        const noNewDayActivityYet =
+          !journalTodaySubmitted &&
+          todoCompleted === 0 &&
+          habitCompleted === 0;
+
+        setConsistencyScore((previousScore) => {
+          const nextScore = noNewDayActivityYet ? previousScore : consistency;
+          localStorage.setItem(CONSISTENCY_SCORE_KEY, String(nextScore));
+          return nextScore;
+        });
 
         const allSectionsComplete =
           journalTodaySubmitted &&

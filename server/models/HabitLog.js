@@ -22,8 +22,11 @@ const habitLogSchema = new mongoose.Schema({
 habitLogSchema.pre("validate", function normalizeDayKey() {
   if (!this.dayKey && this.date) {
     const day = new Date(this.date);
-    day.setUTCHours(0, 0, 0, 0);
-    this.dayKey = day.toISOString().slice(0, 10);
+    day.setHours(0, 0, 0, 0);
+    const year = day.getFullYear();
+    const month = String(day.getMonth() + 1).padStart(2, "0");
+    const date = String(day.getDate()).padStart(2, "0");
+    this.dayKey = `${year}-${month}-${date}`;
   }
 });
 

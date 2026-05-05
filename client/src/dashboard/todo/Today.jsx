@@ -1,6 +1,8 @@
 import { motion as Motion } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { INITIAL_TASKS } from "../../../data/ToDoDummyData";
+import useAuth from "../../hooks/useAuth";
+import api from "../../api/axios";
 
 const PRIORITY_ORDER = ["High", "Medium", "Low"];
 
@@ -22,7 +24,15 @@ const STATUS_LABELS = {
   missed: "Missed",
 };
 
+const toISODate = (dateObj) => {
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const day = String(dateObj.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const formatTime = (timeValue) => {
+  if (!timeValue) return "--";
   const [hours, minutes] = timeValue.split(":").map(Number);
   const date = new Date();
   date.setHours(hours, minutes, 0, 0);
@@ -31,6 +41,12 @@ const formatTime = (timeValue) => {
     minute: "2-digit",
   });
 };
+
+// Normalize a task from the API (description → note)
+const normalizeApiTask = (task) => ({
+  ...task,
+  note: task.note ?? task.description ?? "",
+});
 
 function TaskRow({ task, onUndo, index = 0 }) {
   return (
@@ -127,7 +143,11 @@ function PriorityFilter({ selected, onChange }) {
 }
 
 export default function Today() {
-  const [tasks, setTasks] = useState(INITIAL_TASKS);
+  const { isDemoMode } = useAuth();
+  const todayISO = toISODate(new Date());
+
+  const [tasks, setTasks] = useState(isDemoMode ? INITIAL_TASKS : []);
+  const [loading, setLoading] = useState(!isDemoMode);
   const [allFilter, setAllFilter] = useState("All");
   const [pendingFilter, setPendingFilter] = useState("All");
   const [completedFilter, setCompletedFilter] = useState("All");
@@ -138,6 +158,21 @@ export default function Today() {
     month: "short",
     day: "numeric",
   });
+
+  useEffect(() => {
+    if (isDemoMode) return;
+    const fetchTodayTasks = async () => {
+      try {
+        const { data } = await api.get(`/todos?date=${todayISO}&view=active`);
+        setTasks(data.map(normalizeApiTask));
+      } catch (err) {
+        console.error("Failed to fetch today's tasks:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTodayTasks();
+  }, [isDemoMode, todayISO]);
 
   const pendingTasks = useMemo(() => tasks.filter((t) => t.status === "pending"), [tasks]);
   const completedTasks = useMemo(() => tasks.filter((t) => t.status === "completed"), [tasks]);
@@ -153,32 +188,84 @@ export default function Today() {
     [tasks]
   );
 
-  const markComplete = (id) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, previousStatus: t.status, status: "completed" } : t))
+  const markComplete = async (id) => {
+    const prev = tasks;
+    setTasks((prevTasks) =>
+      prevTasks.map((t) => (t.id === id ? { ...t, previousStatus: t.status, status: "completed" } : t))
     );
+    if (!isDemoMode) {
+      try {
+        const { data } = await api.patch(`/todos/${id}/toggle`, { date: todayISO });
+        setTasks((prevTasks) =>
+          prevTasks.map((t) => (t.id === id ? { ...normalizeApiTask(data), previousStatus: "pending" } : t))
+        );
+        window.dispatchEvent(new Event("monkmode:todos-updated"));
+      } catch {
+        setTasks(prev);
+      }
+    }
   };
 
-  const undoComplete = (id) => {
-    setTasks((prev) =>
-      prev.map((t) => {
+  const undoComplete = async (id) => {
+    const prev = tasks;
+    setTasks((prevTasks) =>
+      prevTasks.map((t) => {
         if (t.id !== id) return t;
         const { previousStatus, ...rest } = t;
         return { ...rest, status: previousStatus ?? "pending" };
       })
     );
+    if (!isDemoMode) {
+      try {
+        const { data } = await api.patch(`/todos/${id}/status`, { date: todayISO, status: "pending" });
+        setTasks((prevTasks) =>
+          prevTasks.map((t) => {
+            if (t.id !== id) return t;
+            const { previousStatus, ...rest } = t;
+            return { ...rest, ...normalizeApiTask(data) };
+          })
+        );
+        window.dispatchEvent(new Event("monkmode:todos-updated"));
+      } catch {
+        setTasks(prev);
+      }
+    }
   };
 
-  const markCompleteWithTime = (id, completedAt) => {
-    setTasks((prev) =>
-      prev.map((t) =>
+  const markCompleteWithTime = async (id, completedAt) => {
+    const prev = tasks;
+    setTasks((prevTasks) =>
+      prevTasks.map((t) =>
         t.id === id
           ? { ...t, previousStatus: t.status, status: "completed", lateCompleted: true, completedAt }
           : t
       )
     );
     setLatePrompt({ taskId: null, time: "" });
+    if (!isDemoMode) {
+      try {
+        const { data } = await api.patch(`/todos/${id}/status`, {
+          date: todayISO,
+          status: "completed",
+          completedAt,
+        });
+        setTasks((prevTasks) =>
+          prevTasks.map((t) => (t.id === id ? { ...normalizeApiTask(data), previousStatus: "pending" } : t))
+        );
+        window.dispatchEvent(new Event("monkmode:todos-updated"));
+      } catch {
+        setTasks(prev);
+      }
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-sm text-stone-400">Loading today&apos;s tasks…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -213,23 +300,27 @@ export default function Today() {
               <PriorityFilter selected={allFilter} onChange={setAllFilter} />
 
               <div className="journal-scroll today-scroll-body mt-3 space-y-4 pr-1">
-                {Object.entries(groupedByCategory).map(([category, catTasks]) => {
-                  const filtered = allFilter === "All" ? catTasks : catTasks.filter((t) => t.priority === allFilter);
-                  if (filtered.length === 0) return null;
-                  return (
-                    <div key={category} className="rounded-2xl border border-amber-100/10 bg-white/[0.03] p-4">
-                      <div className="mb-3 flex items-center justify-between">
-                        <h4 className="text-sm font-semibold text-stone-100">{category}</h4>
-                        <span className="text-xs text-stone-400">{filtered.length} tasks</span>
+                {tasks.length === 0 ? (
+                  <p className="mt-3 text-xs text-stone-500">No tasks scheduled for today.</p>
+                ) : (
+                  Object.entries(groupedByCategory).map(([category, catTasks]) => {
+                    const filtered = allFilter === "All" ? catTasks : catTasks.filter((t) => t.priority === allFilter);
+                    if (filtered.length === 0) return null;
+                    return (
+                      <div key={category} className="rounded-2xl border border-amber-100/10 bg-white/[0.03] p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <h4 className="text-sm font-semibold text-stone-100">{category}</h4>
+                          <span className="text-xs text-stone-400">{filtered.length} tasks</span>
+                        </div>
+                        <div className="space-y-2">
+                          {filtered.map((task) => (
+                            <TaskRow key={task.id} task={task} />
+                          ))}
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        {filtered.map((task) => (
-                          <TaskRow key={task.id} task={task} />
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </Motion.section>
 
@@ -294,7 +385,7 @@ export default function Today() {
                           >
                             <Motion.span
                               className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
-                              animate={{ left: ["−40%", "130%"] }}
+                              animate={{ left: ["-40%", "130%"] }}
                               transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                             />
                             <span className="relative z-10">✓ Done</span>

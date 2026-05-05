@@ -5,10 +5,11 @@ import { calculateStreak } from "../utils/streakUtils.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DELETE_UNDO_WINDOW_MS = 48 * 60 * 60 * 1000;
+const APP_TIMEZONE = process.env.APP_TIMEZONE || "Asia/Kolkata";
 
 const getUtcStartOfDay = (value = new Date()) => {
   const day = new Date(value);
-  day.setUTCHours(0, 0, 0, 0);
+  day.setHours(0, 0, 0, 0);
   return day;
 };
 
@@ -18,7 +19,28 @@ const getUtcDayBounds = (value = new Date()) => {
   return { start, end };
 };
 
-const toDayKey = (value = new Date()) => getUtcStartOfDay(value).toISOString().slice(0, 10);
+const toDayKey = (value = new Date()) => {
+  const day = getUtcStartOfDay(value);
+  const year = day.getFullYear();
+  const month = String(day.getMonth() + 1).padStart(2, "0");
+  const date = String(day.getDate()).padStart(2, "0");
+  return `${year}-${month}-${date}`;
+};
+
+const dayKeyToDate = (dayKey) => {
+  if (typeof dayKey !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return null;
+  const [year, month, date] = dayKey.split("-").map((part) => Number.parseInt(part, 10));
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(date)) return null;
+  const parsed = new Date(year, month - 1, date);
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== date
+  ) {
+    return null;
+  }
+  return parsed;
+};
 
 const buildActivityLogEntry = (action, title, at = new Date()) => ({
   action,
@@ -68,11 +90,41 @@ const getArchiveState = (habit, today = getUtcStartOfDay()) => {
     return { isArchived: true, archiveReason: "ended" };
   }
 
-  if (habit.endDate && new Date(habit.endDate) < today) {
+  if (habit.endDate && getUtcStartOfDay(habit.endDate) < today) {
     return { isArchived: true, archiveReason: "ended" };
   }
 
   return { isArchived: false, archiveReason: null };
+};
+
+const applyDeferredTimeIfDue = async (habit, today = getUtcStartOfDay()) => {
+  if (!habit) return false;
+
+  let changed = false;
+
+  if (habit.pendingTime && habit.timeChangeEffectiveFrom) {
+    const effectiveTimeDay = getUtcStartOfDay(habit.timeChangeEffectiveFrom);
+    if (effectiveTimeDay <= today) {
+      habit.time = habit.pendingTime;
+      habit.pendingTime = null;
+      habit.timeChangeEffectiveFrom = null;
+      changed = true;
+    }
+  }
+
+  if (Array.isArray(habit.pendingDays) && habit.daysChangeEffectiveFrom) {
+    const effectiveDaysDay = getUtcStartOfDay(habit.daysChangeEffectiveFrom);
+    if (effectiveDaysDay <= today) {
+      habit.days = [...habit.pendingDays];
+      habit.pendingDays = null;
+      habit.daysChangeEffectiveFrom = null;
+      changed = true;
+    }
+  }
+
+  if (!changed) return false;
+  await habit.save();
+  return true;
 };
 
 const buildHabitFilter = (userId, view, today = getUtcStartOfDay()) => {
@@ -81,9 +133,19 @@ const buildHabitFilter = (userId, view, today = getUtcStartOfDay()) => {
   if (view === "active") {
     filter.deletedAt = null;
     filter.archivedReason = { $ne: "ended" };
-    filter.$or = [
-      { endDate: null },
-      { endDate: { $gte: today } }
+    filter.$and = [
+      {
+        $or: [
+          { endDate: null },
+          { endDate: { $gte: today } }
+        ]
+      },
+      {
+        $or: [
+          { startDate: null },
+          { startDate: { $lte: today } }
+        ]
+      }
     ];
   }
 
@@ -100,6 +162,7 @@ const buildHabitFilter = (userId, view, today = getUtcStartOfDay()) => {
 
 const VALID_PRIORITIES = new Set(["High", "Medium", "Low"]);
 const VALID_TIME_OF_DAY = new Set(["Morning", "Afternoon", "Evening", "Night"]);
+const VALID_FREQUENCIES = new Set(["daily", "weekly"]);
 const VALID_REPEAT_TYPES = new Set(["daily", "weekdays", "weekend", "7days", "21days"]);
 const VALID_DAY_KEYS = new Set(["sun", "mon", "tue", "wed", "thu", "fri", "sat"]);
 const DAY_KEY_TO_LABEL = {
@@ -112,6 +175,37 @@ const DAY_KEY_TO_LABEL = {
   sat: "Sat"
 };
 
+const hasOccurrenceInUtcRange = (repeatType, startDate, endDate, days = []) => {
+  if (!startDate || !endDate) return true;
+  const normalizedStart = getUtcStartOfDay(startDate);
+  const normalizedEnd = getUtcStartOfDay(endDate);
+  const rangeDays = Math.floor((normalizedEnd.getTime() - normalizedStart.getTime()) / DAY_MS) + 1;
+  if (rangeDays <= 0) return false;
+
+  if (repeatType === "daily" || repeatType === "7days" || repeatType === "21days") return true;
+
+  const startDay = normalizedStart.getDay();
+  const includesDay = (dayIndex) => {
+    const offset = (dayIndex - startDay + 7) % 7;
+    return offset < rangeDays;
+  };
+
+  if (repeatType === "weekend") {
+    return includesDay(0) || includesDay(6);
+  }
+
+  if (repeatType === "weekdays") {
+    const selectedDays = Array.isArray(days) && days.length ? days : ["Mon", "Tue", "Wed", "Thu", "Fri"];
+    return selectedDays.some((dayLabel) => {
+      const dayIndex = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+        .findIndex((label) => label === String(dayLabel).toLowerCase().slice(0, 3));
+      return dayIndex >= 0 && includesDay(dayIndex);
+    });
+  }
+
+  return true;
+};
+
 const parseUtcDateInput = (value) => {
   if (value === null || value === "") return null;
   if (value instanceof Date) {
@@ -120,7 +214,17 @@ const parseUtcDateInput = (value) => {
   }
   if (typeof value === "string") {
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      return new Date(`${value}T00:00:00.000Z`);
+      const [year, month, day] = value.split("-").map((part) => Number.parseInt(part, 10));
+      if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+      const parsed = new Date(year, month - 1, day);
+      if (
+        parsed.getFullYear() !== year ||
+        parsed.getMonth() !== month - 1 ||
+        parsed.getDate() !== day
+      ) {
+        return null;
+      }
+      return parsed;
     }
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime())) return getUtcStartOfDay(parsed);
@@ -151,28 +255,137 @@ export const createHabit = async (req, res) => {
     const { title, category, priority, time, note, targetStreak, frequency, endDate,
             timeOfDay, repeatType, startDate, days, isImportant } = req.body;
 
-    if (!title) {
+    if (typeof title !== "string" || !title.trim()) {
       return res.status(400).json({ message: "Title is required" });
     }
 
     const createdAt = new Date();
+    const parsedStartDate = parseUtcDateInput(startDate);
+    const parsedEndDate = parseUtcDateInput(endDate);
+    const todayUtc = getUtcStartOfDay();
+    const normalizedTitle = title.trim();
+    const normalizedCategory = category == null || category === ""
+      ? "General"
+      : (typeof category === "string" ? category.trim() : null);
+    const normalizedPriority = priority || "Medium";
+    const normalizedTime = time || "08:00";
+    const normalizedNote = note == null
+      ? ""
+      : (typeof note === "string" ? note.trim() : null);
+    const normalizedTimeOfDay = timeOfDay == null || timeOfDay === ""
+      ? null
+      : timeOfDay;
+    const normalizedFrequency = frequency || "daily";
+    const nextRepeatType = repeatType || "daily";
+    const nextStartDate = parsedStartDate || getUtcStartOfDay(createdAt);
+    let normalizedTargetStreak = 21;
+    let normalizedDays = [];
+
+    if (startDate != null && startDate !== "" && !parsedStartDate) {
+      return res.status(400).json({ message: "Valid startDate is required" });
+    }
+
+    if (endDate != null && endDate !== "" && !parsedEndDate) {
+      return res.status(400).json({ message: "Valid endDate is required" });
+    }
+
+    if (normalizedCategory === null) {
+      return res.status(400).json({ message: "Category must be a string" });
+    }
+
+    if (!VALID_PRIORITIES.has(normalizedPriority)) {
+      return res.status(400).json({ message: "Priority must be High, Medium, or Low" });
+    }
+
+    if (typeof normalizedTime !== "string" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(normalizedTime)) {
+      return res.status(400).json({ message: "Time must be in HH:mm format" });
+    }
+
+    if (normalizedNote === null) {
+      return res.status(400).json({ message: "Reason / note must be a string" });
+    }
+
+    if (normalizedTimeOfDay !== null && !VALID_TIME_OF_DAY.has(normalizedTimeOfDay)) {
+      return res.status(400).json({ message: "Invalid timeOfDay value" });
+    }
+
+    if (!VALID_FREQUENCIES.has(normalizedFrequency)) {
+      return res.status(400).json({ message: "Frequency must be daily or weekly" });
+    }
+
+    if (!VALID_REPEAT_TYPES.has(nextRepeatType)) {
+      return res.status(400).json({ message: "Invalid repeatType value" });
+    }
+
+    if (targetStreak != null && targetStreak !== "") {
+      const parsedTargetStreak = Number(targetStreak);
+      if (!Number.isInteger(parsedTargetStreak) || parsedTargetStreak < 1) {
+        return res.status(400).json({ message: "Target streak must be an integer greater than 0" });
+      }
+      normalizedTargetStreak = parsedTargetStreak;
+    }
+
+    if (nextRepeatType === "weekdays") {
+      if (!Array.isArray(days)) {
+        return res.status(400).json({ message: "Days must be an array" });
+      }
+      const resolvedDays = [];
+      for (const day of days) {
+        if (typeof day !== "string") {
+          return res.status(400).json({ message: "Invalid day value in days list" });
+        }
+        const dayKey = day.trim().toLowerCase().slice(0, 3);
+        if (!VALID_DAY_KEYS.has(dayKey)) {
+          return res.status(400).json({ message: `Invalid day value: ${day}` });
+        }
+        resolvedDays.push(DAY_KEY_TO_LABEL[dayKey]);
+      }
+      normalizedDays = [...new Set(resolvedDays)];
+      if (normalizedDays.length === 0) {
+        return res.status(400).json({ message: "Select at least one day for weekdays repeat type" });
+      }
+    }
+
+    if (parsedEndDate && parsedEndDate < todayUtc) {
+      return res.status(400).json({ message: "End date cannot be before today." });
+    }
+    if (parsedEndDate && parsedEndDate < nextStartDate) {
+      return res.status(400).json({ message: "End date cannot be before start date" });
+    }
+    if (parsedEndDate) {
+      const totalDays = Math.floor((parsedEndDate.getTime() - nextStartDate.getTime()) / DAY_MS) + 1;
+      if (normalizedTargetStreak > totalDays) {
+        return res.status(400).json({ message: "Target streak should be <= total start to end date days." });
+      }
+    }
+    if (
+      parsedEndDate &&
+      !hasOccurrenceInUtcRange(nextRepeatType, nextStartDate, parsedEndDate, normalizedDays)
+    ) {
+      if (nextRepeatType === "weekend") {
+        return res.status(400).json({ message: "Selected date range has no weekend day. Please choose a later end date." });
+      }
+      if (nextRepeatType === "weekdays") {
+        return res.status(400).json({ message: "Selected date range has no chosen weekday. Please adjust start/end date." });
+      }
+    }
 
     const habit = await Habit.create({
       userId: req.user.id,
-      title,
-      category: category || "General",
-      priority: priority || "Medium",
-      time: time || "08:00",
-      note: note || "",
-      targetStreak: targetStreak || 21,
-      frequency: frequency || "daily",
-      repeatType: repeatType || "daily",
-      timeOfDay: timeOfDay || null,
-      startDate: startDate || null,
-      days: days || [],
-      isImportant: isImportant || false,
-      endDate: endDate || null,
-      activityLogs: [buildActivityLogEntry("created", title, createdAt)]
+      title: normalizedTitle,
+      category: normalizedCategory,
+      priority: normalizedPriority,
+      time: normalizedTime,
+      note: normalizedNote,
+      targetStreak: normalizedTargetStreak,
+      frequency: normalizedFrequency,
+      repeatType: nextRepeatType,
+      timeOfDay: normalizedTimeOfDay,
+      startDate: parsedStartDate || null,
+      days: normalizedDays,
+      isImportant: Boolean(isImportant),
+      endDate: parsedEndDate || null,
+      activityLogs: [buildActivityLogEntry("created", normalizedTitle, createdAt)]
     });
 
     res.status(201).json(habit);
@@ -190,6 +403,9 @@ export const getHabits = async (req, res) => {
     const todayKey = toDayKey(today);
 
     const habits = await Habit.find(buildHabitFilter(req.user.id, view, today)).sort({ createdAt: -1 });
+    for (const habit of habits) {
+      await applyDeferredTimeIfDue(habit, today);
+    }
 
     if (!habits.length) return res.json([]);
 
@@ -252,12 +468,22 @@ export const completeHabit = async (req, res) => {
       return res.status(404).json({ message: "Habit not found" });
     }
 
-    if (getArchiveState(habit).isArchived) {
+    const now = new Date();
+    const today = getUtcStartOfDay(now);
+    await applyDeferredTimeIfDue(habit, today);
+
+    if (getArchiveState(habit, today).isArchived) {
       return res.status(400).json({ message: "Archived habits cannot be completed" });
     }
 
-    const now = new Date();
-    const dayKey = toDayKey(now);
+    if (habit.startDate && getUtcStartOfDay(habit.startDate) > today) {
+      return res.status(400).json({ message: "Cannot complete a habit before its start date" });
+    }
+    const dayKey = toDayKey(today);
+
+    if (!isHabitExpectedOnDate(habit, dayKey)) {
+      return res.status(400).json({ message: "Habit is not scheduled for today" });
+    }
 
     const upsertResult = await HabitLog.updateOne(
       { habitId: id, dayKey },
@@ -310,9 +536,12 @@ export const undoCompleteHabit = async (req, res) => {
 export const endHabit = async (req, res) => {
   try {
     const { id } = req.params;
-    const resolvedEndDate = req.body?.endDate ? new Date(req.body.endDate) : new Date();
+    const hasExplicitEndDate = Object.prototype.hasOwnProperty.call(req.body || {}, "endDate");
+    const resolvedEndDate = hasExplicitEndDate
+      ? parseUtcDateInput(req.body?.endDate)
+      : getUtcStartOfDay(new Date());
 
-    if (Number.isNaN(resolvedEndDate.getTime())) {
+    if (!resolvedEndDate) {
       return res.status(400).json({ message: "Valid endDate is required" });
     }
 
@@ -432,6 +661,24 @@ export const updateHabit = async (req, res) => {
     }
     const existingHabit = await Habit.findOne({ _id: id, userId: req.user.id, deletedAt: null });
     if (!existingHabit) return res.status(404).json({ message: "Habit not found" });
+    const todayUtc = getUtcStartOfDay();
+
+    // Once a habit is ended, editing should not mutate that historical record.
+    // Users should edit an active habit only (or create a new one).
+    const archiveState = getArchiveState(existingHabit, todayUtc);
+    if (archiveState.isArchived && archiveState.archiveReason === "ended") {
+      return res.status(400).json({ message: "Ended habits cannot be edited." });
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "repeatType")) {
+      const requestedRepeatType = String(req.body.repeatType || "").trim().toLowerCase();
+      const currentRepeatType = String(
+        existingHabit.repeatType || existingHabit.frequency || requestedRepeatType || "daily"
+      ).trim().toLowerCase();
+      if (requestedRepeatType && requestedRepeatType !== currentRepeatType) {
+        return res.status(400).json({ message: "Repeat type cannot be changed in edit mode." });
+      }
+    }
 
     if (Object.prototype.hasOwnProperty.call(updates, "title")) {
       if (typeof updates.title !== "string" || !updates.title.trim()) {
@@ -531,6 +778,15 @@ export const updateHabit = async (req, res) => {
       if (updates.startDate != null && updates.startDate !== "" && !parsedStart) {
         return res.status(400).json({ message: "Valid startDate is required" });
       }
+
+      const existingStart = existingHabit.startDate
+        ? getUtcStartOfDay(existingHabit.startDate)
+        : null;
+      const habitHasStarted = existingStart && existingStart <= getUtcStartOfDay();
+      if (habitHasStarted && parsedStart && parsedStart.getTime() !== existingStart.getTime()) {
+        return res.status(400).json({ message: "Start date cannot be changed after the habit has begun." });
+      }
+
       updates.startDate = parsedStart;
     }
 
@@ -539,12 +795,15 @@ export const updateHabit = async (req, res) => {
       if (updates.endDate != null && updates.endDate !== "" && !parsedEnd) {
         return res.status(400).json({ message: "Valid endDate is required" });
       }
+      if (parsedEnd && parsedEnd < getUtcStartOfDay()) {
+        return res.status(400).json({ message: "End date cannot be before today." });
+      }
       updates.endDate = parsedEnd;
     }
 
     const nextRepeatType = Object.prototype.hasOwnProperty.call(updates, "repeatType")
       ? updates.repeatType
-      : existingHabit.repeatType;
+      : (existingHabit.repeatType || existingHabit.frequency || "daily");
     const nextDays = Object.prototype.hasOwnProperty.call(updates, "days")
       ? updates.days
       : (existingHabit.days || []);
@@ -560,6 +819,17 @@ export const updateHabit = async (req, res) => {
       : existingHabit.endDate;
     if (nextStartDate && nextEndDate && nextEndDate < nextStartDate) {
       return res.status(400).json({ message: "End date cannot be before start date" });
+    }
+    if (
+      nextEndDate &&
+      !hasOccurrenceInUtcRange(nextRepeatType, nextStartDate, nextEndDate, nextDays)
+    ) {
+      if (nextRepeatType === "weekend") {
+        return res.status(400).json({ message: "Selected date range has no weekend day. Please choose a later end date." });
+      }
+      if (nextRepeatType === "weekdays") {
+        return res.status(400).json({ message: "Selected date range has no chosen weekday. Please adjust start/end date." });
+      }
     }
 
     const nextTargetStreak = Object.prototype.hasOwnProperty.call(updates, "targetStreak")
@@ -583,6 +853,35 @@ export const updateHabit = async (req, res) => {
       return res.json(existingHabit);
     }
 
+    const existingStart = getUtcStartOfDay(existingHabit.startDate || existingHabit.createdAt || todayUtc);
+    const hasStarted = existingStart <= todayUtc;
+    const timeChanged = Object.prototype.hasOwnProperty.call(changedUpdates, "time");
+    const daysChanged = Object.prototype.hasOwnProperty.call(changedUpdates, "days");
+    const isWeekdaysHabit = nextRepeatType === "weekdays";
+    const tomorrowUtc = new Date(todayUtc.getTime() + DAY_MS);
+    let reflectFromNextDay = false;
+    let reflectDaysFromNextDay = false;
+
+    if (timeChanged && hasStarted) {
+      changedUpdates.pendingTime = changedUpdates.time;
+      changedUpdates.timeChangeEffectiveFrom = tomorrowUtc;
+      delete changedUpdates.time;
+      reflectFromNextDay = true;
+    } else if (timeChanged) {
+      changedUpdates.pendingTime = null;
+      changedUpdates.timeChangeEffectiveFrom = null;
+    }
+
+    if (daysChanged && hasStarted && isWeekdaysHabit) {
+      changedUpdates.pendingDays = [...changedUpdates.days];
+      changedUpdates.daysChangeEffectiveFrom = tomorrowUtc;
+      delete changedUpdates.days;
+      reflectDaysFromNextDay = true;
+    } else if (daysChanged) {
+      changedUpdates.pendingDays = null;
+      changedUpdates.daysChangeEffectiveFrom = null;
+    }
+
     const nextTitle = changedUpdates.title ?? existingHabit.title;
     const habit = await Habit.findOneAndUpdate(
       { _id: id, userId: req.user.id, deletedAt: null },
@@ -597,7 +896,14 @@ export const updateHabit = async (req, res) => {
       { new: true }
     );
     if (!habit) return res.status(404).json({ message: "Habit not found" });
-    res.json(habit);
+    res.json({
+      ...habit.toObject(),
+      splitApplied: false,
+      reflectFromNextDay,
+      reflectsFromDate: reflectFromNextDay ? tomorrowUtc.toISOString() : null,
+      reflectDaysFromNextDay,
+      reflectsDaysFromDate: reflectDaysFromNextDay ? tomorrowUtc.toISOString() : null
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -633,19 +939,30 @@ export const getHabitTracking = async (req, res) => {
       return res.status(400).json({ message: "Year must be between 1970 and 3000" });
     }
 
-    const startOfMonth = new Date(Date.UTC(parsedYear, parsedMonth - 1, 1));
-    const endOfMonth = new Date(Date.UTC(parsedYear, parsedMonth, 1));
+    const startOfMonth = new Date(parsedYear, parsedMonth - 1, 1);
+    const endOfMonth = new Date(parsedYear, parsedMonth, 1);
     const monthPrefix = `${parsedYear}-${String(parsedMonth).padStart(2, "0")}-`;
-    const nextMonthPrefix = `${endOfMonth.getUTCFullYear()}-${String(endOfMonth.getUTCMonth() + 1).padStart(2, "0")}-`;
+    const nextMonthPrefix = `${endOfMonth.getFullYear()}-${String(endOfMonth.getMonth() + 1).padStart(2, "0")}-`;
     const habits = await Habit.find({ userId: req.user.id });
-    const logs = await HabitLog.find({
-      habitId: { $in: habits.map((h) => h._id) },
-      completed: true,
-      $or: [
-        { dayKey: { $gte: monthPrefix, $lt: nextMonthPrefix } },
-        { dayKey: { $exists: false }, date: { $gte: startOfMonth, $lt: endOfMonth } }
-      ]
-    }).select("habitId date dayKey");
+    const today = getUtcStartOfDay();
+    for (const habit of habits) {
+      await applyDeferredTimeIfDue(habit, today);
+    }
+    const habitIds = habits.map((h) => h._id);
+    const [logs, allCompletedLogs] = await Promise.all([
+      HabitLog.find({
+        habitId: { $in: habitIds },
+        completed: true,
+        $or: [
+          { dayKey: { $gte: monthPrefix, $lt: nextMonthPrefix } },
+          { dayKey: { $exists: false }, date: { $gte: startOfMonth, $lt: endOfMonth } }
+        ]
+      }).select("habitId date dayKey"),
+      HabitLog.find({
+        habitId: { $in: habitIds },
+        completed: true
+      }).select("habitId date dayKey completed")
+    ]);
     const completedMap = {};
     for (const log of logs) {
       const key = log.habitId.toString();
@@ -656,17 +973,32 @@ export const getHabitTracking = async (req, res) => {
       if (!completedMap[key]) completedMap[key] = [];
       completedMap[key].push(day);
     }
-    const result = habits.map((habit) => ({
-      _id: habit._id,
-      title: habit.title,
-      isImportant: habit.isImportant,
-      targetStreak: habit.targetStreak,
-      endDate: habit.endDate,
-      deletedAt: habit.deletedAt,
-      archivedReason: habit.archivedReason,
-      completedDays: [...new Set(completedMap[habit._id.toString()] || [])],
-      ...getDeleteUndoMeta(habit.deletedAt)
-    }));
+
+    const logsByHabit = new Map();
+    for (const log of allCompletedLogs) {
+      const key = log.habitId.toString();
+      if (!logsByHabit.has(key)) logsByHabit.set(key, []);
+      logsByHabit.get(key).push(log);
+    }
+
+    const result = habits.map((habit) => {
+      const streak = calculateStreak(logsByHabit.get(habit._id.toString()) || [], habit);
+      return {
+        _id: habit._id,
+        title: habit.title,
+        isImportant: habit.isImportant,
+        targetStreak: habit.targetStreak,
+        startDate: habit.startDate,
+        endDate: habit.endDate,
+        deletedAt: habit.deletedAt,
+        archivedReason: habit.archivedReason,
+        completedDays: [...new Set(completedMap[habit._id.toString()] || [])],
+        currentStreak: streak.currentStreak,
+        maxStreak: streak.maxStreak,
+        streakBreaks: streak.streakBreaks,
+        ...getDeleteUndoMeta(habit.deletedAt)
+      };
+    });
     res.json(result);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -681,12 +1013,20 @@ export const getHabitConsistency = async (req, res) => {
 
     const [activeHabits, allHabits] = await Promise.all([
       Habit.find(buildHabitFilter(req.user.id, "active", today)).select(
-        "createdAt startDate deletedAt endDate archivedReason repeatType frequency days"
+        "createdAt startDate deletedAt endDate archivedReason repeatType frequency days pendingDays daysChangeEffectiveFrom time pendingTime timeChangeEffectiveFrom"
       ),
       Habit.find({ userId: req.user.id }).select(
-        "createdAt startDate deletedAt endDate archivedReason repeatType frequency days"
+        "createdAt startDate deletedAt endDate archivedReason repeatType frequency days pendingDays daysChangeEffectiveFrom time pendingTime timeChangeEffectiveFrom"
       )
     ]);
+
+    const deferredApplySeen = new Set();
+    for (const habit of [...activeHabits, ...allHabits]) {
+      const id = habit?._id?.toString?.();
+      if (!id || deferredApplySeen.has(id)) continue;
+      deferredApplySeen.add(id);
+      await applyDeferredTimeIfDue(habit, today);
+    }
 
     if (!allHabits.length) {
       return res.json({
@@ -743,7 +1083,7 @@ export const getHabitConsistency = async (req, res) => {
                   $dateToString: {
                     format: "%Y-%m-%d",
                     date: "$date",
-                    timezone: "UTC"
+                    timezone: APP_TIMEZONE
                   }
                 }
               ]
@@ -778,7 +1118,7 @@ export const getHabitConsistency = async (req, res) => {
                   $dateToString: {
                     format: "%Y-%m-%d",
                     date: "$date",
-                    timezone: "UTC"
+                    timezone: APP_TIMEZONE
                   }
                 }
               ]
@@ -829,7 +1169,7 @@ export const getHabitConsistency = async (req, res) => {
       const end = new Date(Math.min(...endCandidates.map((value) => value.getTime())));
       if (start > end) continue;
 
-      for (const cursor = new Date(start); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+      for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
         const cursorDayKey = toDayKey(cursor);
         if (isHabitExpectedOnDate(habit, cursorDayKey)) {
           totalExpectedLifetime++;
@@ -847,7 +1187,7 @@ export const getHabitConsistency = async (req, res) => {
       const end = new Date(Math.min(...endCandidates.map((value) => value.getTime())));
       if (start > end) continue;
 
-      for (const cursor = new Date(start); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+      for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
         const cursorDayKey = toDayKey(cursor);
         if (isHabitExpectedOnDate(habit, cursorDayKey)) {
           expectedByDayMap.set(cursorDayKey, (expectedByDayMap.get(cursorDayKey) || 0) + 1);
@@ -860,7 +1200,17 @@ export const getHabitConsistency = async (req, res) => {
 
     let fullCompletionStreakDays = 0;
     if (earliestExpectedDate) {
-      for (const cursor = new Date(today); cursor >= earliestExpectedDate; cursor.setUTCDate(cursor.getUTCDate() - 1)) {
+      const streakStartCursor = new Date(today);
+      const todayExpected = Number(expectedByDayMap.get(todayKey) || 0);
+      const todayCompletedForStreak = Number(completedByDayMap.get(todayKey) || 0);
+
+      // Keep yesterday's streak visible after midnight until today is either completed
+      // or actually becomes a missed day on the next rollover.
+      if (todayExpected <= 0 || todayCompletedForStreak < todayExpected) {
+        streakStartCursor.setDate(streakStartCursor.getDate() - 1);
+      }
+
+      for (const cursor = new Date(streakStartCursor); cursor >= earliestExpectedDate; cursor.setDate(cursor.getDate() - 1)) {
         const cursorDayKey = toDayKey(cursor);
         const expected = Number(expectedByDayMap.get(cursorDayKey) || 0);
         const completed = Number(completedByDayMap.get(cursorDayKey) || 0);
@@ -889,9 +1239,10 @@ export const getHabitConsistency = async (req, res) => {
 };
 
 const isHabitActiveOnDate = (habit, dateKey) => {
-  const dayStart = new Date(`${dateKey}T00:00:00.000Z`);
+  const dayStart = dayKeyToDate(dateKey);
+  if (!dayStart) return false;
   const dayEnd = new Date(dayStart);
-  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+  dayEnd.setDate(dayEnd.getDate() + 1);
 
   const createdAt = habit?.createdAt ? new Date(habit.createdAt) : null;
   if (createdAt && createdAt >= dayEnd) return false;
@@ -902,14 +1253,13 @@ const isHabitActiveOnDate = (habit, dateKey) => {
   const deletedAt = habit?.deletedAt ? new Date(habit.deletedAt) : null;
   if (deletedAt && deletedAt < dayEnd) return false;
 
-  const endDate = habit?.endDate ? new Date(habit.endDate) : null;
-  if (endDate && endDate < dayEnd) return false;
+  const endDate = habit?.endDate ? getUtcStartOfDay(habit.endDate) : null;
+  if (endDate && endDate < dayStart) return false;
 
   if (habit?.archivedReason === "deleted" && !deletedAt) return false;
 
   return true;
 };
-
 const DAY_NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
 const normalizeDayName = (value) => {
@@ -919,8 +1269,9 @@ const normalizeDayName = (value) => {
 };
 
 const isHabitScheduledOnDate = (habit, dateKey) => {
-  const day = new Date(`${dateKey}T00:00:00.000Z`);
-  const dayName = DAY_NAMES[day.getUTCDay()];
+  const day = dayKeyToDate(dateKey);
+  if (!day) return false;
+  const dayName = DAY_NAMES[day.getDay()];
 
   if (Array.isArray(habit?.days) && habit.days.length > 0) {
     const selected = new Set(habit.days.map(normalizeDayName).filter(Boolean));
@@ -932,7 +1283,7 @@ const isHabitScheduledOnDate = (habit, dateKey) => {
 
   if (habit?.frequency === "weekly") {
     const referenceDate = habit?.startDate || habit?.createdAt || day;
-    return getUtcStartOfDay(referenceDate).getUTCDay() === day.getUTCDay();
+    return getUtcStartOfDay(referenceDate).getDay() === day.getDay();
   }
 
   return true;
@@ -984,7 +1335,7 @@ export const getHabitHeatmap = async (req, res) => {
                   $dateToString: {
                     format: "%Y-%m-%d",
                     date: "$date",
-                    timezone: "UTC"
+                    timezone: APP_TIMEZONE
                   }
                 }
               ]
@@ -1009,11 +1360,14 @@ export const getHabitHeatmap = async (req, res) => {
         { $sort: { _id: 1 } }
       ]),
       Habit.find({ userId: req.user.id }).select(
-        "createdAt startDate deletedAt endDate archivedReason repeatType frequency days"
+        "createdAt startDate deletedAt endDate archivedReason repeatType frequency days pendingDays daysChangeEffectiveFrom time pendingTime timeChangeEffectiveFrom"
       )
     ]);
 
     const today = getUtcStartOfDay();
+    for (const habit of habits) {
+      await applyDeferredTimeIfDue(habit, today);
+    }
     const todayKey = toDayKey(today);
     const completedMap = new Map(
       completedByDay.map((item) => [String(item._id), Number(item.completedHabits) || 0])
@@ -1023,11 +1377,11 @@ export const getHabitHeatmap = async (req, res) => {
     let rangeEnd;
 
     if (hasYearFilter) {
-      rangeStart = new Date(Date.UTC(parsedYear, 0, 1));
-      rangeEnd = new Date(Date.UTC(parsedYear + 1, 0, 1));
+      rangeStart = new Date(parsedYear, 0, 1);
+      rangeEnd = new Date(parsedYear + 1, 0, 1);
     } else {
       const earliestCompletion = completedByDay.length
-        ? new Date(`${String(completedByDay[0]._id)}T00:00:00.000Z`)
+        ? dayKeyToDate(String(completedByDay[0]._id))
         : null;
       const earliestHabitDate = habits.reduce((earliest, habit) => {
         const candidate = habit.startDate || habit.createdAt;
@@ -1048,7 +1402,7 @@ export const getHabitHeatmap = async (req, res) => {
     }
 
     const values = [];
-    for (const cursor = new Date(rangeStart); cursor < rangeEnd; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    for (const cursor = new Date(rangeStart); cursor < rangeEnd; cursor.setDate(cursor.getDate() + 1)) {
       const date = toDayKey(cursor);
       const completed = completedMap.get(date) || 0;
       const totalHabits = habits.reduce(

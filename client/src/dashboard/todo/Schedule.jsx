@@ -5,6 +5,8 @@ import {
   isDefaultCategory,
   isDefaultImportantCategory,
 } from "./todoShared";
+import useAuth from "../../hooks/useAuth";
+import api from "../../api/axios";
 
 const PRIORITIES = ["High", "Medium", "Low"];
 const PRIORITY_EMOJI = {
@@ -33,6 +35,45 @@ const parseISODate = (isoDate) => {
   return new Date(year, month - 1, day);
 };
 
+const toDateOnly = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value.slice(0, 10);
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return toISODate(parsed);
+};
+
+const getTaskDisplayTime = (task) => task?.pendingTime || task?.time || "";
+
+const getTaskDisplayTimeForDate = (task, dateISO) => {
+  const pendingTime = task?.pendingTime;
+  const effectiveFrom = toDateOnly(task?.timeChangeEffectiveFrom);
+  if (pendingTime && effectiveFrom && dateISO >= effectiveFrom) return pendingTime;
+  return task?.time || "";
+};
+
+const getTaskDaysForDate = (task, dateISO) => {
+  const baseDays = Array.isArray(task?.days) ? task.days : [];
+  if (task?.repeatType !== "weekdays") return baseDays;
+
+  const pendingDays = Array.isArray(task?.pendingDays) && task.pendingDays.length
+    ? task.pendingDays
+    : null;
+  const effectiveFrom = toDateOnly(task?.daysChangeEffectiveFrom);
+
+  if (pendingDays && effectiveFrom && dateISO >= effectiveFrom) {
+    return pendingDays;
+  }
+
+  return baseDays;
+};
+
+const getTaskDisplayDays = (task) => {
+  const pendingDays = Array.isArray(task?.pendingDays) ? task.pendingDays : [];
+  if (pendingDays.length > 0) return pendingDays;
+  return Array.isArray(task?.days) ? task.days : [];
+};
+
 const isInRange = (dateISO, startDate, endDate) => {
   const target = parseISODate(dateISO);
   const start = parseISODate(startDate);
@@ -49,9 +90,38 @@ const isTaskOnDate = (task, dateISO) => {
 
   if (task.repeatType === "daily") return true;
   if (task.repeatType === "weekend") return targetDay === 0 || targetDay === 6;
-  if (task.repeatType === "weekdays") return task.days.includes(WEEK_DAYS[targetDay]);
- is 
+  if (task.repeatType === "weekdays") return getTaskDaysForDate(task, dateISO).includes(WEEK_DAYS[targetDay]);
+
   return false;
+};
+
+const hasOccurrenceInRange = (repeatType, startDate, endDate, days = []) => {
+  if (!startDate || !endDate) return true;
+  const start = parseISODate(startDate);
+  const end = parseISODate(endDate);
+  const rangeDays = Math.floor((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  if (rangeDays <= 0) return false;
+  if (repeatType === "daily") return true;
+
+  const startDay = start.getDay();
+  const includesDay = (dayIndex) => {
+    const offset = (dayIndex - startDay + 7) % 7;
+    return offset < rangeDays;
+  };
+
+  if (repeatType === "weekend") {
+    return includesDay(0) || includesDay(6);
+  }
+
+  if (repeatType === "weekdays") {
+    const selectedDays = Array.isArray(days) && days.length ? days : ["Mon", "Tue", "Wed", "Thu", "Fri"];
+    return selectedDays.some((dayLabel) => {
+      const dayIndex = WEEK_DAYS.indexOf(dayLabel);
+      return dayIndex >= 0 && includesDay(dayIndex);
+    });
+  }
+
+  return true;
 };
 
 const priorityStyles = {
@@ -61,6 +131,50 @@ const priorityStyles = {
 };
 const SCHEDULE_PANEL_HEIGHT = "650px";
 
+const formatDisplayTime = (timeValue) => {
+  if (!timeValue || typeof timeValue !== "string") return "--";
+  const normalized = timeValue.slice(0, 5);
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(normalized)) return "--";
+
+  const [hours, minutes] = normalized.split(":").map(Number);
+  const dateObj = new Date();
+  dateObj.setHours(hours, minutes, 0, 0);
+  return dateObj.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+};
+
+const formatRemainingUndo = (remainingMs) => {
+  const safeMs = Math.max(0, Number(remainingMs) || 0);
+  const totalMinutes = Math.ceil(safeMs / (60 * 1000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours <= 0) return `${minutes}m`;
+  return `${hours}h ${minutes}m`;
+};
+
+const getLogTimestamp = (log) => {
+  if (log?.logAt) {
+    const parsed = new Date(log.logAt).getTime();
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  if (log?.date) {
+    const timePart = typeof log.time === "string" && log.time ? log.time.slice(0, 5) : "00:00";
+    const parsed = new Date(`${log.date}T${timePart}:00`).getTime();
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+};
+
+const getCurrentTimeKey = () => {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+};
+
+const maxISODate = (left, right) => {
+  if (!left) return right || "";
+  if (!right) return left || "";
+  return left > right ? left : right;
+};
+
 
 export default function Schedule({
   tasks = [],
@@ -69,8 +183,26 @@ export default function Schedule({
   setCategoryOptions = () => {},
   importantCategories = DEFAULT_IMPORTANT_CATEGORIES,
   setImportantCategories = () => {},
+  refreshTasks = () => {},
 }) {
+  const { isDemoMode } = useAuth();
   const today = useMemo(() => toISODate(new Date()), []);
+  const tomorrow = useMemo(() => {
+    const next = new Date();
+    next.setDate(next.getDate() + 1);
+    return toISODate(next);
+  }, []);
+  const calendarSectionRef = useRef(null);
+
+  const refreshTaskLogs = async () => {
+    if (isDemoMode) return;
+    try {
+      const { data } = await api.get("/todos/logs");
+      setTaskLogs(data);
+    } catch {
+      // keep current logs on transient failure
+    }
+  };
 
   const [isCatOpen, setIsCatOpen] = useState(false);
   const [isEditCatOpen, setIsEditCatOpen] = useState(false);
@@ -86,18 +218,28 @@ export default function Schedule({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  useEffect(() => {
+    refreshTaskLogs();
+  }, [isDemoMode]);
+
   const [showCustomCategory, setShowCustomCategory] = useState(false);
   const [customCategory, setCustomCategory] = useState("");
   const [markCustomCategoryImportant, setMarkCustomCategoryImportant] = useState(false);
   const [categoryError, setCategoryError] = useState("");
   const [categoryDeleteError, setCategoryDeleteError] = useState("");
-  const [taskLogs, setTaskLogs] = useState(() => [
-    { id: "demo-task-log-1", title: "Morning Run", date: today, time: "06:30" },
-    { id: "demo-task-log-2", title: "Pay Credit Card Bill", date: today, time: "10:30", action: "edited" },
-    { id: "demo-task-log-3", title: "Gym Session", date: today, time: "18:00", action: "deleted" },
-  ]);
+  const [taskLogs, setTaskLogs] = useState(() =>
+    isDemoMode
+      ? [
+          { id: "demo-task-log-1", title: "Morning Run", date: today, time: "06:30" },
+          { id: "demo-task-log-2", title: "Pay Credit Card Bill", date: today, time: "10:30", action: "edited" },
+          { id: "demo-task-log-3", title: "Gym Session", date: today, time: "18:00", action: "deleted" },
+        ]
+      : []
+  );
   const [error, setError] = useState("");
+  const [updateInfo, setUpdateInfo] = useState("");
   const [undoError, setUndoError] = useState("");
+  const [restoringLogId, setRestoringLogId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
 
@@ -106,6 +248,8 @@ export default function Schedule({
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDate, setSelectedDate] = useState(today);
+  const [hoveredCalendarDate, setHoveredCalendarDate] = useState(null);
+  const [hoveredCalendarPosition, setHoveredCalendarPosition] = useState({ x: 0, y: 0, placement: "bottom" });
 
   const [touched, setTouched] = useState({});
 
@@ -122,6 +266,17 @@ export default function Schedule({
     time: "",
     days: ["Mon", "Wed", "Fri"],
   });
+  const editingTask = useMemo(
+    () => tasks.find((task) => task.id === editingId) || null,
+    [tasks, editingId]
+  );
+  const isEditDateLocked = useMemo(() => {
+    if (!editingTask) return false;
+    if (editingTask.repeatType === "once") {
+      return Boolean(editingTask.date && editingTask.date <= today);
+    }
+    return Boolean(editingTask.startDate && editingTask.startDate <= today);
+  }, [editingTask, today]);
 
   const [tasksView, setTasksView] = useState("active");
 
@@ -129,23 +284,38 @@ export default function Schedule({
   const { activeTasks, endedTaskLogs } = useMemo(() => {
     const active = [];
     const ended = [];
+    const endedLoggedTaskIds = new Set(
+      taskLogs
+        .filter((log) => log?.action === "ended" && log?.todoId)
+        .map((log) => String(log.todoId))
+    );
     tasks.forEach((t) => {
       const isOnceEnded = t.repeatType === "once" && t.date && t.date < today;
-      const isRepeatingEnded = t.repeatType !== "once" && t.endDate && t.endDate < today;
-      if (isOnceEnded || isRepeatingEnded) {
-        ended.push({
-          id: `${t.id}-ended`,
-          title: t.title,
-          date: t.repeatType === "once" ? t.date : t.endDate,
-          time: t.time,
-          action: "ended",
-        });
+      const isRepeatingEnded = t.repeatType !== "once" && t.endDate && t.endDate <= today;
+      const isDeleted = Boolean(t.deletedAt);
+      const isArchived = Boolean(t.archived);
+      if (isDeleted || isArchived || isOnceEnded || isRepeatingEnded) {
+        if (!isDeleted && !endedLoggedTaskIds.has(String(t.id))) {
+          const endedDate = t.repeatType === "once" ? t.date : (t.endDate || t.startDate);
+          let endedTime = t.time || "00:00";
+          if (endedDate === today && endedTime > getCurrentTimeKey()) {
+            endedTime = getCurrentTimeKey();
+          }
+          ended.push({
+            id: `${t.id}-ended`,
+            title: t.title,
+            date: endedDate,
+            time: endedTime,
+            action: "ended",
+            logAt: endedDate ? new Date(`${endedDate}T${endedTime}:00`).toISOString() : null,
+          });
+        }
       } else {
         active.push(t);
       }
     });
     return { activeTasks: active, endedTaskLogs: ended };
-  }, [tasks, today]);
+  }, [tasks, today, taskLogs]);
   const archivedTasks = useMemo(
     () => tasks.filter((task) => !activeTasks.some((activeTask) => activeTask.id === task.id)),
     [tasks, activeTasks]
@@ -154,11 +324,7 @@ export default function Schedule({
   const isArchiveView = tasksView === "archive";
 
   const allLogs = useMemo(
-    () => [...endedTaskLogs, ...taskLogs].sort((a, b) => {
-      const aEnded = a.action === "ended" ? 1 : 0;
-      const bEnded = b.action === "ended" ? 1 : 0;
-      return aEnded - bEnded;
-    }),
+    () => [...endedTaskLogs, ...taskLogs].sort((a, b) => getLogTimestamp(b) - getLogTimestamp(a)),
     [endedTaskLogs, taskLogs]
   );
 
@@ -192,18 +358,29 @@ export default function Schedule({
     return cells;
   }, [viewMonth]);
 
+  const hoveredCalendarTasks = useMemo(() => {
+    if (!hoveredCalendarDate) return [];
+
+    return activeTasks
+      .filter((task) => isTaskOnDate(task, hoveredCalendarDate))
+      .sort((left, right) => {
+        const leftTime = String(getTaskDisplayTimeForDate(left, hoveredCalendarDate) || "");
+        const rightTime = String(getTaskDisplayTimeForDate(right, hoveredCalendarDate) || "");
+        const timeCompare = leftTime.localeCompare(rightTime);
+        if (timeCompare !== 0) return timeCompare;
+        return String(left?.title || "").localeCompare(String(right?.title || ""));
+      });
+  }, [hoveredCalendarDate, activeTasks]);
+
   const formatLogTime = (timeValue) => {
-    if (!timeValue) return "--";
-    const [hours, minutes] = timeValue.split(":").map(Number);
-    const dateObj = new Date();
-    dateObj.setHours(hours, minutes, 0, 0);
-    return dateObj.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return formatDisplayTime(timeValue);
   };
 
   const handleInputChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setTouched((prev) => ({ ...prev, [field]: true }));
     if (error) setError("");
+    if (updateInfo) setUpdateInfo("");
   };
 
   const fieldError = (field) => {
@@ -300,19 +477,50 @@ export default function Schedule({
 
     if (form.repeatType === "once") {
       if (!form.date) return "Date is required for one-time tasks.";
+      if (!editingId && form.date === today && form.time <= getCurrentTimeKey()) {
+        return "Time for today is already over. You need to start this task from the next day.";
+      }
       return "";
     }
 
     if (!form.startDate) return "Start date is required.";
+    if (!editingId && form.startDate === today && form.time <= getCurrentTimeKey()) {
+      return "Time for today is already over. You need to start this task from the next day.";
+    }
     if (!form.neverEnds && !form.endDate) return "End date is required or select Never.";
+    if (editingId && !form.neverEnds && form.endDate <= today) return "End date must be after today.";
     if (!form.neverEnds && form.endDate < form.startDate) return "End date cannot be earlier than start date.";
+    if (!form.neverEnds && !hasOccurrenceInRange(form.repeatType, form.startDate, form.endDate, form.days)) {
+      if (form.repeatType === "weekend") {
+        return "Selected range has no weekend day. Choose a later end date.";
+      }
+      if (form.repeatType === "weekdays") {
+        return "Selected range has no chosen weekday. Adjust start/end date.";
+      }
+    }
     if (form.repeatType === "weekdays" && form.days.length === 0) return "Select at least one day.";
 
     return "";
   };
 
-  const handleSubmit = (event) => {
+  const resetFormAfterSubmit = () => {
+    setError("");
+    setTouched({});
+    setForm((prev) => ({
+      ...prev,
+      title: "",
+      description: "",
+      category: "",
+      priority: "",
+      repeatType: "",
+      time: "",
+      date: "",
+    }));
+  };
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    setUpdateInfo("");
     setTouched({ title: true, category: true, priority: true, repeatType: true, time: true, date: true, startDate: true });
     const validationError = validateForm();
     if (validationError) {
@@ -320,6 +528,59 @@ export default function Schedule({
       return;
     }
 
+    const apiPayload = {
+      title: form.title.trim(),
+      description: form.description,
+      category: form.category,
+      priority: form.priority,
+      time: form.time,
+      repeatType: form.repeatType,
+      ...(form.repeatType === "once"
+        ? { date: form.date }
+        : {
+            startDate: form.startDate,
+            neverEnds: form.neverEnds,
+            endDate: form.neverEnds ? null : form.endDate,
+            days: form.repeatType === "weekdays" ? form.days : [],
+          }),
+    };
+
+    if (!isDemoMode) {
+      try {
+        if (editingId) {
+          const { data } = await api.patch(`/todos/${editingId}`, apiPayload);
+          if (data?.reflectFromNextDay && data?.reflectDaysFromNextDay) {
+            setUpdateInfo("Update successful. Time and custom days will reflect from next day.");
+          } else if (data?.reflectFromNextDay) {
+            setUpdateInfo("Update successful. Time will reflect from next day.");
+          } else if (data?.reflectDaysFromNextDay) {
+            setUpdateInfo("Update successful. Custom days will reflect from next day.");
+          } else {
+            setUpdateInfo("");
+          }
+          setEditingId(null);
+        } else {
+          const { data } = await api.post("/todos", apiPayload);
+          if (form.repeatType === "once") {
+            setSelectedDate(form.date);
+            setViewMonth(new Date(parseISODate(form.date).getFullYear(), parseISODate(form.date).getMonth(), 1));
+          } else {
+            setSelectedDate(form.startDate);
+            setViewMonth(new Date(parseISODate(form.startDate).getFullYear(), parseISODate(form.startDate).getMonth(), 1));
+          }
+          setUpdateInfo("");
+        }
+        refreshTasks();
+        refreshTaskLogs();
+        window.dispatchEvent(new Event("monkmode:todos-updated"));
+        resetFormAfterSubmit();
+      } catch (err) {
+        setError(err.response?.data?.message || "Failed to save task.");
+      }
+      return;
+    }
+
+    // Demo mode — local state only
     if (editingId) {
       const updatedFields = {
         title: form.title.trim(),
@@ -349,9 +610,7 @@ export default function Schedule({
         ...prev,
       ]);
       setEditingId(null);
-      setError("");
-      setTouched({});
-      setForm((prev) => ({ ...prev, title: "", description: "", category: "", priority: "", repeatType: "", time: "", date: "" }));
+      resetFormAfterSubmit();
       return;
     }
 
@@ -377,38 +636,33 @@ export default function Schedule({
         endDate: form.neverEnds ? null : form.endDate,
       };
       if (form.repeatType === "weekdays") task.days = form.days;
-
       setSelectedDate(form.startDate);
       setViewMonth(new Date(parseISODate(form.startDate).getFullYear(), parseISODate(form.startDate).getMonth(), 1));
     }
 
     setTasks((prev) => [task, ...prev]);
     const logDate = task.repeatType === "once" ? task.date : task.startDate;
-    setTaskLogs((prev) => [
-      {
-        id: `${task.id}-log`,
-        title: task.title,
-        date: logDate,
-        time: task.time,
-      },
-      ...prev,
-    ]);
-    setError("");
-    setTouched({});
-    setForm((prev) => ({
-      ...prev,
-      title: "",
-      description: "",
-      category: "",
-      priority: "",
-      repeatType: "",
-      time: "",
-      date: "",
-    }));
+    setTaskLogs((prev) => [{ id: `${task.id}-log`, title: task.title, date: logDate, time: task.time }, ...prev]);
+    resetFormAfterSubmit();
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const task = tasks.find((t) => t.id === id);
+    if (!task) return;
+
+    if (!isDemoMode) {
+      try {
+        await api.delete(`/todos/${id}`);
+        if (editingId === id) setEditingId(null);
+        refreshTasks();
+        refreshTaskLogs();
+        window.dispatchEvent(new Event("monkmode:todos-updated"));
+      } catch (err) {
+        console.error("Failed to delete task:", err);
+      }
+      return;
+    }
+
     setTasks((prev) => prev.filter((t) => t.id !== id));
     setTaskLogs((prev) => [
       { id: `${id}-deleted-${Date.now()}`, title: task.title, date: task.date ?? task.startDate, time: task.time, action: "deleted", deletedItem: task },
@@ -417,10 +671,39 @@ export default function Schedule({
     if (editingId === id) setEditingId(null);
   };
 
-  const handleUndoDelete = (logId) => {
+  const handleUndoDelete = async (logId) => {
     const log = taskLogs.find((l) => l.id === logId);
     if (!log?.deletedItem) return;
     const item = log.deletedItem;
+
+    if (!isDemoMode) {
+      if (!item?.id) {
+        setUndoError("Undo unavailable for this log entry.");
+        setTimeout(() => setUndoError(""), 3500);
+        return;
+      }
+
+      if (!log.canUndoDelete) {
+        setUndoError(`Undo expired — "${item.title || log.title}" can only be restored within 48 hours of deletion.`);
+        setTimeout(() => setUndoError(""), 4000);
+        return;
+      }
+
+      setRestoringLogId(logId);
+      try {
+        await api.patch(`/todos/${item.id}/restore`);
+        refreshTaskLogs();
+        setUndoError("");
+        refreshTasks();
+        window.dispatchEvent(new Event("monkmode:todos-updated"));
+      } catch (err) {
+        setUndoError(err?.response?.data?.message || `Could not restore "${item.title || log.title}".`);
+      } finally {
+        setRestoringLogId(null);
+      }
+      return;
+    }
+
     const nowDate = toISODate(new Date());
     const nowTime = new Date().toTimeString().slice(0, 5);
     let expired = false;
@@ -446,18 +729,43 @@ export default function Schedule({
       description: task.description ?? "",
       category: task.category,
       priority: task.priority,
-      time: task.time,
+      time: task.pendingTime || task.time,
       repeatType: task.repeatType,
       date: task.date ?? "",
       startDate: task.startDate ?? "",
       endDate: task.endDate ?? "",
       neverEnds: task.endDate == null,
-      days: task.days ?? [],
+      days: getTaskDisplayDays(task),
     });
   };
 
   const handleUpdate = (id) => {
     if (!editForm.title.trim()) return;
+    if (editForm.repeatType !== "once" && !editForm.neverEnds) {
+      if (!editForm.endDate) {
+        setError("End date is required or select Never.");
+        return;
+      }
+      if (editForm.endDate <= today) {
+        setError("End date must be after today.");
+        return;
+      }
+      if (editForm.endDate < editForm.startDate) {
+        setError("End date cannot be earlier than start date.");
+        return;
+      }
+      if (!hasOccurrenceInRange(editForm.repeatType, editForm.startDate, editForm.endDate, editForm.days)) {
+        if (editForm.repeatType === "weekend") {
+          setError("Selected range has no weekend day. Choose a later end date.");
+          return;
+        }
+        if (editForm.repeatType === "weekdays") {
+          setError("Selected range has no chosen weekday. Adjust start/end date.");
+          return;
+        }
+      }
+    }
+
     const updatedFields = {
       title: editForm.title.trim(),
       description: editForm.description,
@@ -490,11 +798,6 @@ export default function Schedule({
 
   return (
     <div className="space-y-5">
-      <div className="mb-5">
-        <p className="text-label-lg">Schedule</p>
-        <h2 className="mt-2 text-2xl font-bold text-amber-100">Schedule Task</h2>
-      </div>
-
       <div className="schedule-layout">
         <div className="schedule-main journal-scroll rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20" style={{ height: SCHEDULE_PANEL_HEIGHT, overflowY: "auto" }}>
           <h3 className="mb-4 text-sm font-semibold text-amber-200">{editingId ? "Edit Task" : "Create Task"}</h3>
@@ -680,15 +983,17 @@ export default function Schedule({
                   id="task-repeat"
                   value={form.repeatType}
                   onChange={(event) => handleInputChange("repeatType", event.target.value)}
+                  disabled={Boolean(editingId)}
                   className={`w-full rounded-lg border bg-stone-900 px-2 py-1.5 text-xs text-stone-100 outline-none transition focus:border-amber-300/35 ${
                     fieldError("repeatType") ? "border-red-400/60" : "border-amber-100/15"
-                  }`}
+                  } ${editingId ? "cursor-not-allowed opacity-60" : ""}`}
                 >
                   <option value="" disabled style={{ backgroundColor: "#1c1917", color: "#6b7280" }}>Select repeat</option>
                   {REPEAT_TYPES.map((type) => (
                     <option key={type.value} value={type.value} style={{ backgroundColor: "#1c1917", color: "#e7e5e4" }}>{type.label}</option>
                   ))}
                 </select>
+                {editingId ? <p className="mt-1 text-[10px] text-stone-500">Repeat type cannot be changed in edit mode.</p> : null}
               </div>
               <div>
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
@@ -717,25 +1022,41 @@ export default function Schedule({
                   type="date"
                   value={form.date}
                   onChange={(event) => handleInputChange("date", event.target.value)}
+                  disabled={Boolean(editingId && isEditDateLocked)}
                   className={`w-full rounded-lg border bg-white/5 px-3 py-1.5 text-xs text-stone-100 outline-none transition focus:border-amber-300/35 ${
                     fieldError("date") ? "border-red-400/60" : "border-amber-100/15"
-                  }`}
+                  } ${editingId && isEditDateLocked ? "cursor-not-allowed opacity-60" : ""}`}
                 />
+                {editingId && isEditDateLocked ? (
+                  <p className="mt-1 text-[10px] text-stone-500">Date cannot be changed once this task has begun.</p>
+                ) : null}
               </div>
             ) : (
               <div className="space-y-2 rounded-lg border border-amber-100/10 bg-white/5 p-2.5">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Start</label>
-                    <input id="task-start" type="date" value={form.startDate} onChange={(e) => handleInputChange("startDate", e.target.value)} className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
+                    <input
+                      id="task-start"
+                      type="date"
+                      value={form.startDate}
+                      onChange={(e) => handleInputChange("startDate", e.target.value)}
+                      disabled={Boolean(editingId && isEditDateLocked)}
+                      className={`w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35 ${
+                        editingId && isEditDateLocked ? "cursor-not-allowed opacity-60" : ""
+                      }`}
+                    />
                   </div>
                   {!form.neverEnds && (
                     <div>
                       <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">End</label>
-                      <input id="task-end" type="date" value={form.endDate} min={form.startDate || undefined} onChange={(e) => handleInputChange("endDate", e.target.value)} className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
+                      <input id="task-end" type="date" value={form.endDate} min={maxISODate(form.startDate || "", editingId ? tomorrow : "") || undefined} onChange={(e) => handleInputChange("endDate", e.target.value)} className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
                     </div>
                   )}
                 </div>
+                {editingId && isEditDateLocked ? (
+                  <p className="text-[10px] text-stone-500">Start date cannot be changed once this task has begun.</p>
+                ) : null}
                 <label className="flex items-center gap-2 text-xs text-stone-300">
                   <input type="checkbox" checked={form.neverEnds} onChange={(e) => handleInputChange("neverEnds", e.target.checked)} className="accent-amber-400" />
                   Never End
@@ -754,6 +1075,7 @@ export default function Schedule({
             )}
 
             {error ? <p className="text-xs text-red-300">{error}</p> : null}
+            {updateInfo ? <p className="text-xs text-emerald-300">{updateInfo}</p> : null}
 
             <button
               type="submit"
@@ -877,7 +1199,8 @@ export default function Schedule({
                       <select
                         value={editForm.repeatType}
                         onChange={(e) => setEditForm((p) => ({ ...p, repeatType: e.target.value }))}
-                        className="w-full rounded-lg border border-amber-100/15 bg-stone-900 px-2 py-1.5 text-[11px] text-stone-100 outline-none"
+                        disabled
+                        className="w-full cursor-not-allowed rounded-lg border border-amber-100/15 bg-stone-900 px-2 py-1.5 text-[11px] text-stone-100 opacity-60 outline-none"
                       >
                         {REPEAT_TYPES.map((r) => (
                           <option key={r.value} value={r.value} style={{ backgroundColor: "#1c1917" }}>{r.label}</option>
@@ -910,7 +1233,7 @@ export default function Schedule({
                                 <input
                                   type="date"
                                   value={editForm.endDate}
-                                  min={editForm.startDate || undefined}
+                                  min={maxISODate(editForm.startDate || "", tomorrow) || undefined}
                                   onChange={(e) => setEditForm((p) => ({ ...p, endDate: e.target.value }))}
                                   className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2 py-1 text-[11px] text-stone-100 outline-none"
                                 />
@@ -1008,12 +1331,7 @@ export default function Schedule({
                           {REPEAT_TYPES.find((r) => r.value === task.repeatType)?.label ?? task.repeatType}
                         </span>
                         <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
-                          {(() => {
-                            const [h, m] = task.time.split(":").map(Number);
-                            const d = new Date();
-                            d.setHours(h, m);
-                            return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-                          })()}
+                          {formatDisplayTime(getTaskDisplayTime(task))}
                         </span>
                         <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
                           {task.repeatType === "once" ? task.date : task.startDate}
@@ -1023,7 +1341,7 @@ export default function Schedule({
                             {task.endDate ? `Ends ${task.endDate}` : "Never Ends"}
                           </span>
                         )}
-                        {task.repeatType === "weekdays" && task.days?.map((day) => (
+                        {task.repeatType === "weekdays" && getTaskDisplayDays(task).map((day) => (
                           <span key={day} className="rounded-full border border-amber-300/25 bg-amber-500/10 px-2 py-0.5 font-semibold text-amber-200">
                             {DAY_SHORT[day]}
                           </span>
@@ -1041,7 +1359,7 @@ export default function Schedule({
           <div className="flex flex-col gap-0 rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20" style={{ height: SCHEDULE_PANEL_HEIGHT }}>
 
             {/* Calendar */}
-            <section className="shrink-0">
+            <section ref={calendarSectionRef} className="relative shrink-0">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold tracking-wide text-amber-200">Calendar</h3>
                 <div className="flex items-center gap-1">
@@ -1070,7 +1388,7 @@ export default function Schedule({
                 {calendarCells.map((cellDate, idx) => {
                   if (!cellDate) return <div key={`empty-${idx}`} className="h-8 rounded" />;
                   const isoDate = toISODate(cellDate);
-                  const count = tasks.reduce((acc, task) => (isTaskOnDate(task, isoDate) ? acc + 1 : acc), 0);
+                  const count = activeTasks.reduce((acc, task) => (isTaskOnDate(task, isoDate) ? acc + 1 : acc), 0);
                   const isToday = isoDate === today;
                   const isSelected = isoDate === selectedDate;
                   return (
@@ -1078,6 +1396,42 @@ export default function Schedule({
                       key={isoDate}
                       type="button"
                       onClick={() => setSelectedDate(isoDate)}
+                      onMouseEnter={(event) => {
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        const containerRect = calendarSectionRef.current?.getBoundingClientRect();
+                        const tooltipWidth = 256;
+                        const tooltipHeight = 96;
+                        const gap = 8;
+
+                        if (!containerRect) {
+                          setHoveredCalendarDate(isoDate);
+                          setHoveredCalendarPosition({
+                            x: rect.left + rect.width / 2,
+                            y: rect.bottom + gap,
+                            placement: "bottom",
+                          });
+                          return;
+                        }
+
+                        const preferredX = rect.left - containerRect.left + rect.width / 2;
+                        const minX = tooltipWidth / 2;
+                        const maxX = containerRect.width - tooltipWidth / 2;
+                        const clampedX = Math.min(Math.max(preferredX, minX), maxX);
+
+                        const spaceBelow = containerRect.bottom - rect.bottom;
+                        const showAbove = spaceBelow < tooltipHeight + gap;
+                        const y = showAbove
+                          ? rect.top - containerRect.top - gap
+                          : rect.bottom - containerRect.top + gap;
+
+                        setHoveredCalendarDate(isoDate);
+                        setHoveredCalendarPosition({
+                          x: clampedX,
+                          y,
+                          placement: showAbove ? "top" : "bottom",
+                        });
+                      }}
+                      onMouseLeave={() => setHoveredCalendarDate((current) => (current === isoDate ? null : current))}
                       className={`relative h-8 rounded text-xs transition ${
                         isSelected
                           ? "border border-amber-300/60 bg-amber-400/15 text-amber-100"
@@ -1092,6 +1446,38 @@ export default function Schedule({
                   );
                 })}
               </div>
+              {hoveredCalendarDate ? (
+                <div
+                  className="pointer-events-none absolute z-[80] w-64 -translate-x-1/2 rounded-xl border border-amber-100/10 bg-stone-950/95 p-3 shadow-2xl shadow-black/60 backdrop-blur-sm"
+                  style={{
+                    left: hoveredCalendarPosition.x,
+                    top: hoveredCalendarPosition.y,
+                    transform: hoveredCalendarPosition.placement === "top"
+                      ? "translate(-50%, -100%)"
+                      : "translate(-50%, 0)",
+                  }}
+                >
+                  {hoveredCalendarTasks.length === 0 ? (
+                    <p className="text-[11px] text-stone-300">No tasks scheduled.</p>
+                  ) : hoveredCalendarTasks.length === 1 ? (
+                    <p className="text-[11px] text-stone-200">
+                      <span className="font-semibold text-amber-200">{hoveredCalendarTasks[0].title}</span>{" "}
+                      scheduled
+                    </p>
+                  ) : (
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-semibold text-amber-200">
+                        {hoveredCalendarTasks.length} tasks scheduled
+                      </p>
+                      {hoveredCalendarTasks.map((task) => (
+                        <p key={`${hoveredCalendarDate}-${task.id}`} className="truncate text-[10px] text-stone-300">
+                          {formatDisplayTime(getTaskDisplayTimeForDate(task, hoveredCalendarDate))} · {task.title}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </section>
 
             {/* Divider */}
@@ -1107,7 +1493,11 @@ export default function Schedule({
                 <p className="text-sm text-stone-400">No task logs yet.</p>
               ) : (
                 <div className="journal-scroll min-h-0 flex-1 space-y-1.5 overflow-x-hidden overflow-y-auto scroll-smooth pr-1">
-                  {allLogs.map((log) => (
+                  {allLogs.map((log) => {
+                    const runtimeUndoRemainingMs = log.deleteUndoExpiresAt
+                      ? Math.max(0, new Date(log.deleteUndoExpiresAt).getTime() - Date.now())
+                      : Number(log.deleteUndoRemainingMs || 0);
+                    return (
                     <div key={log.id} className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-[11px] ${
                       log.action === "deleted"
                         ? "border-rose-400/20 bg-rose-500/5 text-stone-300"
@@ -1115,6 +1505,8 @@ export default function Schedule({
                         ? "border-amber-300/20 bg-amber-500/5 text-stone-300"
                         : log.action === "ended"
                         ? "border-blue-400/20 bg-blue-500/5 text-stone-300"
+                        : log.action === "restored"
+                        ? "border-emerald-400/20 bg-emerald-500/5 text-stone-300"
                         : "border-amber-100/10 bg-white/5 text-stone-200"
                     }`}>
                       <p className="min-w-0 flex-1">
@@ -1122,27 +1514,40 @@ export default function Schedule({
                           log.action === "deleted" ? "text-rose-300"
                           : log.action === "edited" ? "text-amber-200"
                           : log.action === "ended" ? "text-blue-300"
+                          : log.action === "restored" ? "text-emerald-300"
                           : "text-emerald-300"
                         }`}>
                           {log.action === "deleted" ? "Deleted"
                             : log.action === "edited" ? "Edited"
                             : log.action === "ended" ? "Ended"
+                            : log.action === "restored" ? "Restored"
                             : "Created"}:
                         </span>{" "}
                         <span className="break-all font-semibold text-stone-100">{log.title}</span> on {log.date} at {formatLogTime(log.time)}
                       </p>
-                      {log.action === "deleted" && log.deletedItem && (
-                        <button
-                          type="button"
-                          onClick={() => handleUndoDelete(log.id)}
-                          className="shrink-0 rounded border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
-                          title="Undo delete"
-                        >
-                          ↺
-                        </button>
+                      {log.action === "deleted" && log.deletedItem && (isDemoMode || log.canUndoDelete) && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleUndoDelete(log.id)}
+                            disabled={restoringLogId === log.id}
+                            className={`shrink-0 rounded border px-1.5 py-0.5 text-[11px] font-semibold transition ${
+                              restoringLogId === log.id
+                                ? "cursor-not-allowed border-stone-600/40 bg-white/5 text-stone-500"
+                                : "border-rose-400/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20"
+                            }`}
+                            title="Undo delete (available for 48 hours)"
+                          >
+                            {restoringLogId === log.id ? "..." : "↺"}
+                          </button>
+                          <span className="shrink-0 text-[10px] text-amber-200/80">
+                            {formatRemainingUndo(runtimeUndoRemainingMs)} left
+                          </span>
+                        </>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </section>

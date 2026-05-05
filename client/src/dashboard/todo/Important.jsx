@@ -27,20 +27,26 @@ const formatTime = (timeValue) => {
   return dateObj.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 };
 
+const getTaskDisplayDays = (task) => {
+  const pendingDays = Array.isArray(task?.pendingDays) ? task.pendingDays : [];
+  if (pendingDays.length > 0) return pendingDays;
+  return Array.isArray(task?.days) ? task.days : [];
+};
+
 function TaskMeta({ task }) {
   return (
     <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-stone-300">
       <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
         Repeat: {REPEAT_LABELS[task.repeatType] ?? task.repeatType}
       </span>
-      <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">Time: {formatTime(task.time)}</span>
+      <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">Time: {formatTime(task.pendingTime || task.time)}</span>
       <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
         Start: {task.repeatType === "once" ? task.date : task.startDate}
       </span>
       <span className={`rounded-full border px-2 py-0.5 ${task.endDate ? "border-rose-400/25 bg-rose-500/10 text-rose-200" : "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"}`}>
         End: {task.repeatType === "once" ? task.date : task.endDate ?? "Never"}
       </span>
-      {task.repeatType === "weekdays" && task.days?.map((day) => (
+      {task.repeatType === "weekdays" && getTaskDisplayDays(task).map((day) => (
         <span key={`${task.id}-${day}`} className="rounded-full border border-amber-300/25 bg-amber-500/10 px-2 py-0.5 font-semibold text-amber-200">
           {DAY_SHORT[day] ?? day}
         </span>
@@ -68,17 +74,22 @@ export default function Important({
     [importantCategories]
   );
 
+  const activeTasks = useMemo(
+    () => tasks.filter((task) => !task?.archived && !task?.deletedAt),
+    [tasks]
+  );
+
   const filteredByPriority = useMemo(
     () =>
       selectedPriority === "All"
-        ? tasks
-        : tasks.filter((task) => task.priority === selectedPriority),
-    [selectedPriority, tasks]
+        ? activeTasks
+        : activeTasks.filter((task) => task.priority === selectedPriority),
+    [selectedPriority, activeTasks]
   );
 
   const categoryTasks = useMemo(
-    () => tasks.filter((task) => task.category.toLowerCase() === selectedCategory.toLowerCase()),
-    [selectedCategory, tasks]
+    () => activeTasks.filter((task) => task.category.toLowerCase() === selectedCategory.toLowerCase()),
+    [selectedCategory, activeTasks]
   );
 
   useEffect(() => {
