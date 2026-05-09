@@ -39,6 +39,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(storedAuth.user);
   const [token, setToken] = useState(storedAuth.token);
   const isBootstrapping = false;
+  const isDemoSession = Boolean(user?.isDemo) || String(token || "").startsWith("demo-mode-");
 
   const persistAuth = (nextToken, nextUser) => {
     setToken(nextToken);
@@ -85,7 +86,7 @@ export function AuthProvider({ children }) {
   const value = {
     isAuthenticated: Boolean(token),
     isBootstrapping,
-    isDemoMode: localStorage.getItem(DEMO_MODE_KEY) === "true" || Boolean(user?.isDemo),
+    isDemoMode: isDemoSession,
     login,
     logout,
     register,

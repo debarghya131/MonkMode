@@ -87,17 +87,10 @@ const demoGoalSeries = (seed, year, density = 0.13) =>
 const demoGymSeries = (seed, year, density = 0.19) =>
   demoSeries(seed, year, density).map((value) => {
     const intensity = Math.min(4, Math.max(1, value.count || 1));
-
-    if (intensity === 4) {
-      return { date: value.date, count: 4, updates: 6, completedProgress: 6 };
-    }
-    if (intensity === 3) {
-      return { date: value.date, count: 3, updates: 4, completedProgress: 4 };
-    }
-    if (intensity === 2) {
-      return { date: value.date, count: 2, updates: 2, completedProgress: 2 };
-    }
-    return { date: value.date, count: 1, updates: 1, completedProgress: 1 };
+    if (intensity === 4) return { date: value.date, count: 4, updates: 6, exercises: 5, measurement: 1, gallery: 0, completedProgress: 6 };
+    if (intensity === 3) return { date: value.date, count: 3, updates: 4, exercises: 3, measurement: 1, gallery: 0, completedProgress: 4 };
+    if (intensity === 2) return { date: value.date, count: 2, updates: 2, exercises: 2, measurement: 0, gallery: 0, completedProgress: 2 };
+    return { date: value.date, count: 1, updates: 1, exercises: 1, measurement: 0, gallery: 0, completedProgress: 1 };
   });
 
 const HEATMAP_SECTIONS = [
@@ -118,8 +111,7 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
           return sum + (Number.isFinite(completedSubgoals) ? completedSubgoals : (value.count || 0));
         }
           if (sectionId === "gym") {
-            const updates = Number(value.updates);
-            return sum + (Number.isFinite(updates) ? updates : (value.count || 0));
+            return sum + (value.count > 0 ? 1 : 0);
           }
           const completed = Number(value.completed);
           return sum + (Number.isFinite(completed) ? completed : (value.count || 0));
@@ -153,8 +145,9 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
               return `${scale}-scale-${Math.min(value.count, 4)}`;
             }}
             titleForValue={(value) => {
-              if (!value || !value.count) return "";
+              if (!value) return "";
               if (binary) {
+                if (!value.count) return "";
                 const entryCount = value.entries || 1;
                 return entryCount > 1
                   ? `${value.date}: Journal submitted (${entryCount} entries)`
@@ -184,8 +177,16 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
                   : `${value.date}: ${completedSubgoals} sub-goals done`;
               }
               if (sectionId === "gym") {
+                const parts = [];
+                const ex   = Number(value.exercises)   || 0;
+                const meas = Number(value.measurement) || 0;
+                const gal  = Number(value.gallery)     || 0;
+                if (ex   > 0) parts.push(`${ex} workout update${ex > 1 ? "s" : ""}`);
+                if (meas > 0) parts.push(`${meas} measurement update${meas > 1 ? "s" : ""}`);
+                if (gal  > 0) parts.push(`${gal} gallery update${gal > 1 ? "s" : ""}`);
+                if (parts.length) return `${value.date}: ${parts.join(", ")}`;
                 const updates = Number(value.updates) || 0;
-                return `${value.date}: ${updates} progress updates`;
+                return updates > 0 ? `${value.date}: ${updates} gym activit${updates > 1 ? "ies" : "y"}` : value.date;
               }
               return `${value.date}: ${value.count}`;
             }}
@@ -261,14 +262,18 @@ export default function OverviewHeatmap() {
         const values = Array.isArray(data?.values)
           ? data.values
               .filter((item) => ISO_DATE_REGEX.test(String(item?.date || "")))
-              .map((item) => ({
-                date: String(item.date),
-                count: Math.min(4, Math.max(1, Number(item.count) || 1)),
-                total: Math.max(0, Number(item.total) || 0),
-                completed: Math.max(0, Number(item.completed) || 0),
-                missed: Math.max(0, Number(item.missed) || 0),
-                pending: Math.max(0, Number(item.pending) || 0),
-              }))
+              .map((item) => {
+                const completed = Math.max(0, Number(item.completed) || 0);
+                const rawCount = Math.max(0, Number(item.count) || 0);
+                return {
+                  date: String(item.date),
+                  count: completed > 0 ? Math.min(4, Math.max(1, rawCount || completed)) : 0,
+                  total: Math.max(0, Number(item.total) || 0),
+                  completed,
+                  missed: Math.max(0, Number(item.missed) || 0),
+                  pending: Math.max(0, Number(item.pending) || 0),
+                };
+              })
           : [];
 
         const years = Array.isArray(data?.years)
@@ -308,12 +313,19 @@ export default function OverviewHeatmap() {
         const values = Array.isArray(data?.values)
           ? data.values
               .filter((item) => ISO_DATE_REGEX.test(String(item?.date || "")))
-              .map((item) => ({
-                date: String(item.date),
-                count: Math.min(4, Math.max(1, Number(item.count) || 1)),
-                updates: Math.max(0, Number(item.updates) || 0),
-                completedProgress: Math.max(0, Number(item.completedProgress) || 0),
-              }))
+              .map((item) => {
+                const completedProgress = Math.max(0, Number(item.completedProgress) || 0);
+                const rawCount = Math.max(0, Number(item.count) || 0);
+                return {
+                  date: String(item.date),
+                  count: completedProgress > 0 ? Math.min(4, Math.max(1, rawCount || completedProgress)) : 0,
+                  updates: Math.max(0, Number(item.updates) || 0),
+                  exercises: Math.max(0, Number(item.exercises) || 0),
+                  measurement: Math.max(0, Number(item.measurement) || 0),
+                  gallery: Math.max(0, Number(item.gallery) || 0),
+                  completedProgress,
+                };
+              })
           : [];
 
         const years = Array.isArray(data?.years)
@@ -332,9 +344,17 @@ export default function OverviewHeatmap() {
     };
 
     fetchGymHeatmap();
+    window.addEventListener("focus", fetchGymHeatmap);
+    window.addEventListener("monkmode:gym-measurements-updated", fetchGymHeatmap);
+    window.addEventListener("monkmode:gym-gallery-updated", fetchGymHeatmap);
+    window.addEventListener("monkmode:exercise-progress-updated", fetchGymHeatmap);
 
     return () => {
       isMounted = false;
+      window.removeEventListener("focus", fetchGymHeatmap);
+      window.removeEventListener("monkmode:gym-measurements-updated", fetchGymHeatmap);
+      window.removeEventListener("monkmode:gym-gallery-updated", fetchGymHeatmap);
+      window.removeEventListener("monkmode:exercise-progress-updated", fetchGymHeatmap);
     };
   }, []);
 
@@ -349,11 +369,15 @@ export default function OverviewHeatmap() {
         const values = Array.isArray(data?.values)
           ? data.values
               .filter((item) => ISO_DATE_REGEX.test(String(item?.date || "")))
-              .map((item) => ({
-                date: String(item.date),
-                count: Math.min(4, Math.max(1, Number(item.count) || 1)),
-                completedSubgoals: Math.max(0, Number(item.completedSubgoals) || 0),
-              }))
+              .map((item) => {
+                const completedSubgoals = Math.max(0, Number(item.completedSubgoals) || 0);
+                const rawCount = Math.max(0, Number(item.count) || 0);
+                return {
+                  date: String(item.date),
+                  count: completedSubgoals > 0 ? Math.min(4, Math.max(1, rawCount || completedSubgoals)) : 0,
+                  completedSubgoals,
+                };
+              })
           : [];
 
         const years = Array.isArray(data?.years)
@@ -393,14 +417,18 @@ export default function OverviewHeatmap() {
         const values = Array.isArray(data?.values)
           ? data.values
               .filter((item) => ISO_DATE_REGEX.test(String(item?.date || "")))
-              .map((item) => ({
-                date: String(item.date),
-                count: Math.min(4, Math.max(1, Number(item.count) || 1)),
-                total: Math.max(0, Number(item.total) || 0),
-                completed: Math.max(0, Number(item.completed) || 0),
-                missed: Math.max(0, Number(item.missed) || 0),
-                pending: Math.max(0, Number(item.pending) || 0),
-              }))
+              .map((item) => {
+                const completed = Math.max(0, Number(item.completed) || 0);
+                const rawCount = Math.max(0, Number(item.count) || 0);
+                return {
+                  date: String(item.date),
+                  count: completed > 0 ? Math.min(4, Math.max(1, rawCount || completed)) : 0,
+                  total: Math.max(0, Number(item.total) || 0),
+                  completed,
+                  missed: Math.max(0, Number(item.missed) || 0),
+                  pending: Math.max(0, Number(item.pending) || 0),
+                };
+              })
           : [];
 
         const years = Array.isArray(data?.years)

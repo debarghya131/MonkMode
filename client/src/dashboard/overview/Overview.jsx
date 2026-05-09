@@ -173,7 +173,7 @@ export default function Overview() {
     winsThisWeek: 0,
   }));
   const [lastMeasurementCheckInDate, setLastMeasurementCheckInDate] = useState(() => readLastMeasurementCheckInDate());
-  const [lastPicUploadedDate, setLastPicUploadedDate] = useState(() => readLastPicUploadedDate());
+  const [lastPicUploadedDate, setLastPicUploadedDate] = useState(() => (isDemoMode ? readLastPicUploadedDate() : null));
   const [habitSummary, setHabitSummary] = useState(() =>
     TODAY_HABITS.reduce(
       (summary, habit) => ({
@@ -199,6 +199,12 @@ export default function Overview() {
     completedGoals: DEMO_OVERVIEW_STATS.goals.completed,
     totalSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsTotal,
     completedSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsCompleted,
+  }));
+  const [gymSummary, setGymSummary] = useState(() => ({
+    completedProgress: DEMO_OVERVIEW_STATS.gym.completedProgress,
+    totalProgress: DEMO_OVERVIEW_STATS.gym.totalProgress,
+    pendingUpdates: DEMO_OVERVIEW_STATS.gym.pendingUpdates,
+    progressUpdatesToday: DEMO_OVERVIEW_STATS.gym.progressUpdatesToday,
   }));
 
   useEffect(() => {
@@ -242,21 +248,103 @@ export default function Overview() {
   }, [isDemoMode]);
 
   useEffect(() => {
-    const refreshGymStats = () => {
+    if (!isDemoMode) return;
+
+    const refreshLocalGymStats = () => {
       setLastMeasurementCheckInDate(readLastMeasurementCheckInDate());
-      setLastPicUploadedDate(readLastPicUploadedDate());
     };
 
-    window.addEventListener("storage", refreshGymStats);
-    window.addEventListener("monkmode:gym-measurements-updated", refreshGymStats);
-    window.addEventListener("monkmode:gym-gallery-updated", refreshGymStats);
+    refreshLocalGymStats();
+    window.addEventListener("storage", refreshLocalGymStats);
+    window.addEventListener("monkmode:gym-measurements-updated", refreshLocalGymStats);
 
     return () => {
-      window.removeEventListener("storage", refreshGymStats);
-      window.removeEventListener("monkmode:gym-measurements-updated", refreshGymStats);
-      window.removeEventListener("monkmode:gym-gallery-updated", refreshGymStats);
+      window.removeEventListener("storage", refreshLocalGymStats);
+      window.removeEventListener("monkmode:gym-measurements-updated", refreshLocalGymStats);
     };
-  }, []);
+  }, [isDemoMode]);
+
+  useEffect(() => {
+    if (isDemoMode) {
+      setGymSummary({
+        completedProgress: DEMO_OVERVIEW_STATS.gym.completedProgress,
+        totalProgress: DEMO_OVERVIEW_STATS.gym.totalProgress,
+        pendingUpdates: DEMO_OVERVIEW_STATS.gym.pendingUpdates,
+        progressUpdatesToday: DEMO_OVERVIEW_STATS.gym.progressUpdatesToday,
+      });
+      return;
+    }
+
+    let isMounted = true;
+
+    const refreshGymSummary = async () => {
+      try {
+        const { data } = await api.get("/gym/summary");
+        if (!isMounted) return;
+
+        setGymSummary({
+          completedProgress: Math.max(0, Number(data?.completedProgress || 0)),
+          totalProgress: Math.max(0, Number(data?.totalProgress || 0)),
+          pendingUpdates: Math.max(0, Number(data?.pendingUpdates || 0)),
+          progressUpdatesToday: Math.max(0, Number(data?.progressUpdatesToday || 0)),
+        });
+        setLastMeasurementCheckInDate(data?.lastMeasurementCheckInDate || null);
+        setLastPicUploadedDate(data?.lastPicUploadedDate || null);
+      } catch {
+        if (!isMounted) return;
+        setGymSummary({
+          completedProgress: 0,
+          totalProgress: 0,
+          pendingUpdates: 0,
+          progressUpdatesToday: 0,
+        });
+      }
+    };
+
+    refreshGymSummary();
+    window.addEventListener("focus", refreshGymSummary);
+    window.addEventListener("monkmode:gym-measurements-updated", refreshGymSummary);
+    window.addEventListener("monkmode:gym-gallery-updated", refreshGymSummary);
+    window.addEventListener("monkmode:exercise-progress-updated", refreshGymSummary);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("focus", refreshGymSummary);
+      window.removeEventListener("monkmode:gym-measurements-updated", refreshGymSummary);
+      window.removeEventListener("monkmode:gym-gallery-updated", refreshGymSummary);
+      window.removeEventListener("monkmode:exercise-progress-updated", refreshGymSummary);
+    };
+  }, [isDemoMode]);
+
+  useEffect(() => {
+    if (isDemoMode) {
+      setLastPicUploadedDate(readLastPicUploadedDate());
+      return;
+    }
+
+    let isMounted = true;
+
+    const refreshGallerySummary = async () => {
+      try {
+        const { data } = await api.get("/gym/gallery/summary");
+        if (!isMounted) return;
+        setLastPicUploadedDate(data?.lastUploadedDate || null);
+      } catch {
+        if (!isMounted) return;
+        setLastPicUploadedDate(null);
+      }
+    };
+
+    refreshGallerySummary();
+    window.addEventListener("focus", refreshGallerySummary);
+    window.addEventListener("monkmode:gym-gallery-updated", refreshGallerySummary);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("focus", refreshGallerySummary);
+      window.removeEventListener("monkmode:gym-gallery-updated", refreshGallerySummary);
+    };
+  }, [isDemoMode]);
 
   const displayJournalSummary = isDemoMode ? DEMO_OVERVIEW_STATS.journal : journalSummary;
 
@@ -355,8 +443,12 @@ export default function Overview() {
     };
   }, [isDemoMode]);
 
-  const displayedLastMeasurementDate = lastMeasurementCheckInDate || DEMO_OVERVIEW_STATS.gym.lastMeasurementCheckInDate;
-  const displayedLastPicUploadedDate = lastPicUploadedDate || DEMO_OVERVIEW_STATS.gym.lastPicUploadedDate;
+  const displayedLastMeasurementDate = isDemoMode
+    ? (lastMeasurementCheckInDate || DEMO_OVERVIEW_STATS.gym.lastMeasurementCheckInDate)
+    : lastMeasurementCheckInDate;
+  const displayedLastPicUploadedDate = isDemoMode
+    ? (lastPicUploadedDate || DEMO_OVERVIEW_STATS.gym.lastPicUploadedDate)
+    : lastPicUploadedDate;
   const displayedGoalSummary = isDemoMode
     ? {
         totalGoals: DEMO_OVERVIEW_STATS.goals.total,
@@ -365,6 +457,9 @@ export default function Overview() {
         completedSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsCompleted,
       }
     : goalSummary;
+  const displayedGymSummary = isDemoMode
+    ? DEMO_OVERVIEW_STATS.gym
+    : gymSummary;
 
   return (
     <DashboardLayout>
@@ -438,8 +533,9 @@ export default function Overview() {
                     { label: "Upload Pic", href: "/dashboard/gym", state: { tab: "gallery" } },
                   ]}
                 >
-                  <StatRow label="Today's Progress updates" value={`${DEMO_OVERVIEW_STATS.gym.completedProgress} / ${DEMO_OVERVIEW_STATS.gym.totalProgress}`} accent="positive" />
-                  <StatRow label="Pending updates" value={DEMO_OVERVIEW_STATS.gym.pendingUpdates} accent="negative" />
+                  <StatRow label="Today's Progress updates" value={displayedGymSummary.progressUpdatesToday} accent="positive" />
+                  <StatRow label="Checklist completed" value={`${displayedGymSummary.completedProgress} / ${displayedGymSummary.totalProgress}`} accent="positive" />
+                  <StatRow label="Pending checklist" value={displayedGymSummary.pendingUpdates} accent="negative" />
                   <StatRow label="Last measurement check-in" value={formatCheckInDate(displayedLastMeasurementDate)} accent="positive" />
                   <StatRow label="Last pic uploaded" value={formatCheckInDate(displayedLastPicUploadedDate)} accent="positive" />
                 </StatusCard>

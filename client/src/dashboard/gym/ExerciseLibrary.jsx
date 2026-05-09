@@ -1,6 +1,8 @@
 import { motion as Motion } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import api from "../../api/axios";
+import useAuth from "../../hooks/useAuth";
 import { BODY_PART_GROUPS, EXERCISE_LIBRARY } from "./workoutLibraryData";
 
 const getBodyGroup = (bodyPart = "") => {
@@ -20,6 +22,10 @@ const loadCustom = () => {
     const stored = localStorage.getItem(STORAGE_KEY);
     return stored ? JSON.parse(stored) : [];
   } catch { return []; }
+};
+
+const emitGymLibraryUpdated = () => {
+  window.dispatchEvent(new Event("monkmode:gym-library-updated"));
 };
 
 function AddWorkoutModal({ onAdd, onClose }) {
@@ -110,9 +116,48 @@ function AddWorkoutModal({ onAdd, onClose }) {
 }
 
 export default function ExerciseLibrary() {
+  const { isDemoMode } = useAuth();
   const [selectedGroup, setSelectedGroup] = useState("all");
-  const [customExercises, setCustomExercises] = useState(loadCustom);
+  const [customExercises, setCustomExercises] = useState(() => (isDemoMode ? loadCustom() : []));
   const [showAddModal, setShowAddModal] = useState(false);
+  const [loading, setLoading] = useState(() => !isDemoMode);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (isDemoMode) {
+      setCustomExercises(loadCustom());
+      setLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    const refreshCustomExercises = async () => {
+      try {
+        const { data } = await api.get("/gym/library");
+        if (!isMounted) return;
+        setCustomExercises(Array.isArray(data) ? data : []);
+        setError("");
+      } catch (fetchError) {
+        if (!isMounted) return;
+        console.error("Failed to fetch custom workout library:", fetchError);
+        setCustomExercises([]);
+        setError(fetchError?.response?.data?.message || "Failed to load your custom workouts.");
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    refreshCustomExercises();
+    window.addEventListener("focus", refreshCustomExercises);
+    window.addEventListener("monkmode:gym-library-updated", refreshCustomExercises);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("focus", refreshCustomExercises);
+      window.removeEventListener("monkmode:gym-library-updated", refreshCustomExercises);
+    };
+  }, [isDemoMode]);
 
   const allExercises = useMemo(() => [...EXERCISE_LIBRARY, ...customExercises], [customExercises]);
 
@@ -140,22 +185,58 @@ export default function ExerciseLibrary() {
 
   const totalVisibleExercises = visibleGroups.reduce((sum, group) => sum + group.exercises.length, 0);
 
-  const handleAdd = ({ name, group, section }) => {
+  const handleAdd = async ({ name, group, section }) => {
     const newExercise = {
-      id: `custom-${Date.now()}`,
       name,
       bodyPart: section ? `${group} - ${section}` : group,
+      bodyGroup: group,
+      bodySection: section,
       custom: true,
     };
-    const updated = [...customExercises, newExercise];
-    setCustomExercises(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+    if (isDemoMode) {
+      const demoExercise = { ...newExercise, id: `custom-${Date.now()}` };
+      const updated = [...customExercises, demoExercise];
+      setCustomExercises(updated);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      emitGymLibraryUpdated();
+      return;
+    }
+
+    try {
+      const { data } = await api.post("/gym/library", {
+        name: newExercise.name,
+        bodyGroup: newExercise.bodyGroup,
+        bodySection: newExercise.bodySection,
+        bodyPart: newExercise.bodyPart
+      });
+      setCustomExercises((prev) => [data, ...prev]);
+      setError("");
+      emitGymLibraryUpdated();
+    } catch (saveError) {
+      console.error("Failed to save custom workout:", saveError);
+      setError(saveError?.response?.data?.message || "Failed to save custom workout.");
+    }
   };
 
-  const handleDelete = (id) => {
-    const updated = customExercises.filter((e) => e.id !== id);
-    setCustomExercises(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  const handleDelete = async (id) => {
+    if (isDemoMode) {
+      const updated = customExercises.filter((exercise) => exercise.id !== id);
+      setCustomExercises(updated);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      emitGymLibraryUpdated();
+      return;
+    }
+
+    try {
+      await api.delete(`/gym/library/${id}`);
+      setCustomExercises((prev) => prev.filter((exercise) => exercise.id !== id));
+      setError("");
+      emitGymLibraryUpdated();
+    } catch (deleteError) {
+      console.error("Failed to delete custom workout:", deleteError);
+      setError(deleteError?.response?.data?.message || "Failed to delete custom workout.");
+    }
   };
 
   return (
@@ -224,7 +305,16 @@ export default function ExerciseLibrary() {
         </div>
 
         <div className="mt-6 max-h-[56vh] overflow-y-auto rounded-[1.5rem] border border-amber-100/10 bg-black/20 p-4 pr-2 scroll-smooth lg:p-5">
-          {visibleGroups.length === 0 ? (
+          {error ? (
+            <div className="mb-4 rounded-2xl border border-rose-400/20 bg-rose-500/5 p-4 text-sm text-rose-200">
+              {error}
+            </div>
+          ) : null}
+          {loading ? (
+            <div className="rounded-2xl border border-dashed border-amber-100/10 bg-black/15 p-10 text-center text-stone-400">
+              <p className="text-base font-semibold text-stone-200">Loading workout library...</p>
+            </div>
+          ) : visibleGroups.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-amber-100/10 bg-black/15 p-10 text-center text-stone-400">
               <p className="text-base font-semibold text-stone-200">No workouts found.</p>
             </div>

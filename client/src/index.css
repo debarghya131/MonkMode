@@ -31,7 +31,16 @@
 
 /* empty */
 .heatmap-violet-empty, .heatmap-sky-empty, .heatmap-emerald-empty,
-.heatmap-rose-empty, .heatmap-amber-empty { fill: rgba(255,255,255,0.05); }
+.heatmap-rose-empty, .heatmap-amber-empty { fill: rgba(255, 255, 255, 0.045); }
+
+/* keep zero-completion cells visually blank even on hover */
+.overview-heatmap .react-calendar-heatmap .heatmap-violet-empty:hover,
+.overview-heatmap .react-calendar-heatmap .heatmap-sky-empty:hover,
+.overview-heatmap .react-calendar-heatmap .heatmap-emerald-empty:hover,
+.overview-heatmap .react-calendar-heatmap .heatmap-rose-empty:hover,
+.overview-heatmap .react-calendar-heatmap .heatmap-amber-empty:hover {
+  stroke: rgba(255, 255, 255, 0.06);
+}
 
 /* violet — Journal */
 .heatmap-violet-scale-1 { fill: #7c3aed33; }

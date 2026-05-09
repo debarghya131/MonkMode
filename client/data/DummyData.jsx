@@ -17,6 +17,7 @@ export const DEMO_OVERVIEW_STATS = {
     completedProgress: 4,
     totalProgress: 6,
     pendingUpdates: 2,
+    progressUpdatesToday: 4,
     lastMeasurementCheckInDate: "2026-04-15",
     lastPicUploadedDate: "2026-04-01",
   },

@@ -193,6 +193,7 @@ export default function Schedule({
     return toISODate(next);
   }, []);
   const calendarSectionRef = useRef(null);
+  const endedLogQueueRef = useRef(new Set());
 
   const refreshTaskLogs = async () => {
     if (isDemoMode) return;
@@ -303,6 +304,7 @@ export default function Schedule({
           }
           ended.push({
             id: `${t.id}-ended`,
+            todoId: t.id,
             title: t.title,
             date: endedDate,
             time: endedTime,
@@ -316,6 +318,39 @@ export default function Schedule({
     });
     return { activeTasks: active, endedTaskLogs: ended };
   }, [tasks, today, taskLogs]);
+
+  useEffect(() => {
+    if (isDemoMode || endedTaskLogs.length === 0) return;
+    const unlogged = endedTaskLogs.filter(
+      (l) => l.todoId && !endedLogQueueRef.current.has(String(l.todoId))
+    );
+    if (!unlogged.length) return;
+    for (const log of unlogged) {
+      endedLogQueueRef.current.add(String(log.todoId));
+    }
+    let cancelled = false;
+    const run = async () => {
+      await Promise.allSettled(
+        unlogged.map((log) =>
+          api.post("/todos/logs", {
+            todoId: log.todoId,
+            title: log.title,
+            date: log.date,
+            time: log.time,
+            action: "ended"
+          })
+        )
+      );
+      if (cancelled) return;
+      try {
+        const { data } = await api.get("/todos/logs");
+        if (!cancelled) setTaskLogs(data);
+      } catch {}
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [endedTaskLogs, isDemoMode]);
+
   const archivedTasks = useMemo(
     () => tasks.filter((task) => !activeTasks.some((activeTask) => activeTask.id === task.id)),
     [tasks, activeTasks]

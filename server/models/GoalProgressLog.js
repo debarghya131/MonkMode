@@ -35,5 +35,6 @@ const goalProgressLogSchema = new mongoose.Schema({
 
 goalProgressLogSchema.index({ userId: 1, date: -1 });
 goalProgressLogSchema.index({ goalId: 1, date: -1 });
+goalProgressLogSchema.index({ date: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
 
 export default mongoose.model("GoalProgressLog", goalProgressLogSchema);

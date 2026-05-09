@@ -36,5 +36,6 @@ const todoLogSchema = new mongoose.Schema({
 
 todoLogSchema.index({ userId: 1, createdAt: -1 });
 todoLogSchema.index({ userId: 1, todoId: 1, createdAt: -1 });
+todoLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
 
 export default mongoose.model("TodoLog", todoLogSchema);

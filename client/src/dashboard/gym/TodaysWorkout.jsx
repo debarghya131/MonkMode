@@ -1,25 +1,43 @@
 import { motion as Motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import api from "../../api/axios";
+import useAuth from "../../hooks/useAuth";
 import { WORKOUT_SPLITS } from "./workoutLibraryData";
 import { DEMO_FULL_DIET, DEMO_SUPPLEMENTS, DEMO_PREWORKOUT, DEMO_MACROS } from "../../../data/GymDummyData";
 
 const getSplitLabel = (val) => WORKOUT_SPLITS.find((s) => s.value === val)?.label || val || "";
 
-const loadWorkouts = () => {
+const loadDemoWorkouts = () => {
   try {
     const stored = localStorage.getItem("monkmode_workouts");
     return stored ? JSON.parse(stored) : [];
   } catch { return []; }
 };
 
+const loadLocalProgress = () => {
+  try { return JSON.parse(localStorage.getItem("monkmode_exercise_progress")) || {}; }
+  catch { return {}; }
+};
+
+const saveLocalProgress = (data) => {
+  localStorage.setItem("monkmode_exercise_progress", JSON.stringify(data));
+  window.dispatchEvent(new Event("monkmode:exercise-progress-updated"));
+};
+
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MAX_PROGRESS_SETS = 20;
 
 const todayDay = () => WEEK_DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
 
-const formatDate = (day) => {
-  const today = todayDay();
-  if (day === today) return "Today";
-  return day;
+const formatDate = (day) => (day === todayDay() ? "Today" : day);
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+const stableExerciseKey = (exercise) => {
+  const id = exercise?.id || "";
+  if (id && !id.startsWith("custom-") && !id.startsWith("ex-")) return id;
+  return (exercise?.name || "").toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 };
 
 const DIFFICULTY_STYLES = {
@@ -35,11 +53,129 @@ const GOAL_LABELS = {
   "endurance":   "Endurance",
 };
 
+/* type → backend planType */
+const DIET_TYPE_MAP = {
+  diet:        "diet",
+  supps:       "supplements",
+  preworkout:  "workoutNutrition",
+  macros:      "macros",
+};
+
 /* ── Diet Modal ── */
-function DietModal({ type, day, onClose }) {
-  const titles = { diet: "Full Day Diet", supps: "Supplements", preworkout: "Pre & Post Workout", macros: "Macros" };
+function DietModal({ type, day, planData, onClose }) {
+  const titles = {
+    diet:       "Full Day Diet",
+    supps:      "Supplements",
+    preworkout: "Pre & Post Workout",
+    macros:     "Macros",
+  };
 
   const renderContent = () => {
+    /* ── Real data ── */
+    if (planData) {
+      if (type === "diet") {
+        const sections = [
+          ["Morning",   planData.meals?.morning],
+          ["Breakfast", planData.meals?.breakfast],
+          ["Lunch",     planData.meals?.lunch],
+          ["Evening",   planData.meals?.evening],
+          ["Dinner",    planData.meals?.dinner],
+        ];
+        return (
+          <div className="space-y-4">
+            {sections.map(([label, items]) =>
+              items?.length ? (
+                <div key={label}>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-200/70">{label}</p>
+                  <div className="space-y-1">
+                    {items.map((item, i) => (
+                      <div key={i} className="rounded-lg border border-amber-100/10 bg-white/5 px-3 py-1.5 text-xs text-stone-200">
+                        {item.name}{item.time ? <span className="ml-2 text-stone-500">{item.time}</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null
+            )}
+            {sections.every(([, items]) => !items?.length) && (
+              <p className="text-xs text-stone-500 text-center py-4">No meals logged for {day}.</p>
+            )}
+          </div>
+        );
+      }
+      if (type === "supps") {
+        const items = planData.items || [];
+        return (
+          <div className="space-y-2">
+            {items.length === 0
+              ? <p className="text-xs text-stone-500">No supplements for {day}.</p>
+              : items.map((item, i) => (
+                <div key={i} className="flex items-center gap-2 rounded-lg border border-amber-100/10 bg-white/5 px-3 py-2">
+                  <span className="text-[10px] font-bold text-amber-400/60">{i + 1}.</span>
+                  <p className="text-xs text-stone-200">{item.name}{item.time ? <span className="ml-2 text-stone-500">{item.time}</span> : null}</p>
+                </div>
+              ))
+            }
+          </div>
+        );
+      }
+      if (type === "preworkout") {
+        const pre  = planData.meals?.preWorkout  || [];
+        const post = planData.meals?.postWorkout || [];
+        return (
+          <div className="space-y-4">
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-200/70">Pre-Workout</p>
+              <div className="space-y-1">
+                {pre.length
+                  ? pre.map((item, i) => (
+                    <div key={i} className="rounded-lg border border-amber-100/10 bg-white/5 px-3 py-1.5 text-xs text-stone-200">
+                      {item.name}
+                    </div>
+                  ))
+                  : <p className="text-xs text-stone-500">None added.</p>
+                }
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-200/70">Post-Workout</p>
+              <div className="space-y-1">
+                {post.length
+                  ? post.map((item, i) => (
+                    <div key={i} className="rounded-lg border border-sky-100/10 bg-sky-500/5 px-3 py-1.5 text-xs text-stone-200">
+                      {item.name}
+                    </div>
+                  ))
+                  : <p className="text-xs text-stone-500">None added.</p>
+                }
+              </div>
+            </div>
+          </div>
+        );
+      }
+      if (type === "macros") {
+        const v = planData.values || {};
+        const fields = [
+          ["Protein", v.protein], ["Carbs", v.carbs], ["Fats", v.fats], ["Fiber", v.fiber],
+          ["Calories", v.calories], ["Water", v.water], ["Sugar", v.sugar], ["Sodium", v.sodium],
+        ];
+        return (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {fields.map(([label, val]) => val ? (
+              <div key={label} className="rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">{label}</p>
+                <p className="mt-1 text-sm font-semibold text-stone-100">{val}</p>
+              </div>
+            ) : null)}
+            {fields.every(([, val]) => !val) && (
+              <p className="col-span-4 text-xs text-stone-500 text-center py-4">No macros set for {day}.</p>
+            )}
+          </div>
+        );
+      }
+    }
+
+    /* ── Demo / fallback data ── */
     if (type === "diet") {
       const data = DEMO_FULL_DIET[day] || {};
       const sections = [["Morning", data.morning], ["Breakfast", data.breakfast], ["Lunch", data.lunch], ["Evening", data.evening], ["Dinner", data.dinner]];
@@ -58,21 +194,21 @@ function DietModal({ type, day, onClose }) {
         </div>
       );
     }
-
     if (type === "supps") {
       const items = DEMO_SUPPLEMENTS[day] || [];
       return (
         <div className="space-y-2">
-          {items.length === 0 ? <p className="text-xs text-stone-500">No supplements for {day}.</p> : items.map((item, i) => (
-            <div key={i} className="flex items-center gap-2 rounded-lg border border-amber-100/10 bg-white/5 px-3 py-2">
-              <span className="text-[10px] font-bold text-amber-400/60">{i + 1}.</span>
-              <p className="text-xs text-stone-200">{item}</p>
-            </div>
-          ))}
+          {items.length === 0
+            ? <p className="text-xs text-stone-500">No supplements for {day}.</p>
+            : items.map((item, i) => (
+              <div key={i} className="flex items-center gap-2 rounded-lg border border-amber-100/10 bg-white/5 px-3 py-2">
+                <span className="text-[10px] font-bold text-amber-400/60">{i + 1}.</span>
+                <p className="text-xs text-stone-200">{item}</p>
+              </div>
+            ))}
         </div>
       );
     }
-
     if (type === "preworkout") {
       const data = DEMO_PREWORKOUT[day] || { pre: [], post: [] };
       return (
@@ -96,7 +232,6 @@ function DietModal({ type, day, onClose }) {
         </div>
       );
     }
-
     if (type === "macros") {
       const data = DEMO_MACROS[day] || {};
       const fields = [["Protein", data.protein], ["Carbs", data.carbs], ["Fats", data.fats], ["Fiber", data.fiber], ["Calories", data.calories], ["Water", data.water], ["Sugar", data.sugar], ["Sodium", data.sodium]];
@@ -138,73 +273,151 @@ function DietModal({ type, day, onClose }) {
   );
 }
 
-/* ── Exercise Detail Modal ── */
-const PROGRESS_KEY = "monkmode_exercise_progress";
+const parseReps = (val) =>
+  String(val || "").split("+").reduce((sum, part) => sum + (Math.max(0, parseInt(part, 10) || 0)), 0);
 
-const loadProgress = () => {
-  try { return JSON.parse(localStorage.getItem(PROGRESS_KEY)) || {}; }
-  catch { return {}; }
-};
+/* ── Update Progress Modal ── */
+function UpdateProgressModal({ exercise, isDemoMode, onClose }) {
+  const date       = todayISO();
+  const exKey      = stableExerciseKey(exercise);
+  const key        = `${date}_${exKey}`;
 
-const saveProgress = (data) => {
-  localStorage.setItem(PROGRESS_KEY, JSON.stringify(data));
-  window.dispatchEvent(new Event("monkmode:exercise-progress-updated"));
-};
+  const [existing, setExisting] = useState(null);
+  const [loadingExisting, setLoadingExisting] = useState(!isDemoMode);
 
-function UpdateProgressModal({ exercise, onClose }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const key = `${today}_${exercise.id}`;
-  const all = loadProgress();
-  const existing = all[key] || {};
+  useEffect(() => {
+    if (isDemoMode) {
+      const all = loadLocalProgress();
+      setExisting(all[key] || {});
+      return;
+    }
+    let cancelled = false;
+    api.get(`/gym/exercise-progress?date=${date}&exerciseId=${exKey}`)
+      .then(({ data }) => {
+        if (!cancelled) setExisting(data[key] || {});
+      })
+      .catch(() => { if (!cancelled) setExisting({}); })
+      .finally(() => { if (!cancelled) setLoadingExisting(false); });
+    return () => { cancelled = true; };
+  }, [isDemoMode, date, exKey, key]);
 
-  const numSets = parseInt(existing.sets ?? exercise.sets) || 0;
-  const initRepsBreakdown = existing.repsBreakdown ?? Array(numSets).fill("");
+  const [sets, setSets] = useState("");
+  const [reps, setReps] = useState("");
+  const [lastSetWeight, setLastSetWeight] = useState("");
+  const [repsBreakdown, setRepsBreakdown] = useState([]);
+  const [totalTime, setTotalTime] = useState("");
+  const [restBetweenSets, setRestBetweenSets] = useState("");
+  const [notes, setNotes] = useState("");
 
-  const [sets, setSets] = useState(existing.sets ?? exercise.sets ?? "");
-  const reps = existing.reps ?? exercise.reps ?? "";
-  const weight = existing.weight ?? (exercise.weight !== "0" ? exercise.weight : "");
-  const [lastSetWeight, setLastSetWeight] = useState(existing.lastSetWeight ?? "");
-  const [repsBreakdown, setRepsBreakdown] = useState(initRepsBreakdown);
-  const [totalTime, setTotalTime] = useState(existing.totalTime ?? "");
-  const [restBetweenSets, setRestBetweenSets] = useState(existing.restBetweenSets ?? "");
-  const [notes, setNotes] = useState(existing.notes ?? "");
+  const initialised = useRef(false);
+  useEffect(() => {
+    if (existing === null || initialised.current) return;
+    initialised.current = true;
+    const initialSetsRaw = Number.parseInt(existing?.sets ?? exercise.sets ?? "", 10);
+    const initialSets = Number.isFinite(initialSetsRaw)
+      ? Math.min(MAX_PROGRESS_SETS, Math.max(0, initialSetsRaw))
+      : 0;
+    setSets(initialSets ? String(initialSets) : "");
+    setReps(existing.reps ?? exercise.reps ?? "");
+    setLastSetWeight(existing.lastSetWeight ?? "");
+    const initialBreakdown = Array.isArray(existing.repsBreakdown)
+      ? existing.repsBreakdown.slice(0, MAX_PROGRESS_SETS)
+      : Array(initialSets).fill("");
+    setRepsBreakdown(initialBreakdown);
+    setTotalTime(existing.totalTime ?? "");
+    setRestBetweenSets(existing.restBetweenSets ?? "");
+    setNotes(existing.notes ?? "");
+  }, [existing, exercise.sets, exercise.reps]);
 
-  const setsCount = parseInt(sets) || 0;
-  const breakdown = Array.from({ length: setsCount }, (_, i) => repsBreakdown[i] ?? "");
-  const lastSetReps = breakdown[breakdown.length - 1] ?? "";
+  const setsCount    = Math.min(MAX_PROGRESS_SETS, Math.max(0, Number.parseInt(sets, 10) || 0));
+  const breakdown    = Array.from({ length: setsCount }, (_, i) => repsBreakdown[i] ?? "");
+  const lastSetReps  = String(parseReps(breakdown[breakdown.length - 1] ?? "") || (breakdown[breakdown.length - 1] ?? ""));
+  const weight       = existing?.weight ?? (exercise.weight !== "0" ? exercise.weight : "");
 
   const handleBreakdown = (i, val) => {
     setRepsBreakdown((prev) => { const next = [...prev]; next[i] = val; return next; });
   };
 
-  const handleSave = () => {
-    const updated = {
-      ...loadProgress(),
-      [key]: {
-        exerciseId: exercise.id,
-        exerciseName: exercise.name,
-        bodyPart: exercise.bodyPart || "",
-        sets,
-        reps,
-        weight,
-        lastSetReps,
-        lastSetWeight,
-        repsBreakdown: breakdown,
-        totalTime,
-        restBetweenSets,
-        notes,
-        savedAt: new Date().toISOString(),
-      },
+  const handleSave = async () => {
+    const payload = {
+      date,
+      exerciseId:      exKey,
+      exerciseName:    exercise.name,
+      bodyPart:        exercise.bodyPart || "",
+      sets,
+      totalTime,
+      restBetweenSets,
+      notes,
     };
-    saveProgress(updated);
+
+    if (reps !== "") payload.reps = reps;
+    if (lastSetWeight !== "") payload.lastSetWeight = lastSetWeight;
+    if (weight !== "") payload.weight = weight;
+    if (breakdown.some((v) => v !== "")) {
+      payload.repsBreakdown = breakdown;
+      payload.lastSetReps = lastSetReps;
+    }
+
+    if (isDemoMode) {
+      const all = loadLocalProgress();
+      all[key] = { ...payload, savedAt: new Date().toISOString() };
+      saveLocalProgress(all);
+      onClose();
+      return;
+    }
+
+    try {
+      await api.post("/gym/exercise-progress", payload);
+      /* keep localStorage in sync so Progress.jsx charts still update */
+      const all = loadLocalProgress();
+      all[key] = { ...payload, savedAt: new Date().toISOString() };
+      saveLocalProgress(all);
+    } catch {
+      /* still sync localStorage on failure so UX isn't broken */
+      const all = loadLocalProgress();
+      all[key] = { ...payload, savedAt: new Date().toISOString() };
+      saveLocalProgress(all);
+    }
     onClose();
   };
 
-  const vol = sets && reps && weight
-    ? (parseInt(sets) * parseInt(reps) * parseFloat(weight)).toFixed(0) + " kg"
-    : sets && reps
-    ? parseInt(sets) * parseInt(reps) + " reps"
-    : null;
+  const numericWeight = Number.parseFloat(weight);
+  const numericTargetReps = Number.parseInt(reps, 10) || 0;
+  const totalRepsFromBreakdown = breakdown.reduce(
+    (sum, value) => sum + parseReps(value),
+    0
+  );
+  const totalEffectiveReps = totalRepsFromBreakdown > 0
+    ? totalRepsFromBreakdown
+    : (setsCount > 0 && numericTargetReps > 0 ? setsCount * numericTargetReps : 0);
+  const vol = totalEffectiveReps > 0 && numericWeight > 0
+    ? `${(totalEffectiveReps * numericWeight).toFixed(0)} kg`
+    : totalEffectiveReps > 0
+      ? `${totalEffectiveReps} reps`
+      : null;
+
+  const breakdownErrors = breakdown.map((val) => {
+    if (val === "") return null;
+    if (numericTargetReps > 0 && parseReps(val) !== numericTargetReps) return "mismatch";
+    return null;
+  });
+  const hasBreakdownError = breakdownErrors.some(Boolean);
+
+  const canSave =
+    sets !== "" && setsCount > 0 &&
+    totalTime !== "" &&
+    restBetweenSets !== "" &&
+    !hasBreakdownError;
+
+  if (loadingExisting) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+        <div className="rounded-2xl border border-amber-100/10 bg-[linear-gradient(180deg,rgba(28,16,12,0.98),rgba(10,8,8,0.99))] px-8 py-6 shadow-2xl">
+          <p className="text-sm text-stone-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onClick={onClose}>
@@ -223,42 +436,57 @@ function UpdateProgressModal({ exercise, onClose }) {
           </button>
         </div>
         <div className="space-y-3 p-5">
-          <div className="rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 mb-1">Sets done</p>
-            <input
-              type="number"
-              value={sets}
-              onChange={(e) => setSets(e.target.value)}
-              placeholder={exercise.sets}
-              className="w-full bg-transparent text-xs font-semibold text-stone-100 outline-none placeholder:text-stone-600"
-            />
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 mb-1">Sets Done</p>
+              <input type="number" min="0" max={MAX_PROGRESS_SETS} value={sets} onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") { setSets(""); return; }
+                const parsed = Number.parseInt(raw, 10);
+                if (!Number.isFinite(parsed)) return;
+                setSets(String(Math.min(MAX_PROGRESS_SETS, Math.max(0, parsed))));
+              }} placeholder={exercise.sets}
+                className="w-full bg-transparent text-xs font-semibold text-stone-100 outline-none placeholder:text-stone-600" />
+              <p className="mt-1 text-[9px] text-stone-600">Max {MAX_PROGRESS_SETS} sets</p>
+            </div>
+            <div className="rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 mb-1">Reps / Set</p>
+              <input type="text" value={reps} onChange={(e) => setReps(e.target.value)}
+                placeholder={exercise.reps || "e.g. 12"}
+                className="w-full bg-transparent text-xs font-semibold text-stone-100 outline-none placeholder:text-stone-600" />
+              <p className="mt-1 text-[9px] text-stone-600">Target: {exercise.reps || "—"}</p>
+            </div>
           </div>
 
-          {/* Reps Breakdown */}
           {setsCount > 0 && (
             <div className="rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 mb-2">Reps Breakdown</p>
-              <div className="flex flex-wrap gap-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Reps Breakdown</p>
+                <p className="text-[9px] text-stone-600">Use + for rest-pause (e.g. 10+5+5)</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
                 {breakdown.map((val, i) => {
                   const target = parseInt(exercise.reps) || 0;
-                  const done = parseInt(val) || 0;
-                  const remaining = target > 0 && val !== "" ? Math.max(target - done, 0) : null;
+                  const done = parseReps(val);
+                  const hit = target > 0 && val !== "" && done >= target;
                   const over = target > 0 && val !== "" && done > target;
+                  const err = breakdownErrors[i];
+                  const statusColor = err === "mismatch" ? "border-rose-500/70" : val === "" ? "border-amber-100/10" : hit ? "border-emerald-400/40" : "border-rose-400/40";
                   return (
                     <div key={i} className="flex flex-col items-center gap-1">
                       <span className="text-[9px] text-stone-600">S{i + 1}</span>
                       <input
-                        type="number"
+                        type="text"
                         value={val}
                         onChange={(e) => handleBreakdown(i, e.target.value)}
                         placeholder="—"
-                        className={`w-10 rounded-lg border py-1 text-center text-xs font-semibold text-stone-100 outline-none placeholder:text-stone-700 bg-black/30 ${
-                          val === "" ? "border-amber-100/10" : over ? "border-emerald-400/40" : remaining === 0 ? "border-emerald-400/40" : "border-rose-400/40"
-                        }`}
+                        className={`w-16 rounded-lg border py-1 text-center text-xs font-semibold text-stone-100 outline-none placeholder:text-stone-700 bg-black/30 focus:border-amber-300/35 ${statusColor}`}
                       />
-                      {remaining !== null && (
-                        <span className={`text-[8px] font-semibold leading-none ${over ? "text-emerald-400" : remaining === 0 ? "text-emerald-400" : "text-rose-400/80"}`}>
-                          {over ? `+${done - target}/${target}` : `${done}+${remaining}/${target}`}
+                      {val !== "" && (
+                        <span className={`text-[8px] font-semibold leading-none ${hit ? "text-emerald-400" : "text-rose-400/80"}`}>
+                          {target > 0
+                            ? (over ? `${done} ↑ +${done - target}` : `${done} / ${target}`)
+                            : `${done} reps`}
                         </span>
                       )}
                     </div>
@@ -268,39 +496,22 @@ function UpdateProgressModal({ exercise, onClose }) {
             </div>
           )}
 
-          {/* Last Set Weight */}
           <div className="rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 mb-1">Last Set Weight</p>
-            <input
-              type="number"
-              value={lastSetWeight}
-              onChange={(e) => setLastSetWeight(e.target.value)}
-              placeholder="kg"
-              className="w-full bg-transparent text-xs font-semibold text-stone-100 outline-none placeholder:text-stone-600"
-            />
+            <input type="number" value={lastSetWeight} onChange={(e) => setLastSetWeight(e.target.value)} placeholder="kg"
+              className="w-full bg-transparent text-xs font-semibold text-stone-100 outline-none placeholder:text-stone-600" />
           </div>
 
-          {/* Total Time & Rest */}
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 mb-1">Total Time (min)</p>
-              <input
-                type="number"
-                value={totalTime}
-                onChange={(e) => setTotalTime(e.target.value)}
-                placeholder="—"
-                className="w-full bg-transparent text-xs font-semibold text-stone-100 outline-none placeholder:text-stone-600"
-              />
+              <input type="number" value={totalTime} onChange={(e) => setTotalTime(e.target.value)} placeholder="—"
+                className="w-full bg-transparent text-xs font-semibold text-stone-100 outline-none placeholder:text-stone-600" />
             </div>
             <div className="rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 mb-1">Rest b/w Sets (sec)</p>
-              <input
-                type="number"
-                value={restBetweenSets}
-                onChange={(e) => setRestBetweenSets(e.target.value)}
-                placeholder="—"
-                className="w-full bg-transparent text-xs font-semibold text-stone-100 outline-none placeholder:text-stone-600"
-              />
+              <input type="number" value={restBetweenSets} onChange={(e) => setRestBetweenSets(e.target.value)} placeholder="—"
+                className="w-full bg-transparent text-xs font-semibold text-stone-100 outline-none placeholder:text-stone-600" />
             </div>
           </div>
 
@@ -310,18 +521,27 @@ function UpdateProgressModal({ exercise, onClose }) {
               <p className="mt-0.5 text-xs font-semibold text-emerald-300">{vol}</p>
             </div>
           )}
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Notes (optional)…"
-            rows={2}
-            className="w-full rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5 text-xs text-stone-200 outline-none placeholder:text-stone-600 resize-none"
-          />
-          <button
-            type="button"
-            onClick={handleSave}
-            className="w-full rounded-xl border border-amber-400/30 bg-amber-500/15 py-2 text-xs font-semibold text-amber-200 transition hover:bg-amber-500/25"
-          >
+
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (optional)…" rows={2}
+            className="w-full rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5 text-xs text-stone-200 outline-none placeholder:text-stone-600 resize-none" />
+
+          {!canSave && (
+            <p className="text-center text-[10px] text-rose-400/80">
+              {sets === "" || setsCount === 0
+                ? "Sets Done is required."
+                : totalTime === ""
+                ? "Total Time is required."
+                : restBetweenSets === ""
+                ? "Rest b/w Sets is required."
+                : "Each set's reps must match the Reps / Set target."}
+            </p>
+          )}
+          <button type="button" onClick={handleSave} disabled={!canSave}
+            className={`w-full rounded-xl border py-2 text-xs font-semibold transition ${
+              canSave
+                ? "border-amber-400/30 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25"
+                : "cursor-not-allowed border-stone-700/40 bg-stone-800/30 text-stone-600"
+            }`}>
             Save Progress
           </button>
         </div>
@@ -330,128 +550,163 @@ function UpdateProgressModal({ exercise, onClose }) {
   );
 }
 
-function ViewProgressModal({ exercise, onClose }) {
-  const all = loadProgress();
-  const entries = Object.entries(all)
-    .filter(([k]) => k.endsWith(`_${exercise.id}`))
-    .sort(([a], [b]) => b.localeCompare(a));
-  const [date, data] = entries[0] ?? [null, null];
-  const logDate = date ? date.split("_")[0] : null;
+/* ── View Progress Modal ── */
+const PROGRESS_METRICS = [
+  { key: "sets",           label: "Sets",            unit: "",    field: "sets" },
+  { key: "reps",           label: "Reps / Set",      unit: "",    field: "reps" },
+  { key: "lastSetReps",    label: "Last Set Reps",   unit: "",    field: "lastSetReps" },
+  { key: "lastSetWeight",  label: "Last Set Weight", unit: "kg",  field: "lastSetWeight" },
+  { key: "totalTime",      label: "Total Time",      unit: "min", field: "totalTime" },
+  { key: "restBetweenSets",label: "Rest b/w Sets",   unit: "sec", field: "restBetweenSets" },
+];
 
-  const rows = [
-    { label: "Sets Done",         value: data?.sets },
-    { label: "Last Set Reps",     value: data?.repsBreakdown?.filter(Boolean).slice(-1)[0] },
-    { label: "Last Set Weight",   value: data?.lastSetWeight ? `${data.lastSetWeight} kg` : null },
-    { label: "Total Time",        value: data?.totalTime ? `${data.totalTime} min` : null },
-    { label: "Rest b/w Sets",     value: data?.restBetweenSets ? `${data.restBetweenSets} sec` : null },
-  ].filter((r) => r.value);
+function ViewProgressModal({ exercise, isDemoMode, onClose }) {
+  const [current, setCurrent] = useState(null);
+  const [last,    setLast]    = useState(null);
+  const [loading, setLoading] = useState(true);
+  const today = todayISO();
+
+  const exKey = stableExerciseKey(exercise);
+
+  useEffect(() => {
+    const parseEntries = (flat) => {
+      const sorted = Object.entries(flat)
+        .filter(([k]) => k.endsWith(`_${exKey}`))
+        .map(([k, v]) => ({ date: k.split("_")[0], ...v }))
+        .sort((a, b) => b.date.localeCompare(a.date));
+      const cur  = sorted.find((e) => e.date === today) || null;
+      const prev = sorted.find((e) => e.date !== today) || null;
+      setCurrent(cur);
+      setLast(prev);
+      setLoading(false);
+    };
+
+    if (isDemoMode) {
+      parseEntries(loadLocalProgress());
+      return;
+    }
+
+    let cancelled = false;
+    api.get(`/gym/exercise-progress?exerciseId=${exKey}`)
+      .then(({ data: flat }) => { if (!cancelled) parseEntries(flat); })
+      .catch(() => { if (!cancelled) { setCurrent(null); setLast(null); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, [isDemoMode, exKey, today]);
+
+  const delta = (key, cur, prev) => {
+    const getRaw = (entry) => {
+      if (key === "lastSetReps") {
+        const bd = entry?.repsBreakdown;
+        const raw = Array.isArray(bd) ? bd.filter(Boolean).slice(-1)[0] : null;
+        return raw != null ? parseReps(raw) : parseFloat(entry?.[key]);
+      }
+      return parseFloat(entry?.[key]);
+    };
+    const a = getRaw(cur);
+    const b = getRaw(prev);
+    if (!isFinite(a) || !isFinite(b)) return null;
+    return a - b;
+  };
+
+  const fmtVal = (entry, key, unit) => {
+    if (!entry) return "—";
+    if (key === "lastSetReps") {
+      const breakdown = entry.repsBreakdown;
+      const raw = Array.isArray(breakdown) ? breakdown.filter(Boolean).slice(-1)[0] : null;
+      if (raw) return raw;
+    }
+    const v = entry[key];
+    if (v === "" || v == null) return "—";
+    return `${v}${unit ? ` ${unit}` : ""}`;
+  };
+
+  const hasAny = current || last;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-sm rounded-2xl border border-amber-100/10 bg-[linear-gradient(180deg,rgba(28,16,12,0.98),rgba(10,8,8,0.99))] shadow-2xl shadow-black/60"
+        className="journal-scroll w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-amber-100/10 bg-[linear-gradient(180deg,rgba(28,16,12,0.98),rgba(10,8,8,0.99))] shadow-2xl shadow-black/60"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-amber-100/10 px-5 py-4">
           <div>
             <h3 className="text-sm font-semibold text-amber-100">{exercise.name}</h3>
-            <p className="text-[10px] text-stone-500">{logDate ? `Last logged: ${logDate}` : "No progress logged yet"}</p>
+            <p className="text-[10px] text-stone-500">{exercise.bodyPart}</p>
           </div>
           <button type="button" onClick={onClose}
             className="rounded border border-amber-100/15 bg-white/5 px-2.5 py-1 text-xs font-semibold text-stone-300 transition hover:text-stone-100">
             Close
           </button>
         </div>
-        <div className="p-5 space-y-3">
-          {!data ? (
-            <p className="text-center text-xs text-stone-500 py-4">No progress logged for today yet.</p>
+
+        <div className="space-y-4 p-5">
+          {loading ? (
+            <p className="py-6 text-center text-xs text-stone-500">Loading progress...</p>
+          ) : !hasAny ? (
+            <p className="py-6 text-center text-xs text-stone-500">No progress logged for this exercise yet.</p>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-2">
-                {rows.map(({ label, value }) => {
-                  const isLastSetReps   = label === "Last Set Reps";
-                  const isSetsDone      = label === "Sets Done";
-                  const isWeight        = label === "Last Set Weight";
-                  const isTime          = label === "Total Time";
-                  const isRest          = label === "Rest b/w Sets";
-
-                  const targetWeight = parseFloat(exercise.weight) || 0;
-                  const targetTime   = parseFloat(exercise.duration) || 0;
-                  const targetRest   = parseFloat(exercise.restTime) || 0;
-
-                  const done = (isLastSetReps || isSetsDone)
-                    ? parseInt(value) || 0
-                    : isWeight ? parseFloat(data?.lastSetWeight) || 0
-                    : isTime   ? parseFloat(data?.totalTime) || 0
-                    : isRest   ? parseFloat(data?.restBetweenSets) || 0
-                    : 0;
-
-                  const target = isLastSetReps ? parseInt(exercise.reps) || 0
-                    : isSetsDone ? parseInt(exercise.sets) || 0
-                    : isWeight   ? targetWeight
-                    : isTime     ? targetTime
-                    : isRest     ? targetRest
-                    : 0;
-
-                  const hit = target > 0 && (
-                    (isRest || isTime) ? done <= target : done >= target
-                  );
-
-                  const unit = isWeight ? " kg" : isTime ? " min" : isRest ? " sec" : "";
-
-                  const indicator = isSetsDone && target > 0
-                    ? `${done}/${target}`
-                    : isLastSetReps && target > 0
-                    ? `${done}+${Math.max(target - done, 0)}/${target}`
-                    : (isWeight || isTime || isRest) && target > 0
-                    ? `${done}${unit} / ${target}${unit}`
-                    : null;
-                  return (
-                    <div key={label} className="rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">{label}</p>
-                      <p className={`mt-1 text-xs font-semibold ${indicator ? (hit ? "text-emerald-400" : "text-rose-400/80") : "text-stone-100"}`}>
-                        {indicator ?? value}
-                      </p>
-                    </div>
-                  );
-                })}
+              {/* Column headers */}
+              <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 pb-1">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-600">Metric</p>
+                <p className="text-center text-[10px] font-semibold uppercase tracking-widest text-stone-500">
+                  Last{last ? <span className="ml-1 text-stone-600">({last.date})</span> : ""}
+                </p>
+                <p className="text-center text-[10px] font-semibold uppercase tracking-widest text-amber-400/80">
+                  Today{current ? "" : <span className="ml-1 text-stone-600">(not logged)</span>}
+                </p>
               </div>
-              {data.repsBreakdown?.some(Boolean) && (
+
+              {/* Metric rows */}
+              {PROGRESS_METRICS.map(({ key, label, unit }) => {
+                const d = delta(key, current, last);
+                const isRest = key === "restBetweenSets";
+                const improved = d != null && (isRest ? d < 0 : d > 0);
+                const declined = d != null && (isRest ? d > 0 : d < 0);
+                return (
+                  <div key={key} className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-stone-500">{label}</p>
+                    <p className="text-center text-xs font-semibold text-stone-400">{fmtVal(last, key, unit)}</p>
+                    <div className="flex flex-col items-center">
+                      <p className={`text-xs font-semibold ${current ? "text-amber-200" : "text-stone-600"}`}>
+                        {fmtVal(current, key, unit)}
+                      </p>
+                      {d != null && (
+                        <span className={`text-[9px] font-semibold ${improved ? "text-emerald-400" : declined ? "text-rose-400" : "text-stone-500"}`}>
+                          {d > 0 ? "+" : ""}{d}{unit ? ` ${unit}` : ""}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Last session reps breakdown */}
+              {last?.repsBreakdown?.some(Boolean) && (
                 <div className="rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 mb-2">Reps Breakdown</p>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Last Session — Reps Breakdown</p>
                   <div className="flex flex-wrap gap-2">
-                    {data.repsBreakdown.map((r, i) => {
-                      if (!r) return null;
-                      const target = parseInt(exercise.reps) || 0;
-                      const done = parseInt(r) || 0;
-                      const hit = done >= target;
-                      const over = done > target;
-                      const remaining = target > 0 ? Math.max(target - done, 0) : null;
-                      const label = target > 0
-                        ? over ? `+${done - target}/${target}` : `${done}+${remaining}/${target}`
-                        : null;
-                      return (
+                    {last.repsBreakdown.map((r, i) => (
+                      r ? (
                         <div key={i} className="flex flex-col items-center gap-0.5">
                           <span className="text-[9px] text-stone-600">S{i + 1}</span>
-                          <span className={`rounded-lg border px-2 py-0.5 text-xs font-semibold ${
-                            hit ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
-                               : "border-rose-400/30 bg-rose-500/10 text-rose-300"
-                          }`}>{r}</span>
-                          {label && (
-                            <span className={`text-[8px] font-semibold leading-none ${hit ? "text-emerald-400" : "text-rose-400/80"}`}>
-                              {label}
-                            </span>
-                          )}
+                          <span className="rounded-lg border border-amber-100/15 bg-black/30 px-2 py-0.5 text-xs font-semibold text-stone-300">{r}</span>
                         </div>
-                      );
-                    })}
+                      ) : null
+                    ))}
                   </div>
                 </div>
               )}
-              {data.notes && (
+
+              {/* Notes */}
+              {last && (
                 <div className="rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Notes</p>
-                  <p className="mt-1 text-xs text-stone-300">{data.notes}</p>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Last Session Notes</p>
+                  {last.notes
+                    ? <p className="text-xs text-stone-400">{last.notes}</p>
+                    : <p className="text-[10px] text-stone-600 italic">No notes from last session</p>
+                  }
                 </div>
               )}
             </>
@@ -462,78 +717,90 @@ function ViewProgressModal({ exercise, onClose }) {
   );
 }
 
-function ExerciseModal({ exercise, onClose }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="w-full max-w-sm rounded-2xl border border-amber-100/10 bg-[linear-gradient(180deg,rgba(28,16,12,0.98),rgba(10,8,8,0.99))] shadow-2xl shadow-black/60"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between gap-3 border-b border-amber-100/10 px-5 py-4">
-          <h3 className="text-sm font-semibold text-amber-100">{exercise.name}</h3>
-          <button type="button" onClick={onClose}
-            className="rounded border border-amber-100/15 bg-white/5 px-2.5 py-1 text-xs font-semibold text-stone-300 transition hover:text-stone-100">
-            Close
-          </button>
-        </div>
-        <div className="space-y-3 p-5">
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              ["Body Part", exercise.bodyPart],
-              ["Sets", exercise.sets],
-              ["Reps", exercise.reps],
-              ["Weight", exercise.weight !== "0" ? `${exercise.weight} kg` : "Bodyweight"],
-              ["Rest", `${exercise.restTime}s`],
-            ].map(([label, val]) => (
-              <div key={label} className="rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">{label}</p>
-                <p className="mt-1 text-xs font-semibold text-stone-100">{val}</p>
-              </div>
-            ))}
-          </div>
-          <div className="rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">Volume</p>
-            <p className="mt-1 text-xs font-semibold text-amber-200">
-              {exercise.weight !== "0"
-                ? `${parseInt(exercise.sets) * parseInt(exercise.reps) * parseFloat(exercise.weight)} kg total`
-                : `${parseInt(exercise.sets) * parseInt(exercise.reps)} total reps`}
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ── Main Component ── */
 export default function TodaysWorkout() {
-  const [selectedDay, setSelectedDay] = useState(todayDay);
-  const [dietModal, setDietModal] = useState(null);
-  const [exerciseModal, setExerciseModal] = useState(null);
-  const [progressModal, setProgressModal] = useState(null);
+  const { isDemoMode } = useAuth();
+  const [selectedDay, setSelectedDay]         = useState(todayDay);
+  const [dietModal, setDietModal]             = useState(null);
+  const [progressModal, setProgressModal]     = useState(null);
   const [viewProgressModal, setViewProgressModal] = useState(null);
-  const [allWorkouts, setAllWorkouts] = useState(loadWorkouts);
-  const [bodyFilter, setBodyFilter] = useState("all");
+  const [allWorkouts, setAllWorkouts]         = useState(() => isDemoMode ? loadDemoWorkouts() : []);
+  const [dietPlans, setDietPlans]             = useState({});
+  const [bodyFilter, setBodyFilter]           = useState("all");
+  const [loading, setLoading]                 = useState(!isDemoMode);
 
+  /* Fetch workout plans */
   useEffect(() => {
-    const onStorage = () => setAllWorkouts(loadWorkouts());
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
+    if (isDemoMode) {
+      setAllWorkouts(loadDemoWorkouts());
+      setLoading(false);
+      const onStorage = () => setAllWorkouts(loadDemoWorkouts());
+      window.addEventListener("storage", onStorage);
+      return () => window.removeEventListener("storage", onStorage);
+    }
 
-  const today = new Date().toISOString().slice(0, 10);
+    let cancelled = false;
+    const fetchPlans = async () => {
+      try {
+        const { data } = await api.get("/gym/plans");
+        if (!cancelled) setAllWorkouts(Array.isArray(data) ? data : []);
+      } catch {
+        if (!cancelled) setAllWorkouts([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchPlans();
+    return () => { cancelled = true; };
+  }, [isDemoMode]);
+
+  /* Fetch diet plans for selected day (real mode only) */
+  useEffect(() => {
+    if (isDemoMode) return;
+    let cancelled = false;
+    api.get(`/gym/diet-plans?day=${selectedDay}`)
+      .then(({ data }) => {
+        if (cancelled || !Array.isArray(data)) return;
+        const map = {};
+        for (const plan of data) {
+          if (plan.isActive) map[plan.planType] = plan;
+        }
+        if (!cancelled) setDietPlans(map);
+      })
+      .catch(() => { if (!cancelled) setDietPlans({}); });
+    return () => { cancelled = true; };
+  }, [isDemoMode, selectedDay]);
+
+  const today = todayISO();
 
   const todayWorkouts = allWorkouts.filter(
-    (w) =>
-      w.days?.includes(selectedDay) &&
-      w.isActive &&
-      (w.neverEnds || !w.endDate || w.endDate >= today)
+    (w) => w.days?.includes(selectedDay) && w.isActive && (w.neverEnds || !w.endDate || w.endDate >= today)
   );
 
+  const inactiveScheduledWorkouts = allWorkouts.filter(
+    (w) => w.days?.includes(selectedDay) && !w.isActive
+  );
+
+  const handleActivateWorkout = async (id) => {
+    const target = allWorkouts.find((w) => w.id === id);
+    if (!target) return;
+    const targetDays = target.days || [];
+    if (isDemoMode) {
+      setAllWorkouts((prev) => prev.map((w) => {
+        if (w.id === id) return { ...w, isActive: true };
+        const overlaps = (w.days || []).some((d) => targetDays.includes(d));
+        return overlaps ? { ...w, isActive: false } : w;
+      }));
+      return;
+    }
+    try {
+      const { data } = await api.patch(`/gym/plans/${id}/active`);
+      setAllWorkouts(Array.isArray(data) ? data : []);
+    } catch { /* server error — local state unchanged */ }
+  };
+
   const allBodyGroups = [...new Set(
-    todayWorkouts.flatMap((w) =>
-      (w.exercises || []).map((ex) => ex.bodyPart?.split(" - ")[0]?.trim()).filter(Boolean)
-    )
+    todayWorkouts.flatMap((w) => (w.exercises || []).map((ex) => ex.bodyPart?.split(" - ")[0]?.trim()).filter(Boolean))
   )].sort();
 
   const filteredWorkouts = todayWorkouts.map((w) => ({
@@ -544,17 +811,17 @@ export default function TodaysWorkout() {
   })).filter((w) => w.exercises.length > 0);
 
   const dietCards = [
-    { type: "diet",       label: "Full Day Diet",  icon: "🥗", color: "border-emerald-400/25 bg-emerald-500/10 text-emerald-200" },
-    { type: "supps",      label: "Supplements",    icon: "💊", color: "border-sky-400/25 bg-sky-500/10 text-sky-200" },
-    { type: "preworkout", label: "Pre / Post",     icon: "⚡", color: "border-amber-400/25 bg-amber-500/10 text-amber-200" },
-    { type: "macros",     label: "Macros",         icon: "📊", color: "border-violet-400/25 bg-violet-500/10 text-violet-200" },
+    { type: "diet",       label: "Full Day Diet", icon: "🥗", color: "border-emerald-400/25 bg-emerald-500/10 text-emerald-200" },
+    { type: "supps",      label: "Supplements",   icon: "💊", color: "border-sky-400/25 bg-sky-500/10 text-sky-200" },
+    { type: "preworkout", label: "Pre / Post",    icon: "⚡", color: "border-amber-400/25 bg-amber-500/10 text-amber-200" },
+    { type: "macros",     label: "Macros",        icon: "📊", color: "border-violet-400/25 bg-violet-500/10 text-violet-200" },
   ];
 
   return (
     <>
       <div className="flex min-h-0 flex-col gap-4 md:max-h-[calc(100vh-17rem)]">
 
-        {/* ── Day selector ── */}
+        {/* Day selector */}
         <div className="shrink-0 flex flex-wrap items-center gap-2 rounded-2xl border border-amber-100/10 bg-black/20 px-4 py-3">
           <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">Day</span>
           {WEEK_DAYS.map((day) => (
@@ -571,13 +838,11 @@ export default function TodaysWorkout() {
 
         <div className="flex min-h-0 flex-col items-start gap-4 xl:flex-row">
 
-          {/* ── Workout column ── */}
+          {/* Workout column */}
           <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.06),transparent_40%),linear-gradient(180deg,rgba(20,12,10,0.97),rgba(10,8,8,0.98))]">
             <div className="shrink-0 border-b border-amber-100/10 px-5 py-3">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-stone-100">
-                  {formatDate(selectedDay)}'s Workouts
-                </h3>
+                <h3 className="text-sm font-semibold text-stone-100">{formatDate(selectedDay)}'s Workouts</h3>
                 <div className="flex items-center gap-2">
                   <span className="rounded-full border border-amber-300/20 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-amber-200">
                     {todayWorkouts.length} plan{todayWorkouts.length !== 1 ? "s" : ""}
@@ -590,12 +855,36 @@ export default function TodaysWorkout() {
             </div>
 
             <div className="journal-scroll min-h-0 flex-1 overflow-y-auto p-4 scroll-smooth pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/40">
-              {filteredWorkouts.length === 0 ? (
+              {loading ? (
                 <div className="flex h-full items-center justify-center">
+                  <p className="text-sm text-stone-500">Loading workouts...</p>
+                </div>
+              ) : filteredWorkouts.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center gap-4">
                   <div className="text-center">
                     <p className="text-sm font-semibold text-stone-300">Rest day 🙌</p>
-                    <p className="mt-1 text-xs text-stone-500">No workouts scheduled for {selectedDay}.</p>
+                    <p className="mt-1 text-xs text-stone-500">No active workouts scheduled for {selectedDay}.</p>
                   </div>
+                  {inactiveScheduledWorkouts.length > 0 && (
+                    <div className="w-full max-w-sm space-y-2">
+                      <p className="text-center text-[10px] font-semibold uppercase tracking-widest text-stone-500">Inactive plans for {selectedDay}</p>
+                      {inactiveScheduledWorkouts.map((w) => (
+                        <div key={w.id} className="flex items-center justify-between gap-3 rounded-xl border border-amber-100/10 bg-white/5 px-3 py-2.5">
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-semibold text-stone-200">{w.title}</p>
+                            <p className="mt-0.5 text-[10px] text-stone-500">{w.exercises?.length || 0} exercises</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleActivateWorkout(w.id)}
+                            className="shrink-0 rounded-full border border-emerald-400/35 bg-emerald-500/15 px-3 py-1 text-[10px] font-semibold text-emerald-200 transition hover:bg-emerald-500/30"
+                          >
+                            Activate
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -613,20 +902,26 @@ export default function TodaysWorkout() {
                         <div>
                           <h4 className="text-sm font-semibold text-stone-100">{workout.title}</h4>
                           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${DIFFICULTY_STYLES[workout.difficulty]}`}>
-                              {workout.difficulty}
-                            </span>
-                            <span className="rounded-full border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-400">
-                              {GOAL_LABELS[workout.goalType] || workout.goalType}
-                            </span>
+                            {workout.difficulty && (
+                              <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${DIFFICULTY_STYLES[workout.difficulty] || "border-amber-100/10 text-stone-400 bg-white/5"}`}>
+                                {workout.difficulty}
+                              </span>
+                            )}
+                            {workout.goalType && (
+                              <span className="rounded-full border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-400">
+                                {GOAL_LABELS[workout.goalType] || workout.goalType}
+                              </span>
+                            )}
                             {workout.workoutSplit && (
                               <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300">
                                 {getSplitLabel(workout.workoutSplit)}
                               </span>
                             )}
-                            <span className="rounded-full border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-400">
-                              ~{workout.totalEstimatedTime} min
-                            </span>
+                            {workout.totalEstimatedTime && (
+                              <span className="rounded-full border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-400">
+                                ~{workout.totalEstimatedTime} min
+                              </span>
+                            )}
                           </div>
                         </div>
                         {workout.isActive && (
@@ -641,18 +936,14 @@ export default function TodaysWorkout() {
                         <div className="mt-2.5 flex gap-1.5 overflow-x-auto pb-0.5">
                           <button type="button" onClick={() => setBodyFilter("all")}
                             className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold transition ${
-                              bodyFilter === "all"
-                                ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
-                                : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-stone-200"
+                              bodyFilter === "all" ? "border-amber-300/45 bg-amber-500/15 text-amber-100" : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-stone-200"
                             }`}>
                             All
                           </button>
                           {allBodyGroups.map((g) => (
                             <button key={g} type="button" onClick={() => setBodyFilter(g)}
                               className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold transition ${
-                                bodyFilter === g
-                                  ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
-                                  : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-stone-200"
+                                bodyFilter === g ? "border-amber-300/45 bg-amber-500/15 text-amber-100" : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-stone-200"
                               }`}>
                               {g}
                             </button>
@@ -661,7 +952,7 @@ export default function TodaysWorkout() {
                       )}
 
                       {/* Exercise list */}
-                      <div className="journal-scroll mt-3 max-h-85 space-y-2 overflow-y-auto scroll-smooth pr-1.5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/25 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/45 md:max-h-98">
+                      <div className="journal-scroll mt-3 max-h-[380px] space-y-2 overflow-y-auto scroll-smooth pr-1.5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/25 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/45 md:max-h-[460px]">
                         {workout.exercises.map((ex, idx) => (
                           <Motion.div
                             key={ex.id}
@@ -678,69 +969,40 @@ export default function TodaysWorkout() {
                                 <p className="mt-0.5 text-[10px] text-stone-500">{ex.bodyPart}</p>
                               </div>
                               <div className="flex shrink-0 gap-1.5">
-                                <Motion.button
-                                  type="button"
-                                  onClick={() => setViewProgressModal(ex)}
-                                  whileHover={{
-                                    scale: 1.08,
-                                    boxShadow: "0 0 16px rgba(251,191,36,0.5), 0 0 32px rgba(251,191,36,0.15)",
-                                  }}
+                                <Motion.button type="button" onClick={() => setViewProgressModal(ex)}
+                                  whileHover={{ scale: 1.08, boxShadow: "0 0 16px rgba(251,191,36,0.5)" }}
                                   whileTap={{ scale: 0.93 }}
-                                  transition={{ duration: 0.18 }}
-                                  className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)]"
-                                >
+                                  className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-200 transition hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950">
                                   View Progress
                                 </Motion.button>
-                                <Motion.button
-                                  type="button"
-                                  onClick={() => setProgressModal(ex)}
-                                  animate={{
-                                    boxShadow: [
-                                      "0 0 0px rgba(52,211,153,0)",
-                                      "0 0 8px rgba(52,211,153,0.4)",
-                                      "0 0 0px rgba(52,211,153,0)",
-                                    ],
-                                  }}
-                                  transition={{
-                                    boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
-                                  }}
-                                  whileHover={{
-                                    scale: 1.08,
-                                    boxShadow: "0 0 18px rgba(52,211,153,0.65), 0 0 36px rgba(52,211,153,0.2)",
-                                  }}
-                                  whileTap={{ scale: 0.88, boxShadow: "0 0 26px rgba(52,211,153,0.8)" }}
-                                  className="relative overflow-hidden rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold text-emerald-200 transition-colors duration-200 hover:border-emerald-300/70 hover:bg-emerald-500/30 hover:text-emerald-100"
-                                >
-                                  <Motion.span
-                                    className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
-                                    animate={{ left: ["-40%", "130%"] }}
-                                    transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
-                                  />
-                                  <span className="relative z-10">Update Progress</span>
-                                </Motion.button>
+                                {selectedDay === todayDay() && (
+                                  <Motion.button type="button" onClick={() => setProgressModal(ex)}
+                                    animate={{ boxShadow: ["0 0 0px rgba(52,211,153,0)", "0 0 8px rgba(52,211,153,0.4)", "0 0 0px rgba(52,211,153,0)"] }}
+                                    transition={{ boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
+                                    whileHover={{ scale: 1.08, boxShadow: "0 0 18px rgba(52,211,153,0.65)" }}
+                                    whileTap={{ scale: 0.88 }}
+                                    className="relative overflow-hidden rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold text-emerald-200 transition hover:bg-emerald-500/30">
+                                    <Motion.span className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                                      animate={{ left: ["-40%", "130%"] }}
+                                      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }} />
+                                    <span className="relative z-10">Update Progress</span>
+                                  </Motion.button>
+                                )}
                               </div>
                             </div>
                             <div className="mt-2 flex flex-wrap gap-2">
-                              <span className="rounded-md border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-amber-200/80">
-                                {ex.sets} sets
-                              </span>
-                              <span className="rounded-md border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-300">
-                                {ex.reps} reps
-                              </span>
+                              <span className="rounded-md border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-amber-200/80">{ex.sets} sets</span>
+                              {ex.reps && (
+                                <span className="rounded-md border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-300">{ex.reps} reps</span>
+                              )}
                               {ex.weight && ex.weight !== "0" && (
-                                <span className="rounded-md border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-300">
-                                  {ex.weight} kg
-                                </span>
+                                <span className="rounded-md border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-300">{ex.weight} kg</span>
                               )}
                               {ex.duration && (
-                                <span className="rounded-md border border-sky-400/20 bg-sky-500/8 px-2 py-0.5 text-[10px] font-semibold text-sky-300">
-                                  {ex.duration} min
-                                </span>
+                                <span className="rounded-md border border-sky-400/20 bg-sky-500/8 px-2 py-0.5 text-[10px] font-semibold text-sky-300">{ex.duration} min</span>
                               )}
                               {ex.restTime && (
-                                <span className="rounded-md border border-violet-400/20 bg-violet-500/8 px-2 py-0.5 text-[10px] font-semibold text-violet-300">
-                                  {ex.restTime}s rest
-                                </span>
+                                <span className="rounded-md border border-violet-400/20 bg-violet-500/8 px-2 py-0.5 text-[10px] font-semibold text-violet-300">{ex.restTime}s rest</span>
                               )}
                               {ex.sets && ex.reps && ex.weight && ex.weight !== "0" ? (
                                 <span className="rounded-md border border-emerald-400/20 bg-emerald-500/8 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
@@ -762,38 +1024,41 @@ export default function TodaysWorkout() {
             </div>
           </div>
 
-          {/* ── Diet column ── */}
-          <div className="journal-scroll w-full shrink-0 overflow-y-auto scroll-smooth xl:w-44 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/40">
+          {/* Diet column */}
+          <div className="journal-scroll w-full shrink-0 overflow-y-auto scroll-smooth xl:w-44 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
             <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">Diet</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              {dietCards.map(({ type, label, icon, color }, di) => (
-                <Motion.div
-                  key={type}
-                  className={`dashboard-glow-card flex shrink-0 flex-col items-start gap-2 rounded-2xl border p-3 ${color}`}
-                  initial={{ opacity: 0, x: 12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: di * 0.08, duration: 0.25 }}
-                  whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)" }}
-                >
-                  <span className="text-2xl">{icon}</span>
-                  <p className="text-xs font-semibold leading-snug">{label}</p>
-                  <p className="text-[10px] opacity-60">{formatDate(selectedDay)}</p>
-                  <Motion.button
-                    type="button"
-                    onClick={() => setDietModal({ type, day: selectedDay })}
-                    whileHover={{ scale: 1.03, boxShadow: "0 0 12px rgba(255,255,255,0.22)" }}
-                    whileTap={{ scale: 0.95 }}
-                    className="relative mt-1 w-full overflow-hidden rounded-lg border border-current/30 bg-black/20 py-1 text-[10px] font-semibold transition hover:bg-black/40"
+              {dietCards.map(({ type, label, icon, color }, di) => {
+                const planType = DIET_TYPE_MAP[type];
+                const hasPlan  = !isDemoMode && Boolean(dietPlans[planType]);
+                return (
+                  <Motion.div key={type}
+                    className={`dashboard-glow-card flex shrink-0 flex-col items-start gap-2 rounded-2xl border p-3 ${color}`}
+                    initial={{ opacity: 0, x: 12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: di * 0.08, duration: 0.25 }}
+                    whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)" }}
                   >
-                    <Motion.span
-                      className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
-                      animate={{ left: ["-40%", "130%"] }}
-                      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
-                    />
-                    <span className="relative z-10">View</span>
-                  </Motion.button>
-                </Motion.div>
-              ))}
+                    <span className="text-2xl">{icon}</span>
+                    <p className="text-xs font-semibold leading-snug">{label}</p>
+                    <p className="text-[10px] opacity-60">
+                      {formatDate(selectedDay)}
+                      {hasPlan ? " · Active" : isDemoMode ? "" : " · No plan"}
+                    </p>
+                    <Motion.button type="button"
+                      onClick={() => setDietModal({ type, day: selectedDay })}
+                      whileHover={{ scale: 1.03, boxShadow: "0 0 12px rgba(255,255,255,0.22)" }}
+                      whileTap={{ scale: 0.95 }}
+                      className="relative mt-1 w-full overflow-hidden rounded-lg border border-current/30 bg-black/20 py-1 text-[10px] font-semibold transition hover:bg-black/40"
+                    >
+                      <Motion.span className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                        animate={{ left: ["-40%", "130%"] }}
+                        transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }} />
+                      <span className="relative z-10">View</span>
+                    </Motion.button>
+                  </Motion.div>
+                );
+              })}
             </div>
           </div>
 
@@ -801,16 +1066,26 @@ export default function TodaysWorkout() {
       </div>
 
       {dietModal && (
-        <DietModal type={dietModal.type} day={dietModal.day} onClose={() => setDietModal(null)} />
-      )}
-      {exerciseModal && (
-        <ExerciseModal exercise={exerciseModal} onClose={() => setExerciseModal(null)} />
+        <DietModal
+          type={dietModal.type}
+          day={dietModal.day}
+          planData={isDemoMode ? null : dietPlans[DIET_TYPE_MAP[dietModal.type]] || null}
+          onClose={() => setDietModal(null)}
+        />
       )}
       {progressModal && (
-        <UpdateProgressModal exercise={progressModal} onClose={() => setProgressModal(null)} />
+        <UpdateProgressModal
+          exercise={progressModal}
+          isDemoMode={isDemoMode}
+          onClose={() => setProgressModal(null)}
+        />
       )}
       {viewProgressModal && (
-        <ViewProgressModal exercise={viewProgressModal} onClose={() => setViewProgressModal(null)} />
+        <ViewProgressModal
+          exercise={viewProgressModal}
+          isDemoMode={isDemoMode}
+          onClose={() => setViewProgressModal(null)}
+        />
       )}
     </>
   );

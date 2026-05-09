@@ -36,5 +36,6 @@ habitLogSchema.index(
 );
 habitLogSchema.index({ habitId: 1, completed: 1, dayKey: 1 });
 habitLogSchema.index({ habitId: 1, completed: 1, date: 1 });
+habitLogSchema.index({ date: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
 
 export default mongoose.model("HabitLog", habitLogSchema);

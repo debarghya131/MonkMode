@@ -1,7 +1,11 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
 
+import api from "../../api/axios";
+import useAuth from "../../hooks/useAuth";
+
 const STORAGE_KEY = "monkmode_gym_measurements";
+const DELETE_UNDO_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 const MEASUREMENT_GROUPS = [
   {
@@ -210,6 +214,44 @@ const sortEntries = (entries) =>
       (right.updatedAt || "").localeCompare(left.updatedAt || "")
   );
 
+const getDeleteUndoMeta = (entry, nowMs = Date.now()) => {
+  const deletedAtValue = entry?.deletedAt;
+  if (!deletedAtValue) {
+    return { canUndoDelete: false, deleteUndoExpiresAt: null, deleteUndoRemainingMs: 0 };
+  }
+
+  const deletedAtMs = new Date(deletedAtValue).getTime();
+  if (!Number.isFinite(deletedAtMs)) {
+    return { canUndoDelete: false, deleteUndoExpiresAt: null, deleteUndoRemainingMs: 0 };
+  }
+
+  const expiresAtMs = entry?.deleteUndoExpiresAt
+    ? new Date(entry.deleteUndoExpiresAt).getTime()
+    : (deletedAtMs + DELETE_UNDO_WINDOW_MS);
+  if (!Number.isFinite(expiresAtMs)) {
+    return { canUndoDelete: false, deleteUndoExpiresAt: null, deleteUndoRemainingMs: 0 };
+  }
+
+  const remainingMs = Math.max(0, expiresAtMs - nowMs);
+  return {
+    canUndoDelete: remainingMs > 0,
+    deleteUndoExpiresAt: new Date(expiresAtMs).toISOString(),
+    deleteUndoRemainingMs: remainingMs
+  };
+};
+
+const formatUndoCountdown = (remainingMs) => {
+  const clampedMs = Math.max(0, Number(remainingMs) || 0);
+  const totalSeconds = Math.ceil(clampedMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+  if (minutes > 0) return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+  return `${seconds}s`;
+};
+
 const readStoredEntries = () => {
   if (typeof window === "undefined") return [];
 
@@ -269,21 +311,55 @@ function MeasurementInput({ field, value, onChange, readOnly = false, required =
 }
 
 export default function Measurements() {
+  const { isDemoMode } = useAuth();
   const currentDate = todayISO();
   const [form, setForm] = useState(createBlankForm);
-  const [entries, setEntries] = useState(readStoredEntries);
+  const [entries, setEntries] = useState(() => (isDemoMode ? sortEntries(createDemoEntries()) : []));
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [selectedId, setSelectedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [activeGroupTitle, setActiveGroupTitle] = useState(DEFAULT_GROUP_TITLE);
   const [savedActiveGroupTitle, setSavedActiveGroupTitle] = useState(DEFAULT_GROUP_TITLE);
   const [updateSummary, setUpdateSummary] = useState(null);
+  const [loading, setLoading] = useState(() => !isDemoMode);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-    window.dispatchEvent(new Event("monkmode:gym-measurements-updated"));
-  }, [entries]);
+    if (isDemoMode) {
+      setEntries(sortEntries(createDemoEntries()));
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const fetch = async () => {
+      setLoading(true);
+      try {
+        const { data } = await api.get("/gym/measurements");
+        if (!cancelled) setEntries(sortEntries(Array.isArray(data) ? data : []));
+      } catch {
+        if (!cancelled) setEntries([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetch();
+    return () => { cancelled = true; };
+  }, [isDemoMode]);
+
+  useEffect(() => {
+    if (isDemoMode) {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+      window.dispatchEvent(new Event("monkmode:gym-measurements-updated"));
+    }
+  }, [entries, isDemoMode]);
+
+  const visibleEntries = entries.filter((entry) => {
+    if (!entry?.deletedAt) return true;
+    return getDeleteUndoMeta(entry, nowMs).canUndoDelete;
+  });
+  const activeEntries = entries.filter((entry) => !entry?.deletedAt);
 
   useEffect(() => {
     if (!entries.length) {
@@ -291,13 +367,24 @@ export default function Measurements() {
       return;
     }
 
-    if (selectedId && entries.some((entry) => entry.id === selectedId)) return;
-    setSelectedId(entries[0].id);
-  }, [entries, selectedId]);
+    if (selectedId && visibleEntries.some((entry) => entry.id === selectedId)) return;
+    setSelectedId(visibleEntries[0]?.id || null);
+  }, [visibleEntries, selectedId, entries.length]);
+
+  const hasDeletedEntries = entries.some((entry) => Boolean(entry?.deletedAt));
+  useEffect(() => {
+    if (!hasDeletedEntries) return undefined;
+
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [hasDeletedEntries]);
 
   const selectedEntry =
-    entries.find((entry) => entry.id === selectedId) || entries[0] || null;
-  const todayEntry = entries.find((entry) => entry.checkInDate === currentDate) || null;
+    visibleEntries.find((entry) => entry.id === selectedId) || visibleEntries[0] || null;
+  const previewEntry = selectedEntry && !selectedEntry?.deletedAt
+    ? selectedEntry
+    : activeEntries[0] || null;
+  const todayEntry = entries.find((entry) => entry.checkInDate === currentDate && !entry?.deletedAt) || null;
   const activeGroup =
     MEASUREMENT_GROUPS.find((group) => group.title === activeGroupTitle) || MEASUREMENT_GROUPS[0];
   const savedActiveGroup =
@@ -327,9 +414,73 @@ export default function Measurements() {
     setStatus(savedTodayMessage);
   }, [editingId, error, savedTodayMessage, status]);
 
-  const deleteEntry = (id) => {
-    setEntries((current) => current.filter((entry) => entry.id !== id));
-    if (selectedId === id) setSelectedId(null);
+  const deleteEntry = async (id) => {
+    if (isDemoMode) {
+      const deletedAt = new Date().toISOString();
+      const deleteUndoExpiresAt = new Date(Date.now() + DELETE_UNDO_WINDOW_MS).toISOString();
+      setEntries((current) => sortEntries(current.map((entry) => (
+        entry.id === id
+          ? {
+            ...entry,
+            deletedAt,
+            canUndoDelete: true,
+            deleteUndoExpiresAt,
+            deleteUndoRemainingMs: DELETE_UNDO_WINDOW_MS
+          }
+          : entry
+      ))));
+      setError("");
+      setStatus("Check-in deleted. Undo available for 48 hours.");
+      return;
+    }
+    try {
+      const { data } = await api.delete(`/gym/measurements/${id}`);
+      const updatedEntry = data?.entry;
+      if (updatedEntry?.id) {
+        setEntries((current) => sortEntries(
+          current.map((entry) => (entry.id === id ? updatedEntry : entry))
+        ));
+      }
+      setError("");
+      setStatus(data?.message || "Check-in deleted. Undo available for 48 hours.");
+      window.dispatchEvent(new Event("monkmode:gym-measurements-updated"));
+    } catch (deleteErr) {
+      setError(deleteErr?.response?.data?.message || "Failed to delete measurement.");
+    }
+  };
+
+  const undoDeleteEntry = async (id) => {
+    if (isDemoMode) {
+      setEntries((current) => sortEntries(current.map((entry) => (
+        entry.id === id
+          ? {
+            ...entry,
+            deletedAt: null,
+            canUndoDelete: false,
+            deleteUndoExpiresAt: null,
+            deleteUndoRemainingMs: 0
+          }
+          : entry
+      ))));
+      setError("");
+      setStatus("Check-in restored successfully.");
+      return;
+    }
+
+    try {
+      const { data } = await api.patch(`/gym/measurements/${id}/undo-delete`);
+      const updatedEntry = data?.entry;
+      if (updatedEntry?.id) {
+        setEntries((current) => sortEntries(
+          current.map((entry) => (entry.id === id ? updatedEntry : entry))
+        ));
+      }
+      setError("");
+      setStatus(data?.message || "Check-in restored successfully.");
+      window.dispatchEvent(new Event("monkmode:gym-measurements-updated"));
+    } catch (undoErr) {
+      setError(undoErr?.response?.data?.message || "Failed to restore check-in.");
+    }
   };
 
   const resetForm = () => {
@@ -361,7 +512,7 @@ export default function Measurements() {
     setStatus(`Editing check-in from ${formatDate(entry.checkInDate)}.`);
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (isFirstSave && !allFieldsFilled) {
@@ -384,50 +535,83 @@ export default function Measurements() {
       return;
     }
 
-    const timestamp = new Date().toISOString();
     const previousEntry = editingId
       ? entries.find((entry) => entry.id === editingId) || null
       : null;
-    const nextEntry = {
-      id: editingId || `measurement-${Date.now()}`,
-      checkInDate: currentDate,
-      updatedAt: timestamp,
-      ...Object.fromEntries(
-        MEASUREMENT_FIELDS.map(({ key }) => [key, String(form[key] ?? "").trim()])
-      ),
-    };
 
-    setEntries((current) => {
-      const nextEntries = editingId
-        ? current.map((entry) => (entry.id === editingId ? nextEntry : entry))
-        : [nextEntry, ...current];
-      return sortEntries(nextEntries);
-    });
-
-    setSelectedId(nextEntry.id);
-    setStatus(
-      editingId
+    if (isDemoMode) {
+      const timestamp = new Date().toISOString();
+      const nextEntry = {
+        id: editingId || `measurement-${Date.now()}`,
+        checkInDate: currentDate,
+        updatedAt: timestamp,
+        ...Object.fromEntries(
+          MEASUREMENT_FIELDS.map(({ key }) => [key, String(form[key] ?? "").trim()])
+        ),
+      };
+      setEntries((current) => {
+        const nextEntries = editingId
+          ? current.map((entry) => (entry.id === editingId ? nextEntry : entry))
+          : [nextEntry, ...current];
+        return sortEntries(nextEntries);
+      });
+      setSelectedId(nextEntry.id);
+      setStatus(editingId
         ? `Measurements updated successfully on ${formatDate(currentDate)}.`
         : `Measurements saved successfully on ${formatDate(currentDate)}.`
-    );
-    if (previousEntry) {
-      setUpdateSummary({
-        date: nextEntry.checkInDate,
-        ...buildUpdateSummary(previousEntry, nextEntry),
-      });
-    } else {
-      setUpdateSummary(null);
+      );
+      if (previousEntry) {
+        setUpdateSummary({ date: nextEntry.checkInDate, ...buildUpdateSummary(previousEntry, nextEntry) });
+      } else {
+        setUpdateSummary(null);
+      }
+      setError("");
+      setForm(createFormFromEntry(nextEntry, currentDate));
+      setEditingId(null);
+      return;
     }
-    setError("");
-    setForm(createFormFromEntry(nextEntry, currentDate));
-    setEditingId(null);
+
+    const payload = {
+      checkInDate: currentDate,
+      ...Object.fromEntries(MEASUREMENT_FIELDS.map(({ key }) => [key, String(form[key] ?? "").trim()])),
+    };
+
+    try {
+      let saved;
+      if (editingId) {
+        const { data } = await api.patch(`/gym/measurements/${editingId}`, payload);
+        saved = data;
+        setEntries((current) => sortEntries(current.map((entry) => (entry.id === editingId ? saved : entry))));
+      } else {
+        const { data } = await api.post("/gym/measurements", payload);
+        saved = data;
+        setEntries((current) => sortEntries([saved, ...current]));
+      }
+      setSelectedId(saved.id);
+      setStatus(editingId
+        ? `Measurements updated successfully on ${formatDate(currentDate)}.`
+        : `Measurements saved successfully on ${formatDate(currentDate)}.`
+      );
+      if (previousEntry) {
+        setUpdateSummary({ date: saved.checkInDate, ...buildUpdateSummary(previousEntry, saved) });
+      } else {
+        setUpdateSummary(null);
+      }
+      setError("");
+      setForm(createFormFromEntry(saved, currentDate));
+      setEditingId(null);
+      window.dispatchEvent(new Event("monkmode:gym-measurements-updated"));
+    } catch (submitErr) {
+      setError(submitErr?.response?.data?.message || "Failed to save measurements.");
+      setStatus("");
+    }
   };
 
-  const visibleMeasurements = selectedEntry
-    ? MEASUREMENT_FIELDS.filter(({ key }) => hasValue(selectedEntry[key]))
+  const visibleMeasurements = previewEntry
+    ? MEASUREMENT_FIELDS.filter(({ key }) => hasValue(previewEntry[key]))
     : [];
-  const visibleSavedMeasurements = selectedEntry
-    ? savedActiveGroup.fields.filter(({ key }) => hasValue(selectedEntry[key]))
+  const visibleSavedMeasurements = previewEntry
+    ? savedActiveGroup.fields.filter(({ key }) => hasValue(previewEntry[key]))
     : [];
 
   return (
@@ -587,11 +771,15 @@ export default function Measurements() {
               </h3>
             </div>
             <div className="rounded-full border border-amber-300/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-100">
-              {entries.length} saved
+              {activeEntries.length} saved
             </div>
           </div>
 
-          {!selectedEntry ? (
+          {loading ? (
+            <div className="mt-6 rounded-[1.5rem] border border-dashed border-amber-100/10 bg-black/20 px-6 py-10 text-center">
+              <p className="text-sm font-semibold text-stone-200">Loading measurements...</p>
+            </div>
+          ) : visibleEntries.length === 0 ? (
             <div className="mt-6 rounded-[1.5rem] border border-dashed border-amber-100/10 bg-black/20 px-6 py-10 text-center">
               <p className="text-sm font-semibold text-stone-200">No measurements saved yet.</p>
               <p className="mt-2 text-sm text-stone-500">
@@ -605,9 +793,9 @@ export default function Measurements() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h4 className="text-lg font-semibold text-stone-100">
-                        {formatDate(selectedEntry.checkInDate)}
+                        {formatDate(previewEntry?.checkInDate)}
                       </h4>
-                      {entries[0]?.id === selectedEntry.id && (
+                      {previewEntry && activeEntries[0]?.id === previewEntry.id && (
                         <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200">
                           Latest
                         </span>
@@ -675,7 +863,7 @@ export default function Measurements() {
                               {field.label}
                             </p>
                             <p className="mt-2 text-base font-semibold text-stone-100">
-                              {selectedEntry[field.key]}
+                              {previewEntry[field.key]}
                               <span className="ml-1 text-xs font-medium text-stone-500">
                                 {field.unit}
                               </span>
@@ -699,13 +887,15 @@ export default function Measurements() {
                 </div>
 
                 <div className="mt-3 flex-1 space-y-2.5 overflow-x-hidden overflow-y-auto scroll-smooth pr-1">
-                  {entries.map((entry, ei) => {
-                    const isSelected = entry.id === selectedEntry.id;
+                  {visibleEntries.map((entry, ei) => {
+                    const isSelected = entry.id === selectedEntry?.id;
+                    const undoMeta = getDeleteUndoMeta(entry, nowMs);
+                    const canUndoDelete = Boolean(entry?.deletedAt) && undoMeta.canUndoDelete;
 
                     return (
                       <Motion.div
                         key={entry.id}
-                        className={`flex w-full items-center justify-between gap-2.5 rounded-xl border px-3 py-2.5 transition ${
+                        className={`flex w-full items-start justify-between gap-2.5 rounded-xl border px-3 py-2.5 transition ${
                           isSelected
                             ? "border-amber-300/35 bg-amber-500/10"
                             : "border-amber-100/10 bg-white/5 hover:border-amber-200/20 hover:bg-white/10"
@@ -718,9 +908,9 @@ export default function Measurements() {
                         <button
                           type="button"
                           onClick={() => setSelectedId(entry.id)}
-                          className="min-w-0 flex-1 text-left"
+                          className="min-w-0 flex-1 pr-1 text-left"
                         >
-                          <p className="text-[15px] font-semibold text-stone-100">
+                          <p className="text-[15px] font-semibold leading-tight text-stone-100">
                             {formatDate(entry.checkInDate)}
                           </p>
                           <p className="mt-0.5 text-[11px] text-stone-500">
@@ -728,18 +918,30 @@ export default function Measurements() {
                             {hasValue(entry.bodyWeight) ? ` • ${entry.bodyWeight} kg` : ""}
                           </p>
                         </button>
-                        <div className="flex shrink-0 items-center gap-2">
+                        <div className="flex shrink-0 flex-col items-end gap-1 self-center">
                           <span className="text-xs font-semibold text-stone-400">
-                            {isSelected ? "Viewing" : "Open"}
+                            {canUndoDelete ? "Deleted" : isSelected ? "Viewing" : "Open"}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => deleteEntry(entry.id)}
-                            className="flex h-5 w-5 items-center justify-center rounded-full text-stone-500 transition hover:bg-rose-500/20 hover:text-rose-300"
-                            aria-label="Delete check-in"
-                          >
-                            ✕
-                          </button>
+                          {canUndoDelete ? (
+                            <button
+                              type="button"
+                              onClick={() => undoDeleteEntry(entry.id)}
+                              className="inline-flex items-center rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-500/20"
+                              title="Undo delete (available for 48 hours)"
+                              aria-label="Undo delete check-in"
+                            >
+                              ↺ {formatUndoCountdown(undoMeta.deleteUndoRemainingMs)}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => deleteEntry(entry.id)}
+                              className="flex h-5 w-5 items-center justify-center rounded-full text-stone-500 transition hover:bg-rose-500/20 hover:text-rose-300"
+                              aria-label="Delete check-in"
+                            >
+                              ✕
+                            </button>
+                          )}
                         </div>
                       </Motion.div>
                     );

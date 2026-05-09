@@ -1,6 +1,8 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import api from "../../api/axios";
+import useAuth from "../../hooks/useAuth";
 import { BODY_PART_GROUPS, EXERCISE_LIBRARY, WORKOUT_SPLITS } from "./workoutLibraryData";
 import { createDummyWorkouts, RETIRED_DEMO_WORKOUT_IDS, createDummyLogs } from "../../../data/GymDummyData";
 
@@ -12,14 +14,16 @@ const GOAL_TYPES = [
   { value: "strength",     label: "🏋️ Strength"      },
   { value: "endurance",    label: "🏃 Endurance"     },
 ];
+const CUSTOM_GOAL_TYPES_STORAGE_KEY = "monkmode_gym_custom_goal_types_v1";
+const CUSTOM_WORKOUT_SPLITS_STORAGE_KEY = "monkmode_gym_custom_workout_splits_v1";
 
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const DIFFICULTY_LEVELS = ["Beginner 🟢", "Intermediate 🟡", "Advanced 🔴"];
 const DIFFICULTY_STYLES = {
-  Beginner:     "border-green-400/40 text-green-200 bg-green-500/10",
-  Intermediate: "border-yellow-400/40 text-yellow-200 bg-yellow-500/10",
-  Advanced:     "border-red-400/40 text-red-200 bg-red-500/10",
+  "Beginner 🟢":     "border-green-400/40 text-green-200 bg-green-500/10",
+  "Intermediate 🟡": "border-yellow-400/40 text-yellow-200 bg-yellow-500/10",
+  "Advanced 🔴":     "border-red-400/40 text-red-200 bg-red-500/10",
 };
 
 const formatBodyPart = (group, section) => (group ? (section ? `${group} - ${section}` : group) : "");
@@ -47,6 +51,86 @@ const toISO = (d) => {
   return `${y}-${m}-${day}`;
 };
 
+const toGoalOption = (value, label = "") => {
+  const cleanValue = String(value || "").trim();
+  if (!cleanValue) return null;
+  const fallbackLabel = cleanValue
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+  return {
+    value: cleanValue,
+    label: String(label || fallbackLabel).trim() || fallbackLabel,
+  };
+};
+
+const mergeGoalOptions = (...groups) => {
+  const byValue = new Map();
+  groups.flat().forEach((option) => {
+    const normalized = toGoalOption(option?.value, option?.label);
+    if (!normalized) return;
+    const existing = byValue.get(normalized.value);
+    if (!existing) {
+      byValue.set(normalized.value, normalized);
+      return;
+    }
+    const nextLabel = /[\u{1F300}-\u{1FAFF}]/u.test(existing.label) ? existing.label : normalized.label;
+    byValue.set(normalized.value, { ...existing, label: nextLabel });
+  });
+  return [...byValue.values()];
+};
+
+const readStoredCustomGoalOptions = () => {
+  try {
+    const raw = localStorage.getItem(CUSTOM_GOAL_TYPES_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => toGoalOption(item?.value, item?.label))
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+};
+
+const persistCustomGoalOptions = (options = []) => {
+  try {
+    const baseValues = new Set(GOAL_TYPES.map((item) => item.value));
+    const customOnly = (Array.isArray(options) ? options : [])
+      .map((item) => toGoalOption(item?.value, item?.label))
+      .filter((item) => item && !baseValues.has(item.value));
+    localStorage.setItem(CUSTOM_GOAL_TYPES_STORAGE_KEY, JSON.stringify(customOnly));
+  } catch {
+    // ignore storage errors
+  }
+};
+
+const readStoredCustomSplitOptions = () => {
+  try {
+    const raw = localStorage.getItem(CUSTOM_WORKOUT_SPLITS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => toGoalOption(item?.value, item?.label))
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+};
+
+const persistCustomSplitOptions = (options = []) => {
+  try {
+    const baseValues = new Set(WORKOUT_SPLITS.map((item) => item.value));
+    const customOnly = (Array.isArray(options) ? options : [])
+      .map((item) => toGoalOption(item?.value, item?.label))
+      .filter((item) => item && !baseValues.has(item.value));
+    localStorage.setItem(CUSTOM_WORKOUT_SPLITS_STORAGE_KEY, JSON.stringify(customOnly));
+  } catch {
+    // ignore storage errors
+  }
+};
+
 const nowTime = () => {
   const d = new Date();
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -58,6 +142,78 @@ const fmtTime = (t) => {
   const d = new Date();
   d.setHours(h, m);
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+};
+
+const toNonNegativeNumber = (value) => {
+  const parsed = Number.parseFloat(String(value || "").trim());
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(0, parsed);
+};
+
+const computeExerciseEstimatedMinutes = (exercise = {}) => {
+  const setsRaw = Number.parseInt(String(exercise?.sets || "").trim(), 10);
+  const sets = Number.isFinite(setsRaw) ? Math.max(0, setsRaw) : 0;
+  const durationMinutes = toNonNegativeNumber(exercise?.duration);
+  const restSeconds = toNonNegativeNumber(exercise?.restTime);
+  if (sets <= 0 || durationMinutes <= 0) return 0;
+
+  const workMinutes = durationMinutes * sets;
+  const restMinutes = sets > 1 ? (restSeconds * (sets - 1)) / 60 : 0;
+  return workMinutes + restMinutes;
+};
+
+const formatEstimatedMinutes = (minutes) => {
+  if (!Number.isFinite(minutes) || minutes <= 0) return "";
+  const rounded = Math.round(minutes * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+};
+
+const WORKOUT_DELETE_UNDO_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+const parseLogTimestampMs = (log = {}) => {
+  if (log?.createdAt) {
+    const createdAtMs = new Date(log.createdAt).getTime();
+    if (Number.isFinite(createdAtMs)) return createdAtMs;
+  }
+
+  if (log?.date) {
+    const datePart = String(log.date).trim();
+    const timePart = String(log.time || "00:00").trim();
+    const merged = new Date(`${datePart}T${timePart}:00`);
+    const mergedMs = merged.getTime();
+    if (Number.isFinite(mergedMs)) return mergedMs;
+    const dateOnlyMs = new Date(datePart).getTime();
+    if (Number.isFinite(dateOnlyMs)) return dateOnlyMs;
+  }
+
+  return null;
+};
+
+const getDeleteUndoMeta = (log = {}, nowMs = Date.now()) => {
+  const deletedAtMs = parseLogTimestampMs(log);
+  if (!Number.isFinite(deletedAtMs)) {
+    return { canUndo: false, remainingMs: 0 };
+  }
+  const remainingMs = Math.max(0, deletedAtMs + WORKOUT_DELETE_UNDO_WINDOW_MS - nowMs);
+  return {
+    canUndo: remainingMs > 0,
+    remainingMs,
+  };
+};
+
+const formatUndoCountdown = (remainingMs = 0) => {
+  if (remainingMs <= 0) return "expired";
+  const totalMinutes = Math.ceil(remainingMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours <= 0) return `${minutes}m`;
+  return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+};
+
+const parseLogCreatedAtMs = (log = {}) => {
+  const fromCreatedAt = log?.createdAt ? new Date(log.createdAt).getTime() : NaN;
+  if (Number.isFinite(fromCreatedAt)) return fromCreatedAt;
+  return parseLogTimestampMs(log);
 };
 
 const BLANK_FORM = {
@@ -126,11 +282,11 @@ const enforceDemoActiveWorkouts = (items) =>
 
 
 export default function AddWorkout() {
+  const { isDemoMode } = useAuth();
   const today = useMemo(() => toISO(new Date()), []);
   const searchRef = useRef(null);
   const splitDropRef = useRef(null);
   const goalDropRef = useRef(null);
-  const bodyGroupDropRef = useRef(null);
   const workoutListRef = useRef(null);
 
   const [form, setForm] = useState({ ...BLANK_FORM, startDate: today });
@@ -141,57 +297,152 @@ export default function AddWorkout() {
   const [showExForm, setShowExForm] = useState(false);
   const [viewWorkout, setViewWorkout] = useState(null);
   const [exError, setExError] = useState("");
-  const [splitOptions, setSplitOptions] = useState(WORKOUT_SPLITS);
+  const [splitOptions, setSplitOptions] = useState(() => mergeGoalOptions(WORKOUT_SPLITS, readStoredCustomSplitOptions()));
   const [showGoalDrop, setShowGoalDrop] = useState(false);
-  const [goalOptions, setGoalOptions] = useState(GOAL_TYPES);
+  const [goalOptions, setGoalOptions] = useState(() => mergeGoalOptions(GOAL_TYPES, readStoredCustomGoalOptions()));
   const [showCustomGoal, setShowCustomGoal] = useState(false);
   const [customGoal, setCustomGoal] = useState("");
   const [showSplitDrop, setShowSplitDrop] = useState(false);
   const [showCustomSplit, setShowCustomSplit] = useState(false);
   const [customSplit, setCustomSplit] = useState("");
-  const [showBodyGroupDrop, setShowBodyGroupDrop] = useState(false);
+  const [customLibraryExercises, setCustomLibraryExercises] = useState([]);
   const [error, setError] = useState("");
-  const [workouts, setWorkouts] = useState(() => {
-    try {
-      const stored = localStorage.getItem("monkmode_workouts");
-      return stored
-        ? enforceDemoActiveWorkouts(normalizeActiveByDay(mergeWithDemoWorkouts(JSON.parse(stored), new Date())))
-        : enforceDemoActiveWorkouts(normalizeActiveByDay(createDummyWorkouts(new Date())));
-    } catch { return enforceDemoActiveWorkouts(normalizeActiveByDay(createDummyWorkouts(new Date()))); }
-  });
+  const [workouts, setWorkouts] = useState(() =>
+    isDemoMode
+      ? enforceDemoActiveWorkouts(normalizeActiveByDay(createDummyWorkouts(new Date())))
+      : []
+  );
+  const [loading, setLoading] = useState(!isDemoMode);
   const [workoutsView, setWorkoutsView] = useState("active");
   const [workoutDayFilter, setWorkoutDayFilter] = useState("all");
-  const [logs, setLogs] = useState(() => createDummyLogs(new Date()));
+  const [logs, setLogs] = useState(() => isDemoMode ? createDummyLogs(new Date()) : []);
   const [editingId, setEditingId] = useState(null);
   const [copyWorkout, setCopyWorkout] = useState(null);
   const [copyDays, setCopyDays] = useState([]);
   const [copyError, setCopyError] = useState("");
-
-  useEffect(() => {
-    localStorage.setItem("monkmode_workouts", JSON.stringify(workouts));
-  }, [workouts]);
+  const [undoClockMs, setUndoClockMs] = useState(() => Date.now());
 
   useEffect(() => {
     const handler = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) setShowDrop(false);
       if (splitDropRef.current && !splitDropRef.current.contains(e.target)) setShowSplitDrop(false);
       if (goalDropRef.current && !goalDropRef.current.contains(e.target)) setShowGoalDrop(false);
-      if (bodyGroupDropRef.current && !bodyGroupDropRef.current.contains(e.target)) setShowBodyGroupDrop(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setUndoClockMs(Date.now());
+    }, 30000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    if (isDemoMode) {
+      setCustomLibraryExercises([]);
+      return;
+    }
+
+    let isMounted = true;
+
+    const refreshCustomLibrary = async () => {
+      try {
+        const { data } = await api.get("/gym/library");
+        if (!isMounted) return;
+        setCustomLibraryExercises(Array.isArray(data) ? data : []);
+      } catch (fetchError) {
+        if (!isMounted) return;
+        console.error("Failed to load custom gym library for workout search:", fetchError);
+        setCustomLibraryExercises([]);
+      }
+    };
+
+    refreshCustomLibrary();
+    window.addEventListener("focus", refreshCustomLibrary);
+    window.addEventListener("monkmode:gym-library-updated", refreshCustomLibrary);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("focus", refreshCustomLibrary);
+      window.removeEventListener("monkmode:gym-library-updated", refreshCustomLibrary);
+    };
+  }, [isDemoMode]);
+
+  useEffect(() => {
+    if (isDemoMode) return;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const { data } = await api.get("/gym/plans");
+        if (cancelled) return;
+        const plans = Array.isArray(data) ? data : [];
+        setWorkouts(plans);
+        const planGoalOptions = plans
+          .map((plan) => toGoalOption(plan?.goalType))
+          .filter(Boolean);
+        const planSplitOptions = plans
+          .map((plan) => toGoalOption(plan?.workoutSplit))
+          .filter(Boolean);
+        setGoalOptions((prev) => mergeGoalOptions(GOAL_TYPES, prev, planGoalOptions));
+        setSplitOptions((prev) => mergeGoalOptions(WORKOUT_SPLITS, prev, planSplitOptions));
+      } catch {
+        // keep empty on failure
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [isDemoMode]);
+
+  useEffect(() => {
+    if (isDemoMode) return;
+    let cancelled = false;
+    api.get("/gym/plans/logs")
+      .then(({ data }) => { if (!cancelled) setLogs(Array.isArray(data) ? data : []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isDemoMode]);
+
+  const persistLog = (entry) => {
+    if (isDemoMode) return;
+    api.post("/gym/plans/logs", {
+      planId: entry.planId || "",
+      title: entry.title,
+      action: entry.action,
+      note: entry.note || "",
+      date: entry.date,
+      time: entry.time,
+      deletedItem: entry.deletedItem && typeof entry.deletedItem === "object" ? entry.deletedItem : null,
+      restoredFromLogId: entry.restoredFromLogId || "",
+    }).catch(() => {});
+  };
+
+  const libraryExercises = useMemo(
+    () => [...EXERCISE_LIBRARY, ...customLibraryExercises],
+    [customLibraryExercises]
+  );
+
   const searchResults = useMemo(() => {
     const q = exSearch.trim().toLowerCase();
     if (!q) return [];
-    return EXERCISE_LIBRARY.filter(
+    return libraryExercises.filter(
       (e) => e.name.toLowerCase().includes(q) || e.bodyPart.toLowerCase().includes(q)
     ).slice(0, 8);
-  }, [exSearch]);
+  }, [exSearch, libraryExercises]);
 
   const selectedBodyPartGroup = BODY_PART_GROUPS.find((bp) => bp.group === currentEx.bodyPartGroup);
   const selectedBodyPartSections = selectedBodyPartGroup?.sections || [];
+  const autoTotalEstimatedTime = useMemo(() => {
+    if (!Array.isArray(exercises) || exercises.length === 0) return "";
+    const totalMinutes = exercises.reduce(
+      (sum, exercise) => sum + computeExerciseEstimatedMinutes(exercise),
+      0
+    );
+    return formatEstimatedMinutes(totalMinutes);
+  }, [exercises]);
   const remainingCopyDays = useMemo(() => {
     if (!copyWorkout) return [];
     const sourceId = copyWorkout.copiedFromId || copyWorkout.id;
@@ -203,6 +454,14 @@ export default function AddWorkout() {
     });
     return WEEK_DAYS.filter((day) => !occupiedDays.has(day));
   }, [copyWorkout, workouts]);
+
+  useEffect(() => {
+    setForm((prev) => (
+      prev.totalEstimatedTime === autoTotalEstimatedTime
+        ? prev
+        : { ...prev, totalEstimatedTime: autoTotalEstimatedTime }
+    ));
+  }, [autoTotalEstimatedTime]);
 
   const setField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -254,6 +513,16 @@ export default function AddWorkout() {
       ...prev,
       { ...exercisePayload, bodyPart: resolvedBodyPart, id: currentEx.id || `ex-${Date.now()}` },
     ]);
+    if (currentEx.id?.startsWith("custom-") && !isDemoMode) {
+      api.post("/gym/library", {
+        name: currentEx.name.trim(),
+        bodyGroup: currentEx.bodyPartGroup,
+        bodySection: currentEx.bodyPartSection,
+        bodyPart: resolvedBodyPart,
+      }).then(() => {
+        window.dispatchEvent(new Event("monkmode:gym-library-updated"));
+      }).catch(() => {});
+    }
     setCurrentEx({ ...BLANK_EXERCISE });
     setExSearch("");
     setShowExForm(false);
@@ -261,15 +530,22 @@ export default function AddWorkout() {
   };
 
 
-  const handleRemoveFromView = (exId) => {
+  const handleRemoveFromView = async (exId) => {
     const updated = viewWorkout.exercises.filter((e) => e.id !== exId);
-    // if viewing the form's current workout, sync exercises state too
-    if (viewWorkout.title === "Current Workout") {
+    if (!viewWorkout.id) {
       setExercises(updated);
     } else {
       setWorkouts((prev) =>
         prev.map((w) => w.id === viewWorkout.id ? { ...w, exercises: updated } : w)
       );
+      if (!isDemoMode && viewWorkout.id) {
+        try {
+          const { data } = await api.patch(`/gym/plans/${viewWorkout.id}`, { exercises: updated });
+          setWorkouts((prev) => prev.map((w) => w.id === viewWorkout.id ? data : w));
+        } catch {
+          // local update already applied above
+        }
+      }
     }
     setViewWorkout((prev) => ({ ...prev, exercises: updated }));
   };
@@ -280,7 +556,11 @@ export default function AddWorkout() {
       value: customGoal.trim().toLowerCase().replace(/\s+/g, "-"),
       label: customGoal.trim(),
     };
-    setGoalOptions((prev) => [...prev, newGoal]);
+    setGoalOptions((prev) => {
+      const next = mergeGoalOptions(GOAL_TYPES, prev, [newGoal]);
+      persistCustomGoalOptions(next);
+      return next;
+    });
     setField("goalType", newGoal.value);
     setCustomGoal("");
     setShowCustomGoal(false);
@@ -292,7 +572,11 @@ export default function AddWorkout() {
       value: customSplit.trim().toLowerCase().replace(/\s+/g, "-"),
       label: customSplit.trim(),
     };
-    setSplitOptions((prev) => [...prev, newSplit]);
+    setSplitOptions((prev) => {
+      const next = mergeGoalOptions(WORKOUT_SPLITS, prev, [newSplit]);
+      persistCustomSplitOptions(next);
+      return next;
+    });
     setField("workoutSplit", newSplit.value);
     setCustomSplit("");
     setShowCustomSplit(false);
@@ -307,7 +591,8 @@ export default function AddWorkout() {
     if (form.days.length === 0) return "Select a day.";
     if (!form.startDate) return "Start date is required.";
     if (!form.neverEnds && !form.endDate) return "End date is required or select Never End.";
-    if (!form.neverEnds && form.endDate && form.endDate < form.startDate) return "End date cannot be before start date.";
+    if (!form.neverEnds && form.endDate && form.endDate <= today) return "End date must be after today.";
+    if (!form.neverEnds && form.endDate && form.endDate <= form.startDate) return "End date must be after the start date.";
     if (!form.difficulty) return "Difficulty level is required.";
     return "";
   };
@@ -339,46 +624,80 @@ export default function AddWorkout() {
     setExercises(w.exercises || []);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const w = workouts.find((x) => x.id === id);
     if (!w) return;
-    setWorkouts((prev) => prev.filter((x) => x.id !== id));
-    setLogs((prev) => [
-      { id: `${id}-del-${Date.now()}`, action: "deleted", title: w.title, date: toISO(new Date()), time: nowTime(), deletedItem: w },
-      ...prev,
-    ]);
-    if (editingId === id) resetForm();
+    if (isDemoMode) {
+      setWorkouts((prev) => prev.filter((x) => x.id !== id));
+      setLogs((prev) => [
+        { id: `${id}-del-${Date.now()}`, action: "deleted", title: w.title, date: toISO(new Date()), time: nowTime(), deletedItem: w },
+        ...prev,
+      ]);
+      if (editingId === id) resetForm();
+      return;
+    }
+    try {
+      await api.delete(`/gym/plans/${id}`);
+      setWorkouts((prev) => prev.filter((x) => x.id !== id));
+      const logEntry = { id: `${id}-del-${Date.now()}`, action: "deleted", title: w.title, date: toISO(new Date()), time: nowTime(), deletedItem: w };
+      setLogs((prev) => [logEntry, ...prev]);
+      persistLog({ ...logEntry, planId: id });
+      if (editingId === id) resetForm();
+    } catch {
+      // silently fail
+    }
   };
 
-  const handleToggleWorkoutActive = (id) => {
+  const handleToggleWorkoutActive = async (id) => {
     const target = workouts.find((item) => item.id === id);
     if (!target) return;
 
     const nextIsActive = !target.isActive;
     const targetDays = target.days || [];
 
-    setWorkouts((prev) => prev.map((item) => {
-      if (item.id === id) return { ...item, isActive: nextIsActive };
-      if (!nextIsActive) return item;
-      const overlapsTargetDay = (item.days || []).some((day) => targetDays.includes(day));
-      return overlapsTargetDay ? { ...item, isActive: false } : item;
-    }));
-
-    if (viewWorkout?.id === id) {
-      setViewWorkout((prev) => (prev ? { ...prev, isActive: nextIsActive } : prev));
+    if (isDemoMode) {
+      setWorkouts((prev) => prev.map((item) => {
+        if (item.id === id) return { ...item, isActive: nextIsActive };
+        if (!nextIsActive) return item;
+        const overlapsTargetDay = (item.days || []).some((day) => targetDays.includes(day));
+        return overlapsTargetDay ? { ...item, isActive: false } : item;
+      }));
+      if (viewWorkout?.id === id) {
+        setViewWorkout((prev) => (prev ? { ...prev, isActive: nextIsActive } : prev));
+      }
+      setLogs((prev) => [
+        {
+          id: `${id}-${nextIsActive ? "act" : "deact"}-${Date.now()}`,
+          action: nextIsActive ? "activated" : "deactivated",
+          title: target.title,
+          note: targetDays.length > 0 ? `for ${targetDays.join(", ")}` : "",
+          date: toISO(new Date()),
+          time: nowTime(),
+        },
+        ...prev,
+      ]);
+      return;
     }
 
-    setLogs((prev) => [
-      {
+    try {
+      const { data } = await api.patch(`/gym/plans/${id}/active`);
+      setWorkouts(data);
+      if (viewWorkout?.id === id) {
+        setViewWorkout((prev) => (prev ? { ...prev, isActive: nextIsActive } : prev));
+      }
+      const logEntry = {
         id: `${id}-${nextIsActive ? "act" : "deact"}-${Date.now()}`,
         action: nextIsActive ? "activated" : "deactivated",
         title: target.title,
         note: targetDays.length > 0 ? `for ${targetDays.join(", ")}` : "",
         date: toISO(new Date()),
         time: nowTime(),
-      },
-      ...prev,
-    ]);
+      };
+      setLogs((prev) => [logEntry, ...prev]);
+      persistLog({ ...logEntry, planId: id });
+    } catch {
+      // silently fail
+    }
   };
 
   const openCopyWorkout = (id) => {
@@ -396,7 +715,7 @@ export default function AddWorkout() {
     if (copyError) setCopyError("");
   };
 
-  const handleCopyWorkout = () => {
+  const handleCopyWorkout = async () => {
     if (!copyWorkout) return;
     if (copyDays.length === 0) {
       setCopyError("Select at least one remaining day.");
@@ -405,98 +724,270 @@ export default function AddWorkout() {
 
     const sourceId = copyWorkout.copiedFromId || copyWorkout.id;
     const stamp = Date.now();
-    const copies = copyDays.map((day, idx) => ({
-      ...copyWorkout,
-      id: `${stamp}-cpy-${idx}-${Math.random().toString(36).slice(2, 6)}`,
-      copiedFromId: sourceId,
-      isActive: false,
-      days: [day],
-    }));
 
-    setWorkouts((prev) => [...copies, ...prev]);
-    setLogs((prev) => [
-      {
+    if (isDemoMode) {
+      const copies = copyDays.map((day, idx) => ({
+        ...copyWorkout,
+        id: `${stamp}-cpy-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+        copiedFromId: sourceId,
+        isActive: false,
+        days: [day],
+      }));
+      setWorkouts((prev) => [...copies, ...prev]);
+      setLogs((prev) => [
+        {
+          id: `${copyWorkout.id}-cpy-${stamp}`,
+          action: "copied",
+          title: copyWorkout.title,
+          note: `to ${copyDays.join(", ")}`,
+          date: toISO(new Date()),
+          time: nowTime(),
+        },
+        ...prev,
+      ]);
+      setCopyWorkout(null);
+      setCopyDays([]);
+      setCopyError("");
+      return;
+    }
+
+    try {
+      const { id: _ignored, ...planData } = copyWorkout;
+      const newPlans = await Promise.all(
+        copyDays.map((day) =>
+          api.post("/gym/plans", { ...planData, copiedFromId: sourceId, isActive: false, days: [day] })
+            .then((res) => res.data)
+        )
+      );
+      setWorkouts((prev) => [...newPlans, ...prev]);
+      const logEntry = {
         id: `${copyWorkout.id}-cpy-${stamp}`,
         action: "copied",
         title: copyWorkout.title,
         note: `to ${copyDays.join(", ")}`,
         date: toISO(new Date()),
         time: nowTime(),
-      },
-      ...prev,
-    ]);
-    setCopyWorkout(null);
-    setCopyDays([]);
-    setCopyError("");
+      };
+      setLogs((prev) => [logEntry, ...prev]);
+      persistLog({ ...logEntry, planId: copyWorkout.id });
+      setCopyWorkout(null);
+      setCopyDays([]);
+      setCopyError("");
+    } catch {
+      setCopyError("Failed to copy workout. Please try again.");
+    }
   };
 
-  const handleUndo = (logId) => {
+  const handleUndo = async (logId) => {
     const log = logs.find((l) => l.id === logId);
     if (!log?.deletedItem) return;
-    const restored = { ...log.deletedItem, isActive: true };
+    const undoMeta = getDeleteUndoMeta(log);
+    if (!undoMeta.canUndo) return;
+    const restored = { ...log.deletedItem, isActive: false };
     const restoredDays = restored.days || [];
-    setWorkouts((prev) => {
-      const withoutRestored = prev.filter((item) => item.id !== restored.id);
-      const normalized = withoutRestored.map((item) => {
-        const overlapsRestoredDay = (item.days || []).some((day) => restoredDays.includes(day));
-        return overlapsRestoredDay ? { ...item, isActive: false } : item;
+
+    if (isDemoMode) {
+      setWorkouts((prev) => {
+        const withoutRestored = prev.filter((item) => item.id !== restored.id);
+        const normalized = withoutRestored.map((item) => {
+          const overlapsRestoredDay = (item.days || []).some((day) => restoredDays.includes(day));
+          return overlapsRestoredDay ? { ...item, isActive: false } : item;
+        });
+        return [{ ...restored, isActive: true }, ...normalized];
       });
-      return [restored, ...normalized];
-    });
-    if (viewWorkout?.id === restored.id) {
-      setViewWorkout(restored);
+      if (viewWorkout?.id === restored.id) setViewWorkout({ ...restored, isActive: true });
+      setWorkoutsView("active");
+      setLogs((prev) => [
+        {
+          id: `${restored.id}-undo-${Date.now()}`,
+          action: "restored",
+          title: restored.title,
+          note: restoredDays.length > 0 ? `restored for ${restoredDays.join(", ")}` : "restored",
+          restoredFromLogId: log.id,
+          date: toISO(new Date()),
+          time: nowTime(),
+        },
+        ...prev.filter((l) => l.id !== logId),
+      ]);
+      return;
     }
-    setWorkoutsView("active");
-    setLogs((prev) => [
-      {
-        id: `${restored.id}-undo-${Date.now()}`,
-        action: "activated",
-        title: restored.title,
+
+    try {
+      const { id: _ignored, ...planData } = restored;
+      const { data } = await api.post("/gym/plans", planData);
+      setWorkouts((prev) => [data, ...prev]);
+      setWorkoutsView("active");
+      const logEntry = {
+        id: `${data.id}-undo-${Date.now()}`,
+        action: "restored",
+        title: data.title,
         note: restoredDays.length > 0 ? `restored for ${restoredDays.join(", ")}` : "restored",
+        restoredFromLogId: log.id,
         date: toISO(new Date()),
         time: nowTime(),
-      },
-      ...prev.filter((l) => l.id !== logId),
-    ]);
+      };
+      setLogs((prev) => [logEntry, ...prev.filter((l) => l.id !== logId)]);
+      persistLog({ ...logEntry, planId: data.id });
+    } catch {
+      // silently fail
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const err = validate();
     if (err) { setError(err); return; }
 
     const existingWorkout = editingId ? workouts.find((w) => w.id === editingId) : null;
-    const payload = {
-      ...form,
-      title: form.title.trim(),
-      exercises,
-      isActive: existingWorkout?.isActive ?? false,
-      copiedFromId: existingWorkout?.copiedFromId,
-    };
+    const payload = { ...form, title: form.title.trim(), exercises };
 
-    if (editingId) {
-      setWorkouts((prev) =>
-        normalizeActiveByDay(prev.map((w) => (w.id === editingId ? { ...payload, id: editingId } : w)))
-      );
-      setLogs((prev) => [
-        { id: `${editingId}-upd-${Date.now()}`, action: "updated", title: payload.title, date: toISO(new Date()), time: nowTime() },
-        ...prev,
-      ]);
+    if (isDemoMode) {
+      const demoPayload = {
+        ...payload,
+        isActive: existingWorkout?.isActive ?? false,
+        copiedFromId: existingWorkout?.copiedFromId,
+      };
+      if (editingId) {
+        setWorkouts((prev) =>
+          normalizeActiveByDay(prev.map((w) => (w.id === editingId ? { ...demoPayload, id: editingId } : w)))
+        );
+        setLogs((prev) => [
+          { id: `${editingId}-upd-${Date.now()}`, action: "updated", title: demoPayload.title, date: toISO(new Date()), time: nowTime() },
+          ...prev,
+        ]);
+      } else {
+        const newWorkout = { ...demoPayload, id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, isActive: false };
+        setWorkouts((prev) => [newWorkout, ...prev]);
+        setLogs((prev) => [
+          { id: `${newWorkout.id}-cre`, action: "created", title: newWorkout.title, date: toISO(new Date()), time: nowTime() },
+          ...prev,
+        ]);
+      }
       resetForm();
       return;
     }
 
-    const newWorkout = { ...payload, id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, isActive: false };
-    setWorkouts((prev) => [newWorkout, ...prev]);
-    setLogs((prev) => [
-      { id: `${newWorkout.id}-cre`, action: "created", title: newWorkout.title, date: toISO(new Date()), time: nowTime() },
-      ...prev,
-    ]);
-    resetForm();
+    try {
+      if (editingId) {
+        const { data } = await api.patch(`/gym/plans/${editingId}`, payload);
+        setWorkouts((prev) => prev.map((w) => w.id === editingId ? data : w));
+        const logEntry = { id: `${editingId}-upd-${Date.now()}`, action: "updated", title: data.title, date: toISO(new Date()), time: nowTime() };
+        setLogs((prev) => [logEntry, ...prev]);
+        persistLog({ ...logEntry, planId: editingId });
+      } else {
+        const { data } = await api.post("/gym/plans", payload);
+        setWorkouts((prev) => [data, ...prev]);
+        const logEntry = { id: `${data.id}-cre`, action: "created", title: data.title, date: toISO(new Date()), time: nowTime() };
+        setLogs((prev) => [logEntry, ...prev]);
+        persistLog({ ...logEntry, planId: data.id });
+      }
+      resetForm();
+    } catch (submitErr) {
+      setError(submitErr?.response?.data?.message || "Failed to save workout.");
+    }
   };
 
   const activeWorkouts  = workouts.filter((w) => w.neverEnds || !w.endDate || w.endDate >= today);
-  const archivedWorkouts = workouts.filter((w) => !w.neverEnds && w.endDate && w.endDate < today);
+  const archivedByDateWorkouts = workouts.filter((w) => !w.neverEnds && w.endDate && w.endDate < today);
+  const restoredFromDeleteLogIds = useMemo(() => {
+    const toCleanKey = (value) => String(value || "").trim();
+    const toTitleKey = (value) => toCleanKey(value).toLowerCase();
+    const isRestoreLikeLog = (log) => (
+      log?.action === "restored" ||
+      (log?.action === "activated" && /(^|\s)restored(\s|$)/i.test(String(log?.note || "")))
+    );
+    const restoredSet = new Set();
+
+    logs.forEach((log) => {
+      if (!isRestoreLikeLog(log)) return;
+      const linkedDeletedId = typeof log?.restoredFromLogId === "string" ? toCleanKey(log.restoredFromLogId) : "";
+      if (linkedDeletedId) restoredSet.add(linkedDeletedId);
+    });
+
+    // Backward-compatibility for old logs created before `restoredFromLogId` existed.
+    const ordered = [...logs]
+      .filter((log) => log?.action === "deleted" || isRestoreLikeLog(log))
+      .sort((a, b) => (parseLogCreatedAtMs(a) || 0) - (parseLogCreatedAtMs(b) || 0));
+
+    const popFirstUnrestored = (bucket = []) => {
+      while (bucket.length > 0) {
+        const candidate = bucket.pop();
+        if (!candidate?.id) continue;
+        if (restoredSet.has(String(candidate.id))) continue;
+        return candidate;
+      }
+      return null;
+    };
+
+    const unmatchedDeletedByPlanKey = new Map();
+    const unmatchedDeletedByTitle = new Map();
+    ordered.forEach((log) => {
+      if (log?.action === "deleted") {
+        const planKey = toCleanKey(log?.deletedItem?.id || log?.planId);
+        if (planKey) {
+          const planList = unmatchedDeletedByPlanKey.get(planKey) || [];
+          planList.push(log);
+          unmatchedDeletedByPlanKey.set(planKey, planList);
+        }
+        const titleKey = toTitleKey(log?.title);
+        if (titleKey) {
+          const titleList = unmatchedDeletedByTitle.get(titleKey) || [];
+          titleList.push(log);
+          unmatchedDeletedByTitle.set(titleKey, titleList);
+        }
+        return;
+      }
+
+      if (!isRestoreLikeLog(log)) return;
+      const linkedDeletedId = typeof log?.restoredFromLogId === "string" ? toCleanKey(log.restoredFromLogId) : "";
+      if (linkedDeletedId) return;
+
+      let candidate = null;
+      const restoredPlanKey = toCleanKey(log?.planId);
+      if (restoredPlanKey) {
+        const planList = unmatchedDeletedByPlanKey.get(restoredPlanKey) || [];
+        candidate = popFirstUnrestored(planList);
+        unmatchedDeletedByPlanKey.set(restoredPlanKey, planList);
+      }
+      if (!candidate) {
+        const titleKey = toTitleKey(log?.title);
+        if (!titleKey) return;
+        const titleList = unmatchedDeletedByTitle.get(titleKey) || [];
+        candidate = popFirstUnrestored(titleList);
+        unmatchedDeletedByTitle.set(titleKey, titleList);
+      }
+      if (candidate?.id) restoredSet.add(String(candidate.id));
+    });
+
+    return restoredSet;
+  }, [logs]);
+
+  const archivedDeletedWorkouts = useMemo(() => {
+    const byOriginalId = new Map();
+    logs.forEach((log) => {
+      if (log?.action !== "deleted" || !log?.deletedItem || typeof log.deletedItem !== "object") return;
+      if (restoredFromDeleteLogIds.has(String(log.id))) return;
+      const originalId = String(log.deletedItem.id || log.planId || "").trim();
+      if (!originalId || byOriginalId.has(originalId)) return;
+      const undoMeta = getDeleteUndoMeta(log, undoClockMs);
+      byOriginalId.set(originalId, {
+        ...log.deletedItem,
+        _archiveSource: "deleted",
+        _deletedLogId: log.id,
+        _canUndoDelete: undoMeta.canUndo,
+        _undoRemainingMs: undoMeta.remainingMs,
+      });
+    });
+    return [...byOriginalId.values()];
+  }, [logs, undoClockMs, restoredFromDeleteLogIds]);
+  const archivedWorkouts = useMemo(() => {
+    const base = [...archivedByDateWorkouts];
+    const existingIds = new Set(base.map((w) => String(w.id)));
+    archivedDeletedWorkouts.forEach((w) => {
+      if (!existingIds.has(String(w.id))) base.push(w);
+    });
+    return base;
+  }, [archivedByDateWorkouts, archivedDeletedWorkouts]);
   const statusWorkouts = workoutsView === "active" ? activeWorkouts : archivedWorkouts;
   const displayedWorkouts = workoutDayFilter === "all"
     ? statusWorkouts
@@ -548,7 +1039,7 @@ export default function AddWorkout() {
                     <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-stone-400">▾</span>
                   </button>
                   {showGoalDrop && (
-                    <div className="journal-scroll absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-amber-100/15 bg-stone-900 py-1 shadow-xl shadow-black/50">
+                    <div className="journal-scroll absolute z-50 mt-1 max-h-48 w-full overflow-y-auto scroll-smooth rounded-lg border border-amber-100/15 bg-stone-900 py-1 shadow-xl shadow-black/50 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/25 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/45">
                       {goalOptions.map((gt) => {
                         const isDefault = GOAL_TYPES.some((d) => d.value === gt.value);
                         return (
@@ -566,7 +1057,11 @@ export default function AddWorkout() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setGoalOptions((prev) => prev.filter((x) => x.value !== gt.value));
+                                  setGoalOptions((prev) => {
+                                    const next = prev.filter((x) => x.value !== gt.value);
+                                    persistCustomGoalOptions(next);
+                                    return next;
+                                  });
                                   if (form.goalType === gt.value) setField("goalType", "");
                                 }}
                                 className="mr-1.5 rounded border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
@@ -625,7 +1120,7 @@ export default function AddWorkout() {
                     <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-stone-400">▾</span>
                   </button>
                   {showSplitDrop && (
-                    <div className="journal-scroll absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-amber-100/15 bg-stone-900 py-1 shadow-xl shadow-black/50">
+                    <div className="journal-scroll absolute z-50 mt-1 max-h-48 w-full overflow-y-auto scroll-smooth rounded-lg border border-amber-100/15 bg-stone-900 py-1 shadow-xl shadow-black/50 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/25 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/45">
                       {splitOptions.map((s) => {
                         const isDefault = WORKOUT_SPLITS.some((d) => d.value === s.value);
                         return (
@@ -643,7 +1138,11 @@ export default function AddWorkout() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setSplitOptions((prev) => prev.filter((x) => x.value !== s.value));
+                                  setSplitOptions((prev) => {
+                                    const next = prev.filter((x) => x.value !== s.value);
+                                    persistCustomSplitOptions(next);
+                                    return next;
+                                  });
                                   if (form.workoutSplit === s.value) setField("workoutSplit", "");
                                 }}
                                 className="mr-1.5 rounded border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
@@ -752,7 +1251,7 @@ export default function AddWorkout() {
                         className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2 py-1 text-xs text-stone-100 outline-none focus:border-amber-300/35" />
                     </div>
                     <div>
-                      <label className="mb-0.5 block text-[10px] text-stone-400">Duration (min) *</label>
+                      <label className="mb-0.5 block text-[10px] text-stone-400">Duration (min) / Set *</label>
                       <input type="number" min="0" value={currentEx.duration}
                         onChange={(e) => setCurrentEx((p) => ({ ...p, duration: e.target.value }))}
                         placeholder="e.g. 5"
@@ -767,66 +1266,51 @@ export default function AddWorkout() {
                     </div>
                     <div>
                       <label className="mb-0.5 block text-[10px] text-stone-400">Muscle Group *</label>
-                      <div ref={bodyGroupDropRef} className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setShowBodyGroupDrop((prev) => !prev)}
-                          className="relative w-full rounded-lg border border-amber-100/15 bg-stone-900 px-2 py-1 text-left text-xs text-stone-100 outline-none transition focus:border-amber-300/35"
+                      {currentEx.id?.startsWith("custom-") ? (
+                        <select
+                          value={currentEx.bodyPartGroup}
+                          onChange={(e) => setCurrentEx((p) => ({ ...p, bodyPartGroup: e.target.value, bodyPartSection: "" }))}
+                          className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2 py-1 text-xs text-stone-100 outline-none focus:border-amber-300/35"
                         >
-                          {currentEx.bodyPartGroup || <span className="text-stone-500">Select</span>}
-                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-stone-400">▾</span>
-                        </button>
-                        {showBodyGroupDrop && (
-                          <div className="journal-scroll absolute z-50 mt-1 max-h-44 w-full overflow-y-auto rounded-lg border border-amber-100/15 bg-stone-900 py-1 shadow-xl shadow-black/50">
-                            {BODY_PART_GROUPS.map((bp) => (
-                              <button
-                                key={bp.group}
-                                type="button"
-                                onClick={() => {
-                                  const group = bp.group;
-                                  setCurrentEx((p) => ({
-                                    ...p,
-                                    bodyPartGroup: group,
-                                    bodyPartSection: "",
-                                    bodyPart: formatBodyPart(group, ""),
-                                  }));
-                                  setShowBodyGroupDrop(false);
-                                }}
-                                className={`w-full px-3 py-1.5 text-left text-[11px] transition hover:bg-amber-500/10 hover:text-amber-200 ${
-                                  currentEx.bodyPartGroup === bp.group
-                                    ? "bg-amber-500/15 text-amber-200"
-                                    : "text-stone-100"
-                                }`}
-                              >
-                                {bp.group}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {selectedBodyPartSections.length > 0 && (
-                      <div>
-                        <label className="mb-0.5 block text-[10px] text-stone-400">Section *</label>
-                        <select value={currentEx.bodyPartSection}
-                          onChange={(e) => {
-                            const section = e.target.value;
-                            setCurrentEx((p) => ({
-                              ...p,
-                              bodyPartSection: section,
-                              bodyPart: formatBodyPart(p.bodyPartGroup, section),
-                            }));
-                          }}
-                          className="w-full rounded-lg border border-amber-100/15 bg-stone-900 px-2 py-1 text-xs text-stone-100 outline-none focus:border-amber-300/35">
-                          <option value="" disabled style={{ backgroundColor: "#1c1917" }}>Select</option>
-                          {selectedBodyPartSections.map((section) => (
-                            <option key={section} value={section} style={{ backgroundColor: "#1c1917", color: "#e7e5e4" }}>
-                              {section}
-                            </option>
+                          <option value="">Select group…</option>
+                          {BODY_PART_GROUPS.map((bp) => (
+                            <option key={bp.group} value={bp.group}>{bp.group}</option>
                           ))}
                         </select>
-                      </div>
-                    )}
+                      ) : (
+                        <input
+                          type="text"
+                          value={currentEx.bodyPartGroup}
+                          disabled
+                          placeholder="Auto selected"
+                          className="w-full cursor-not-allowed rounded-lg border border-amber-100/15 bg-stone-900/70 px-2 py-1 text-xs text-stone-100 outline-none disabled:opacity-100"
+                        />
+                      )}
+                    </div>
+                    <div>
+                      <label className="mb-0.5 block text-[10px] text-stone-400">Section {selectedBodyPartSections.length > 0 ? "*" : ""}</label>
+                      {currentEx.id?.startsWith("custom-") ? (
+                        <select
+                          value={currentEx.bodyPartSection}
+                          onChange={(e) => setCurrentEx((p) => ({ ...p, bodyPartSection: e.target.value }))}
+                          disabled={selectedBodyPartSections.length === 0}
+                          className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2 py-1 text-xs text-stone-100 outline-none focus:border-amber-300/35 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <option value="">{selectedBodyPartSections.length === 0 ? "Select group first…" : "Select section…"}</option>
+                          {selectedBodyPartSections.map((sec) => (
+                            <option key={sec} value={sec}>{sec}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={currentEx.bodyPartSection}
+                          disabled
+                          placeholder="Auto selected"
+                          className="w-full cursor-not-allowed rounded-lg border border-amber-100/15 bg-stone-900/70 px-2 py-1 text-xs text-stone-100 outline-none disabled:opacity-100"
+                        />
+                      )}
+                    </div>
                   </div>
                   {exError && <p className="text-[10px] text-red-300">{exError}</p>}
                   <div className="flex gap-2 pt-0.5">
@@ -862,11 +1346,13 @@ export default function AddWorkout() {
               <input
                 type="number"
                 min="0"
+                step="0.1"
                 value={form.totalEstimatedTime}
                 onChange={(e) => setField("totalEstimatedTime", e.target.value)}
                 placeholder="e.g. 60"
                 className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-3 py-1.5 text-sm text-stone-100 outline-none transition focus:border-amber-300/35"
               />
+              <p className="mt-1 text-[10px] text-stone-500">Auto-calculated from exercise sets, duration, and rest between sets. You can adjust manually.</p>
             </div>
 
             {/* Days */}
@@ -895,14 +1381,21 @@ export default function AddWorkout() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Start *</label>
-                  <input type="date" value={form.startDate}
+                  <input
+                    type="date"
+                    value={form.startDate}
+                    disabled={!!(editingId && form.startDate && form.startDate <= today)}
                     onChange={(e) => setField("startDate", e.target.value)}
-                    className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none focus:border-amber-300/35" />
+                    className={`w-full rounded-lg border border-amber-100/15 px-2 py-1 text-xs text-stone-100 outline-none focus:border-amber-300/35 ${editingId && form.startDate && form.startDate <= today ? "cursor-not-allowed bg-stone-900/70 opacity-60" : "bg-white/5"}`}
+                  />
+                  {editingId && form.startDate && form.startDate <= today && (
+                    <p className="mt-0.5 text-[10px] text-amber-400/70">Workout already started — start date is locked.</p>
+                  )}
                 </div>
                 {!form.neverEnds && (
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">End</label>
-                    <input type="date" value={form.endDate} min={form.startDate || undefined}
+                    <input type="date" value={form.endDate} min={toISO(new Date(new Date(form.startDate > today ? form.startDate : today).getTime() + 86400000))}
                       onChange={(e) => setField("endDate", e.target.value)}
                       className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none focus:border-amber-300/35" />
                   </div>
@@ -1012,7 +1505,9 @@ export default function AddWorkout() {
           </div>
 
           <div ref={workoutListRef} className="journal-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-            {displayedWorkouts.length === 0 ? (
+            {loading ? (
+              <p className="mt-6 text-center text-xs text-stone-500">Loading workouts...</p>
+            ) : displayedWorkouts.length === 0 ? (
               <p className="mt-6 text-center text-xs text-stone-500">
                 {workoutsView === "active"
                   ? workoutDayFilter === "all"
@@ -1036,13 +1531,19 @@ export default function AddWorkout() {
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <p className="min-w-0 flex-1 break-words pr-1 text-sm font-semibold leading-tight text-stone-100">{w.title}</p>
                       <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                          w.isActive
-                            ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
-                            : "border-stone-500/20 bg-white/5 text-stone-400"
-                        }`}>
-                          {w.isActive ? "Active" : "Inactive"}
-                        </span>
+                        {w._archiveSource === "deleted" ? (
+                          <span className="rounded-full border border-rose-400/30 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-200">
+                            Deleted
+                          </span>
+                        ) : (
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                            w.isActive
+                              ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                              : "border-stone-500/20 bg-white/5 text-stone-400"
+                          }`}>
+                            {w.isActive ? "Active" : "Inactive"}
+                          </span>
+                        )}
                         <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${DIFFICULTY_STYLES[w.difficulty] || "border-amber-100/10 text-stone-300"}`}>
                           {w.difficulty}
                         </span>
@@ -1135,6 +1636,11 @@ export default function AddWorkout() {
             ) : (
               <div className="journal-scroll min-h-0 flex-1 space-y-1.5 overflow-x-hidden overflow-y-auto pr-1">
                 {logs.map((log, li) => (
+                  (() => {
+                    const undoMeta = log.action === "deleted" ? getDeleteUndoMeta(log, undoClockMs) : null;
+                    const isDeletedButAlreadyRestored = restoredFromDeleteLogIds.has(String(log.id));
+                    const canUndoDelete = Boolean(log.deletedItem && undoMeta?.canUndo && !isDeletedButAlreadyRestored);
+                    return (
                   <Motion.div
                     key={log.id}
                     initial={{ opacity: 0, x: -8 }}
@@ -1145,6 +1651,8 @@ export default function AddWorkout() {
                         ? "border-rose-400/20 bg-rose-500/5 text-stone-300"
                         : log.action === "updated"
                           ? "border-amber-300/20 bg-amber-500/5 text-stone-300"
+                        : log.action === "restored"
+                          ? "border-cyan-300/20 bg-cyan-500/5 text-stone-300"
                           : log.action === "activated"
                             ? "border-emerald-400/20 bg-emerald-500/5 text-stone-300"
                             : log.action === "deactivated"
@@ -1158,24 +1666,40 @@ export default function AddWorkout() {
                       <span className={`font-semibold ${
                         log.action === "deleted" ? "text-rose-300"
                         : log.action === "updated" ? "text-amber-200"
+                        : log.action === "restored" ? "text-cyan-200"
                         : log.action === "activated" ? "text-emerald-300"
                         : log.action === "deactivated" ? "text-stone-300"
                         : log.action === "copied" ? "text-sky-200"
                         : "text-emerald-300"
                       }`}>
-                        {log.action === "deleted" ? "Deleted" : log.action === "updated" ? "Updated" : log.action === "activated" ? "Activated" : log.action === "deactivated" ? "Deactivated" : log.action === "copied" ? "Copied" : "Created"}:
+                        {log.action === "deleted" ? "Deleted" : log.action === "updated" ? "Updated" : log.action === "restored" ? "Restored" : log.action === "activated" ? "Activated" : log.action === "deactivated" ? "Deactivated" : log.action === "copied" ? "Copied" : "Created"}:
                       </span>{" "}
                       <span className="break-all font-semibold text-stone-100">{log.title}</span>
                       {log.note ? ` ${log.note}` : ""} on {log.date} at {fmtTime(log.time)}
                     </p>
-                    {log.action === "deleted" && log.deletedItem && (
-                      <button type="button" onClick={() => handleUndo(log.id)}
-                        className="shrink-0 rounded border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
-                        title="Undo delete">
-                        ↺
-                      </button>
+                    {log.action === "deleted" && (
+                      <div className="shrink-0 flex items-center gap-1">
+                        {isDeletedButAlreadyRestored ? (
+                          <span className="rounded border border-cyan-300/25 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-200">
+                            restored
+                          </span>
+                        ) : (
+                          <span className="rounded border border-amber-300/25 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
+                            {formatUndoCountdown(undoMeta?.remainingMs || 0)}
+                          </span>
+                        )}
+                        {canUndoDelete && (
+                          <button type="button" onClick={() => handleUndo(log.id)}
+                            className="shrink-0 rounded border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
+                            title="Undo delete">
+                            ↺ Undo
+                          </button>
+                        )}
+                      </div>
                     )}
                   </Motion.div>
+                    );
+                  })()
                 ))}
               </div>
             )}
@@ -1218,7 +1742,7 @@ export default function AddWorkout() {
                           {ex.bodyPart}
                         </span>
                       )}
-                      {viewWorkout.title === "Current Workout" && (
+                      {!viewWorkout.id && (
                         <button
                           type="button"
                           onClick={() => handleRemoveFromView(ex.id)}

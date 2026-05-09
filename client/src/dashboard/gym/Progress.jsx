@@ -1,6 +1,8 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { createDemoWorkoutProgressMap } from "../../../data/GymDummyData";
+import api from "../../api/axios";
+import useAuth from "../../hooks/useAuth";
 
 /* ─── Workouts data ─────────────────────────────────────────── */
 const loadWorkouts = () => {
@@ -50,7 +52,9 @@ const loadEntries = () => {
     if (!stored) return [];
     const parsed = JSON.parse(stored);
     if (!Array.isArray(parsed)) return [];
-    return [...parsed].sort((a, b) => (a.checkInDate || "").localeCompare(b.checkInDate || ""));
+    return [...parsed]
+      .filter((entry) => !entry?.deletedAt)
+      .sort((a, b) => (a.checkInDate || "").localeCompare(b.checkInDate || ""));
   } catch { return []; }
 };
 
@@ -66,45 +70,11 @@ const parseNum = (value) => {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
-const shiftIsoByDays = (iso, offsetDays) => {
-  const base = iso ? new Date(`${iso}T00:00:00`) : new Date();
-  if (Number.isNaN(base.getTime())) return iso || new Date().toISOString().slice(0, 10);
-  base.setDate(base.getDate() + offsetDays);
-  return base.toISOString().slice(0, 10);
-};
+
 const formatMetricValue = (value, unit = "") => (
   value == null ? "—" : `${Number.isInteger(value) ? value : value.toFixed(1)}${unit ? ` ${unit}` : ""}`
 );
-const buildWorkoutTrendPoints = (points, metricKey) => {
-  if (points.length >= 2) return points;
-  if (points.length === 0) return points;
-  const base = points[0];
-  const currentValue = parseNum(base.value);
-  if (currentValue == null) return points;
-
-  const steps = {
-    sets: 1,
-    reps: 1,
-    weight: 5,
-    totalTime: 1,
-    restBetweenSets: 5,
-  };
-  const step = steps[metricKey] ?? 1;
-  const isRest = metricKey === "restBetweenSets";
-
-  const olderA = isRest
-    ? currentValue + step * 2
-    : Math.max(currentValue - step * 2, 1);
-  const olderB = isRest
-    ? currentValue + step
-    : Math.max(currentValue - step, 1);
-
-  return [
-    { date: shiftIsoByDays(base.date, -14), value: olderA },
-    { date: shiftIsoByDays(base.date, -7), value: olderB },
-    { date: base.date, value: currentValue },
-  ];
-};
+const buildWorkoutTrendPoints = (points) => points;
 
 const getBodyGroup = (bodyPart = "") => {
   if (!bodyPart) return "Other";
@@ -136,57 +106,62 @@ const buildExerciseMetaMap = (workouts) => {
   return meta;
 };
 
-const loadWorkoutProgressEntries = (workouts = []) => {
+const mapWorkoutProgressEntries = (source, workouts = []) => {
   const metaMap = buildExerciseMetaMap(workouts);
+  return Object.entries(source)
+    .map(([entryKey, raw]) => {
+      if (typeof entryKey !== "string" || entryKey.length < 12 || entryKey[10] !== "_") return null;
+      const date = entryKey.slice(0, 10);
+      const exerciseId = entryKey.slice(11);
+      if (!exerciseId) return null;
+      const value = raw && typeof raw === "object" ? raw : {};
+      const fallback = metaMap[exerciseId] || {};
+
+      const bodyPart = value.bodyPart || fallback.bodyPart || "";
+
+      return {
+        id: `${date}_${exerciseId}`,
+        date,
+        exerciseId,
+        name: value.exerciseName || fallback.name || exerciseId,
+        bodyPart,
+        bodyGroup: getBodyGroup(bodyPart),
+        sets: parseNum(value.sets),
+        reps: parseNum(value.reps),
+        weight: parseNum(value.lastSetWeight ?? value.weight),
+        totalTime: parseNum(value.totalTime),
+        restBetweenSets: parseNum(value.restBetweenSets),
+        savedAt: value.savedAt || `${date}T00:00:00.000Z`,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.date.localeCompare(b.date));
+};
+
+const loadWorkoutProgressEntries = (workouts = []) => {
   try {
     ensureWorkoutProgressSeed();
     const stored = localStorage.getItem(WORKOUT_PROGRESS_KEY);
     const parsed = stored ? JSON.parse(stored) : {};
     const baseSource = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
     const source = Object.keys(baseSource).length ? baseSource : createDemoWorkoutProgressMap();
-
-    return Object.entries(source)
-      .map(([entryKey, raw]) => {
-        if (typeof entryKey !== "string" || entryKey.length < 12 || entryKey[10] !== "_") return null;
-        const date = entryKey.slice(0, 10);
-        const exerciseId = entryKey.slice(11);
-        if (!exerciseId) return null;
-        const value = raw && typeof raw === "object" ? raw : {};
-        const fallback = metaMap[exerciseId] || {};
-
-        const repsFromBreakdown = Array.isArray(value.repsBreakdown)
-          ? [...value.repsBreakdown].reverse().find((rep) => rep !== "" && rep != null)
-          : null;
-
-        const bodyPart = value.bodyPart || fallback.bodyPart || "";
-
-        return {
-          id: `${date}_${exerciseId}`,
-          date,
-          exerciseId,
-          name: value.exerciseName || fallback.name || exerciseId,
-          bodyPart,
-          bodyGroup: getBodyGroup(bodyPart),
-          sets: parseNum(value.sets),
-          reps: parseNum(value.lastSetReps ?? repsFromBreakdown ?? value.reps),
-          weight: parseNum(value.lastSetWeight ?? value.weight),
-          totalTime: parseNum(value.totalTime),
-          restBetweenSets: parseNum(value.restBetweenSets),
-          savedAt: value.savedAt || `${date}T00:00:00.000Z`,
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.date.localeCompare(b.date));
+    return mapWorkoutProgressEntries(source, workouts);
   } catch {
     return [];
   }
 };
 
+const mapApiWorkoutProgressEntries = (payload, workouts = []) => {
+  const source = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
+  return mapWorkoutProgressEntries(source, workouts);
+};
+
 const buildExerciseProgressRows = (entries) => {
   const grouped = {};
   entries.forEach((entry) => {
-    if (!grouped[entry.exerciseId]) {
-      grouped[entry.exerciseId] = {
+    const nameKey = (entry.name || entry.exerciseId).toLowerCase().trim();
+    if (!grouped[nameKey]) {
+      grouped[nameKey] = {
         exerciseId: entry.exerciseId,
         name: entry.name,
         bodyPart: entry.bodyPart,
@@ -194,7 +169,7 @@ const buildExerciseProgressRows = (entries) => {
         logs: [],
       };
     }
-    grouped[entry.exerciseId].logs.push(entry);
+    grouped[nameKey].logs.push(entry);
   });
 
   return Object.values(grouped)
@@ -256,25 +231,52 @@ const WORKOUT_METRICS = [
 ];
 
 function WorkoutProgress({ workouts }) {
-  const [progressEntries, setProgressEntries] = useState(() => loadWorkoutProgressEntries(workouts));
+  const { isDemoMode } = useAuth();
+  const [progressEntries, setProgressEntries] = useState(() => (isDemoMode ? loadWorkoutProgressEntries(workouts) : []));
   const [groupFilter, setGroupFilter] = useState("All");
   const [selectedExerciseId, setSelectedExerciseId] = useState(null);
 
   useEffect(() => {
-    setProgressEntries(loadWorkoutProgressEntries(workouts));
-  }, [workouts]);
+    let cancelled = false;
 
-  useEffect(() => {
-    const sync = () => setProgressEntries(loadWorkoutProgressEntries(loadWorkouts()));
+    const syncDemo = () => {
+      if (cancelled) return;
+      setProgressEntries(loadWorkoutProgressEntries(loadWorkouts()));
+    };
+
+    const syncReal = async () => {
+      try {
+        const { data } = await api.get("/gym/exercise-progress");
+        if (!cancelled) setProgressEntries(mapApiWorkoutProgressEntries(data, workouts));
+      } catch {
+        if (!cancelled) setProgressEntries([]);
+      }
+    };
+
+    if (isDemoMode) {
+      syncDemo();
+    } else {
+      void syncReal();
+    }
+
+    const sync = () => {
+      if (isDemoMode) {
+        syncDemo();
+      } else {
+        void syncReal();
+      }
+    };
+
     window.addEventListener("storage", sync);
     window.addEventListener("focus", sync);
     window.addEventListener("monkmode:exercise-progress-updated", sync);
     return () => {
+      cancelled = true;
       window.removeEventListener("storage", sync);
       window.removeEventListener("focus", sync);
       window.removeEventListener("monkmode:exercise-progress-updated", sync);
     };
-  }, []);
+  }, [isDemoMode, workouts]);
 
   const exerciseRows = useMemo(() => buildExerciseProgressRows(progressEntries), [progressEntries]);
   const groups = useMemo(
@@ -356,7 +358,7 @@ function WorkoutProgress({ workouts }) {
                 </span>
               </div>
               <p className="mt-1 text-[10px] text-stone-500">
-                {exercise.bodyGroup} • Last {fmtDate(exercise.latest?.date)}
+                {exercise.bodyGroup}
               </p>
             </Motion.button>
           ))}
@@ -419,9 +421,34 @@ function WorkoutProgress({ workouts }) {
 
 /* ─── Measurements Progress tab ────────────────────────────── */
 function MeasurementsProgress() {
-  const entries = useMemo(() => loadEntries(), []);
+  const { isDemoMode } = useAuth();
+  const [entries, setEntries] = useState(() => (isDemoMode ? loadEntries() : []));
   const [groupFilter, setGroupFilter] = useState("All");
   const [selectedField, setSelectedField] = useState(MEAS_FIELDS[0].key);
+
+  useEffect(() => {
+    if (isDemoMode) {
+      setEntries(loadEntries());
+      return;
+    }
+    let cancelled = false;
+    const fetch = async () => {
+      try {
+        const { data } = await api.get("/gym/measurements");
+        if (!cancelled) {
+          const sorted = (Array.isArray(data) ? data : [])
+            .filter((entry) => !entry?.deletedAt)
+            .slice()
+            .sort((a, b) => (a.checkInDate || "").localeCompare(b.checkInDate || ""));
+          setEntries(sorted);
+        }
+      } catch { if (!cancelled) setEntries([]); }
+    };
+    fetch();
+    const onUpdate = () => fetch();
+    window.addEventListener("monkmode:gym-measurements-updated", onUpdate);
+    return () => { cancelled = true; window.removeEventListener("monkmode:gym-measurements-updated", onUpdate); };
+  }, [isDemoMode]);
 
   const visibleFields = groupFilter === "All" ? MEAS_FIELDS : MEAS_FIELDS.filter((f) => f.group === groupFilter);
 
@@ -495,15 +522,21 @@ function MeasurementsProgress() {
 
         {/* Chart + history */}
         <div className="space-y-4">
-          {points.length > 1 && (
-            <div className="rounded-2xl border border-amber-100/10 bg-black/20 p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-semibold text-stone-200">{activeField?.label} over time</p>
+          <div className="rounded-2xl border border-amber-100/10 bg-black/20 p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-semibold text-stone-200">{activeField?.label} over time</p>
+              {points.length > 1 && (
                 <span className="text-[10px] text-stone-500">{points.length} data points</span>
-              </div>
-              <MiniChart points={points} unit={activeField?.unit || ""} />
+              )}
             </div>
-          )}
+            {points.length > 1 ? (
+              <MiniChart points={points} unit={activeField?.unit || ""} />
+            ) : (
+              <div className="rounded-xl border border-dashed border-amber-100/10 bg-black/20 px-3 py-5 text-center text-xs text-stone-500">
+                Need at least 2 check-ins to draw trend.
+              </div>
+            )}
+          </div>
 
           {/* Check-in history */}
           <div className="rounded-2xl border border-amber-100/10 bg-black/20 p-4">

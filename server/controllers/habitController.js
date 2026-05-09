@@ -97,6 +97,24 @@ const getArchiveState = (habit, today = getUtcStartOfDay()) => {
   return { isArchived: false, archiveReason: null };
 };
 
+const maybeAppendEndedLogIfDue = async (habit, today = getUtcStartOfDay()) => {
+  if (!habit || habit.deletedAt || !habit.endDate) return habit;
+
+  const endDay = getUtcStartOfDay(habit.endDate);
+  if (endDay >= today) return habit;
+
+  const hasEndedLog = Array.isArray(habit.activityLogs)
+    && habit.activityLogs.some((entry) => entry?.action === "ended");
+  if (hasEndedLog) return habit;
+
+  habit.activityLogs.push(buildActivityLogEntry("ended", habit.title, endDay));
+  if (habit.activityLogs.length > 200) {
+    habit.activityLogs = habit.activityLogs.slice(-200);
+  }
+  await habit.save();
+  return habit;
+};
+
 const applyDeferredTimeIfDue = async (habit, today = getUtcStartOfDay()) => {
   if (!habit) return false;
 
@@ -405,6 +423,7 @@ export const getHabits = async (req, res) => {
     const habits = await Habit.find(buildHabitFilter(req.user.id, view, today)).sort({ createdAt: -1 });
     for (const habit of habits) {
       await applyDeferredTimeIfDue(habit, today);
+      await maybeAppendEndedLogIfDue(habit, today);
     }
 
     if (!habits.length) return res.json([]);
