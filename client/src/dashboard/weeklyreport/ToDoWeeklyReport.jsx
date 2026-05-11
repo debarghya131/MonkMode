@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion as Motion, AnimatePresence } from "framer-motion";
 import littleMonkLogo from "../../assets/littlemonklogo.png";
+import useAuth from "../../hooks/useAuth";
+import api from "../../api/axios";
 
-const WEEKLY_TODO_DATA = [
+const DEMO_TODO_DATA = [
   {
     id: "2026-04-13",
     date: "Apr 13 - Apr 19",
@@ -286,13 +288,58 @@ function ReportCard({ children, className = "" }) {
 }
 
 export default function ToDoWeeklyReport() {
-  const [selectedWeekId, setSelectedWeekId] = useState(WEEKLY_TODO_DATA[0].id);
+  const { isDemoMode } = useAuth();
+  const [selectedWeekId, setSelectedWeekId] = useState(null);
+  const [summaries, setSummaries] = useState([]);
+  const [loadingSummaries, setLoadingSummaries] = useState(true);
+  const [weekData, setWeekData] = useState(null);
+  const [loadingWeekData, setLoadingWeekData] = useState(false);
+  const [aiSummary, setAiSummary] = useState(null);
+  const [loadingAi, setLoadingAi] = useState(false);
   const [timingFilter, setTimingFilter] = useState("completed");
   const [priorityFilter, setPriorityFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("completion");
   const [keyCategoryFilter, setKeyCategoryFilter] = useState("All");
 
-  const selectedWeek = WEEKLY_TODO_DATA.find((w) => w.id === selectedWeekId) ?? null;
+  // Load weeks list on mount
+  useEffect(() => {
+    if (isDemoMode) {
+      const demoSummaries = DEMO_TODO_DATA.map(w => ({ id: w.id, date: w.date, signal: w.signal }));
+      setSummaries(demoSummaries);
+      setSelectedWeekId(demoSummaries[0]?.id ?? null);
+      setLoadingSummaries(false);
+      return;
+    }
+    api.get("/weekly-report/todos/summaries")
+      .then(res => {
+        setSummaries(res.data);
+        if (res.data.length > 0) setSelectedWeekId(res.data[0].id);
+      })
+      .catch(err => console.error("Failed to load weeks:", err))
+      .finally(() => setLoadingSummaries(false));
+  }, [isDemoMode]);
+
+  // Load week data when selection changes
+  useEffect(() => {
+    if (!selectedWeekId) { setWeekData(null); setAiSummary(null); return; }
+    if (isDemoMode) {
+      const demo = DEMO_TODO_DATA.find(w => w.id === selectedWeekId) ?? null;
+      setWeekData(demo);
+      setAiSummary(demo?.aiSummary ?? null);
+      return;
+    }
+    setLoadingWeekData(true);
+    setLoadingAi(true);
+    setAiSummary(null);
+    api.get(`/weekly-report/todos?week=${selectedWeekId}`)
+      .then(res => setWeekData(res.data))
+      .catch(err => { console.error("Failed to load week data:", err); setWeekData(null); })
+      .finally(() => setLoadingWeekData(false));
+    api.get(`/weekly-report/todos/ai-summary?week=${selectedWeekId}`)
+      .then(res => setAiSummary(res.data.aiSummary ?? null))
+      .catch(err => console.error("Failed to load AI summary:", err))
+      .finally(() => setLoadingAi(false));
+  }, [selectedWeekId, isDemoMode]);
 
   return (
     <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
@@ -300,9 +347,20 @@ export default function ToDoWeeklyReport() {
       {/* ── LEFT: Main analysis panel ─────────────────────────── */}
       <div className="journal-scroll min-w-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-170px)]">
         <AnimatePresence mode="wait">
-          {selectedWeek ? (
+          {loadingWeekData ? (
             <Motion.div
-              key={selectedWeek.id}
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex h-64 flex-col items-center justify-center gap-3"
+            >
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
+              <p className="text-xs text-stone-500">Loading week data…</p>
+            </Motion.div>
+          ) : weekData ? (
+            <Motion.div
+              key={weekData.id}
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
@@ -314,11 +372,11 @@ export default function ToDoWeeklyReport() {
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-baseline gap-2">
                     <p className="text-label-md">Weekly Summary</p>
-                    <p className="text-[11px] font-semibold text-stone-500">{selectedWeek.date}</p>
+                    <p className="text-[11px] font-semibold text-stone-500">{weekData.date}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
-                      {selectedWeek.signal}
+                      {weekData.signal}
                     </span>
                     <button
                       type="button"
@@ -335,8 +393,8 @@ export default function ToDoWeeklyReport() {
                   {/* Completion Rate */}
                   <div className="flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Completion</p>
-                    <span className={`text-xs font-bold ${completionColor(selectedWeek.completionRate)}`}>
-                      {selectedWeek.completionRate}%
+                    <span className={`text-xs font-bold ${completionColor(weekData.completionRate)}`}>
+                      {weekData.completionRate}%
                     </span>
                   </div>
                   {/* Miss Rate */}
@@ -360,7 +418,7 @@ export default function ToDoWeeklyReport() {
                     />
                     <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Miss Rate</p>
                     <span className="relative z-10 text-xs font-bold text-rose-300">
-                      {Math.round((selectedWeek.missed / selectedWeek.totalTasks) * 100)}%
+                      {weekData.totalTasks > 0 ? Math.round((weekData.missed / weekData.totalTasks) * 100) : 0}%
                     </span>
                   </Motion.div>
                   {/* Longest Streak */}
@@ -368,13 +426,13 @@ export default function ToDoWeeklyReport() {
                     <span className="text-sm leading-none">🔥</span>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Longest Streak</p>
                     <span className="text-xs font-bold text-orange-300">
-                      {selectedWeek.longestStreak}
+                      {weekData.longestStreak}
                       <span className="text-[10px] font-semibold text-stone-500"> days</span>
                     </span>
                   </div>
                   {/* Consistency Score */}
                   {(() => {
-                    const activeDays = parseInt(selectedWeek.signal);
+                    const activeDays = parseInt(weekData.signal);
                     const consistencyPct = Math.round((activeDays / 7) * 100);
                     return (
                       <Motion.div
@@ -413,17 +471,17 @@ export default function ToDoWeeklyReport() {
                   })()}
                   {/* Weekly Score */}
                   <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1 ${
-                    selectedWeek.weeklyScore >= 75 ? "border-emerald-400/20 bg-emerald-500/10" :
-                    selectedWeek.weeklyScore >= 55 ? "border-amber-400/20 bg-amber-500/10" :
+                    weekData.weeklyScore >= 75 ? "border-emerald-400/20 bg-emerald-500/10" :
+                    weekData.weeklyScore >= 55 ? "border-amber-400/20 bg-amber-500/10" :
                     "border-rose-400/20 bg-rose-500/10"
                   }`}>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Score</p>
                     <span className={`text-xs font-bold ${
-                      selectedWeek.weeklyScore >= 75 ? "text-emerald-300" :
-                      selectedWeek.weeklyScore >= 55 ? "text-amber-300" :
+                      weekData.weeklyScore >= 75 ? "text-emerald-300" :
+                      weekData.weeklyScore >= 55 ? "text-amber-300" :
                       "text-rose-300"
                     }`}>
-                      {selectedWeek.weeklyScore}
+                      {weekData.weeklyScore}
                       <span className="text-[10px] font-semibold text-stone-500"> / 100</span>
                     </span>
                   </div>
@@ -451,7 +509,17 @@ export default function ToDoWeeklyReport() {
                   </div>
                 </div>
                 <div className="journal-scroll min-h-0 flex-1 overflow-y-auto pr-1">
-                  <p className="text-sm leading-relaxed text-stone-300">{selectedWeek.aiSummary}</p>
+                  {loadingAi ? (
+                    <div className="flex h-full items-center justify-center">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
+                    </div>
+                  ) : aiSummary ? (
+                    <p className="text-sm leading-relaxed text-stone-300">{aiSummary}</p>
+                  ) : (
+                    <p className="text-sm leading-relaxed text-stone-500 italic">
+                      AI analysis will be available here once generated.
+                    </p>
+                  )}
                 </div>
               </Motion.div>
 
@@ -480,24 +548,24 @@ export default function ToDoWeeklyReport() {
                       const priorityBorder = { High: "border-red-400/20", Medium: "border-yellow-400/20", Low: "border-green-400/20" };
 
                       if (priorityFilter === "All") {
-                        const compPct = Math.round((selectedWeek.completed / selectedWeek.totalTasks) * 100);
-                        const missPct = Math.round((selectedWeek.missed / selectedWeek.totalTasks) * 100);
+                        const compPct = weekData.totalTasks > 0 ? Math.round((weekData.completed / weekData.totalTasks) * 100) : 0;
+                        const missPct = weekData.totalTasks > 0 ? Math.round((weekData.missed / weekData.totalTasks) * 100) : 0;
                         return (
                           <div className="rounded-xl border border-amber-400/15 bg-stone-950/40 p-3">
                             <p className="mb-1 text-[10px] font-bold text-amber-300">All Tasks This Week</p>
                             <div className="grid grid-cols-3 gap-1.5">
                               <div className="rounded-lg border border-stone-700/40 bg-stone-900/50 px-1.5 py-1 text-center">
                                 <p className="text-[9px] text-stone-500">Total</p>
-                                <p className="text-xs font-bold text-stone-200">{selectedWeek.totalTasks}</p>
+                                <p className="text-xs font-bold text-stone-200">{weekData.totalTasks}</p>
                               </div>
                               <div className="rounded-lg border border-emerald-400/15 bg-emerald-500/8 px-1.5 py-1 text-center">
                                 <p className="text-[9px] text-stone-500">Completed</p>
-                                <p className="text-xs font-bold text-emerald-300">{selectedWeek.completed}</p>
+                                <p className="text-xs font-bold text-emerald-300">{weekData.completed}</p>
                                 <p className="text-[8px] text-stone-500">{compPct}%</p>
                               </div>
                               <div className="rounded-lg border border-rose-400/15 bg-rose-500/8 px-1.5 py-1 text-center">
                                 <p className="text-[9px] text-stone-500">Missed</p>
-                                <p className="text-xs font-bold text-rose-300">{selectedWeek.missed}</p>
+                                <p className="text-xs font-bold text-rose-300">{weekData.missed}</p>
                                 <p className="text-[8px] text-stone-500">{missPct}%</p>
                               </div>
                             </div>
@@ -505,10 +573,10 @@ export default function ToDoWeeklyReport() {
                         );
                       }
 
-                      const row = selectedWeek.priorityStats.find(p => p.priority === priorityFilter);
+                      const row = (weekData.priorityStats || []).find(p => p.priority === priorityFilter);
                       if (!row) return null;
-                      const compPct = Math.round((row.completed / row.total) * 100);
-                      const missPct = Math.round((row.missed / row.total) * 100);
+                      const compPct = row.total > 0 ? Math.round((row.completed / row.total) * 100) : 0;
+                      const missPct = row.total > 0 ? Math.round((row.missed / row.total) * 100) : 0;
                       return (
                         <div className={`rounded-xl border bg-stone-950/40 p-3 ${priorityBorder[row.priority]}`}>
                           <p className={`mb-2 text-[11px] font-bold ${priorityColor[row.priority]}`}>{row.priority} Priority Tasks</p>
@@ -540,76 +608,84 @@ export default function ToDoWeeklyReport() {
                 >
                   <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Important Categories</p>
-                    <div className="flex items-center gap-1 rounded-full border border-amber-100/10 bg-stone-900/60 p-0.5">
-                      {["All", ...selectedWeek.importantCategories.map((c) => c.name)].map((opt) => (
-                        <button key={opt} type="button" onClick={() => setKeyCategoryFilter(opt)}
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
-                            keyCategoryFilter === opt ? "bg-amber-500/20 text-amber-300" : "text-stone-500 hover:text-stone-300"
-                          }`}
-                        >{opt}</button>
-                      ))}
-                    </div>
+                    {(weekData.importantCategories || []).length > 0 && (
+                      <div className="flex items-center gap-1 rounded-full border border-amber-100/10 bg-stone-900/60 p-0.5">
+                        {["All", ...(weekData.importantCategories || []).map((c) => c.name)].map((opt) => (
+                          <button key={opt} type="button" onClick={() => setKeyCategoryFilter(opt)}
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
+                              keyCategoryFilter === opt ? "bg-amber-500/20 text-amber-300" : "text-stone-500 hover:text-stone-300"
+                            }`}
+                          >{opt}</button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto">
-                    <AnimatePresence mode="wait">
-                      <Motion.div key={keyCategoryFilter} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }} className="space-y-2.5">
-                        {(() => {
-                          if (keyCategoryFilter === "All") {
-                            const allTotal = selectedWeek.importantCategories.reduce((s, c) => s + c.total, 0);
-                            const allComp  = selectedWeek.importantCategories.reduce((s, c) => s + c.completed, 0);
-                            const allMiss  = selectedWeek.importantCategories.reduce((s, c) => s + c.missed, 0);
-                            const compPct  = Math.round((allComp / allTotal) * 100);
-                            const missPct  = Math.round((allMiss / allTotal) * 100);
+                    {(weekData.importantCategories || []).length === 0 ? (
+                      <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
+                        <p className="text-xs text-stone-600">No important categories this week</p>
+                      </div>
+                    ) : (
+                      <AnimatePresence mode="wait">
+                        <Motion.div key={keyCategoryFilter} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }} className="space-y-2.5">
+                          {(() => {
+                            if (keyCategoryFilter === "All") {
+                              const allTotal = (weekData.importantCategories || []).reduce((s, c) => s + c.total, 0);
+                              const allComp  = (weekData.importantCategories || []).reduce((s, c) => s + c.completed, 0);
+                              const allMiss  = (weekData.importantCategories || []).reduce((s, c) => s + c.missed, 0);
+                              const compPct  = allTotal > 0 ? Math.round((allComp / allTotal) * 100) : 0;
+                              const missPct  = allTotal > 0 ? Math.round((allMiss / allTotal) * 100) : 0;
+                              return (
+                                <div className="rounded-xl border border-amber-400/15 bg-stone-950/40 p-3">
+                                  <p className="mb-1 text-[10px] font-bold text-amber-300">All Important Categories Tasks in This Week </p>
+                                  <div className="grid grid-cols-3 gap-1.5">
+                                    <div className="rounded-lg border border-stone-700/40 bg-stone-900/50 px-1.5 py-1 text-center">
+                                      <p className="text-[9px] text-stone-500">Total</p>
+                                      <p className="text-xs font-bold text-stone-200">{allTotal}</p>
+                                    </div>
+                                    <div className="rounded-lg border border-emerald-400/15 bg-emerald-500/8 px-1.5 py-1 text-center">
+                                      <p className="text-[9px] text-stone-500">Completed</p>
+                                      <p className="text-xs font-bold text-emerald-300">{allComp}</p>
+                                      <p className="text-[8px] text-stone-500">{compPct}%</p>
+                                    </div>
+                                    <div className="rounded-lg border border-rose-400/15 bg-rose-500/8 px-1.5 py-1 text-center">
+                                      <p className="text-[9px] text-stone-500">Missed</p>
+                                      <p className="text-xs font-bold text-rose-300">{allMiss}</p>
+                                      <p className="text-[8px] text-stone-500">{missPct}%</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            const cat = (weekData.importantCategories || []).find((c) => c.name === keyCategoryFilter);
+                            if (!cat) return null;
+                            const compPct = cat.total > 0 ? Math.round((cat.completed / cat.total) * 100) : 0;
+                            const missPct = cat.total > 0 ? Math.round((cat.missed / cat.total) * 100) : 0;
                             return (
                               <div className="rounded-xl border border-amber-400/15 bg-stone-950/40 p-3">
-                                <p className="mb-1 text-[10px] font-bold text-amber-300">All Important Categories Tasks in This Week </p>
+                                <p className="mb-1 text-[10px] font-bold text-amber-300">{cat.name}</p>
                                 <div className="grid grid-cols-3 gap-1.5">
                                   <div className="rounded-lg border border-stone-700/40 bg-stone-900/50 px-1.5 py-1 text-center">
                                     <p className="text-[9px] text-stone-500">Total</p>
-                                    <p className="text-xs font-bold text-stone-200">{allTotal}</p>
+                                    <p className="text-xs font-bold text-stone-200">{cat.total}</p>
                                   </div>
                                   <div className="rounded-lg border border-emerald-400/15 bg-emerald-500/8 px-1.5 py-1 text-center">
                                     <p className="text-[9px] text-stone-500">Completed</p>
-                                    <p className="text-xs font-bold text-emerald-300">{allComp}</p>
+                                    <p className="text-xs font-bold text-emerald-300">{cat.completed}</p>
                                     <p className="text-[8px] text-stone-500">{compPct}%</p>
                                   </div>
                                   <div className="rounded-lg border border-rose-400/15 bg-rose-500/8 px-1.5 py-1 text-center">
                                     <p className="text-[9px] text-stone-500">Missed</p>
-                                    <p className="text-xs font-bold text-rose-300">{allMiss}</p>
+                                    <p className="text-xs font-bold text-rose-300">{cat.missed}</p>
                                     <p className="text-[8px] text-stone-500">{missPct}%</p>
                                   </div>
                                 </div>
                               </div>
                             );
-                          }
-                          const cat = selectedWeek.importantCategories.find((c) => c.name === keyCategoryFilter);
-                          if (!cat) return null;
-                          const compPct = Math.round((cat.completed / cat.total) * 100);
-                          const missPct = Math.round((cat.missed / cat.total) * 100);
-                          return (
-                            <div className="rounded-xl border border-amber-400/15 bg-stone-950/40 p-3">
-                              <p className="mb-1 text-[10px] font-bold text-amber-300">{cat.name}</p>
-                              <div className="grid grid-cols-3 gap-1.5">
-                                <div className="rounded-lg border border-stone-700/40 bg-stone-900/50 px-1.5 py-1 text-center">
-                                  <p className="text-[9px] text-stone-500">Total</p>
-                                  <p className="text-xs font-bold text-stone-200">{cat.total}</p>
-                                </div>
-                                <div className="rounded-lg border border-emerald-400/15 bg-emerald-500/8 px-1.5 py-1 text-center">
-                                  <p className="text-[9px] text-stone-500">Completed</p>
-                                  <p className="text-xs font-bold text-emerald-300">{cat.completed}</p>
-                                  <p className="text-[8px] text-stone-500">{compPct}%</p>
-                                </div>
-                                <div className="rounded-lg border border-rose-400/15 bg-rose-500/8 px-1.5 py-1 text-center">
-                                  <p className="text-[9px] text-stone-500">Missed</p>
-                                  <p className="text-xs font-bold text-rose-300">{cat.missed}</p>
-                                  <p className="text-[8px] text-stone-500">{missPct}%</p>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </Motion.div>
-                    </AnimatePresence>
+                          })()}
+                        </Motion.div>
+                      </AnimatePresence>
+                    )}
                   </div>
                 </Motion.div>
 
@@ -620,7 +696,7 @@ export default function ToDoWeeklyReport() {
                   <p className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Daily Breakdown</p>
                   <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
                     {(() => {
-                      const stats = selectedWeek.dailyStats;
+                      const stats = weekData.dailyStats || [];
                       const rates = stats.map(d => d.total > 0 ? d.completed / d.total : -1);
                       const validRates = rates.filter(r => r >= 0);
                       const bestRate = Math.max(...validRates);
@@ -678,7 +754,9 @@ export default function ToDoWeeklyReport() {
                     <AnimatePresence mode="wait">
                       <Motion.div key={timingFilter} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }} className="space-y-2">
                         {(() => {
-                          const data = timingFilter === "completed" ? selectedWeek.completionTiming : selectedWeek.missedTiming;
+                          const data = timingFilter === "completed"
+                            ? (weekData.completionTiming || [])
+                            : (weekData.missedTiming || []);
                           const isCompleted = timingFilter === "completed";
                           return data.map((slot) => {
                             const pct = slot.total > 0 ? Math.round((slot.count / slot.total) * 100) : 0;
@@ -749,45 +827,59 @@ export default function ToDoWeeklyReport() {
             <div>
               <h3 className="text-label-md">Little Monk's Analysis</h3>
               <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-amber-300/70">
-                AI Assistant
+                Selected week
               </p>
             </div>
           </div>
 
           <div className="journal-scroll min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-            {WEEKLY_TODO_DATA.map((week) => {
-              const isSelected = selectedWeekId === week.id;
-              return (
-                <Motion.div
-                  key={week.id}
-                  layout
-                  className={`rounded-xl border p-3 text-sm text-stone-400 transition-colors ${
-                    isSelected
-                      ? "border-amber-400/30 bg-amber-500/8"
-                      : "border-amber-100/10 bg-stone-950/45 hover:border-amber-400/20"
-                  }`}
-                >
-                  <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-                    <div className="min-w-0">
-                      <span className="text-xs font-semibold text-amber-300/80">{week.signal}</span>
-                      <p className="text-sm font-semibold text-stone-200">Weekly Summary</p>
-                      <p className="text-xs text-stone-500">({week.date})</p>
+            {loadingSummaries ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
+              </div>
+            ) : summaries.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                <span className="text-2xl opacity-20">✅</span>
+                <p className="text-xs text-stone-600">No completed weeks yet</p>
+              </div>
+            ) : (
+              summaries.map((week) => {
+                const isSelected = selectedWeekId === week.id;
+                const displaySignal = week.signal || (isSelected && weekData?.signal ? weekData.signal : null);
+                return (
+                  <Motion.div
+                    key={week.id}
+                    layout
+                    className={`rounded-xl border p-3 text-sm text-stone-400 transition-colors ${
+                      isSelected
+                        ? "border-amber-400/30 bg-amber-500/8"
+                        : "border-amber-100/10 bg-stone-950/45 hover:border-amber-400/20"
+                    }`}
+                  >
+                    <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                      <div className="min-w-0">
+                        {displaySignal && (
+                          <span className="text-xs font-semibold text-amber-300/80">{displaySignal}</span>
+                        )}
+                        <p className="text-sm font-semibold text-stone-200">Weekly Summary</p>
+                        <p className="text-xs text-stone-500">({week.date})</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedWeekId(isSelected ? null : week.id)}
+                        className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                          isSelected
+                            ? "border-amber-400/40 bg-amber-400/15 text-amber-200"
+                            : "border-amber-400/20 text-amber-300 hover:border-amber-300/45 hover:bg-amber-400/10"
+                        }`}
+                      >
+                        {isSelected ? "Hide" : "View"}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedWeekId(isSelected ? null : week.id)}
-                      className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
-                        isSelected
-                          ? "border-amber-400/40 bg-amber-400/15 text-amber-200"
-                          : "border-amber-400/20 text-amber-300 hover:border-amber-300/45 hover:bg-amber-400/10"
-                      }`}
-                    >
-                      {isSelected ? "Hide" : "View"}
-                    </button>
-                  </div>
-                </Motion.div>
-              );
-            })}
+                  </Motion.div>
+                );
+              })
+            )}
           </div>
         </ReportCard>
 
@@ -799,7 +891,7 @@ export default function ToDoWeeklyReport() {
               <div>
                 <p className="text-label-md">Categorywise Performance</p>
                 <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                  {selectedWeek ? selectedWeek.date : "Select a week"}
+                  {weekData ? weekData.date : "Select a week"}
                 </p>
               </div>
             </div>
@@ -824,7 +916,7 @@ export default function ToDoWeeklyReport() {
           </div>
 
           <div className="journal-scroll min-h-0 flex-1 overflow-y-auto pr-1">
-            {selectedWeek ? (
+            {weekData ? (
               <AnimatePresence mode="wait">
                 <Motion.div
                   key={categoryFilter}
@@ -834,12 +926,12 @@ export default function ToDoWeeklyReport() {
                   transition={{ duration: 0.18 }}
                   className="space-y-2.5"
                 >
-                  {selectedWeek.categories
+                  {(weekData.categories || [])
                     .filter((cat) => categoryFilter === "completion" || cat.missed > 0)
                     .map((cat) => {
                       const pct = categoryFilter === "completion"
-                        ? Math.round((cat.completed / cat.total) * 100)
-                        : Math.round((cat.missed / cat.total) * 100);
+                        ? (cat.total > 0 ? Math.round((cat.completed / cat.total) * 100) : 0)
+                        : (cat.total > 0 ? Math.round((cat.missed / cat.total) * 100) : 0);
                       const isCompletion = categoryFilter === "completion";
                       return (
                         <div key={cat.name}>

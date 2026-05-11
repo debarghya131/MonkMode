@@ -3,12 +3,14 @@ import { protect } from "../middleware/authMiddleware.js";
 import {
   getWeeksList,
   getHabitWeeklyReport,
+  getTodoSummaries,
   getTodoWeeklyReport,
   getJournalWeeklyReport,
   getJournalSummaries,
   getMissedJournalDays,
   saveJournalMissedReason,
   generateJournalAiSummary,
+  generateTodoAiSummary,
   getGoalWeeklyReport,
   getGymWeeklyReport,
 } from "../controllers/weeklyReportController.js";
@@ -24,6 +26,8 @@ router.get("/weeks", getWeeksList);
 router.get("/habits", getHabitWeeklyReport);
 
 // Todo
+router.get("/todos/summaries", getTodoSummaries);
+router.get("/todos/ai-summary", generateTodoAiSummary);
 router.get("/todos", getTodoWeeklyReport);
 
 // Journal — detailed stats for one week

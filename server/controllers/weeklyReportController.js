@@ -4,6 +4,7 @@ import Todo from "../models/Todo.js";
 import Journal from "../models/Journal.js";
 import JournalMissedReason from "../models/JournalMissedReason.js";
 import JournalWeeklySummary from "../models/JournalWeeklySummary.js";
+import TodoWeeklySummary from "../models/TodoWeeklySummary.js";
 import Goal from "../models/Goal.js";
 import GymExerciseProgress from "../models/GymExerciseProgress.js";
 import GymMeasurement from "../models/GymMeasurement.js";
@@ -407,6 +408,93 @@ export const getHabitWeeklyReport = async (req, res) => {
 
 // ─── Todo Weekly Report ───────────────────────────────────────────────────────
 
+// GET /api/weekly-report/todos/summaries
+// Returns only completed past weeks where the user has at least 1 todo entry.
+export const getTodoSummaries = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const dow = today.getUTCDay();
+    const toMonday = dow === 0 ? -6 : 1 - dow;
+    const thisMonday = new Date(today);
+    thisMonday.setUTCDate(today.getUTCDate() + toMonday);
+
+    // Build last 12 completed weeks (exclude current week)
+    const mondays = Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(thisMonday);
+      d.setUTCDate(thisMonday.getUTCDate() - (i + 1) * 7);
+      return d;
+    });
+
+    const earliestDayKey = toDayKey(mondays[11]);
+
+    // Fetch all relevant todos: once-type with dayStates in range, and all repeating ones
+    const todos = await Todo.find(
+      {
+        userId,
+        deletedAt: null,
+        $or: [
+          { repeatType: "once", "dayStates.dayKey": { $gte: earliestDayKey } },
+          { repeatType: { $ne: "once" }, startDate: { $lte: new Date(`${toDayKey(mondays[0])}T23:59:59Z`) } },
+        ],
+      },
+      { repeatType: 1, days: 1, startDate: 1, endDate: 1, dayStates: 1 }
+    ).lean();
+
+    const todayKey = toDayKey(today);
+
+    // For each past week, count scheduled tasks (including missed ones)
+    const summaries = mondays
+      .map(monday => {
+        const weekEnd = new Date(monday);
+        weekEnd.setUTCDate(monday.getUTCDate() + 6);
+        const startDayKey = toDayKey(monday);
+        const endDayKey   = toDayKey(weekEnd);
+        const weekDays    = getWeekDayKeys(monday);
+
+        let taskCount = 0;
+        const activeDays = new Set();
+
+        for (const todo of todos) {
+          const stateMap = {};
+          for (const ds of (todo.dayStates || [])) stateMap[ds.dayKey] = ds;
+
+          if (todo.repeatType === "once") {
+            for (const wd of weekDays) {
+              const ds = stateMap[wd.dayKey];
+              if (!ds) continue;
+              taskCount++;
+              if (ds.status === "completed") activeDays.add(wd.dayKey);
+            }
+          } else {
+            for (const wd of weekDays) {
+              if (wd.dayKey > todayKey) continue;
+              if (!isTodoScheduledOn(todo, wd.dayKey)) continue;
+              taskCount++;
+              const ds = stateMap[wd.dayKey];
+              if (ds?.status === "completed") activeDays.add(wd.dayKey);
+            }
+          }
+        }
+
+        return {
+          id:     startDayKey,
+          date:   formatWeekLabel(monday, weekEnd),
+          signal: `${activeDays.size} Active days`,
+          taskCount,
+        };
+      })
+      .filter(w => w.taskCount > 0);
+
+    res.json(summaries);
+  } catch (err) {
+    console.error("getTodoSummaries error:", err);
+    res.status(500).json({ error: "Failed to load todo summaries" });
+  }
+};
+
 const TODO_TIMING_BUCKETS = [
   { range: "6 AM – 9 AM",   start: 6,  end: 9  },
   { range: "9 AM – 12 PM",  start: 9,  end: 12 },
@@ -416,6 +504,32 @@ const TODO_TIMING_BUCKETS = [
 ];
 const IMPORTANT_CATEGORIES = new Set(["Bill & Payment", "Health", "Finance", "Medical", "Insurance"]);
 
+// Returns true if this todo was scheduled to run on the given dayKey
+function isTodoScheduledOn(todo, dayKey) {
+  if (todo.repeatType === "once") return false; // once-type handled via explicit dayStates only
+
+  const date = new Date(`${dayKey}T00:00:00Z`);
+  if (todo.startDate && date < new Date(todo.startDate)) return false;
+  if (todo.endDate   && date > new Date(todo.endDate))   return false;
+
+  const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const dow = date.getUTCDay();
+  const dayName = DAY_NAMES[dow];
+
+  switch (todo.repeatType) {
+    case "daily":
+      return true;
+    case "weekdays":
+      // If specific days are listed, use them; otherwise fall back to Mon–Fri
+      if (todo.days && todo.days.length > 0) return todo.days.includes(dayName);
+      return dow >= 1 && dow <= 5;
+    case "weekend":
+      return dow === 0 || dow === 6;
+    default:
+      return false;
+  }
+}
+
 export const getTodoWeeklyReport = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -423,11 +537,23 @@ export const getTodoWeeklyReport = async (req, res) => {
     const weekDays    = getWeekDayKeys(weekStart);
     const startDayKey = weekDays[0].dayKey;
     const endDayKey   = weekDays[6].dayKey;
+    const todayKey    = toDayKey(new Date());
 
+    // Fetch once-type todos that have an explicit dayState in the week,
+    // AND all repeating todos that started on or before the week ends.
     const todos = await Todo.find({
       userId,
       deletedAt: null,
-      "dayStates.dayKey": { $gte: startDayKey, $lte: endDayKey },
+      $or: [
+        {
+          repeatType: "once",
+          "dayStates.dayKey": { $gte: startDayKey, $lte: endDayKey },
+        },
+        {
+          repeatType: { $ne: "once" },
+          startDate:  { $lte: new Date(`${endDayKey}T23:59:59Z`) },
+        },
+      ],
     }).lean();
 
     const categoryMap = {};
@@ -441,60 +567,79 @@ export const getTodoWeeklyReport = async (req, res) => {
       dailyMap[wd.dayKey] = { day: wd.label, completed: 0, total: 0 };
     }
 
-    // Per-bucket: { total, completed, missed }
     const bucketStats = TODO_TIMING_BUCKETS.map(() => ({ total: 0, completed: 0, missed: 0 }));
-
     const missedTasks = [];
     let totalTasks = 0, totalCompleted = 0, totalMissed = 0, totalPending = 0;
     const activeDayKeys = new Set();
+
+    const recordSlot = (dayKey, status, todo, cat, pri, bucketIdx) => {
+      const isPastDay = dayKey <= todayKey;
+
+      totalTasks++;
+      categoryMap[cat].total++;
+      priorityMap[pri].total++;
+      if (dailyMap[dayKey]) dailyMap[dayKey].total++;
+      if (bucketIdx >= 0) bucketStats[bucketIdx].total++;
+
+      if (status === "completed") {
+        totalCompleted++;
+        categoryMap[cat].completed++;
+        priorityMap[pri].completed++;
+        if (dailyMap[dayKey]) {
+          dailyMap[dayKey].completed++;
+          activeDayKeys.add(dayKey);
+        }
+        if (bucketIdx >= 0) bucketStats[bucketIdx].completed++;
+      } else if (status === "missed" || (status === "pending" && isPastDay)) {
+        // pending on a past day = effectively missed
+        totalMissed++;
+        categoryMap[cat].missed++;
+        priorityMap[pri].missed++;
+        if (bucketIdx >= 0) bucketStats[bucketIdx].missed++;
+        const dayDate = new Date(`${dayKey}T00:00:00Z`);
+        missedTasks.push({
+          title:    todo.title,
+          category: cat,
+          priority: pri,
+          day:      dayDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }),
+        });
+      } else {
+        // pending on today or a future day — still in play
+        totalPending++;
+      }
+    };
 
     for (const todo of todos) {
       const cat = todo.category || "Others";
       const pri = todo.priority || "Medium";
       if (!categoryMap[cat]) categoryMap[cat] = { name: cat, total: 0, completed: 0, missed: 0 };
 
-      // Determine time bucket from todo's scheduled time
       let bucketIdx = -1;
       if (todo.time) {
         const h = parseInt(todo.time.split(":")[0], 10);
         bucketIdx = TODO_TIMING_BUCKETS.findIndex(b => h >= b.start && h < b.end);
       }
 
-      const weekStates = (todo.dayStates || []).filter(
-        ds => ds.dayKey >= startDayKey && ds.dayKey <= endDayKey
-      );
+      // Build dayKey → dayState map for quick lookup
+      const stateMap = {};
+      for (const ds of (todo.dayStates || [])) stateMap[ds.dayKey] = ds;
 
-      for (const ds of weekStates) {
-        totalTasks++;
-        categoryMap[cat].total++;
-        priorityMap[pri].total++;
-        if (dailyMap[ds.dayKey]) dailyMap[ds.dayKey].total++;
-        if (bucketIdx >= 0) bucketStats[bucketIdx].total++;
+      if (todo.repeatType === "once") {
+        // Only count explicit dayStates within the week
+        for (const wd of weekDays) {
+          const ds = stateMap[wd.dayKey];
+          if (!ds) continue;
+          recordSlot(wd.dayKey, ds.status, todo, cat, pri, bucketIdx);
+        }
+      } else {
+        // For repeating todos: check every day in the week against the schedule
+        for (const wd of weekDays) {
+          if (wd.dayKey > todayKey) continue; // don't count future days as missed
+          if (!isTodoScheduledOn(todo, wd.dayKey)) continue;
 
-        if (ds.status === "completed") {
-          totalCompleted++;
-          categoryMap[cat].completed++;
-          priorityMap[pri].completed++;
-          if (dailyMap[ds.dayKey]) {
-            dailyMap[ds.dayKey].completed++;
-            activeDayKeys.add(ds.dayKey);
-          }
-          if (bucketIdx >= 0) bucketStats[bucketIdx].completed++;
-        } else if (ds.status === "missed") {
-          totalMissed++;
-          categoryMap[cat].missed++;
-          priorityMap[pri].missed++;
-          if (bucketIdx >= 0) bucketStats[bucketIdx].missed++;
-
-          const dayDate = new Date(`${ds.dayKey}T00:00:00Z`);
-          missedTasks.push({
-            title:    todo.title,
-            category: cat,
-            priority: pri,
-            day:      dayDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }),
-          });
-        } else {
-          totalPending++;
+          const ds = stateMap[wd.dayKey];
+          const status = ds ? ds.status : "missed"; // no record on a scheduled past day = missed
+          recordSlot(wd.dayKey, status, todo, cat, pri, bucketIdx);
         }
       }
     }
@@ -530,6 +675,169 @@ export const getTodoWeeklyReport = async (req, res) => {
   } catch (err) {
     console.error("getTodoWeeklyReport error:", err);
     res.status(500).json({ error: "Failed to load todo weekly report" });
+  }
+};
+
+// ─── Todo AI Summary ─────────────────────────────────────────────────────────
+
+function buildTodoWeekContext(weekLabel, totalTasks, completed, missed, completionRate, weeklyScore, dailyStats, categories, priorityStats) {
+  const lines = [
+    `Week: ${weekLabel}`,
+    `Tasks: ${totalTasks} total — ${completed} completed, ${missed} missed (${completionRate}% completion rate, score ${weeklyScore}/100)`,
+  ];
+
+  const sorted = [...dailyStats].filter(d => d.total > 0).sort((a, b) => (b.completed / b.total) - (a.completed / a.total));
+  if (sorted.length > 0) {
+    lines.push(`Best day: ${sorted[0].label} (${sorted[0].completed}/${sorted[0].total} done)`);
+    if (sorted.length > 1) lines.push(`Worst day: ${sorted[sorted.length - 1].label} (${sorted[sorted.length - 1].completed}/${sorted[sorted.length - 1].total} done)`);
+  }
+
+  const zeroDays = dailyStats.filter(d => d.total > 0 && d.completed === 0).map(d => d.label);
+  if (zeroDays.length > 0) lines.push(`Zero-completion days: ${zeroDays.join(", ")}`);
+
+  const topMissed = [...categories].sort((a, b) => b.missed - a.missed).slice(0, 3).filter(c => c.missed > 0);
+  if (topMissed.length > 0) lines.push(`Most missed categories: ${topMissed.map(c => `${c.name} (${c.missed} missed)`).join(", ")}`);
+
+  const highPri = priorityStats.find(p => p.priority === "High");
+  if (highPri && highPri.total > 0) lines.push(`High-priority tasks: ${highPri.completed}/${highPri.total} completed`);
+
+  return lines.join("\n");
+}
+
+// GET /api/weekly-report/todos/ai-summary?week=YYYY-MM-DD
+export const generateTodoAiSummary = async (req, res) => {
+  try {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) return res.status(503).json({ error: "AI service not configured" });
+
+    const userId     = req.user.id;
+    const regenerate = req.query.regenerate === "true";
+    const { weekStart, weekEnd } = getWeekBounds(req.query.week);
+    const weekDays    = getWeekDayKeys(weekStart);
+    const startDayKey = weekDays[0].dayKey;
+    const endDayKey   = weekDays[6].dayKey;
+    const todayKey    = toDayKey(new Date());
+
+    if (!regenerate) {
+      const cached = await TodoWeeklySummary.findOne({ userId, weekStart: startDayKey }).lean();
+      if (cached) return res.json({ aiSummary: cached.aiSummary, cached: true });
+    }
+
+    // Fetch todos for the week (same query as getTodoWeeklyReport)
+    const todos = await Todo.find({
+      userId, deletedAt: null,
+      $or: [
+        { repeatType: "once", "dayStates.dayKey": { $gte: startDayKey, $lte: endDayKey } },
+        { repeatType: { $ne: "once" }, startDate: { $lte: new Date(`${endDayKey}T23:59:59Z`) } },
+      ],
+    }).lean();
+
+    if (todos.length === 0) {
+      return res.json({ aiSummary: "No tasks were recorded this week. Add your first todo and start building the habit." });
+    }
+
+    // Compute summary stats
+    let totalTasks = 0, completed = 0, missed = 0;
+    const categoryMap = {};
+    const priorityMap = { High: { total: 0, completed: 0, missed: 0 }, Medium: { total: 0, completed: 0, missed: 0 }, Low: { total: 0, completed: 0, missed: 0 } };
+    const dailyMap = {};
+    for (const wd of weekDays) dailyMap[wd.dayKey] = { label: wd.label, total: 0, completed: 0 };
+
+    for (const todo of todos) {
+      const stateMap = {};
+      for (const ds of (todo.dayStates || [])) stateMap[ds.dayKey] = ds;
+      const cat = todo.category || "Uncategorized";
+      const pri = todo.priority || "Medium";
+      if (!categoryMap[cat]) categoryMap[cat] = { name: cat, total: 0, completed: 0, missed: 0 };
+      if (!priorityMap[pri]) priorityMap[pri] = { total: 0, completed: 0, missed: 0 };
+
+      const recordSlot = (dayKey, status) => {
+        totalTasks++;
+        dailyMap[dayKey].total++;
+        categoryMap[cat].total++;
+        priorityMap[pri].total++;
+        if (status === "completed") {
+          completed++; dailyMap[dayKey].completed++; categoryMap[cat].completed++; priorityMap[pri].completed++;
+        } else {
+          missed++; categoryMap[cat].missed++; priorityMap[pri].missed++;
+        }
+      };
+
+      if (todo.repeatType === "once") {
+        for (const wd of weekDays) {
+          const ds = stateMap[wd.dayKey];
+          if (ds) recordSlot(wd.dayKey, ds.status);
+        }
+      } else {
+        for (const wd of weekDays) {
+          if (wd.dayKey > todayKey || !isTodoScheduledOn(todo, wd.dayKey)) continue;
+          const ds = stateMap[wd.dayKey];
+          recordSlot(wd.dayKey, ds ? ds.status : "missed");
+        }
+      }
+    }
+
+    if (totalTasks === 0) {
+      return res.json({ aiSummary: "No tasks were scheduled this week." });
+    }
+
+    const completionRate = Math.round((completed / totalTasks) * 100);
+    const activeDays     = Object.values(dailyMap).filter(d => d.total > 0 && d.completed > 0).length;
+    const weeklyScore    = computeWeeklyScore(completionRate, activeDays);
+    const weekLabel      = formatWeekLabel(weekStart, weekEnd);
+    const dailyStats     = weekDays.map(wd => ({ ...dailyMap[wd.dayKey] }));
+    const categories     = Object.values(categoryMap).sort((a, b) => b.total - a.total);
+    const priorityStats  = ["High", "Medium", "Low"].map(p => ({ priority: p, ...priorityMap[p] }));
+
+    const weekContext = buildTodoWeekContext(weekLabel, totalTasks, completed, missed, completionRate, weeklyScore, dailyStats, categories, priorityStats);
+
+    const systemPrompt = `You are Little Monk — a sharp, direct personal productivity coach embedded in the MonkMode app. Your job is to give a weekly task analysis that is honest, specific, and immediately actionable.
+
+Rules:
+- Write in plain paragraph form (2-4 sentences). No bullet points, no headers.
+- Mention specific days (e.g. "Wednesday had zero completions") when the data supports it.
+- Identify the one clearest pattern — what worked, what failed, and why.
+- End with one concrete, specific action for next week. Not generic advice.
+- Keep it under 120 words. Tight and direct.
+- Do not start with "I" or refer to yourself as Little Monk.`;
+
+    const userMessage = `Here is this week's task data:\n\n${weekContext}\n\nWrite the weekly analysis.`;
+
+    const groqResponse = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user",   content: userMessage },
+        ],
+        max_tokens: 200,
+        temperature: 0.72,
+      }),
+    });
+
+    if (!groqResponse.ok) {
+      const errText = await groqResponse.text();
+      console.error("Groq API error (todo):", groqResponse.status, errText);
+      return res.status(502).json({ error: "AI generation failed" });
+    }
+
+    const groqData  = await groqResponse.json();
+    const aiSummary = groqData.choices?.[0]?.message?.content?.trim() ?? null;
+
+    if (aiSummary) {
+      await TodoWeeklySummary.findOneAndUpdate(
+        { userId, weekStart: startDayKey },
+        { aiSummary },
+        { upsert: true, returnDocument: "after" }
+      );
+    }
+
+    res.json({ aiSummary, cached: false });
+  } catch (err) {
+    console.error("generateTodoAiSummary error:", err);
+    res.status(500).json({ error: "Failed to generate AI summary" });
   }
 };
 

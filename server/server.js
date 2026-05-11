@@ -24,6 +24,7 @@ import GoalProgressLog from "./models/GoalProgressLog.js";
 import Journal from "./models/Journal.js";
 import GymGalleryEntry from "./models/GymGalleryEntry.js";
 import JournalMissedReason from "./models/JournalMissedReason.js";
+import JournalWeeklySummary from "./models/JournalWeeklySummary.js";
 import GymCustomExercise from "./models/GymCustomExercise.js";
 import GymDietPlan from "./models/GymDietPlan.js";
 import GymExerciseProgress from "./models/GymExerciseProgress.js";

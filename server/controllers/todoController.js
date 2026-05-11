@@ -245,7 +245,7 @@ const isTaskScheduledOnDay = (task, dayKey) => {
 const isTaskAliveOnDay = (task, dayKey) => {
   const deletedKey = task?.deletedAt ? toDayKey(task.deletedAt) : null;
   if (!deletedKey) return true;
-  return dayKey <= deletedKey;
+  return dayKey < deletedKey;
 };
 
 const isTaskArchived = (task, todayKey) => {
@@ -958,7 +958,7 @@ export const getTodoHeatmap = async (req, res) => {
     }
 
     const todos = await Todo.find({ userId: req.user.id }).select(
-      "date startDate endDate repeatType days pendingDays daysChangeEffectiveFrom time pendingTime timeChangeEffectiveFrom dayStates createdAt completed"
+      "date startDate endDate repeatType days pendingDays daysChangeEffectiveFrom time pendingTime timeChangeEffectiveFrom dayStates createdAt completed deletedAt"
     );
 
     const heatmapTodayStart = getStartOfDay(new Date());
