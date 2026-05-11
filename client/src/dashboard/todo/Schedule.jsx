@@ -1164,7 +1164,17 @@ export default function Schedule({
                 {tasksView === "active" ? "No active tasks yet. Create one to get started." : "No archived tasks yet."}
               </p>
             ) : (
-              displayedTasks.map((task) => (
+              displayedTasks.map((task) => {
+                const isDeletedTask = Boolean(task.deletedAt || task.archivedReason === "deleted" || task.archiveReason === "deleted");
+                const isEndedTask = !isDeletedTask && (
+                  task.archivedReason === "ended" ||
+                  task.archiveReason === "ended" ||
+                  Boolean(task.archived) ||
+                  (task.repeatType === "once" && task.date && task.date < today) ||
+                  (task.repeatType !== "once" && task.endDate && task.endDate <= today)
+                );
+
+                return (
                 <article key={task.id} className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 p-3">
                   {false ? (
                     /* ── Inline edit form ── */
@@ -1334,6 +1344,17 @@ export default function Schedule({
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-semibold text-stone-100">{task.title}</p>
                         <div className="flex shrink-0 items-center gap-1.5">
+                          {isArchiveView && (
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                              isDeletedTask
+                                ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
+                                : isEndedTask
+                                  ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
+                                  : "border-stone-500/20 bg-white/5 text-stone-400"
+                            }`}>
+                              {isDeletedTask ? "Deleted" : isEndedTask ? "Ended" : "Archived"}
+                            </span>
+                          )}
                           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${priorityStyles[task.priority]}`}>
                             {task.priority}
                           </span>
@@ -1385,7 +1406,8 @@ export default function Schedule({
                     </>
                   )}
                 </article>
-              ))
+                );
+              })
             )}
           </div>
         </section>

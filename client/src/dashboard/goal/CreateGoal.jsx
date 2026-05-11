@@ -671,7 +671,14 @@ export default function CreateGoal({ onGoalChanged }) {
                   : "No archived goals yet."}
               </p>
             ) : (
-              displayedGoals.map((goal, i) => (
+              displayedGoals.map((goal, i) => {
+                const isDeletedGoal = Boolean(goal.deletedAt || goal.archiveReason === "deleted");
+                const isEndedGoal = !isDeletedGoal && (
+                  goal.archiveReason === "ended" ||
+                  Boolean(goal.deadline && goal.deadline < today)
+                );
+
+                return (
                 <Motion.article
                   key={goal.id}
                   className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
@@ -685,6 +692,17 @@ export default function CreateGoal({ onGoalChanged }) {
                       {goal.title}
                     </p>
                     <div className="flex w-full flex-wrap items-center justify-start gap-1.5 sm:w-auto sm:shrink-0 sm:justify-end">
+                      {goalsView === "archive" && (
+                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                          isDeletedGoal
+                            ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
+                            : isEndedGoal
+                              ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
+                              : "border-stone-500/20 bg-white/5 text-stone-400"
+                        }`}>
+                          {isDeletedGoal ? "Deleted" : isEndedGoal ? "Ended" : "Archived"}
+                        </span>
+                      )}
                       <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${PRIORITY_STYLES[goal.priority]}`}>
                         {goal.priority}
                       </span>
@@ -723,7 +741,8 @@ export default function CreateGoal({ onGoalChanged }) {
                     </span>
                   </div>
                 </Motion.article>
-              ))
+                );
+              })
             )}
           </div>
         </section>

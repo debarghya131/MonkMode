@@ -81,6 +81,12 @@ const getBodyGroup = (bodyPart = "") => {
   return bodyPart.split(" - ")[0]?.trim() || "Other";
 };
 
+const stableExerciseKey = (exercise = {}) => {
+  const id = exercise?.id || "";
+  if (id && !id.startsWith("custom-") && !id.startsWith("ex-")) return id;
+  return (exercise?.name || "").toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+};
+
 const ensureWorkoutProgressSeed = () => {
   try {
     const seed = localStorage.getItem(WORKOUT_PROGRESS_SEED_KEY);
@@ -96,11 +102,13 @@ const buildExerciseMetaMap = (workouts) => {
   const meta = {};
   workouts.forEach((workout) => {
     (workout?.exercises || []).forEach((exercise) => {
-      if (!exercise?.id) return;
-      meta[exercise.id] = {
+      const metadata = {
         name: exercise.name || "",
         bodyPart: exercise.bodyPart || "",
       };
+      if (exercise?.id) meta[exercise.id] = metadata;
+      const stableKey = stableExerciseKey(exercise);
+      if (stableKey) meta[stableKey] = metadata;
     });
   });
   return meta;
@@ -151,9 +159,30 @@ const loadWorkoutProgressEntries = (workouts = []) => {
   }
 };
 
+const loadStoredWorkoutProgressSource = ({ includeDemoEntries = true } = {}) => {
+  try {
+    const stored = localStorage.getItem(WORKOUT_PROGRESS_KEY);
+    const parsed = stored ? JSON.parse(stored) : {};
+    const source = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    if (includeDemoEntries) return source;
+
+    return Object.fromEntries(
+      Object.entries(source).filter(([entryKey, raw]) => {
+        const exerciseIdFromKey = typeof entryKey === "string" && entryKey.length > 11
+          ? entryKey.slice(11)
+          : "";
+        const exerciseId = String(raw?.exerciseId || exerciseIdFromKey || "");
+        return !exerciseId.startsWith("demo-");
+      })
+    );
+  } catch {
+    return {};
+  }
+};
+
 const mapApiWorkoutProgressEntries = (payload, workouts = []) => {
   const source = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
-  return mapWorkoutProgressEntries(source, workouts);
+  return mapWorkoutProgressEntries({ ...source, ...loadStoredWorkoutProgressSource({ includeDemoEntries: false }) }, workouts);
 };
 
 const buildExerciseProgressRows = (entries) => {
@@ -607,7 +636,11 @@ export default function Progress({ initialTab = "measurements" }) {
   useEffect(() => {
     const sync = () => setWorkouts(loadWorkouts());
     window.addEventListener("storage", sync);
-    return () => window.removeEventListener("storage", sync);
+    window.addEventListener("monkmode:gym-workouts-updated", sync);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("monkmode:gym-workouts-updated", sync);
+    };
   }, []);
 
   return (

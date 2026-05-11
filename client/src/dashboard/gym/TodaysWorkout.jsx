@@ -4,15 +4,71 @@ import { useEffect, useRef, useState } from "react";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import { WORKOUT_SPLITS } from "./workoutLibraryData";
-import { DEMO_FULL_DIET, DEMO_SUPPLEMENTS, DEMO_PREWORKOUT, DEMO_MACROS } from "../../../data/GymDummyData";
+import {
+  createDummyWorkouts,
+  DEMO_FULL_DIET,
+  DEMO_SUPPLEMENTS,
+  DEMO_PREWORKOUT,
+  DEMO_MACROS,
+  RETIRED_DEMO_WORKOUT_IDS,
+} from "../../../data/GymDummyData";
 
 const getSplitLabel = (val) => WORKOUT_SPLITS.find((s) => s.value === val)?.label || val || "";
 
+const WORKOUTS_STORAGE_KEY = "monkmode_workouts";
+
+const normalizeActiveByDay = (items) => {
+  const usedDays = new Set();
+  return (Array.isArray(items) ? items : []).map((item) => {
+    if (!item?.isActive) return item;
+    const days = Array.isArray(item.days) ? item.days : [];
+    const hasConflict = days.some((day) => usedDays.has(day));
+    if (hasConflict) return { ...item, isActive: false };
+    days.forEach((day) => usedDays.add(day));
+    return item;
+  });
+};
+
+const mergeWithDemoWorkouts = (storedWorkouts, baseDate) => {
+  const stored = (Array.isArray(storedWorkouts) ? storedWorkouts : []).filter(
+    (workout) => !RETIRED_DEMO_WORKOUT_IDS.has(workout?.id)
+  );
+  const demos = createDummyWorkouts(baseDate);
+  const demoById = new Map(demos.map((demo) => [demo.id, demo]));
+
+  const refreshedStored = stored.map((workout) => {
+    const demo = demoById.get(workout.id);
+    if (!demo) return workout;
+    return {
+      ...demo,
+      isActive: workout.isActive ?? demo.isActive,
+      startDate: workout.startDate ?? demo.startDate,
+      neverEnds: workout.neverEnds ?? demo.neverEnds,
+      endDate: workout.endDate ?? demo.endDate,
+    };
+  });
+
+  const storedIds = new Set(refreshedStored.map((workout) => workout.id));
+  return [...refreshedStored, ...demos.filter((demo) => !storedIds.has(demo.id))];
+};
+
 const loadDemoWorkouts = () => {
   try {
-    const stored = localStorage.getItem("monkmode_workouts");
-    return stored ? JSON.parse(stored) : [];
-  } catch { return []; }
+    const stored = localStorage.getItem(WORKOUTS_STORAGE_KEY);
+    const parsed = stored ? JSON.parse(stored) : [];
+    return normalizeActiveByDay(mergeWithDemoWorkouts(parsed, new Date()));
+  } catch {
+    return normalizeActiveByDay(createDummyWorkouts(new Date()));
+  }
+};
+
+const saveDemoWorkouts = (workouts) => {
+  try {
+    localStorage.setItem(WORKOUTS_STORAGE_KEY, JSON.stringify(workouts));
+    window.dispatchEvent(new Event("monkmode:gym-workouts-updated"));
+  } catch {
+    // Demo mode should still work if storage is unavailable.
+  }
 };
 
 const loadLocalProgress = () => {
@@ -32,7 +88,13 @@ const todayDay = () => WEEK_DAYS[new Date().getDay() === 0 ? 6 : new Date().getD
 
 const formatDate = (day) => (day === todayDay() ? "Today" : day);
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayISO = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 const stableExerciseKey = (exercise) => {
   const id = exercise?.id || "";
@@ -396,8 +458,9 @@ function UpdateProgressModal({ exercise, isDemoMode, onClose }) {
       ? `${totalEffectiveReps} reps`
       : null;
 
+  const hasAnyBreakdown = breakdown.some((val) => val !== "");
   const breakdownErrors = breakdown.map((val) => {
-    if (val === "") return null;
+    if (val === "") return hasAnyBreakdown ? "required" : null;
     if (numericTargetReps > 0 && parseReps(val) !== numericTargetReps) return "mismatch";
     return null;
   });
@@ -471,7 +534,7 @@ function UpdateProgressModal({ exercise, isDemoMode, onClose }) {
                   const hit = target > 0 && val !== "" && done >= target;
                   const over = target > 0 && val !== "" && done > target;
                   const err = breakdownErrors[i];
-                  const statusColor = err === "mismatch" ? "border-rose-500/70" : val === "" ? "border-amber-100/10" : hit ? "border-emerald-400/40" : "border-rose-400/40";
+                  const statusColor = err ? "border-rose-500/70" : val === "" ? "border-amber-100/10" : hit ? "border-emerald-400/40" : "border-rose-400/40";
                   return (
                     <div key={i} className="flex flex-col items-center gap-1">
                       <span className="text-[9px] text-stone-600">S{i + 1}</span>
@@ -533,6 +596,8 @@ function UpdateProgressModal({ exercise, isDemoMode, onClose }) {
                 ? "Total Time is required."
                 : restBetweenSets === ""
                 ? "Rest b/w Sets is required."
+                : breakdownErrors.some((err) => err === "required")
+                ? "Complete every set breakdown or leave all breakdown boxes empty."
                 : "Each set's reps must match the Reps / Set target."}
             </p>
           )}
@@ -736,7 +801,11 @@ export default function TodaysWorkout() {
       setLoading(false);
       const onStorage = () => setAllWorkouts(loadDemoWorkouts());
       window.addEventListener("storage", onStorage);
-      return () => window.removeEventListener("storage", onStorage);
+      window.addEventListener("monkmode:gym-workouts-updated", onStorage);
+      return () => {
+        window.removeEventListener("storage", onStorage);
+        window.removeEventListener("monkmode:gym-workouts-updated", onStorage);
+      };
     }
 
     let cancelled = false;
@@ -786,11 +855,13 @@ export default function TodaysWorkout() {
     if (!target) return;
     const targetDays = target.days || [];
     if (isDemoMode) {
-      setAllWorkouts((prev) => prev.map((w) => {
+      const next = allWorkouts.map((w) => {
         if (w.id === id) return { ...w, isActive: true };
         const overlaps = (w.days || []).some((d) => targetDays.includes(d));
         return overlaps ? { ...w, isActive: false } : w;
-      }));
+      });
+      setAllWorkouts(next);
+      saveDemoWorkouts(next);
       return;
     }
     try {

@@ -1362,7 +1362,14 @@ export default function CreateHabit({ entity = "habit" }) {
                   : `No archived ${lowerPlural} yet.`}
               </p>
             ) : (
-              displayedHabits.map((h, i) => (
+              displayedHabits.map((h, i) => {
+                const isDeletedHabit = Boolean(h.deletedAt && h.archivedReason === "deleted");
+                const isEndedHabit = !isDeletedHabit && (
+                  h.archivedReason === "ended" ||
+                  Boolean(h.endDate && h.endDate <= today)
+                );
+
+                return (
                 <Motion.article
                   key={h.id}
                   className={`rounded-xl border bg-white/5 p-3 ${editingId === h.id ? "border-amber-300/40 ring-1 ring-amber-300/20" : "border-amber-100/10"}`}
@@ -1382,6 +1389,17 @@ export default function CreateHabit({ entity = "habit" }) {
                           )}
                         </div>
                         <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                          {isArchiveView && (
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                              isDeletedHabit
+                                ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
+                                : isEndedHabit
+                                  ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
+                                  : "border-stone-500/20 bg-white/5 text-stone-400"
+                            }`}>
+                              {isDeletedHabit ? "Deleted" : isEndedHabit ? "Ended" : "Archived"}
+                            </span>
+                          )}
                           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${PRIORITY_STYLES[h.priority]}`}>
                             {h.priority}
                           </span>
@@ -1436,7 +1454,8 @@ export default function CreateHabit({ entity = "habit" }) {
                       </div>
                     </>
                 </Motion.article>
-              ))
+                );
+              })
             )}
           </div>
         </section>

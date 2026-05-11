@@ -223,6 +223,8 @@ const BLANK_FORM = {
   neverEnds: true, endDate: "", difficulty: "",
 };
 
+const WORKOUTS_STORAGE_KEY = "monkmode_workouts";
+
 const DEMO_ACTIVE_WORKOUT_BY_DAY = {
   Mon: "demo-push-strength",
   Tue: "demo-upper-primer",
@@ -280,6 +282,29 @@ const enforceDemoActiveWorkouts = (items) =>
     };
   });
 
+const loadDemoStoredWorkouts = (baseDate) => {
+  try {
+    const stored = localStorage.getItem(WORKOUTS_STORAGE_KEY);
+    if (!stored) {
+      return enforceDemoActiveWorkouts(normalizeActiveByDay(createDummyWorkouts(baseDate)));
+    }
+
+    const parsed = JSON.parse(stored);
+    return normalizeActiveByDay(mergeWithDemoWorkouts(parsed, baseDate));
+  } catch {
+    return enforceDemoActiveWorkouts(normalizeActiveByDay(createDummyWorkouts(baseDate)));
+  }
+};
+
+const persistDemoWorkouts = (workouts) => {
+  try {
+    localStorage.setItem(WORKOUTS_STORAGE_KEY, JSON.stringify(workouts));
+    window.dispatchEvent(new Event("monkmode:gym-workouts-updated"));
+  } catch {
+    // Demo mode remains usable even when storage is unavailable.
+  }
+};
+
 
 export default function AddWorkout() {
   const { isDemoMode } = useAuth();
@@ -309,7 +334,7 @@ export default function AddWorkout() {
   const [error, setError] = useState("");
   const [workouts, setWorkouts] = useState(() =>
     isDemoMode
-      ? enforceDemoActiveWorkouts(normalizeActiveByDay(createDummyWorkouts(new Date())))
+      ? loadDemoStoredWorkouts(new Date())
       : []
   );
   const [loading, setLoading] = useState(!isDemoMode);
@@ -338,6 +363,11 @@ export default function AddWorkout() {
     }, 30000);
     return () => window.clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    if (!isDemoMode) return;
+    persistDemoWorkouts(workouts);
+  }, [isDemoMode, workouts]);
 
   useEffect(() => {
     if (isDemoMode) {
@@ -508,7 +538,9 @@ export default function AddWorkout() {
       return;
     }
     const resolvedBodyPart = formatBodyPart(currentEx.bodyPartGroup, currentEx.bodyPartSection);
-    const { bodyPartGroup, bodyPartSection, ...exercisePayload } = currentEx;
+    const exercisePayload = { ...currentEx };
+    delete exercisePayload.bodyPartGroup;
+    delete exercisePayload.bodyPartSection;
     setExercises((prev) => [
       ...prev,
       { ...exercisePayload, bodyPart: resolvedBodyPart, id: currentEx.id || `ex-${Date.now()}` },
@@ -1518,15 +1550,18 @@ export default function AddWorkout() {
                     : `No archived workouts for ${workoutDayFilter}.`}
               </p>
             ) : (
-              displayedWorkouts.map((w, wi) => (
-                <Motion.article
-                  key={w.id}
-                  className="min-w-0 overflow-hidden rounded-xl border border-amber-100/10 bg-white/5 p-3"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: wi * 0.06, duration: 0.22 }}
-                  whileHover={{ y: -2, boxShadow: "0 10px 28px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
-                >
+              displayedWorkouts.map((w, wi) => {
+                const isEnded = !w._archiveSource && !w.neverEnds && w.endDate && w.endDate < today;
+
+                return (
+                  <Motion.article
+                    key={w.id}
+                    className="min-w-0 overflow-hidden rounded-xl border border-amber-100/10 bg-white/5 p-3"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: wi * 0.06, duration: 0.22 }}
+                    whileHover={{ y: -2, boxShadow: "0 10px 28px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
+                  >
                   <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <p className="min-w-0 flex-1 break-words pr-1 text-sm font-semibold leading-tight text-stone-100">{w.title}</p>
@@ -1537,11 +1572,13 @@ export default function AddWorkout() {
                           </span>
                         ) : (
                           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                            w.isActive
+                            isEnded
+                              ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
+                              : w.isActive
                               ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
                               : "border-stone-500/20 bg-white/5 text-stone-400"
                           }`}>
-                            {w.isActive ? "Active" : "Inactive"}
+                            {isEnded ? "Ended" : w.isActive ? "Active" : "Inactive"}
                           </span>
                         )}
                         <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${DIFFICULTY_STYLES[w.difficulty] || "border-amber-100/10 text-stone-300"}`}>
@@ -1615,8 +1652,9 @@ export default function AddWorkout() {
                     ))}
                   </div>
 
-                </Motion.article>
-              ))
+                  </Motion.article>
+                );
+              })
             )}
           </div>
         </section>
