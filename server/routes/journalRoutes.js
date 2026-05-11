@@ -2,6 +2,7 @@ import express from "express";
 import {
   createJournalEntry,
   deleteJournalEntry,
+  getJournalAnalysis,
   getJournalCustomFields,
   getJournalEntryById,
   getJournalEntries,
@@ -18,6 +19,7 @@ router.use(protect);
 
 router.get("/heatmap", getJournalHeatmap);
 router.get("/summary", getJournalSummary);
+router.get("/analysis", getJournalAnalysis);
 router.route("/custom-fields").get(getJournalCustomFields).put(replaceJournalCustomFields);
 router.route("/").post(createJournalEntry).get(getJournalEntries);
 router.route("/:id").get(getJournalEntryById).patch(updateJournalEntry).delete(deleteJournalEntry);

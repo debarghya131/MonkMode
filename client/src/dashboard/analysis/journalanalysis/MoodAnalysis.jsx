@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
+import api from "../../../api/axios";
+import useAuth from "../../../hooks/useAuth";
 
 const MOOD_META = {
   Motivated: { emoji: "🔥", color: "#f59e0b", text: "text-amber-200", glow: "rgba(245,158,11,0.28)" },
@@ -15,13 +17,18 @@ const MOOD_META = {
 };
 
 const MONTH_OPTIONS = [
-  { value: "01", label: "January" },
-  { value: "02", label: "February" },
-  { value: "03", label: "March" },
-  { value: "04", label: "April" },
+  { value: "01", label: "January" }, { value: "02", label: "February" },
+  { value: "03", label: "March" },   { value: "04", label: "April" },
+  { value: "05", label: "May" },     { value: "06", label: "June" },
+  { value: "07", label: "July" },    { value: "08", label: "August" },
+  { value: "09", label: "September" },{ value: "10", label: "October" },
+  { value: "11", label: "November" },{ value: "12", label: "December" },
 ];
 
-const MOOD_ENTRIES = [
+const NOW = new Date();
+const YEARS = Array.from({ length: 4 }, (_, i) => String(NOW.getFullYear() - i));
+
+const DEMO_MOOD_ENTRIES = [
   { date: "2026-04-01", mood: "Motivated", energy: 84, rating: 82 },
   { date: "2026-04-02", mood: "Focused",   energy: 88, rating: 90 },
   { date: "2026-04-03", mood: "Happy",     energy: 76, rating: 79 },
@@ -43,8 +50,6 @@ const MOOD_ENTRIES = [
   { date: "2026-02-20", mood: "Calm",      energy: 72, rating: 74 },
   { date: "2026-02-21", mood: "Happy",     energy: 78, rating: 80 },
 ];
-
-const YEARS = [...new Set(MOOD_ENTRIES.map((entry) => entry.date.slice(0, 4)))].sort().reverse();
 const DAY_ORDER = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const formatDayLabel = (date) =>
@@ -567,23 +572,29 @@ function MoodDistributionGraph({ data, moodTypesLogged }) {
 }
 
 export default function MoodAnalysis() {
-  const [selectedYear, setSelectedYear] = useState(YEARS[0]);
-  const [selectedMonth, setSelectedMonth] = useState("04");
+  const { isDemoMode } = useAuth();
+  const [selectedYear, setSelectedYear]   = useState(YEARS[0]);
+  const [selectedMonth, setSelectedMonth] = useState(isDemoMode ? "04" : String(NOW.getMonth() + 1).padStart(2, "0"));
+  const [entries, setEntries]             = useState([]);
+  const [loading, setLoading]             = useState(false);
 
-  const availableMonths = useMemo(() => {
-    const months = new Set(
-      MOOD_ENTRIES.filter((entry) => entry.date.startsWith(selectedYear)).map((entry) => entry.date.slice(5, 7))
-    );
-    return MONTH_OPTIONS.filter((month) => months.has(month.value));
-  }, [selectedYear]);
+  useEffect(() => {
+    if (isDemoMode) {
+      setEntries(DEMO_MOOD_ENTRIES.filter(
+        e => e.date.startsWith(selectedYear) && e.date.slice(5, 7) === selectedMonth
+      ));
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    api.get(`/journal/analysis?year=${selectedYear}&month=${parseInt(selectedMonth, 10)}`)
+      .then(res => { if (!cancelled) setEntries(res.data.entries || []); })
+      .catch(() => { if (!cancelled) setEntries([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [isDemoMode, selectedYear, selectedMonth]);
 
-  const filteredEntries = useMemo(
-    () =>
-      MOOD_ENTRIES.filter(
-        (entry) => entry.date.startsWith(selectedYear) && entry.date.slice(5, 7) === selectedMonth
-      ),
-    [selectedMonth, selectedYear]
-  );
+  const filteredEntries = entries;
 
   const moodVsSeries = useMemo(() => buildMoodVsSeries(filteredEntries), [filteredEntries]);
   const dayWiseSeries = useMemo(() => buildDayWiseSeries(filteredEntries), [filteredEntries]);
@@ -626,17 +637,18 @@ export default function MoodAnalysis() {
     <section className="space-y-4">
       {/* Filters — outside the container */}
       <div className="flex flex-wrap items-center gap-3">
+        {String(NOW.getFullYear()) === selectedYear && String(NOW.getMonth() + 1).padStart(2, "0") === selectedMonth && (
+          <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+            Live · updates daily
+          </span>
+        )}
         <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
           <span className="text-stone-400">Year</span>
           <select
             value={selectedYear}
             onChange={(event) => {
-              const nextYear = event.target.value;
-              setSelectedYear(nextYear);
-              const nextMonths = MONTH_OPTIONS.filter((month) =>
-                MOOD_ENTRIES.some((entry) => entry.date.startsWith(nextYear) && entry.date.slice(5, 7) === month.value)
-              );
-              setSelectedMonth(nextMonths[0]?.value ?? "01");
+              setSelectedYear(event.target.value);
             }}
             className="bg-transparent text-amber-100 outline-none"
           >
@@ -655,7 +667,7 @@ export default function MoodAnalysis() {
             onChange={(event) => setSelectedMonth(event.target.value)}
             className="bg-transparent text-amber-100 outline-none"
           >
-            {availableMonths.map((month) => (
+            {MONTH_OPTIONS.map((month) => (
               <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">
                 {month.label}
               </option>
@@ -664,6 +676,12 @@ export default function MoodAnalysis() {
         </label>
       </div>
 
+      {loading ? (
+        <div className="space-y-3">
+          <div className="h-48 animate-pulse rounded-2xl border border-amber-100/10 bg-white/[0.03]" />
+          <div className="h-36 animate-pulse rounded-2xl border border-amber-100/10 bg-white/[0.03]" />
+        </div>
+      ) : (
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         {/* LEFT — one big scrollable container */}
         <div
@@ -683,6 +701,7 @@ export default function MoodAnalysis() {
           <MoodDistributionGraph data={distribution} moodTypesLogged={moodTypesLogged} />
         </div>
       </div>
+      )}
     </section>
   );
 }

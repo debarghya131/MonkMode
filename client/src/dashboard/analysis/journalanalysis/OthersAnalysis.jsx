@@ -1,12 +1,16 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
+import api from "../../../api/axios";
+import useAuth from "../../../hooks/useAuth";
 
 const MONTH_OPTIONS = [
-  { value: "01", label: "January" },
-  { value: "02", label: "February" },
-  { value: "03", label: "March" },
-  { value: "04", label: "April" },
+  { value: "01", label: "January" }, { value: "02", label: "February" },
+  { value: "03", label: "March" },   { value: "04", label: "April" },
+  { value: "05", label: "May" },     { value: "06", label: "June" },
+  { value: "07", label: "July" },    { value: "08", label: "August" },
+  { value: "09", label: "September" },{ value: "10", label: "October" },
+  { value: "11", label: "November" },{ value: "12", label: "December" },
 ];
 
 const WEEKDAY_ORDER = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -100,25 +104,52 @@ function generateMonthScoreLogs(year, month, seed, missedDays) {
   });
 }
 
-const SCORE_LOGS = [
+const NOW = new Date();
+const YEARS = Array.from({ length: 4 }, (_, i) => String(NOW.getFullYear() - i));
+const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const DEMO_SCORE_LOGS = [
   ...generateMonthScoreLogs("2026", "02", 1, [4, 9, 15, 23]),
   ...generateMonthScoreLogs("2026", "03", 3, [2, 11, 18, 24, 29]),
   ...generateMonthScoreLogs("2026", "04", 5, [6, 14, 21, 30]),
 ];
-
-const REFLECTION_LOGS = [
+const DEMO_REFLECTION_LOGS = [
   ...generateMonthReflectionLogs("2026", "02", 1),
   ...generateMonthReflectionLogs("2026", "03", 3),
   ...generateMonthReflectionLogs("2026", "04", 5),
 ];
 
-const YEARS = [...new Set(SCORE_LOGS.map((entry) => entry.date.slice(0, 4)))].sort().reverse();
+function buildLogsFromEntries(apiEntries, year, month, maxDay) {
+  const entryMap = new Map(apiEntries.map(e => [e.date, e]));
+  const daysInMonth = getDaysInMonth(year, String(month).padStart(2, "0"));
+  const lastDay = maxDay != null ? Math.min(daysInMonth, maxDay) : daysInMonth;
+  const y = String(year);
+  const m = String(month).padStart(2, "0");
+  const scoreLogs = [];
+  const reflectionLogs = [];
+  for (let d = 1; d <= lastDay; d++) {
+    const date = `${y}-${m}-${String(d).padStart(2, "0")}`;
+    const weekday = WEEKDAY_NAMES[new Date(`${date}T00:00:00`).getDay()];
+    const entry = entryMap.get(date);
+    scoreLogs.push({ date, day: d, weekday, logged: !!entry, rating: entry?.rating ?? null });
+    reflectionLogs.push({
+      date,
+      wins:            entry?.wins            ?? 0,
+      mistakes:        entry?.mistakes         ?? 0,
+      achievements:    entry?.achievement      ?? 0,
+      mistakeTags:     entry?.mistakeTags      ?? [],
+      distractionTags: entry?.distractionTags  ?? [],
+    });
+  }
+  return { scoreLogs, reflectionLogs };
+}
 
-function buildMonthlySeries(logs, year, month, key) {
+function buildMonthlySeries(logs, year, month, key, maxDay) {
   const entryMap = new Map(logs.map((entry) => [Number(entry.date.slice(8, 10)), entry]));
   const daysInMonth = getDaysInMonth(year, month);
+  const lastDay = maxDay != null ? Math.min(daysInMonth, maxDay) : daysInMonth;
 
-  return Array.from({ length: daysInMonth }, (_, index) => {
+  return Array.from({ length: lastDay }, (_, index) => {
     const day = index + 1;
     const item = entryMap.get(day);
     return {
@@ -169,13 +200,14 @@ function buildWeeklyScoreSeries(logs) {
   });
 }
 
-function buildStreakSeries(logs, year, month) {
+function buildStreakSeries(logs, year, month, maxDay) {
   const daysInMonth = getDaysInMonth(year, month);
+  const lastDay = maxDay != null ? Math.min(daysInMonth, maxDay) : daysInMonth;
   const entryMap = new Map(logs.map((entry) => [entry.day, entry]));
   const series = [{ day: 0, value: 0, logged: true, isStart: true }];
   let streak = 0;
 
-  for (let day = 1; day <= daysInMonth; day += 1) {
+  for (let day = 1; day <= lastDay; day += 1) {
     const entry = entryMap.get(day);
     const logged = Boolean(entry?.logged);
     streak = logged ? streak + 1 : 0;
@@ -620,45 +652,54 @@ function StreakLineGraph({ series, daysInMonth }) {
 }
 
 export default function OthersAnalysis() {
-  const [selectedYear, setSelectedYear] = useState(YEARS[0]);
-  const [selectedMonth, setSelectedMonth] = useState("04");
+  const { isDemoMode } = useAuth();
+  const [selectedYear, setSelectedYear]   = useState(YEARS[0]);
+  const [selectedMonth, setSelectedMonth] = useState(isDemoMode ? "04" : String(NOW.getMonth() + 1).padStart(2, "0"));
+  const [apiEntries, setApiEntries]       = useState([]);
+  const [loading, setLoading]             = useState(false);
 
-  const availableMonths = useMemo(() => {
-    const months = new Set(
-      SCORE_LOGS.filter((entry) => entry.date.startsWith(selectedYear)).map((entry) => entry.date.slice(5, 7))
-    );
-    return MONTH_OPTIONS.filter((month) => months.has(month.value));
-  }, [selectedYear]);
+  useEffect(() => {
+    if (isDemoMode) { setApiEntries([]); return; }
+    let cancelled = false;
+    setLoading(true);
+    api.get(`/journal/analysis?year=${selectedYear}&month=${parseInt(selectedMonth, 10)}`)
+      .then(res => { if (!cancelled) setApiEntries(res.data.entries || []); })
+      .catch(() => { if (!cancelled) setApiEntries([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [isDemoMode, selectedYear, selectedMonth]);
 
-  const monthLogs = useMemo(
-    () =>
-      SCORE_LOGS.filter(
-        (entry) => entry.date.startsWith(selectedYear) && entry.date.slice(5, 7) === selectedMonth
-      ).sort((a, b) => a.date.localeCompare(b.date)),
-    [selectedMonth, selectedYear]
-  );
+  const isCurrentMonth = selectedYear === String(NOW.getFullYear()) && selectedMonth === String(NOW.getMonth() + 1).padStart(2, "0");
+  const maxDay = isCurrentMonth ? NOW.getDate() : null;
+
+  const { scoreLogs: monthLogs, reflectionLogs } = useMemo(() => {
+    if (isDemoMode) {
+      return {
+        scoreLogs: DEMO_SCORE_LOGS.filter(
+          e => e.date.startsWith(selectedYear) && e.date.slice(5, 7) === selectedMonth
+        ),
+        reflectionLogs: DEMO_REFLECTION_LOGS.filter(
+          e => e.date.startsWith(selectedYear) && e.date.slice(5, 7) === selectedMonth
+        ),
+      };
+    }
+    return buildLogsFromEntries(apiEntries, selectedYear, parseInt(selectedMonth, 10), maxDay);
+  }, [isDemoMode, apiEntries, selectedYear, selectedMonth, maxDay]);
 
   const weeklyScoreSeries = useMemo(() => buildWeeklyScoreSeries(monthLogs), [monthLogs]);
-  const streakSeries = useMemo(() => buildStreakSeries(monthLogs, selectedYear, selectedMonth), [monthLogs, selectedMonth, selectedYear]);
+  const streakSeries = useMemo(() => buildStreakSeries(monthLogs, selectedYear, selectedMonth, maxDay), [monthLogs, selectedMonth, selectedYear, maxDay]);
   const missedDaySeries = useMemo(() => buildMissedByWeekdaySeries(monthLogs), [monthLogs]);
-  const reflectionLogs = useMemo(
-    () =>
-      REFLECTION_LOGS.filter(
-        (entry) => entry.date.startsWith(selectedYear) && entry.date.slice(5, 7) === selectedMonth
-      ).sort((a, b) => a.date.localeCompare(b.date)),
-    [selectedMonth, selectedYear]
-  );
   const winSeries = useMemo(
-    () => buildMonthlySeries(reflectionLogs, selectedYear, selectedMonth, "wins"),
-    [reflectionLogs, selectedMonth, selectedYear]
+    () => buildMonthlySeries(reflectionLogs, selectedYear, selectedMonth, "wins", maxDay),
+    [reflectionLogs, selectedMonth, selectedYear, maxDay]
   );
   const mistakeSeries = useMemo(
-    () => buildMonthlySeries(reflectionLogs, selectedYear, selectedMonth, "mistakes"),
-    [reflectionLogs, selectedMonth, selectedYear]
+    () => buildMonthlySeries(reflectionLogs, selectedYear, selectedMonth, "mistakes", maxDay),
+    [reflectionLogs, selectedMonth, selectedYear, maxDay]
   );
   const achievementSeries = useMemo(
-    () => buildMonthlySeries(reflectionLogs, selectedYear, selectedMonth, "achievements"),
-    [reflectionLogs, selectedMonth, selectedYear]
+    () => buildMonthlySeries(reflectionLogs, selectedYear, selectedMonth, "achievements", maxDay),
+    [reflectionLogs, selectedMonth, selectedYear, maxDay]
   );
   const totalWins = sumBy(reflectionLogs, "wins");
   const totalAchievements = sumBy(reflectionLogs, "achievements");
@@ -724,17 +765,18 @@ export default function OthersAnalysis() {
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
+        {String(NOW.getFullYear()) === selectedYear && String(NOW.getMonth() + 1).padStart(2, "0") === selectedMonth && (
+          <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+            Live · updates daily
+          </span>
+        )}
         <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
           <span className="text-stone-400">Year</span>
           <select
             value={selectedYear}
             onChange={(event) => {
-              const nextYear = event.target.value;
-              setSelectedYear(nextYear);
-              const nextMonths = MONTH_OPTIONS.filter((month) =>
-                SCORE_LOGS.some((entry) => entry.date.startsWith(nextYear) && entry.date.slice(5, 7) === month.value)
-              );
-              setSelectedMonth(nextMonths[0]?.value ?? "01");
+              setSelectedYear(event.target.value);
             }}
             className="bg-transparent text-sky-100 outline-none"
           >
@@ -753,7 +795,7 @@ export default function OthersAnalysis() {
             onChange={(event) => setSelectedMonth(event.target.value)}
             className="bg-transparent text-sky-100 outline-none"
           >
-            {availableMonths.map((month) => (
+            {MONTH_OPTIONS.map((month) => (
               <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">
                 {month.label}
               </option>
@@ -762,6 +804,12 @@ export default function OthersAnalysis() {
         </label>
       </div>
 
+      {loading ? (
+        <div className="space-y-3">
+          <div className="h-48 animate-pulse rounded-2xl border border-sky-100/10 bg-white/[0.03]" />
+          <div className="h-36 animate-pulse rounded-2xl border border-sky-100/10 bg-white/[0.03]" />
+        </div>
+      ) : (
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div
           className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
@@ -801,6 +849,7 @@ export default function OthersAnalysis() {
           <InsightRail insights={insights} />
         </div>
       </div>
+      )}
     </section>
   );
 }
