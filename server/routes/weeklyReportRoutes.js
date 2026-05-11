@@ -17,6 +17,8 @@ import {
   getGoalWeeklyReport,
   generateGoalAiSummary,
   getGymWeeklyReport,
+  getGymSummaries,
+  generateGymAiSummary,
 } from "../controllers/weeklyReportController.js";
 
 const router = express.Router();
@@ -53,6 +55,8 @@ router.get("/goals/ai-summary", generateGoalAiSummary);
 router.get("/goals", getGoalWeeklyReport);
 
 // Gym
+router.get("/gym/summaries", getGymSummaries);
+router.get("/gym/ai-summary", generateGymAiSummary);
 router.get("/gym", getGymWeeklyReport);
 
 export default router;

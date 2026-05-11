@@ -7,6 +7,7 @@ import JournalWeeklySummary from "../models/JournalWeeklySummary.js";
 import TodoWeeklySummary from "../models/TodoWeeklySummary.js";
 import HabitWeeklySummary from "../models/HabitWeeklySummary.js";
 import GoalWeeklySummary from "../models/GoalWeeklySummary.js";
+import GymWeeklySummary from "../models/GymWeeklySummary.js";
 import Goal from "../models/Goal.js";
 import GymExerciseProgress from "../models/GymExerciseProgress.js";
 import GymMeasurement from "../models/GymMeasurement.js";
@@ -1698,6 +1699,159 @@ Rules:
 
 // ─── Gym Weekly Report ────────────────────────────────────────────────────────
 
+// GET /api/weekly-report/gym/summaries
+export const getGymSummaries = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const dow = today.getUTCDay();
+    const toMonday = dow === 0 ? -6 : 1 - dow;
+    const thisMonday = new Date(today);
+    thisMonday.setUTCDate(today.getUTCDate() + toMonday);
+
+    const mondays = Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(thisMonday);
+      d.setUTCDate(thisMonday.getUTCDate() - (i + 1) * 7);
+      return d;
+    });
+
+    const earliestDayKey = toDayKey(mondays[11]);
+    const latestSunday   = new Date(mondays[0]);
+    latestSunday.setUTCDate(mondays[0].getUTCDate() + 6);
+    const latestDayKey   = toDayKey(latestSunday);
+
+    const exercises = await GymExerciseProgress.find(
+      { userId, date: { $gte: earliestDayKey, $lte: latestDayKey } },
+      { date: 1 }
+    ).lean();
+
+    const weekWorkoutDays = {};
+    for (const ex of exercises) {
+      const wk = getWeekStartDayKey(ex.date);
+      if (!weekWorkoutDays[wk]) weekWorkoutDays[wk] = new Set();
+      weekWorkoutDays[wk].add(ex.date);
+    }
+
+    const summaries = mondays.map(monday => {
+      const weekEnd    = new Date(monday);
+      weekEnd.setUTCDate(monday.getUTCDate() + 6);
+      const startKey   = toDayKey(monday);
+      const workoutSet = weekWorkoutDays[startKey];
+      if (!workoutSet || workoutSet.size === 0) return null;
+      return {
+        id:          startKey,
+        date:        formatWeekLabel(monday, weekEnd),
+        workoutDays: workoutSet.size,
+      };
+    }).filter(Boolean);
+
+    res.json(summaries);
+  } catch (err) {
+    console.error("getGymSummaries error:", err);
+    res.status(500).json({ error: "Failed to load gym summaries" });
+  }
+};
+
+// GET /api/weekly-report/gym/ai-summary?week=YYYY-MM-DD
+export const generateGymAiSummary = async (req, res) => {
+  try {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) return res.status(503).json({ error: "AI service not configured" });
+
+    const userId     = req.user.id;
+    const regenerate = req.query.regenerate === "true";
+    const { weekStart, weekEnd } = getWeekBounds(req.query.week);
+    const weekDays    = getWeekDayKeys(weekStart);
+    const startDayKey = weekDays[0].dayKey;
+    const endDayKey   = weekDays[6].dayKey;
+
+    if (!regenerate) {
+      const cached = await GymWeeklySummary.findOne({ userId, weekStart: startDayKey }).lean();
+      if (cached) return res.json({ aiSummary: cached.aiSummary, cached: true });
+    }
+
+    const exercises = await GymExerciseProgress.find(
+      { userId, date: { $gte: startDayKey, $lte: endDayKey } }
+    ).lean();
+
+    if (exercises.length === 0) {
+      return res.json({ aiSummary: "No gym sessions were logged this week. Start tracking your workouts to get a personalized analysis." });
+    }
+
+    const workoutDays   = new Set(exercises.map(e => e.date)).size;
+    const bodyGroupCounts = {};
+    for (const ex of exercises) {
+      const g = ex.bodyPart || "Unknown";
+      bodyGroupCounts[g] = (bodyGroupCounts[g] || 0) + 1;
+    }
+    const topGroups = Object.entries(bodyGroupCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([g]) => g);
+
+    const times = exercises.map(e => parseInt(e.totalTime) || 0).filter(t => t > 0);
+    const avgTime = times.length > 0 ? Math.round(times.reduce((a, b) => a + b, 0) / workoutDays) : 0;
+
+    const consistencyScore = Math.round((workoutDays / 6) * 100);
+    const weekLabel = formatWeekLabel(weekStart, weekEnd);
+
+    const contextLines = [
+      `Week: ${weekLabel}`,
+      `Workout days: ${workoutDays}/6 (consistency: ${consistencyScore}%)`,
+      avgTime > 0 ? `Avg session time: ${avgTime} min` : null,
+      topGroups.length > 0 ? `Most trained muscle groups: ${topGroups.join(", ")}` : null,
+      `Total exercise sets logged: ${exercises.length}`,
+    ].filter(Boolean);
+
+    const systemPrompt = `You are Little Monk — a sharp, direct fitness coach embedded in the MonkMode app. Give a weekly gym analysis that is honest, specific, and immediately actionable.
+
+Rules:
+- Write in plain paragraph form (2-4 sentences). No bullet points, no headers.
+- Mention specific body groups when the data supports it.
+- Identify the clearest pattern — consistency, what was trained, recovery gaps.
+- End with one concrete, specific action for next week.
+- Keep it under 120 words. Tight and direct.
+- Do not start with "I" or refer to yourself as Little Monk.`;
+
+    const userMessage = `Here is this week's gym data:\n\n${contextLines.join("\n")}\n\nWrite the weekly analysis.`;
+
+    const groqResponse = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user",   content: userMessage },
+        ],
+        max_tokens: 200,
+        temperature: 0.72,
+      }),
+    });
+
+    if (!groqResponse.ok) {
+      const errText = await groqResponse.text();
+      console.error("Groq API error (gym):", groqResponse.status, errText);
+      return res.status(502).json({ error: "AI generation failed" });
+    }
+
+    const groqData  = await groqResponse.json();
+    const aiSummary = groqData.choices?.[0]?.message?.content?.trim() ?? null;
+
+    if (aiSummary) {
+      await GymWeeklySummary.findOneAndUpdate(
+        { userId, weekStart: startDayKey },
+        { aiSummary },
+        { upsert: true, returnDocument: "after" }
+      );
+    }
+
+    res.json({ aiSummary, cached: false });
+  } catch (err) {
+    console.error("generateGymAiSummary error:", err);
+    res.status(500).json({ error: "Failed to generate AI summary" });
+  }
+};
+
 export const getGymWeeklyReport = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -1716,84 +1870,103 @@ export const getGymWeeklyReport = async (req, res) => {
 
     const [
       thisWeekExercises,
-      prevWeekExercises,
       thisWeekMeasurements,
-      prevWeekMeasurements,
+      prevMeasurement,
       galleryEntries,
-      macroPlan,
+      macroPlanDays,
     ] = await Promise.all([
       GymExerciseProgress.find({ userId, date: { $gte: startDayKey, $lte: endDayKey } }).lean(),
-      GymExerciseProgress.find({ userId, date: { $gte: prevStartDayKey, $lte: prevEndDayKey } }).lean(),
       GymMeasurement.find({ userId, deletedAt: null, checkInDate: { $gte: startDayKey, $lte: endDayKey } }).lean(),
-      GymMeasurement.find({ userId, deletedAt: null, checkInDate: { $gte: prevStartDayKey, $lte: prevEndDayKey } }).lean(),
-      GymGalleryEntry.find({ userId, checkInDate: { $gte: weekStart, $lte: weekEnd } }).lean(),
-      GymDietPlan.findOne({ userId, planType: "macros", isActive: true }).lean(),
+      GymMeasurement.findOne({ userId, deletedAt: null, checkInDate: { $lt: startDayKey } }).sort({ checkInDate: -1 }).lean(),
+      GymGalleryEntry.find({ userId, checkInDate: { $gte: new Date(weekStart.getTime() - 12 * 60 * 60 * 1000), $lte: new Date(weekEnd.getTime() + 12 * 60 * 60 * 1000) } }).lean(),
+      GymDietPlan.find({ userId, planType: "macros", isActive: true }).lean(),
     ]);
+
+    // For each exercise done this week, fetch its most recent previous entry (any past session)
+    const exerciseIds = [...new Set(thisWeekExercises.map(e => e.exerciseId))];
+    const prevExerciseEntries = exerciseIds.length > 0
+      ? await GymExerciseProgress.find(
+          { userId, exerciseId: { $in: exerciseIds }, date: { $lt: startDayKey } }
+        ).sort({ date: -1 }).lean()
+      : [];
+
+    // Build map: exerciseName → most recent previous entry
+    const prevExByName = {};
+    for (const e of prevExerciseEntries) {
+      const key = e.exerciseName?.toLowerCase().trim();
+      if (!key || prevExByName[key]) continue; // keep only the most recent
+      prevExByName[key] = e;
+    }
 
     // Workout days
     const workoutDayKeys = [...new Set(thisWeekExercises.map(e => e.date))];
     const workoutDays = workoutDayKeys.length;
 
-    // Average workout time (parse totalTime strings like "14 min")
+    // Average workout time: sum of all exercise times across Mon–Sat divided by 6
     const allTimes = thisWeekExercises
       .map(e => parseInt(e.totalTime))
       .filter(n => !isNaN(n) && n > 0);
     const avgWorkoutTimeMin = allTimes.length
-      ? Math.round(allTimes.reduce((s, n) => s + n, 0) / workoutDays)
+      ? Math.round(allTimes.reduce((s, n) => s + n, 0) / 6)
       : 0;
 
-    // Strength progress: compare this week vs prev week per exercise
+    // Strength progress: this week's latest entry vs most recent previous entry per exercise
     const thisExByName = {};
     for (const e of thisWeekExercises) {
       const key = e.exerciseName?.toLowerCase().trim();
       if (!key) continue;
       if (!thisExByName[key] || e.date > thisExByName[key].date) thisExByName[key] = e;
     }
-    const prevExByName = {};
-    for (const e of prevWeekExercises) {
-      const key = e.exerciseName?.toLowerCase().trim();
-      if (!key) continue;
-      if (!prevExByName[key] || e.date > prevExByName[key].date) prevExByName[key] = e;
-    }
 
     const strengthProgress = Object.entries(thisExByName)
-      .filter(([key]) => prevExByName[key])
       .map(([key, cur]) => {
-        const prev = prevExByName[key];
+        const prev       = prevExByName[key] || null;
         const curWeight  = parseFloat(cur.weight) || 0;
-        const prevWeight = parseFloat(prev.weight) || 0;
-        const improvement = prevWeight > 0
-          ? `+${((curWeight - prevWeight) / prevWeight * 100).toFixed(1)}%`
+        const prevWeight = prev ? parseFloat(prev.weight) || 0 : 0;
+        const improvement = prev && prevWeight > 0
+          ? `${((curWeight - prevWeight) / prevWeight * 100) >= 0 ? "+" : ""}${((curWeight - prevWeight) / prevWeight * 100).toFixed(1)}%`
           : null;
+
+        const curReps  = parseInt(cur.reps)  || 0;
+        const prevReps = prev ? parseInt(prev.reps)  || 0 : 0;
+        const curTime  = parseInt(cur.totalTime)  || 0;
+        const prevTime = prev ? parseInt(prev.totalTime) || 0 : 0;
+
         return {
           exercise:    cur.exerciseName,
           bodyGroup:   cur.bodyPart || "Other",
-          previous:    `${prev.weight} kg x ${prev.reps}`,
+          previous:    prev ? `${prev.weight} kg x ${prev.reps}` : "—",
           current:     `${cur.weight} kg x ${cur.reps}`,
           improvement,
           sets:        parseInt(cur.sets) || 0,
           totalTime:   cur.totalTime || "",
+          repsChange:  prev ? curReps  - prevReps : null,
+          timeChange:  prev ? curTime  - prevTime : null,
+          isFirstEntry: !prev,
         };
       })
-      .filter(r => r.improvement);
+      .filter(r => r.improvement || r.isFirstEntry);
 
-    // Body progress: compare latest measurement this week vs latest prev week
-    const latestThis = thisWeekMeasurements.sort((a, b) => b.checkInDate.localeCompare(a.checkInDate))[0];
-    const latestPrev = prevWeekMeasurements.sort((a, b) => b.checkInDate.localeCompare(a.checkInDate))[0];
+    // Body progress: only if user uploaded at least one measurement this week.
+    // Baseline = most recent measurement from any previous week; if none exists,
+    // fall back to the earliest measurement within this week (when user has 2+ this week).
+    const sortedThisWeek = [...thisWeekMeasurements].sort((a, b) => b.checkInDate.localeCompare(a.checkInDate));
+    const latestThis = sortedThisWeek[0];
+    const baseline   = prevMeasurement ?? (sortedThisWeek.length >= 2 ? sortedThisWeek[sortedThisWeek.length - 1] : null);
 
     const bodyProgress = [];
-    if (latestThis && latestPrev) {
+    if (latestThis && baseline) {
       const measurementFields = [
-        { key: "bodyWeight", label: "Weight", category: "Overall", unit: "kg" },
-        { key: "chest",      label: "Chest",  category: "Upper Body", unit: "cm" },
-        { key: "waist",      label: "Waist",  category: "Core",       unit: "cm" },
-        { key: "armsBiceps", label: "Biceps", category: "Arms",       unit: "cm" },
-        { key: "thighs",     label: "Thigh",  category: "Lower Body", unit: "cm" },
+        { key: "bodyWeight", label: "Weight",    category: "Overall",    unit: "kg" },
+        { key: "chest",      label: "Chest",     category: "Upper Body", unit: "cm" },
+        { key: "waist",      label: "Waist",     category: "Core",       unit: "cm" },
+        { key: "armsBiceps", label: "Biceps",    category: "Arms",       unit: "cm" },
+        { key: "thighs",     label: "Thigh",     category: "Lower Body", unit: "cm" },
         { key: "shoulders",  label: "Shoulders", category: "Upper Body", unit: "cm" },
       ];
       for (const { key, label, category, unit } of measurementFields) {
         const cur  = parseFloat(latestThis[key]);
-        const prev = parseFloat(latestPrev[key]);
+        const prev = parseFloat(baseline[key]);
         if (isNaN(cur) || isNaN(prev)) continue;
         const delta = Math.round((cur - prev) * 10) / 10;
         bodyProgress.push({
@@ -1808,11 +1981,13 @@ export const getGymWeeklyReport = async (req, res) => {
     }
 
     // Progress photos
+    // checkInDate is stored as local midnight in UTC (e.g. IST midnight = 18:30 UTC prev day).
+    // Adding 12h normalises any UTC-11..UTC+12 timezone to the correct calendar day.
     const progressPhotos = weekDays.map(wd => {
       const dayDate = new Date(`${wd.dayKey}T00:00:00Z`);
       const entry = galleryEntries.find(g => {
-        const gDate = new Date(g.checkInDate);
-        return toDayKey(gDate) === wd.dayKey;
+        const normalised = new Date(new Date(g.checkInDate).getTime() + 12 * 60 * 60 * 1000);
+        return toDayKey(normalised) === wd.dayKey;
       });
       const photo = entry?.images?.[0]?.src || null;
       return {
@@ -1821,19 +1996,31 @@ export const getGymWeeklyReport = async (req, res) => {
       };
     });
 
-    // Nutrition from active macros plan
-    const nutrition = macroPlan?.values
-      ? {
-          avgProtein:  macroPlan.values.protein  || "",
-          avgCarbs:    macroPlan.values.carbs     || "",
-          avgFats:     macroPlan.values.fats      || "",
-          avgFiber:    macroPlan.values.fiber     || "",
-          avgCalories: macroPlan.values.calories  || "",
-          avgWater:    macroPlan.values.water     || "",
-          avgSugar:    macroPlan.values.sugar     || "",
-          avgSodium:   macroPlan.values.sodium    || "",
+    // Nutrition: average of all active macro day plans (Mon–Sat = 6 days)
+    let nutrition = null;
+    const macroKeys = ["protein", "carbs", "fats", "fiber", "calories", "water", "sugar", "sodium"];
+    const macroLabels = { protein: "avgProtein", carbs: "avgCarbs", fats: "avgFats", fiber: "avgFiber", calories: "avgCalories", water: "avgWater", sugar: "avgSugar", sodium: "avgSodium" };
+    if (macroPlanDays.length > 0) {
+      const totals = {};
+      const counts = {};
+      for (const plan of macroPlanDays) {
+        for (const key of macroKeys) {
+          const val = parseNumericValue(plan.values?.[key]);
+          if (val !== null) {
+            totals[key] = (totals[key] || 0) + val;
+            counts[key] = (counts[key] || 0) + 1;
+          }
         }
-      : null;
+      }
+      const hasAny = Object.keys(totals).length > 0;
+      if (hasAny) {
+        nutrition = {};
+        for (const key of macroKeys) {
+          const avg = counts[key] ? Math.round(totals[key] / counts[key]) : null;
+          nutrition[macroLabels[key]] = avg !== null ? String(avg) : "";
+        }
+      }
+    }
 
     const consistencyScore = workoutDays > 0 ? Math.round((workoutDays / 6) * 100) : 0;
     const weeklyScore = Math.min(100, Math.round(consistencyScore * 0.6 + (strengthProgress.length > 0 ? 40 : 20)));
