@@ -37,7 +37,7 @@ export default function LandingNavbar() {
       label: "About",
       onClick: () => {
         setMobileOpen(false);
-        window.scrollTo({ top: window.innerHeight * 0.9, behavior: "smooth" });
+        navigate("/about");
       },
     },
   ];
