@@ -2025,12 +2025,24 @@ export const getGymWeeklyReport = async (req, res) => {
     const consistencyScore = workoutDays > 0 ? Math.round((workoutDays / 6) * 100) : 0;
     const weeklyScore = Math.min(100, Math.round(consistencyScore * 0.6 + (strengthProgress.length > 0 ? 40 : 20)));
 
+    // Total volume = sum of weight × reps × sets across all exercises this week
+    const totalVolumeKg = thisWeekExercises.reduce((sum, e) => {
+      const w = parseFloat(e.weight) || 0;
+      const r = parseInt(e.reps)    || 0;
+      const s = parseInt(e.sets)    || 0;
+      return sum + w * r * s;
+    }, 0);
+    const avgVolumeLifted = totalVolumeKg > 0
+      ? `${Math.round(totalVolumeKg).toLocaleString("en-IN")} kg`
+      : "";
+
     res.json({
       id:               weekDays[0].dayKey,
       date:             formatWeekLabel(weekStart, weekEnd),
       workoutDays,
       totalDays:        6,
       avgWorkoutTime:   avgWorkoutTimeMin ? `${avgWorkoutTimeMin} min` : "",
+      avgVolumeLifted,
       consistencyScore,
       weeklyScore,
       strengthProgress,
