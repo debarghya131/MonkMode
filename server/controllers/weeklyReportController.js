@@ -5,6 +5,7 @@ import Journal from "../models/Journal.js";
 import JournalMissedReason from "../models/JournalMissedReason.js";
 import JournalWeeklySummary from "../models/JournalWeeklySummary.js";
 import TodoWeeklySummary from "../models/TodoWeeklySummary.js";
+import HabitWeeklySummary from "../models/HabitWeeklySummary.js";
 import Goal from "../models/Goal.js";
 import GymExerciseProgress from "../models/GymExerciseProgress.js";
 import GymMeasurement from "../models/GymMeasurement.js";
@@ -73,32 +74,61 @@ function computeIntraWeekStreak(completedSet, scheduledDayKeys) {
   return streak;
 }
 
-// True if the habit is scheduled on this date
+// Mirrors habitController's isHabitExpectedOnDate exactly
 function isHabitScheduledOn(habit, utcDate) {
-  if (habit.startDate && new Date(habit.startDate) > utcDate) return false;
-  if (habit.endDate && new Date(habit.endDate) < utcDate) return false;
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const dayEnd = new Date(utcDate.getTime() + DAY_MS);
 
-  const dow = utcDate.getUTCDay(); // 0=Sun
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const dayName = dayNames[dow];
+  // Must exist before end of this day
+  if (habit.createdAt && new Date(habit.createdAt) >= dayEnd) return false;
 
-  // Weekly frequency with explicit day list
-  if (habit.frequency === "weekly" && Array.isArray(habit.days) && habit.days.length > 0) {
-    return habit.days.includes(dayName);
+  // startDate must be <= day
+  if (habit.startDate) {
+    const s = new Date(habit.startDate);
+    s.setUTCHours(0, 0, 0, 0);
+    if (s > utcDate) return false;
   }
 
-  switch (habit.repeatType) {
-    case "daily":
-    case "7days":
-    case "21days":
-      return true;
-    case "weekdays":
-      return dow >= 1 && dow <= 5;
-    case "weekend":
-      return dow === 0 || dow === 6;
-    default:
-      return true;
+  // deletedAt must not have happened before end of this day
+  if (habit.deletedAt && new Date(habit.deletedAt) < dayEnd) return false;
+
+  // endDate must be >= day
+  if (habit.endDate) {
+    const e = new Date(habit.endDate);
+    e.setUTCHours(0, 0, 0, 0);
+    if (e < utcDate) return false;
   }
+
+  if (habit.archivedReason === "deleted" && !habit.deletedAt) return false;
+
+  // Day-of-week check — normalise to lowercase 3-char ("mon", "tue", …)
+  const DOW_NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+  const dow     = utcDate.getUTCDay();
+  const dayName = DOW_NAMES[dow];
+
+  // habit.days takes priority over repeatType (same as heatmap)
+  if (Array.isArray(habit.days) && habit.days.length > 0) {
+    const selected = new Set(
+      habit.days
+        .map(d => (typeof d === "string" ? d.trim().toLowerCase().slice(0, 3) : ""))
+        .filter(Boolean)
+    );
+    if (selected.size > 0) return selected.has(dayName);
+  }
+
+  if (habit.repeatType === "weekdays") return dayName !== "sat" && dayName !== "sun";
+  if (habit.repeatType === "weekend") return dayName === "sat" || dayName === "sun";
+
+  if (habit.frequency === "weekly") {
+    const ref = habit.startDate || habit.createdAt;
+    if (ref) {
+      const refDate = new Date(ref);
+      refDate.setUTCHours(0, 0, 0, 0);
+      return refDate.getUTCDay() === dow;
+    }
+  }
+
+  return true; // daily, 7days, 21days
 }
 
 function buildRepeatLabel(habit) {
@@ -403,6 +433,217 @@ export const getHabitWeeklyReport = async (req, res) => {
   } catch (err) {
     console.error("getHabitWeeklyReport error:", err);
     res.status(500).json({ error: "Failed to load habit weekly report" });
+  }
+};
+
+// ─── Habit Summaries + AI ────────────────────────────────────────────────────
+
+// GET /api/weekly-report/habits/summaries
+export const getHabitSummaries = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const dow = today.getUTCDay();
+    const toMonday = dow === 0 ? -6 : 1 - dow;
+    const thisMonday = new Date(today);
+    thisMonday.setUTCDate(today.getUTCDate() + toMonday);
+
+    const mondays = Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(thisMonday);
+      d.setUTCDate(thisMonday.getUTCDate() - (i + 1) * 7);
+      return d;
+    });
+
+    const habits = await Habit.find({ userId, deletedAt: null }).lean();
+    if (habits.length === 0) return res.json([]);
+
+    const habitIds = habits.map(h => h._id);
+    const earliestDayKey = toDayKey(mondays[11]);
+    const latestSunday   = new Date(mondays[0]);
+    latestSunday.setUTCDate(mondays[0].getUTCDate() + 6);
+    const latestDayKey   = toDayKey(latestSunday);
+
+    const logs = await HabitLog.find(
+      { habitId: { $in: habitIds }, dayKey: { $gte: earliestDayKey, $lte: latestDayKey }, completed: true },
+      { habitId: 1, dayKey: 1 }
+    ).lean();
+
+    const completedByDay = {};
+    for (const log of logs) {
+      if (!completedByDay[log.dayKey]) completedByDay[log.dayKey] = new Set();
+      completedByDay[log.dayKey].add(log.habitId.toString());
+    }
+
+    const summaries = mondays.map(monday => {
+      const weekEnd     = new Date(monday);
+      weekEnd.setUTCDate(monday.getUTCDate() + 6);
+      const weekDays    = getWeekDayKeys(monday);
+      const scheduledIds = new Set();
+      const activeDays   = new Set();
+
+      for (const wd of weekDays) {
+        const d = new Date(`${wd.dayKey}T00:00:00Z`);
+        for (const habit of habits) {
+          if (isHabitScheduledOn(habit, d)) {
+            scheduledIds.add(habit._id.toString());
+            if (completedByDay[wd.dayKey]?.has(habit._id.toString())) activeDays.add(wd.dayKey);
+          }
+        }
+      }
+
+      return {
+        id:         toDayKey(monday),
+        date:       formatWeekLabel(monday, weekEnd),
+        signal:     `${activeDays.size} Active days`,
+        habitCount: scheduledIds.size,
+      };
+    }).filter(w => w.habitCount > 0);
+
+    res.json(summaries);
+  } catch (err) {
+    console.error("getHabitSummaries error:", err);
+    res.status(500).json({ error: "Failed to load habit summaries" });
+  }
+};
+
+// GET /api/weekly-report/habits/ai-summary?week=YYYY-MM-DD
+export const generateHabitAiSummary = async (req, res) => {
+  try {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) return res.status(503).json({ error: "AI service not configured" });
+
+    const userId     = req.user.id;
+    const regenerate = req.query.regenerate === "true";
+    const { weekStart, weekEnd } = getWeekBounds(req.query.week);
+    const weekDays    = getWeekDayKeys(weekStart);
+    const startDayKey = weekDays[0].dayKey;
+    const endDayKey   = weekDays[6].dayKey;
+
+    if (!regenerate) {
+      const cached = await HabitWeeklySummary.findOne({ userId, weekStart: startDayKey }).lean();
+      if (cached) return res.json({ aiSummary: cached.aiSummary, cached: true });
+    }
+
+    const habits = await Habit.find({ userId, deletedAt: null }).lean();
+    if (habits.length === 0) {
+      return res.json({ aiSummary: "No habits are set up yet. Add your first habit to start tracking consistency." });
+    }
+
+    const habitIds = habits.map(h => h._id);
+    const logs = await HabitLog.find(
+      { habitId: { $in: habitIds }, dayKey: { $gte: startDayKey, $lte: endDayKey } }
+    ).lean();
+
+    const logMap = {};
+    for (const log of logs) {
+      const hid = log.habitId.toString();
+      if (!logMap[hid]) logMap[hid] = {};
+      logMap[hid][log.dayKey] = log.completed;
+    }
+
+    let totalInstances = 0, totalCompleted = 0;
+    const activeDayKeys = new Set();
+    const categoryMap   = {};
+    const habitRows     = [];
+
+    for (const habit of habits) {
+      const scheduledDayKeys = [];
+      const completedSet     = new Set();
+
+      for (const wd of weekDays) {
+        const d = new Date(`${wd.dayKey}T00:00:00Z`);
+        if (!isHabitScheduledOn(habit, d)) continue;
+        scheduledDayKeys.push(wd.dayKey);
+        totalInstances++;
+        const completed = logMap[habit._id.toString()]?.[wd.dayKey] ?? false;
+        if (completed) { completedSet.add(wd.dayKey); activeDayKeys.add(wd.dayKey); totalCompleted++; }
+      }
+
+      if (!scheduledDayKeys.length) continue;
+
+      const habitCompleted = completedSet.size;
+      const habitMissed    = scheduledDayKeys.length - habitCompleted;
+      const streak         = computeIntraWeekStreak(completedSet, scheduledDayKeys);
+      const cat = habit.category || "General";
+      if (!categoryMap[cat]) categoryMap[cat] = { name: cat, total: 0, completed: 0, missed: 0 };
+      categoryMap[cat].total += scheduledDayKeys.length;
+      categoryMap[cat].completed += habitCompleted;
+      categoryMap[cat].missed    += habitMissed;
+
+      habitRows.push({ name: habit.title, completedDays: habitCompleted, totalDays: scheduledDayKeys.length, streak });
+    }
+
+    if (totalInstances === 0) {
+      return res.json({ aiSummary: "No habits were scheduled this week." });
+    }
+
+    const completionRate = Math.round((totalCompleted / totalInstances) * 100);
+    const activeDays     = activeDayKeys.size;
+    const weeklyScore    = computeWeeklyScore(completionRate, activeDays);
+    const longestStreak  = habitRows.length ? Math.max(...habitRows.map(h => h.streak)) : 0;
+    const weekLabel      = formatWeekLabel(weekStart, weekEnd);
+
+    const topMissed = Object.values(categoryMap).sort((a, b) => b.missed - a.missed).slice(0, 3).filter(c => c.missed > 0);
+    const brokenHabits = habitRows.filter(h => h.streak === 0 && h.totalDays > 0).map(h => h.name);
+
+    const contextLines = [
+      `Week: ${weekLabel}`,
+      `Habit check-ins: ${totalInstances} total — ${totalCompleted} completed, ${totalInstances - totalCompleted} missed (${completionRate}% rate, score ${weeklyScore}/100)`,
+      `Active days: ${activeDays}/7`,
+      `Longest intra-week streak: ${longestStreak} days`,
+    ];
+    if (topMissed.length > 0) contextLines.push(`Most missed categories: ${topMissed.map(c => `${c.name} (${c.missed} missed)`).join(", ")}`);
+    if (brokenHabits.length > 0) contextLines.push(`Habits with broken streak: ${brokenHabits.slice(0, 4).join(", ")}`);
+
+    const systemPrompt = `You are Little Monk — a sharp, direct personal productivity coach embedded in the MonkMode app. Your job is to give a weekly habit analysis that is honest, specific, and immediately actionable.
+
+Rules:
+- Write in plain paragraph form (2-4 sentences). No bullet points, no headers.
+- Mention specific habits or categories when the data supports it.
+- Identify the one clearest pattern — what held strong, what broke, and why.
+- End with one concrete, specific action for next week. Not generic advice.
+- Keep it under 120 words. Tight and direct.
+- Do not start with "I" or refer to yourself as Little Monk.`;
+
+    const userMessage = `Here is this week's habit data:\n\n${contextLines.join("\n")}\n\nWrite the weekly analysis.`;
+
+    const groqResponse = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user",   content: userMessage },
+        ],
+        max_tokens: 200,
+        temperature: 0.72,
+      }),
+    });
+
+    if (!groqResponse.ok) {
+      const errText = await groqResponse.text();
+      console.error("Groq API error (habit):", groqResponse.status, errText);
+      return res.status(502).json({ error: "AI generation failed" });
+    }
+
+    const groqData  = await groqResponse.json();
+    const aiSummary = groqData.choices?.[0]?.message?.content?.trim() ?? null;
+
+    if (aiSummary) {
+      await HabitWeeklySummary.findOneAndUpdate(
+        { userId, weekStart: startDayKey },
+        { aiSummary },
+        { upsert: true, returnDocument: "after" }
+      );
+    }
+
+    res.json({ aiSummary, cached: false });
+  } catch (err) {
+    console.error("generateHabitAiSummary error:", err);
+    res.status(500).json({ error: "Failed to generate AI summary" });
   }
 };
 

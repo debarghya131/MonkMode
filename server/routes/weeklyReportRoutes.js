@@ -2,7 +2,9 @@ import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import {
   getWeeksList,
+  getHabitSummaries,
   getHabitWeeklyReport,
+  generateHabitAiSummary,
   getTodoSummaries,
   getTodoWeeklyReport,
   getJournalWeeklyReport,
@@ -23,6 +25,8 @@ router.use(protect);
 router.get("/weeks", getWeeksList);
 
 // Habit
+router.get("/habits/summaries", getHabitSummaries);
+router.get("/habits/ai-summary", generateHabitAiSummary);
 router.get("/habits", getHabitWeeklyReport);
 
 // Todo
