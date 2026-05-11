@@ -50,6 +50,7 @@ const WEEKLY_GOAL_DATA = [
 ];
 
 const riskInfo = (goal) => {
+  if (goal.total === 0) return { label: "No Milestones", icon: "⚪", color: "text-stone-400", bar: "bg-stone-600" };
   const delta = goal.progress - goal.expected;
   if (delta >= 0) return { label: "On Track", icon: "🟢", color: "text-emerald-300", bar: "bg-emerald-400" };
   if (delta >= -12) return { label: "Slightly Behind", icon: "🟡", color: "text-amber-300", bar: "bg-amber-400" };
@@ -86,6 +87,8 @@ export default function GoalWeeklyReport() {
   const [weekData, setWeekData] = useState(null);
   const [loadingSummaries, setLoadingSummaries] = useState(true);
   const [loadingWeekData, setLoadingWeekData] = useState(false);
+  const [aiSummary, setAiSummary] = useState(null);
+  const [loadingAi, setLoadingAi] = useState(false);
   const [goalFilter, setGoalFilter] = useState("All");
   const [riskFilter, setRiskFilter] = useState("Behind Schedule");
   const goalListRef = useRef(null);
@@ -100,7 +103,7 @@ export default function GoalWeeklyReport() {
   const filteredRiskGoals = selectedGoals.filter((goal) => riskInfo(goal).label === riskFilter);
 
   const goalCount = selectedWeek?.stats?.goalCount ?? selectedGoals.length;
-  const completedGoals = selectedWeek?.stats?.completedGoals ?? selectedGoals.filter((goal) => goal.completed === goal.total).length;
+  const completedGoals = selectedWeek?.stats?.completedGoals ?? selectedGoals.filter((goal) => goal.total > 0 && goal.completed === goal.total).length;
   const completedMilestones = selectedWeek?.stats?.completedMilestones ?? selectedGoals.reduce((sum, goal) => sum + goal.completed, 0);
   const totalMilestones = selectedWeek?.stats?.totalMilestones ?? selectedGoals.reduce((sum, goal) => sum + goal.total, 0);
   const pendingMilestones = selectedWeek?.stats?.pendingMilestones ?? Math.max(0, totalMilestones - completedMilestones);
@@ -109,6 +112,7 @@ export default function GoalWeeklyReport() {
   const riskCounts = selectedWeek?.stats?.riskCounts ?? selectedGoals.reduce(
     (counts, goal) => {
       const risk = riskInfo(goal).label;
+      if (risk === "No Milestones") return counts;
       return { ...counts, [risk]: counts[risk] + 1 };
     },
     { "On Track": 0, "Slightly Behind": 0, "Behind Schedule": 0 }
@@ -148,18 +152,28 @@ export default function GoalWeeklyReport() {
     setGoalFilter("All");
 
     if (isDemoMode) {
-      setWeekData(WEEKLY_GOAL_DATA.find((week) => week.id === selectedWeekId) ?? WEEKLY_GOAL_DATA[0] ?? null);
+      const demoWeek = WEEKLY_GOAL_DATA.find((week) => week.id === selectedWeekId) ?? WEEKLY_GOAL_DATA[0] ?? null;
+      setWeekData(demoWeek);
+      setAiSummary(demoWeek?.summary ?? null);
       setLoadingWeekData(false);
+      setLoadingAi(false);
       return;
     }
 
     setLoadingWeekData(true);
     setWeekData(null);
+    setAiSummary(null);
     const query = selectedWeekId === "current" ? "" : `?week=${selectedWeekId}`;
     api.get(`/weekly-report/goals${query}`)
       .then((res) => setWeekData(res.data))
       .catch((err) => console.error("Goal weekly report error:", err))
       .finally(() => setLoadingWeekData(false));
+
+    setLoadingAi(true);
+    api.get(`/weekly-report/goals/ai-summary${query}`)
+      .then((res) => setAiSummary(res.data?.aiSummary ?? null))
+      .catch(() => setAiSummary(null))
+      .finally(() => setLoadingAi(false));
   }, [selectedWeekId, isDemoMode]);
 
   useEffect(() => {
@@ -327,7 +341,19 @@ export default function GoalWeeklyReport() {
               </div>
               <div className="relative min-h-0 flex-1">
                 <div ref={summaryRef} className="journal-scroll h-full overflow-y-auto scroll-smooth pr-1">
-                  <p className="text-sm leading-relaxed text-stone-300">{selectedWeek.summary}</p>
+                  {loadingAi ? (
+                    <div className="flex items-center gap-2 text-xs text-stone-500">
+                      <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      Generating analysis…
+                    </div>
+                  ) : aiSummary ? (
+                    <p className="text-sm leading-relaxed text-stone-300">{aiSummary}</p>
+                  ) : (
+                    <p className="text-sm italic leading-relaxed text-stone-500">AI analysis will be available here once generated.</p>
+                  )}
                 </div>
                 <div
                   className={`pointer-events-none absolute inset-x-0 top-0 h-3 bg-gradient-to-b from-[#1d0f0c] to-transparent transition-opacity duration-200 ${
@@ -447,19 +473,18 @@ export default function GoalWeeklyReport() {
                   <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
                     <div className="min-w-0">
                       <span className="text-xs font-semibold text-amber-300/80">{goalsReviewed} Goals Reviewed</span>
-                      <p className="text-sm font-semibold text-stone-200">Weekly Summary</p>
-                      <p className="text-xs text-stone-500">({week.date})</p>
+                      <p className="text-sm font-semibold text-stone-200">{week.date}</p>
                     </div>
                     <button
                       type="button"
-                      onClick={() => setSelectedWeekId(week.id)}
+                      onClick={() => setSelectedWeekId(isSelected ? null : week.id)}
                       className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
                         isSelected
                           ? "border-amber-400/40 bg-amber-400/15 text-amber-200"
                           : "border-amber-400/20 text-amber-300 hover:border-amber-300/45 hover:bg-amber-400/10"
                       }`}
                     >
-                      {isSelected ? "Open" : "View"}
+                      {isSelected ? "Hide" : "View"}
                     </button>
                   </div>
                 </Motion.div>

@@ -13,7 +13,9 @@ import {
   saveJournalMissedReason,
   generateJournalAiSummary,
   generateTodoAiSummary,
+  getGoalSummaries,
   getGoalWeeklyReport,
+  generateGoalAiSummary,
   getGymWeeklyReport,
 } from "../controllers/weeklyReportController.js";
 
@@ -46,6 +48,8 @@ router.post("/journal/missed-reason", saveJournalMissedReason);
 router.get("/journal/ai-summary", generateJournalAiSummary);
 
 // Goals
+router.get("/goals/summaries", getGoalSummaries);
+router.get("/goals/ai-summary", generateGoalAiSummary);
 router.get("/goals", getGoalWeeklyReport);
 
 // Gym

@@ -6,6 +6,7 @@ import JournalMissedReason from "../models/JournalMissedReason.js";
 import JournalWeeklySummary from "../models/JournalWeeklySummary.js";
 import TodoWeeklySummary from "../models/TodoWeeklySummary.js";
 import HabitWeeklySummary from "../models/HabitWeeklySummary.js";
+import GoalWeeklySummary from "../models/GoalWeeklySummary.js";
 import Goal from "../models/Goal.js";
 import GymExerciseProgress from "../models/GymExerciseProgress.js";
 import GymMeasurement from "../models/GymMeasurement.js";
@@ -1427,6 +1428,62 @@ Rules:
 
 // ─── Goal Weekly Report ───────────────────────────────────────────────────────
 
+// GET /api/weekly-report/goals/summaries
+// Only returns weeks where at least one subgoal was completed during that week
+export const getGoalSummaries = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const goals = await Goal.find(
+      { userId, deletedAt: null },
+      { subgoals: 1 }
+    ).lean();
+    if (goals.length === 0) return res.json([]);
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const dow = today.getUTCDay();
+    const toMonday = dow === 0 ? -6 : 1 - dow;
+    const thisMonday = new Date(today);
+    thisMonday.setUTCDate(today.getUTCDate() + toMonday);
+
+    // Collect all completed subgoals with their completedAt dates
+    const completions = [];
+    for (const goal of goals) {
+      for (const sub of (goal.subgoals || [])) {
+        if (sub.completed && sub.completedAt) {
+          completions.push(new Date(sub.completedAt));
+        }
+      }
+    }
+
+    const goalCount = goals.length;
+
+    const summaries = Array.from({ length: 12 }, (_, i) => {
+      const monday = new Date(thisMonday);
+      monday.setUTCDate(thisMonday.getUTCDate() - (i + 1) * 7);
+      const sunday = new Date(monday);
+      sunday.setUTCDate(monday.getUTCDate() + 6);
+      sunday.setUTCHours(23, 59, 59, 999);
+
+      // Only include this week if at least one subgoal was completed during it
+      const hasProgress = completions.some(d => d >= monday && d <= sunday);
+      if (!hasProgress) return null;
+
+      return {
+        id:        toDayKey(monday),
+        date:      formatWeekLabel(monday, sunday),
+        goalCount,
+      };
+    }).filter(Boolean);
+
+    res.json(summaries);
+  } catch (err) {
+    console.error("getGoalSummaries error:", err);
+    res.status(500).json({ error: "Failed to load goal summaries" });
+  }
+};
+
 export const getGoalWeeklyReport = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -1436,9 +1493,18 @@ export const getGoalWeeklyReport = async (req, res) => {
     const goals = await Goal.find({ userId, deletedAt: null }).lean();
 
     const goalRows = goals.map(goal => {
-      const progress = goal.targetValue > 0
-        ? Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100))
-        : 0;
+      const subgoals      = goal.subgoals || [];
+      const completedSubs = subgoals.filter(s => s.completed).length;
+      const totalSubs     = subgoals.length;
+
+      // Use subgoal-based progress when subgoals exist (matches Goals module display)
+      // Fall back to currentValue/targetValue for numeric goals with no subgoals
+      let progress = 0;
+      if (totalSubs > 0) {
+        progress = Math.round((completedSubs / totalSubs) * 100);
+      } else if (goal.targetValue > 0) {
+        progress = Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100));
+      }
 
       // Expected progress based on time elapsed up to end of week
       let expected = 0;
@@ -1450,8 +1516,6 @@ export const getGoalWeeklyReport = async (req, res) => {
         expected = total > 0 ? Math.max(0, Math.min(100, Math.round((elapsed / total) * 100))) : 100;
       }
 
-      const subgoals          = goal.subgoals || [];
-      const completedSubs     = subgoals.filter(s => s.completed).length;
       const completedThisWeek = subgoals.filter(s => {
         if (!s.completed || !s.completedAt) return false;
         const d = new Date(s.completedAt);
@@ -1493,6 +1557,142 @@ export const getGoalWeeklyReport = async (req, res) => {
   } catch (err) {
     console.error("getGoalWeeklyReport error:", err);
     res.status(500).json({ error: "Failed to load goal weekly report" });
+  }
+};
+
+// GET /api/weekly-report/goals/ai-summary?week=YYYY-MM-DD
+export const generateGoalAiSummary = async (req, res) => {
+  try {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) return res.status(503).json({ error: "AI service not configured" });
+
+    const userId     = req.user.id;
+    const regenerate = req.query.regenerate === "true";
+    const { weekStart, weekEnd } = getWeekBounds(req.query.week);
+    const weekDays    = getWeekDayKeys(weekStart);
+    const startDayKey = weekDays[0].dayKey;
+
+    if (!regenerate) {
+      const cached = await GoalWeeklySummary.findOne({ userId, weekStart: startDayKey }).lean();
+      if (cached) return res.json({ aiSummary: cached.aiSummary, cached: true });
+    }
+
+    const goals = await Goal.find({ userId, deletedAt: null }).lean();
+    if (goals.length === 0) {
+      return res.json({ aiSummary: "No goals are set up yet. Add your first goal to start tracking progress." });
+    }
+
+    const goalRows = goals.map(goal => {
+      const subgoals      = goal.subgoals || [];
+      const completedSubs = subgoals.filter(s => s.completed).length;
+      const totalSubs     = subgoals.length;
+
+      let progress = 0;
+      if (totalSubs > 0) {
+        progress = Math.round((completedSubs / totalSubs) * 100);
+      } else if (goal.targetValue > 0) {
+        progress = Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100));
+      }
+
+      let expected = 0;
+      if (goal.startDate && goal.deadline) {
+        const start   = new Date(goal.startDate).getTime();
+        const end     = new Date(goal.deadline).getTime();
+        const elapsed = Math.min(weekEnd.getTime(), end) - start;
+        const total   = end - start;
+        expected = total > 0 ? Math.max(0, Math.min(100, Math.round((elapsed / total) * 100))) : 100;
+      }
+
+      const completedThisWeek = subgoals.filter(s => {
+        if (!s.completed || !s.completedAt) return false;
+        const d = new Date(s.completedAt);
+        return d >= weekStart && d <= weekEnd;
+      }).length;
+
+      return {
+        title:            goal.title,
+        type:             goal.goalType === "long-term" ? "Long Term" : "Short Term",
+        priority:         goal.priority || "Medium",
+        progress,
+        expected,
+        completedSubs,
+        totalSubs,
+        completedThisWeek,
+      };
+    });
+
+    const goalCount         = goalRows.length;
+    const avgProgress       = goalCount > 0 ? Math.round(goalRows.reduce((s, g) => s + g.progress, 0) / goalCount) : 0;
+    const totalThisWeek     = goalRows.reduce((s, g) => s + g.completedThisWeek, 0);
+    const onTrack           = goalRows.filter(g => g.progress >= g.expected).length;
+    const slightlyBehind    = goalRows.filter(g => g.progress < g.expected && g.progress >= g.expected - 12).length;
+    const behind            = goalRows.filter(g => g.progress < g.expected - 12).length;
+    const weekLabel         = formatWeekLabel(weekStart, weekEnd);
+
+    const contextLines = [
+      `Week: ${weekLabel}`,
+      `Goals: ${goalCount} active — avg progress ${avgProgress}%`,
+      `Risk distribution: ${onTrack} on track, ${slightlyBehind} slightly behind, ${behind} behind schedule`,
+      `Milestones completed this week: ${totalThisWeek}`,
+    ];
+
+    const highPriority = goalRows.filter(g => g.priority === "High");
+    if (highPriority.length > 0) {
+      const highBehind = highPriority.filter(g => g.progress < g.expected - 12);
+      if (highBehind.length > 0) {
+        contextLines.push(`High-priority goals behind schedule: ${highBehind.map(g => `${g.title} (${g.progress}% vs ${g.expected}% expected)`).join(", ")}`);
+      } else {
+        contextLines.push(`High-priority goals: ${highPriority.map(g => `${g.title} (${g.progress}%)`).join(", ")}`);
+      }
+    }
+
+    const systemPrompt = `You are Little Monk — a sharp, direct personal productivity coach embedded in the MonkMode app. Your job is to give a weekly goal analysis that is honest, specific, and immediately actionable.
+
+Rules:
+- Write in plain paragraph form (2-4 sentences). No bullet points, no headers.
+- Mention specific goals by name when the data supports it.
+- Identify the one clearest pattern — which goals are healthy, which are at risk, and why.
+- End with one concrete, specific action for next week. Not generic advice.
+- Keep it under 120 words. Tight and direct.
+- Do not start with "I" or refer to yourself as Little Monk.`;
+
+    const userMessage = `Here is this week's goal data:\n\n${contextLines.join("\n")}\n\nWrite the weekly analysis.`;
+
+    const groqResponse = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user",   content: userMessage },
+        ],
+        max_tokens: 200,
+        temperature: 0.72,
+      }),
+    });
+
+    if (!groqResponse.ok) {
+      const errText = await groqResponse.text();
+      console.error("Groq API error (goal):", groqResponse.status, errText);
+      return res.status(502).json({ error: "AI generation failed" });
+    }
+
+    const groqData  = await groqResponse.json();
+    const aiSummary = groqData.choices?.[0]?.message?.content?.trim() ?? null;
+
+    if (aiSummary) {
+      await GoalWeeklySummary.findOneAndUpdate(
+        { userId, weekStart: startDayKey },
+        { aiSummary },
+        { upsert: true, returnDocument: "after" }
+      );
+    }
+
+    res.json({ aiSummary, cached: false });
+  } catch (err) {
+    console.error("generateGoalAiSummary error:", err);
+    res.status(500).json({ error: "Failed to generate AI summary" });
   }
 };
 
