@@ -23,6 +23,7 @@ import Goal from "./models/Goal.js";
 import GoalProgressLog from "./models/GoalProgressLog.js";
 import Journal from "./models/Journal.js";
 import GymGalleryEntry from "./models/GymGalleryEntry.js";
+import JournalMissedReason from "./models/JournalMissedReason.js";
 import GymCustomExercise from "./models/GymCustomExercise.js";
 import GymDietPlan from "./models/GymDietPlan.js";
 import GymExerciseProgress from "./models/GymExerciseProgress.js";
@@ -37,6 +38,7 @@ import goalRoutes from "./routes/goalRoutes.js";
 import journalRoutes from "./routes/journalRoutes.js";
 import gymRoutes from "./routes/gymRoutes.js";
 import insightsRoutes from "./routes/insightsRoutes.js";
+import weeklyReportRoutes from "./routes/weeklyReportRoutes.js";
 
 const registeredModels = {
   User: User.modelName,
@@ -46,6 +48,7 @@ const registeredModels = {
   Goal: Goal.modelName,
   GoalProgressLog: GoalProgressLog.modelName,
   Journal: Journal.modelName,
+  JournalMissedReason: JournalMissedReason.modelName,
   GymGalleryEntry: GymGalleryEntry.modelName,
   GymCustomExercise: GymCustomExercise.modelName,
   GymDietPlan: GymDietPlan.modelName,
@@ -97,6 +100,7 @@ app.use("/api/goals", goalRoutes);
 app.use("/api/journal", journalRoutes);
 app.use("/api/gym", gymRoutes);
 app.use("/api/insights", insightsRoutes);
+app.use("/api/weekly-report", weeklyReportRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ message: "Route not found" });

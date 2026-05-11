@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../assets/littlemonklogo.png";
+import api from "../../api/axios";
+import useAuth from "../../hooks/useAuth";
 
 const WEEKLY_GOAL_DATA = [
   {
@@ -78,33 +80,87 @@ function ReportCard({ children, className = "", style }) {
 }
 
 export default function GoalWeeklyReport() {
-  const [selectedWeekId, setSelectedWeekId] = useState(WEEKLY_GOAL_DATA[0].id);
+  const { isDemoMode } = useAuth();
+  const [summaries, setSummaries] = useState([]);
+  const [selectedWeekId, setSelectedWeekId] = useState(null);
+  const [weekData, setWeekData] = useState(null);
+  const [loadingSummaries, setLoadingSummaries] = useState(true);
+  const [loadingWeekData, setLoadingWeekData] = useState(false);
   const [goalFilter, setGoalFilter] = useState("All");
   const [riskFilter, setRiskFilter] = useState("Behind Schedule");
   const goalListRef = useRef(null);
   const summaryRef = useRef(null);
   const [goalListFade, setGoalListFade] = useState({ top: false, bottom: false });
   const [summaryFade, setSummaryFade] = useState({ top: false, bottom: false });
-  const selectedWeek = WEEKLY_GOAL_DATA.find((week) => week.id === selectedWeekId) ?? WEEKLY_GOAL_DATA[0];
-  const filteredGoals = selectedWeek.goals.filter((goal) =>
+  const selectedWeek = weekData;
+  const selectedGoals = selectedWeek?.goals || [];
+  const filteredGoals = selectedGoals.filter((goal) =>
     goalFilter === "All" || goal.type === goalFilter || goal.priority === goalFilter
   );
-  const filteredRiskGoals = selectedWeek.goals.filter((goal) => riskInfo(goal).label === riskFilter);
+  const filteredRiskGoals = selectedGoals.filter((goal) => riskInfo(goal).label === riskFilter);
 
-  const goalCount = selectedWeek.goals.length;
-  const completedGoals = selectedWeek.goals.filter((goal) => goal.completed === goal.total).length;
-  const completedMilestones = selectedWeek.goals.reduce((sum, goal) => sum + goal.completed, 0);
-  const totalMilestones = selectedWeek.goals.reduce((sum, goal) => sum + goal.total, 0);
-  const pendingMilestones = totalMilestones - completedMilestones;
-  const completedMilestonesThisWeek = selectedWeek.goals.reduce((sum, goal) => sum + goal.completedThisWeek, 0);
-  const avgProgress = Math.round(selectedWeek.goals.reduce((sum, goal) => sum + goal.progress, 0) / goalCount);
-  const riskCounts = selectedWeek.goals.reduce(
+  const goalCount = selectedWeek?.stats?.goalCount ?? selectedGoals.length;
+  const completedGoals = selectedWeek?.stats?.completedGoals ?? selectedGoals.filter((goal) => goal.completed === goal.total).length;
+  const completedMilestones = selectedWeek?.stats?.completedMilestones ?? selectedGoals.reduce((sum, goal) => sum + goal.completed, 0);
+  const totalMilestones = selectedWeek?.stats?.totalMilestones ?? selectedGoals.reduce((sum, goal) => sum + goal.total, 0);
+  const pendingMilestones = selectedWeek?.stats?.pendingMilestones ?? Math.max(0, totalMilestones - completedMilestones);
+  const completedMilestonesThisWeek = selectedWeek?.stats?.completedMilestonesThisWeek ?? selectedGoals.reduce((sum, goal) => sum + goal.completedThisWeek, 0);
+  const avgProgress = selectedWeek?.stats?.avgProgress ?? (goalCount > 0 ? Math.round(selectedGoals.reduce((sum, goal) => sum + goal.progress, 0) / goalCount) : 0);
+  const riskCounts = selectedWeek?.stats?.riskCounts ?? selectedGoals.reduce(
     (counts, goal) => {
       const risk = riskInfo(goal).label;
       return { ...counts, [risk]: counts[risk] + 1 };
     },
     { "On Track": 0, "Slightly Behind": 0, "Behind Schedule": 0 }
   );
+
+  useEffect(() => {
+    setLoadingSummaries(true);
+    setSummaries([]);
+    setWeekData(null);
+
+    if (isDemoMode) {
+      setSummaries(WEEKLY_GOAL_DATA);
+      setSelectedWeekId(WEEKLY_GOAL_DATA[0]?.id ?? null);
+      setLoadingSummaries(false);
+      return;
+    }
+
+    api.get("/weekly-report/goals/summaries")
+      .then((res) => {
+        const nextSummaries = Array.isArray(res.data) ? res.data : [];
+        setSummaries(nextSummaries);
+        setSelectedWeekId(nextSummaries[0]?.id ?? "current");
+      })
+      .catch((err) => {
+        console.error("Goal weekly summaries error:", err);
+        setSelectedWeekId("current");
+      })
+      .finally(() => setLoadingSummaries(false));
+  }, [isDemoMode]);
+
+  useEffect(() => {
+    if (!selectedWeekId) {
+      setWeekData(null);
+      return;
+    }
+
+    setGoalFilter("All");
+
+    if (isDemoMode) {
+      setWeekData(WEEKLY_GOAL_DATA.find((week) => week.id === selectedWeekId) ?? WEEKLY_GOAL_DATA[0] ?? null);
+      setLoadingWeekData(false);
+      return;
+    }
+
+    setLoadingWeekData(true);
+    setWeekData(null);
+    const query = selectedWeekId === "current" ? "" : `?week=${selectedWeekId}`;
+    api.get(`/weekly-report/goals${query}`)
+      .then((res) => setWeekData(res.data))
+      .catch((err) => console.error("Goal weekly report error:", err))
+      .finally(() => setLoadingWeekData(false));
+  }, [selectedWeekId, isDemoMode]);
 
   useEffect(() => {
     const node = goalListRef.current;
@@ -146,12 +202,35 @@ export default function GoalWeeklyReport() {
       node.removeEventListener("scroll", updateFade);
       window.removeEventListener("resize", updateFade);
     };
-  }, [selectedWeekId, selectedWeek.summary]);
+  }, [selectedWeekId, selectedWeek?.summary]);
 
   return (
     <div className="flex flex-col gap-5 xl:flex-row xl:items-start">
       <div className="journal-scroll min-w-0 flex-1 overflow-y-auto xl:max-h-[calc(100vh-170px)]">
         <AnimatePresence mode="wait">
+          {loadingSummaries || loadingWeekData ? (
+            <Motion.div
+              key="goal-report-loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-5"
+            >
+              <div className="h-28 animate-pulse rounded-2xl border border-amber-100/10 bg-white/6" />
+              <div className="h-44 animate-pulse rounded-2xl border border-amber-100/10 bg-white/6" />
+              <div className="h-96 animate-pulse rounded-2xl border border-amber-100/10 bg-white/6" />
+            </Motion.div>
+          ) : !selectedWeek ? (
+            <Motion.div
+              key="goal-report-empty"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="rounded-2xl border border-dashed border-amber-100/15 bg-white/5 px-5 py-10 text-center text-sm text-stone-400"
+            >
+              No goal weekly report data found yet.
+            </Motion.div>
+          ) : (
           <Motion.div
             key={selectedWeek.id}
             initial={{ opacity: 0, y: 16 }}
@@ -334,6 +413,7 @@ export default function GoalWeeklyReport() {
               </div>
             </ReportCard>
           </Motion.div>
+          )}
         </AnimatePresence>
       </div>
 
@@ -353,8 +433,9 @@ export default function GoalWeeklyReport() {
             </div>
           </div>
           <div className="journal-scroll min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-            {WEEKLY_GOAL_DATA.map((week) => {
+            {summaries.map((week) => {
               const isSelected = selectedWeekId === week.id;
+              const goalsReviewed = week.goals?.length ?? week.goalCount ?? 0;
               return (
                 <Motion.div
                   key={week.id}
@@ -365,7 +446,7 @@ export default function GoalWeeklyReport() {
                 >
                   <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
                     <div className="min-w-0">
-                      <span className="text-xs font-semibold text-amber-300/80">{week.goals.length} Goals Reviewed</span>
+                      <span className="text-xs font-semibold text-amber-300/80">{goalsReviewed} Goals Reviewed</span>
                       <p className="text-sm font-semibold text-stone-200">Weekly Summary</p>
                       <p className="text-xs text-stone-500">({week.date})</p>
                     </div>
@@ -384,6 +465,11 @@ export default function GoalWeeklyReport() {
                 </Motion.div>
               );
             })}
+            {!loadingSummaries && summaries.length === 0 && (
+              <p className="rounded-xl border border-dashed border-amber-100/10 px-4 py-6 text-center text-xs text-stone-500">
+                Your current week will appear once goal data is available.
+              </p>
+            )}
           </div>
         </ReportCard>
 

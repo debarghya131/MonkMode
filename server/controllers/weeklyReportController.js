@@ -1,0 +1,1110 @@
+import Habit from "../models/Habit.js";
+import HabitLog from "../models/HabitLog.js";
+import Todo from "../models/Todo.js";
+import Journal from "../models/Journal.js";
+import JournalMissedReason from "../models/JournalMissedReason.js";
+import JournalWeeklySummary from "../models/JournalWeeklySummary.js";
+import Goal from "../models/Goal.js";
+import GymExerciseProgress from "../models/GymExerciseProgress.js";
+import GymMeasurement from "../models/GymMeasurement.js";
+import GymGalleryEntry from "../models/GymGalleryEntry.js";
+import GymDietPlan from "../models/GymDietPlan.js";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function toDayKey(date) {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function getWeekBounds(weekParam) {
+  let base;
+  if (weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam)) {
+    base = new Date(`${weekParam}T00:00:00Z`);
+  } else {
+    base = new Date();
+    base.setUTCHours(0, 0, 0, 0);
+  }
+  // Roll back to Monday
+  const dow = base.getUTCDay(); // 0=Sun
+  const toMonday = dow === 0 ? -6 : 1 - dow;
+  const weekStart = new Date(base);
+  weekStart.setUTCDate(base.getUTCDate() + toMonday);
+  weekStart.setUTCHours(0, 0, 0, 0);
+
+  const weekEnd = new Date(weekStart);
+  weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+  weekEnd.setUTCHours(23, 59, 59, 999);
+
+  return { weekStart, weekEnd };
+}
+
+function getWeekDayKeys(weekStart) {
+  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  return labels.map((label, i) => {
+    const d = new Date(weekStart);
+    d.setUTCDate(weekStart.getUTCDate() + i);
+    return { dayKey: toDayKey(d), label };
+  });
+}
+
+function formatWeekLabel(weekStart, weekEnd) {
+  const opts = { month: "short", day: "numeric", timeZone: "UTC" };
+  return `${weekStart.toLocaleDateString("en-US", opts)} - ${weekEnd.toLocaleDateString("en-US", opts)}`;
+}
+
+function computeWeeklyScore(completionRate, activeDays) {
+  return Math.min(100, Math.round(completionRate * 0.7 + (activeDays / 7) * 100 * 0.3));
+}
+
+// Consecutive completed days ending on the last scheduled day
+function computeIntraWeekStreak(completedSet, scheduledDayKeys) {
+  let streak = 0;
+  for (let i = scheduledDayKeys.length - 1; i >= 0; i--) {
+    if (completedSet.has(scheduledDayKeys[i])) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+// True if the habit is scheduled on this date
+function isHabitScheduledOn(habit, utcDate) {
+  if (habit.startDate && new Date(habit.startDate) > utcDate) return false;
+  if (habit.endDate && new Date(habit.endDate) < utcDate) return false;
+
+  const dow = utcDate.getUTCDay(); // 0=Sun
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const dayName = dayNames[dow];
+
+  // Weekly frequency with explicit day list
+  if (habit.frequency === "weekly" && Array.isArray(habit.days) && habit.days.length > 0) {
+    return habit.days.includes(dayName);
+  }
+
+  switch (habit.repeatType) {
+    case "daily":
+    case "7days":
+    case "21days":
+      return true;
+    case "weekdays":
+      return dow >= 1 && dow <= 5;
+    case "weekend":
+      return dow === 0 || dow === 6;
+    default:
+      return true;
+  }
+}
+
+function buildRepeatLabel(habit) {
+  const end = habit.endDate
+    ? new Date(habit.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
+    : null;
+  switch (habit.repeatType) {
+    case "daily":     return end ? `Daily - ends ${end}` : "Daily - never ends";
+    case "weekdays":  return end ? `Weekdays - ends ${end}` : "Weekdays - never ends";
+    case "weekend":   return end ? `Weekend - ends ${end}` : "Weekend - never ends";
+    case "7days":     return "7-day challenge";
+    case "21days":    return "21-day challenge";
+    default:          return habit.repeatType || "Daily";
+  }
+}
+
+// Calculate longest streak of consecutive days in a set
+function longestConsecutiveStreak(activeDayKeys, weekDays) {
+  let best = 0;
+  let cur = 0;
+  for (const { dayKey } of weekDays) {
+    if (activeDayKeys.has(dayKey)) {
+      cur++;
+      if (cur > best) best = cur;
+    } else {
+      cur = 0;
+    }
+  }
+  return best;
+}
+
+const MOOD_EMOJI = {
+  happy: "😊", Happy: "😊", sad: "😢", Sad: "😢", neutral: "😐", Neutral: "😐",
+  Motivated: "🔥", Calm: "😌", Anxious: "😰", Focused: "😤", Tired: "😴",
+  Excited: "🤩", Grateful: "🙏", Inspired: "✨", Frustrated: "😤", Overwhelmed: "😩",
+  Strong: "💪", Peaceful: "🧘", Bored: "😑", Confident: "😎", Curious: "🤔",
+  Emotional: "🥹", Content: "☺️",
+};
+
+function parseSleepDuration(sleepTime, wakeUpTime) {
+  if (!sleepTime || !wakeUpTime) return null;
+  const [sh, sm] = sleepTime.split(":").map(Number);
+  const [wh, wm] = wakeUpTime.split(":").map(Number);
+  let sleepMins = sh * 60 + sm;
+  let wakeMins = wh * 60 + wm;
+  if (wakeMins <= sleepMins) wakeMins += 24 * 60;
+  const dur = wakeMins - sleepMins;
+  if (dur <= 0 || dur > 18 * 60) return null;
+  const h = Math.floor(dur / 60);
+  const m = dur % 60;
+  return { minutes: dur, label: `${h}h ${String(m).padStart(2, "0")}m` };
+}
+
+function avgTime(timeStrings) {
+  const valid = timeStrings.filter(Boolean).map(t => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  });
+  if (!valid.length) return "";
+  const avg = Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
+  return `${String(Math.floor(avg / 60)).padStart(2, "0")}:${String(avg % 60).padStart(2, "0")}`;
+}
+
+// Parse numeric value from strings like "158 g", "3.7 L", "2,484 kcal"
+function parseNumericValue(str) {
+  if (!str) return null;
+  const n = parseFloat(str.replace(/,/g, "").replace(/[^\d.]/g, ""));
+  return isNaN(n) ? null : n;
+}
+
+// Return Monday dayKey for any given dayKey
+function getWeekStartDayKey(dayKey) {
+  const date = new Date(`${dayKey}T00:00:00Z`);
+  const dow = date.getUTCDay();
+  const toMonday = dow === 0 ? -6 : 1 - dow;
+  date.setUTCDate(date.getUTCDate() + toMonday);
+  return toDayKey(date);
+}
+
+// Compute journal weekly stats from an array of entries + weekDays metadata
+function computeJournalWeekStats(orderedEntries, weekDays) {
+  const loggedDaySet  = new Set(orderedEntries.map(e => e.dayKey));
+  const loggedDays    = orderedEntries.length;
+  const longestStreak = longestConsecutiveStreak(loggedDaySet, weekDays);
+
+  const moodCounts = {};
+  for (const { entry } of orderedEntries) {
+    if (entry.mood) moodCounts[entry.mood] = (moodCounts[entry.mood] || 0) + 1;
+  }
+  const topMoodEntry = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0];
+  const topMood = topMoodEntry
+    ? { emoji: MOOD_EMOJI[topMoodEntry[0]] || "😐", label: topMoodEntry[0], days: topMoodEntry[1] }
+    : null;
+
+  const energyValues = orderedEntries.map(({ dayKey, entry }) => ({ dayKey, value: entry.energyLevel ?? 50 }));
+  const ratingValues = orderedEntries.map(({ dayKey, entry }) => ({ dayKey, value: entry.overallRating ?? 50 }));
+
+  function statBlock(values) {
+    if (!values.length) return { avg: 0, highest: { day: "-", value: 0 }, lowest: { day: "-", value: 0 } };
+    const avg = Math.round(values.reduce((s, v) => s + v.value, 0) / values.length);
+    const hi  = values.reduce((a, b) => (b.value > a.value ? b : a));
+    const lo  = values.reduce((a, b) => (b.value < a.value ? b : a));
+    const fmt = (v) => new Date(`${v.dayKey}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+    return { avg, highest: { day: fmt(hi), value: hi.value }, lowest: { day: fmt(lo), value: lo.value } };
+  }
+
+  function countBlock(field) {
+    if (!orderedEntries.length) return { total: 0, highest: { day: "-", value: 0 }, lowest: { day: "-", value: 0 } };
+    const values = orderedEntries.map(({ dayKey, entry }) => ({ dayKey, value: (entry[field] || []).length }));
+    const total = values.reduce((s, v) => s + v.value, 0);
+    const hi = values.reduce((a, b) => (b.value > a.value ? b : a));
+    const lo = values.reduce((a, b) => (b.value < a.value ? b : a));
+    const fmt = (v) => new Date(`${v.dayKey}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+    return { total, highest: { day: fmt(hi), value: hi.value }, lowest: { day: fmt(lo), value: lo.value } };
+  }
+
+  const sleepEntries = orderedEntries
+    .filter(({ entry }) => entry.sleepTime && entry.wakeUpTime)
+    .map(({ entry }) => ({ sleepTime: entry.sleepTime, wakeUpTime: entry.wakeUpTime }));
+
+  const durations = sleepEntries.map(e => parseSleepDuration(e.sleepTime, e.wakeUpTime)).filter(Boolean);
+  const avgDuration = durations.length
+    ? (() => {
+        const avgMins = Math.round(durations.reduce((s, d) => s + d.minutes, 0) / durations.length);
+        return `${Math.floor(avgMins / 60)}h ${String(avgMins % 60).padStart(2, "0")}m`;
+      })()
+    : "";
+
+  const avgRating   = statBlock(ratingValues).avg;
+  const streakBonus = Math.min(10, longestStreak * 1.5);
+  const weeklyScore = Math.min(100, Math.round(
+    (loggedDays / 7) * 100 * 0.45 +
+    avgRating * 0.45 +
+    streakBonus
+  ));
+
+  return {
+    loggedDays,
+    loggedDaySet,
+    longestStreak,
+    topMood,
+    weeklyScore,
+    stats: {
+      energy:       statBlock(energyValues),
+      rating:       statBlock(ratingValues),
+      wins:         countBlock("wins"),
+      mistakes:     countBlock("mistakes"),
+      achievements: countBlock("achievement"),
+      sleep: {
+        avgWakeUp:    avgTime(sleepEntries.map(e => e.wakeUpTime)),
+        avgSleepTime: avgTime(sleepEntries.map(e => e.sleepTime)),
+        avgDuration,
+      },
+    },
+  };
+}
+
+// ─── Weeks List ───────────────────────────────────────────────────────────────
+
+export const getWeeksList = (_req, res) => {
+  try {
+    const weeks = [];
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const dow = today.getUTCDay();
+    const toMonday = dow === 0 ? -6 : 1 - dow;
+    const thisMonday = new Date(today);
+    thisMonday.setUTCDate(today.getUTCDate() + toMonday);
+
+    for (let i = 0; i < 12; i++) {
+      const weekStart = new Date(thisMonday);
+      weekStart.setUTCDate(thisMonday.getUTCDate() - i * 7);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+      weeks.push({
+        id: toDayKey(weekStart),
+        date: formatWeekLabel(weekStart, weekEnd),
+      });
+    }
+    res.json(weeks);
+  } catch (err) {
+    console.error("getWeeksList error:", err);
+    res.status(500).json({ error: "Failed to load weeks list" });
+  }
+};
+
+// ─── Habit Weekly Report ──────────────────────────────────────────────────────
+
+export const getHabitWeeklyReport = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { weekStart, weekEnd } = getWeekBounds(req.query.week);
+    const weekDays = getWeekDayKeys(weekStart);
+    const startDayKey = weekDays[0].dayKey;
+    const endDayKey   = weekDays[6].dayKey;
+
+    const habits = await Habit.find({ userId, deletedAt: null }).lean();
+    const habitIds = habits.map(h => h._id);
+
+    const logs = await HabitLog.find({
+      habitId: { $in: habitIds },
+      dayKey:  { $gte: startDayKey, $lte: endDayKey },
+    }).lean();
+
+    // habitId -> dayKey -> completed
+    const logMap = {};
+    for (const log of logs) {
+      const hid = log.habitId.toString();
+      if (!logMap[hid]) logMap[hid] = {};
+      logMap[hid][log.dayKey] = log.completed;
+    }
+
+    const categoryMap = {};
+    const priorityMap = {
+      High:   { total: 0, completed: 0, missed: 0 },
+      Medium: { total: 0, completed: 0, missed: 0 },
+      Low:    { total: 0, completed: 0, missed: 0 },
+    };
+    const dailyMap = {};
+    for (const wd of weekDays) {
+      dailyMap[wd.dayKey] = { day: wd.label, completed: 0, total: 0 };
+    }
+
+    let totalInstances = 0;
+    let totalCompleted = 0;
+    const activeDayKeys = new Set();
+    const habitRows = [];
+
+    for (const habit of habits) {
+      const scheduledDayKeys = [];
+      const completedSet = new Set();
+
+      for (const wd of weekDays) {
+        const d = new Date(`${wd.dayKey}T00:00:00Z`);
+        if (!isHabitScheduledOn(habit, d)) continue;
+
+        scheduledDayKeys.push(wd.dayKey);
+        dailyMap[wd.dayKey].total++;
+        totalInstances++;
+
+        const completed = logMap[habit._id.toString()]?.[wd.dayKey] ?? false;
+        if (completed) {
+          completedSet.add(wd.dayKey);
+          activeDayKeys.add(wd.dayKey);
+          dailyMap[wd.dayKey].completed++;
+          totalCompleted++;
+        }
+      }
+
+      if (!scheduledDayKeys.length) continue;
+
+      const habitCompleted = completedSet.size;
+      const habitMissed    = scheduledDayKeys.length - habitCompleted;
+      const streak         = computeIntraWeekStreak(completedSet, scheduledDayKeys);
+
+      const cat = habit.category || "General";
+      if (!categoryMap[cat]) categoryMap[cat] = { name: cat, total: 0, completed: 0, missed: 0 };
+      categoryMap[cat].total     += scheduledDayKeys.length;
+      categoryMap[cat].completed += habitCompleted;
+      categoryMap[cat].missed    += habitMissed;
+
+      const pri = habit.priority || "Medium";
+      priorityMap[pri].total     += scheduledDayKeys.length;
+      priorityMap[pri].completed += habitCompleted;
+      priorityMap[pri].missed    += habitMissed;
+
+      habitRows.push({
+        name:          habit.title,
+        priority:      pri,
+        category:      cat,
+        timeOfDay:     habit.timeOfDay || "Morning",
+        repeat:        buildRepeatLabel(habit),
+        targetStreak:  habit.targetStreak || 21,
+        completedDays: habitCompleted,
+        totalDays:     scheduledDayKeys.length,
+        missed:        habitMissed,
+        streak,
+      });
+    }
+
+    const completionRate  = totalInstances > 0 ? Math.round((totalCompleted / totalInstances) * 100) : 0;
+    const activeDaysCount = activeDayKeys.size;
+    const weeklyScore     = computeWeeklyScore(completionRate, activeDaysCount);
+    const longestStreak   = habitRows.length ? Math.max(...habitRows.map(h => h.streak)) : 0;
+
+    res.json({
+      id:             weekDays[0].dayKey,
+      date:           formatWeekLabel(weekStart, weekEnd),
+      signal:         `${activeDaysCount} Active days`,
+      totalInstances,
+      completed:      totalCompleted,
+      missed:         totalInstances - totalCompleted,
+      completionRate,
+      weeklyScore,
+      longestStreak,
+      categories:     Object.values(categoryMap).sort((a, b) => b.total - a.total),
+      dailyStats:     weekDays.map(wd => dailyMap[wd.dayKey]),
+      priorityStats:  ["High", "Medium", "Low"].map(p => ({ priority: p, ...priorityMap[p] })),
+      habits:         habitRows,
+      aiSummary:      null,
+    });
+  } catch (err) {
+    console.error("getHabitWeeklyReport error:", err);
+    res.status(500).json({ error: "Failed to load habit weekly report" });
+  }
+};
+
+// ─── Todo Weekly Report ───────────────────────────────────────────────────────
+
+const TODO_TIMING_BUCKETS = [
+  { range: "6 AM – 9 AM",   start: 6,  end: 9  },
+  { range: "9 AM – 12 PM",  start: 9,  end: 12 },
+  { range: "12 PM – 3 PM",  start: 12, end: 15 },
+  { range: "3 PM – 6 PM",   start: 15, end: 18 },
+  { range: "6 PM – 12 AM",  start: 18, end: 24 },
+];
+const IMPORTANT_CATEGORIES = new Set(["Bill & Payment", "Health", "Finance", "Medical", "Insurance"]);
+
+export const getTodoWeeklyReport = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { weekStart, weekEnd } = getWeekBounds(req.query.week);
+    const weekDays    = getWeekDayKeys(weekStart);
+    const startDayKey = weekDays[0].dayKey;
+    const endDayKey   = weekDays[6].dayKey;
+
+    const todos = await Todo.find({
+      userId,
+      deletedAt: null,
+      "dayStates.dayKey": { $gte: startDayKey, $lte: endDayKey },
+    }).lean();
+
+    const categoryMap = {};
+    const priorityMap = {
+      High:   { total: 0, completed: 0, missed: 0 },
+      Medium: { total: 0, completed: 0, missed: 0 },
+      Low:    { total: 0, completed: 0, missed: 0 },
+    };
+    const dailyMap = {};
+    for (const wd of weekDays) {
+      dailyMap[wd.dayKey] = { day: wd.label, completed: 0, total: 0 };
+    }
+
+    // Per-bucket: { total, completed, missed }
+    const bucketStats = TODO_TIMING_BUCKETS.map(() => ({ total: 0, completed: 0, missed: 0 }));
+
+    const missedTasks = [];
+    let totalTasks = 0, totalCompleted = 0, totalMissed = 0, totalPending = 0;
+    const activeDayKeys = new Set();
+
+    for (const todo of todos) {
+      const cat = todo.category || "Others";
+      const pri = todo.priority || "Medium";
+      if (!categoryMap[cat]) categoryMap[cat] = { name: cat, total: 0, completed: 0, missed: 0 };
+
+      // Determine time bucket from todo's scheduled time
+      let bucketIdx = -1;
+      if (todo.time) {
+        const h = parseInt(todo.time.split(":")[0], 10);
+        bucketIdx = TODO_TIMING_BUCKETS.findIndex(b => h >= b.start && h < b.end);
+      }
+
+      const weekStates = (todo.dayStates || []).filter(
+        ds => ds.dayKey >= startDayKey && ds.dayKey <= endDayKey
+      );
+
+      for (const ds of weekStates) {
+        totalTasks++;
+        categoryMap[cat].total++;
+        priorityMap[pri].total++;
+        if (dailyMap[ds.dayKey]) dailyMap[ds.dayKey].total++;
+        if (bucketIdx >= 0) bucketStats[bucketIdx].total++;
+
+        if (ds.status === "completed") {
+          totalCompleted++;
+          categoryMap[cat].completed++;
+          priorityMap[pri].completed++;
+          if (dailyMap[ds.dayKey]) {
+            dailyMap[ds.dayKey].completed++;
+            activeDayKeys.add(ds.dayKey);
+          }
+          if (bucketIdx >= 0) bucketStats[bucketIdx].completed++;
+        } else if (ds.status === "missed") {
+          totalMissed++;
+          categoryMap[cat].missed++;
+          priorityMap[pri].missed++;
+          if (bucketIdx >= 0) bucketStats[bucketIdx].missed++;
+
+          const dayDate = new Date(`${ds.dayKey}T00:00:00Z`);
+          missedTasks.push({
+            title:    todo.title,
+            category: cat,
+            priority: pri,
+            day:      dayDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }),
+          });
+        } else {
+          totalPending++;
+        }
+      }
+    }
+
+    const completionRate  = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
+    const activeDaysCount = activeDayKeys.size;
+    const weeklyScore     = computeWeeklyScore(completionRate, activeDaysCount);
+    const longestStreak   = longestConsecutiveStreak(activeDayKeys, weekDays);
+
+    const sortedCategories    = Object.values(categoryMap).sort((a, b) => b.total - a.total);
+    const importantCategories = sortedCategories.filter(c => IMPORTANT_CATEGORIES.has(c.name));
+
+    res.json({
+      id:               weekDays[0].dayKey,
+      date:             formatWeekLabel(weekStart, weekEnd),
+      signal:           `${activeDaysCount} Active days`,
+      totalTasks,
+      completed:        totalCompleted,
+      pending:          totalPending,
+      missed:           totalMissed,
+      completionRate,
+      weeklyScore,
+      longestStreak,
+      completionTiming: TODO_TIMING_BUCKETS.map((b, i) => ({ range: b.range, count: bucketStats[i].completed, total: bucketStats[i].total })),
+      missedTiming:     TODO_TIMING_BUCKETS.map((b, i) => ({ range: b.range, count: bucketStats[i].missed,    total: bucketStats[i].total })),
+      categories:       sortedCategories,
+      priorityStats:    ["High", "Medium", "Low"].map(p => ({ priority: p, ...priorityMap[p] })),
+      importantCategories,
+      dailyStats:       weekDays.map(wd => dailyMap[wd.dayKey]),
+      missedTasks:      missedTasks.slice(0, 20),
+      aiSummary:        null,
+    });
+  } catch (err) {
+    console.error("getTodoWeeklyReport error:", err);
+    res.status(500).json({ error: "Failed to load todo weekly report" });
+  }
+};
+
+// ─── Journal Weekly Report ────────────────────────────────────────────────────
+
+// GET /api/weekly-report/journal?week=YYYY-MM-DD
+// Returns full stats for a specific week, computed from journal entries (Mon–Sun).
+// Summaries are based on whichever days data exists — a "complete" week summary
+// is naturally available once the week ends (Sunday midnight → Monday).
+export const getJournalWeeklyReport = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { weekStart, weekEnd } = getWeekBounds(req.query.week);
+    const weekDays    = getWeekDayKeys(weekStart);
+    const startDayKey = weekDays[0].dayKey;
+    const endDayKey   = weekDays[6].dayKey;
+
+    const [entries, savedReasons] = await Promise.all([
+      Journal.find(
+        { userId, dayKey: { $gte: startDayKey, $lte: endDayKey } },
+        { dayKey: 1, mood: 1, energyLevel: 1, overallRating: 1, wins: 1, mistakes: 1, achievement: 1, sleepTime: 1, wakeUpTime: 1 }
+      ).lean(),
+      JournalMissedReason.find(
+        { userId, dayKey: { $gte: startDayKey, $lte: endDayKey } }
+      ).lean(),
+    ]);
+
+    const entryMap  = Object.fromEntries(entries.map(e => [e.dayKey, e]));
+    const reasonMap = Object.fromEntries(savedReasons.map(r => [r.dayKey, r.reason]));
+
+    const orderedEntries = weekDays
+      .filter(wd => entryMap[wd.dayKey])
+      .map(wd => ({ dayKey: wd.dayKey, label: wd.label, entry: entryMap[wd.dayKey] }));
+
+    const computed = computeJournalWeekStats(orderedEntries, weekDays);
+
+    // Missed days: week days with no journal entry
+    const missedDays = weekDays
+      .filter(wd => !computed.loggedDaySet.has(wd.dayKey))
+      .map(wd => ({
+        date:   wd.dayKey,
+        label:  new Date(`${wd.dayKey}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }),
+        note:   "No journal submitted",
+        reason: reasonMap[wd.dayKey] || null,
+      }));
+
+    res.json({
+      id:           startDayKey,
+      date:         formatWeekLabel(weekStart, weekEnd),
+      signal:       `${computed.loggedDays} logged days`,
+      topMood:      computed.topMood,
+      weeklyScore:  computed.weeklyScore,
+      longestStreak: computed.longestStreak,
+      stats:        computed.stats,
+      missedDays,
+      aiSummary:    null,
+    });
+  } catch (err) {
+    console.error("getJournalWeeklyReport error:", err);
+    res.status(500).json({ error: "Failed to load journal weekly report" });
+  }
+};
+
+// GET /api/weekly-report/journal/summaries
+// Returns the last 12 weeks (most recent first), each with basic stats
+// computed from journal entries. Once a week ends (Sunday midnight), that
+// week's summary reflects all 7 days of entries.
+export const getJournalSummaries = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Build list of last 12 Mondays (most recent first)
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const dow        = today.getUTCDay();
+    const toMonday   = dow === 0 ? -6 : 1 - dow;
+    const thisMonday = new Date(today);
+    thisMonday.setUTCDate(today.getUTCDate() + toMonday);
+
+    const mondays = Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(thisMonday);
+      d.setUTCDate(thisMonday.getUTCDate() - i * 7);
+      return d;
+    });
+
+    const earliestMonday  = mondays[11];
+    const earliestDayKey  = toDayKey(earliestMonday);
+
+    // Single query: all journals from the last 12 weeks
+    const allEntries = await Journal.find(
+      { userId, dayKey: { $gte: earliestDayKey } },
+      { dayKey: 1, mood: 1, energyLevel: 1, overallRating: 1 }
+    ).lean();
+
+    // Group entries by their week's Monday key
+    const weekGroups = {};
+    for (const entry of allEntries) {
+      const wk = getWeekStartDayKey(entry.dayKey);
+      if (!weekGroups[wk]) weekGroups[wk] = [];
+      weekGroups[wk].push(entry);
+    }
+
+    const summaries = mondays.map(monday => {
+      const weekStart   = monday;
+      const weekEnd     = new Date(monday);
+      weekEnd.setUTCDate(monday.getUTCDate() + 6);
+      const weekDays    = getWeekDayKeys(weekStart);
+      const startDayKey = weekDays[0].dayKey;
+      const entries     = weekGroups[startDayKey] || [];
+
+      // Ordered entries for this week
+      const entryMap       = Object.fromEntries(entries.map(e => [e.dayKey, e]));
+      const orderedEntries = weekDays
+        .filter(wd => entryMap[wd.dayKey])
+        .map(wd => ({ dayKey: wd.dayKey, label: wd.label, entry: entryMap[wd.dayKey] }));
+
+      const { loggedDays, topMood, weeklyScore, longestStreak } =
+        computeJournalWeekStats(orderedEntries, weekDays);
+
+      // A summary is "Ready" once the week is fully over
+      const weekIsComplete = weekEnd < today;
+
+      return {
+        id:           startDayKey,
+        date:         formatWeekLabel(weekStart, weekEnd),
+        status:       weekIsComplete ? "Ready" : "Draft",
+        signal:       `${loggedDays} logged days`,
+        loggedDays,
+        topMood,
+        weeklyScore,
+        longestStreak,
+      };
+    });
+
+    // Only show completed weeks where the user logged at least one journal entry
+    res.json(summaries.filter(w => w.status === "Ready" && w.loggedDays > 0));
+  } catch (err) {
+    console.error("getJournalSummaries error:", err);
+    res.status(500).json({ error: "Failed to load journal summaries" });
+  }
+};
+
+// GET /api/weekly-report/journal/missed-days?week=YYYY-MM-DD
+// Returns missed journal days for the given week with any saved reasons.
+// Defaults to the current week if no week param is provided.
+export const getMissedJournalDays = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { weekStart } = getWeekBounds(req.query.week);
+    const weekDays    = getWeekDayKeys(weekStart);
+    const startDayKey = weekDays[0].dayKey;
+    const endDayKey   = weekDays[6].dayKey;
+
+    const [entries, savedReasons] = await Promise.all([
+      Journal.find(
+        { userId, dayKey: { $gte: startDayKey, $lte: endDayKey } },
+        { dayKey: 1 }
+      ).lean(),
+      JournalMissedReason.find(
+        { userId, dayKey: { $gte: startDayKey, $lte: endDayKey } }
+      ).lean(),
+    ]);
+
+    const loggedDayKeys = new Set(entries.map(e => e.dayKey));
+    const reasonMap     = Object.fromEntries(savedReasons.map(r => [r.dayKey, r.reason]));
+
+    // Only include days up to today (don't count future days as "missed")
+    const todayKey = toDayKey(new Date());
+
+    const missedDays = weekDays
+      .filter(wd => wd.dayKey <= todayKey && !loggedDayKeys.has(wd.dayKey))
+      .map(wd => ({
+        date:   wd.dayKey,
+        label:  new Date(`${wd.dayKey}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }),
+        note:   "No journal submitted",
+        reason: reasonMap[wd.dayKey] || null,
+      }));
+
+    res.json(missedDays);
+  } catch (err) {
+    console.error("getMissedJournalDays error:", err);
+    res.status(500).json({ error: "Failed to load missed journal days" });
+  }
+};
+
+// POST /api/weekly-report/journal/missed-reason
+// Body: { dayKey: "YYYY-MM-DD", reason: "..." }
+// Saves (or updates) the user's reason for missing a journal entry on that day.
+export const saveJournalMissedReason = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { dayKey, reason } = req.body;
+
+    if (!dayKey || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
+      return res.status(400).json({ error: "Invalid dayKey" });
+    }
+    if (typeof reason !== "string" || !reason.trim()) {
+      return res.status(400).json({ error: "Reason is required" });
+    }
+
+    const doc = await JournalMissedReason.findOneAndUpdate(
+      { userId, dayKey },
+      { reason: reason.trim() },
+      { upsert: true, new: true }
+    );
+
+    res.json({ dayKey: doc.dayKey, reason: doc.reason });
+  } catch (err) {
+    console.error("saveJournalMissedReason error:", err);
+    res.status(500).json({ error: "Failed to save reason" });
+  }
+};
+
+// ─── Journal AI Summary (Little Monk's Analysis) ─────────────────────────────
+
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL   = "llama-3.3-70b-versatile";
+
+// Build a compact text snapshot of the week for the AI prompt
+function buildJournalWeekContext(weekLabel, stats, loggedDays, missedDays, topMood, longestStreak) {
+  const lines = [
+    `Week: ${weekLabel}`,
+    `Journal entries: ${loggedDays}/7 days logged, ${missedDays} days missed, longest consecutive streak: ${longestStreak} days`,
+  ];
+
+  if (topMood) lines.push(`Most repeated mood: ${topMood.label} (${topMood.days} days)`);
+
+  const { energy, rating, wins, mistakes, achievements, sleep } = stats;
+  lines.push(`Energy — avg: ${energy.avg}, highest: ${energy.highest.value} on ${energy.highest.day}, lowest: ${energy.lowest.value} on ${energy.lowest.day}`);
+  lines.push(`Day rating — avg: ${rating.avg}, highest: ${rating.highest.value} on ${rating.highest.day}, lowest: ${rating.lowest.value} on ${rating.lowest.day}`);
+  lines.push(`Wins: ${wins.total} total, best day ${wins.highest.day} (${wins.highest.value} wins), worst ${wins.lowest.day} (${wins.lowest.value} wins)`);
+  lines.push(`Mistakes: ${mistakes.total} total, most on ${mistakes.highest.day} (${mistakes.highest.value}), least on ${mistakes.lowest.day} (${mistakes.lowest.value})`);
+  lines.push(`Achievements: ${achievements.total} total, best day ${achievements.highest.day} (${achievements.highest.value})`);
+
+  if (sleep.avgWakeUp)   lines.push(`Avg wake-up: ${sleep.avgWakeUp}`);
+  if (sleep.avgSleepTime) lines.push(`Avg sleep time: ${sleep.avgSleepTime}`);
+  if (sleep.avgDuration)  lines.push(`Avg sleep duration: ${sleep.avgDuration}`);
+
+  return lines.join("\n");
+}
+
+// GET /api/weekly-report/journal/ai-summary?week=YYYY-MM-DD
+// Calls the Groq API (Llama 3.3 70B) to generate Little Monk's Analysis
+// based on the real journal data for that week.
+export const generateJournalAiSummary = async (req, res) => {
+  try {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      return res.status(503).json({ error: "AI service not configured" });
+    }
+
+    const userId     = req.user.id;
+    const regenerate = req.query.regenerate === "true";
+    const { weekStart, weekEnd } = getWeekBounds(req.query.week);
+    const weekDays    = getWeekDayKeys(weekStart);
+    const startDayKey = weekDays[0].dayKey;
+    const endDayKey   = weekDays[6].dayKey;
+
+    // Return cached summary unless regenerate is explicitly requested
+    if (!regenerate) {
+      const cached = await JournalWeeklySummary.findOne({ userId, weekStart: startDayKey }).lean();
+      if (cached) return res.json({ aiSummary: cached.aiSummary, cached: true });
+    }
+
+    // Fetch journal entries for the week
+    const entries = await Journal.find(
+      { userId, dayKey: { $gte: startDayKey, $lte: endDayKey } },
+      { dayKey: 1, mood: 1, energyLevel: 1, overallRating: 1, wins: 1, mistakes: 1, achievement: 1, sleepTime: 1, wakeUpTime: 1, content: 1, summary: 1 }
+    ).lean();
+
+    const entryMap       = Object.fromEntries(entries.map(e => [e.dayKey, e]));
+    const orderedEntries = weekDays
+      .filter(wd => entryMap[wd.dayKey])
+      .map(wd => ({ dayKey: wd.dayKey, label: wd.label, entry: entryMap[wd.dayKey] }));
+
+    if (orderedEntries.length === 0) {
+      return res.json({ aiSummary: "No journal entries were logged this week. Start with just one sentence a day — it's enough to build the pattern." });
+    }
+
+    const computed    = computeJournalWeekStats(orderedEntries, weekDays);
+    const missedCount = 7 - computed.loggedDays;
+    const weekLabel   = formatWeekLabel(weekStart, weekEnd);
+
+    const weekContext = buildJournalWeekContext(
+      weekLabel,
+      computed.stats,
+      computed.loggedDays,
+      missedCount,
+      computed.topMood,
+      computed.longestStreak
+    );
+
+    const systemPrompt = `You are Little Monk — a sharp, direct personal productivity coach embedded in the MonkMode app. Your job is to give a weekly journal analysis that is honest, specific, and immediately actionable.
+
+Rules:
+- Write in plain paragraph form (2-4 sentences). No bullet points, no headers.
+- Mention specific days (e.g. "Wednesday was your best day") when the data supports it.
+- Identify the one clearest pattern from the data — what drove the best days, what caused the worst.
+- End with one concrete, specific action for next week. Not generic advice.
+- Keep it under 120 words. Tight and direct.
+- Do not start with "I" or refer to yourself as Little Monk.`;
+
+    const userMessage = `Here is this week's journal data:\n\n${weekContext}\n\nWrite the weekly analysis.`;
+
+    const groqResponse = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user",   content: userMessage },
+        ],
+        max_tokens:  200,
+        temperature: 0.72,
+      }),
+    });
+
+    if (!groqResponse.ok) {
+      const errText = await groqResponse.text();
+      console.error("Groq API error:", groqResponse.status, errText);
+      return res.status(502).json({ error: "AI generation failed" });
+    }
+
+    const groqData  = await groqResponse.json();
+    const aiSummary = groqData.choices?.[0]?.message?.content?.trim() ?? null;
+
+    // Persist to DB so subsequent loads are instant
+    if (aiSummary) {
+      await JournalWeeklySummary.findOneAndUpdate(
+        { userId, weekStart: startDayKey },
+        { aiSummary },
+        { upsert: true, returnDocument: "after" }
+      );
+    }
+
+    res.json({ aiSummary, cached: false });
+  } catch (err) {
+    console.error("generateJournalAiSummary error:", err);
+    res.status(500).json({ error: "Failed to generate AI summary" });
+  }
+};
+
+// ─── Goal Weekly Report ───────────────────────────────────────────────────────
+
+export const getGoalWeeklyReport = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { weekStart, weekEnd } = getWeekBounds(req.query.week);
+    const weekId = toDayKey(weekStart);
+
+    const goals = await Goal.find({ userId, deletedAt: null }).lean();
+
+    const goalRows = goals.map(goal => {
+      const progress = goal.targetValue > 0
+        ? Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100))
+        : 0;
+
+      // Expected progress based on time elapsed up to end of week
+      let expected = 0;
+      if (goal.startDate && goal.deadline) {
+        const start   = new Date(goal.startDate).getTime();
+        const end     = new Date(goal.deadline).getTime();
+        const elapsed = Math.min(weekEnd.getTime(), end) - start;
+        const total   = end - start;
+        expected = total > 0 ? Math.max(0, Math.min(100, Math.round((elapsed / total) * 100))) : 100;
+      }
+
+      const subgoals          = goal.subgoals || [];
+      const completedSubs     = subgoals.filter(s => s.completed).length;
+      const completedThisWeek = subgoals.filter(s => {
+        if (!s.completed || !s.completedAt) return false;
+        const d = new Date(s.completedAt);
+        return d >= weekStart && d <= weekEnd;
+      }).length;
+
+      const deadline = goal.deadline
+        ? new Date(goal.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
+        : null;
+
+      return {
+        title:            goal.title,
+        type:             goal.goalType === "long-term" ? "Long Term" : "Short Term",
+        priority:         goal.priority || "Medium",
+        progress,
+        expected,
+        deadline,
+        completed:        completedSubs,
+        total:            subgoals.length,
+        completedThisWeek,
+      };
+    });
+
+    const goalCount   = goalRows.length;
+    const avgProgress = goalCount > 0 ? Math.round(goalRows.reduce((s, g) => s + g.progress, 0) / goalCount) : 0;
+    const avgExpected = goalCount > 0 ? Math.round(goalRows.reduce((s, g) => s + g.expected, 0) / goalCount) : 0;
+    const onTrackBonus = avgProgress >= avgExpected ? 40 : Math.round((avgProgress / Math.max(avgExpected, 1)) * 40);
+    const weeklyScore = goalCount > 0
+      ? Math.min(100, Math.round(avgProgress * 0.6 + onTrackBonus))
+      : 0;
+
+    res.json({
+      id:          weekId,
+      date:        formatWeekLabel(weekStart, weekEnd),
+      weeklyScore,
+      summary:     null,
+      goals:       goalRows,
+    });
+  } catch (err) {
+    console.error("getGoalWeeklyReport error:", err);
+    res.status(500).json({ error: "Failed to load goal weekly report" });
+  }
+};
+
+// ─── Gym Weekly Report ────────────────────────────────────────────────────────
+
+export const getGymWeeklyReport = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { weekStart, weekEnd } = getWeekBounds(req.query.week);
+    const weekDays    = getWeekDayKeys(weekStart);
+    const startDayKey = weekDays[0].dayKey;
+    const endDayKey   = weekDays[6].dayKey;
+
+    // Previous week bounds for comparison
+    const prevWeekStart = new Date(weekStart);
+    prevWeekStart.setUTCDate(weekStart.getUTCDate() - 7);
+    const prevWeekEnd = new Date(weekEnd);
+    prevWeekEnd.setUTCDate(weekEnd.getUTCDate() - 7);
+    const prevStartDayKey = toDayKey(prevWeekStart);
+    const prevEndDayKey   = toDayKey(prevWeekEnd);
+
+    const [
+      thisWeekExercises,
+      prevWeekExercises,
+      thisWeekMeasurements,
+      prevWeekMeasurements,
+      galleryEntries,
+      macroPlan,
+    ] = await Promise.all([
+      GymExerciseProgress.find({ userId, date: { $gte: startDayKey, $lte: endDayKey } }).lean(),
+      GymExerciseProgress.find({ userId, date: { $gte: prevStartDayKey, $lte: prevEndDayKey } }).lean(),
+      GymMeasurement.find({ userId, deletedAt: null, checkInDate: { $gte: startDayKey, $lte: endDayKey } }).lean(),
+      GymMeasurement.find({ userId, deletedAt: null, checkInDate: { $gte: prevStartDayKey, $lte: prevEndDayKey } }).lean(),
+      GymGalleryEntry.find({ userId, checkInDate: { $gte: weekStart, $lte: weekEnd } }).lean(),
+      GymDietPlan.findOne({ userId, planType: "macros", isActive: true }).lean(),
+    ]);
+
+    // Workout days
+    const workoutDayKeys = [...new Set(thisWeekExercises.map(e => e.date))];
+    const workoutDays = workoutDayKeys.length;
+
+    // Average workout time (parse totalTime strings like "14 min")
+    const allTimes = thisWeekExercises
+      .map(e => parseInt(e.totalTime))
+      .filter(n => !isNaN(n) && n > 0);
+    const avgWorkoutTimeMin = allTimes.length
+      ? Math.round(allTimes.reduce((s, n) => s + n, 0) / workoutDays)
+      : 0;
+
+    // Strength progress: compare this week vs prev week per exercise
+    const thisExByName = {};
+    for (const e of thisWeekExercises) {
+      const key = e.exerciseName?.toLowerCase().trim();
+      if (!key) continue;
+      if (!thisExByName[key] || e.date > thisExByName[key].date) thisExByName[key] = e;
+    }
+    const prevExByName = {};
+    for (const e of prevWeekExercises) {
+      const key = e.exerciseName?.toLowerCase().trim();
+      if (!key) continue;
+      if (!prevExByName[key] || e.date > prevExByName[key].date) prevExByName[key] = e;
+    }
+
+    const strengthProgress = Object.entries(thisExByName)
+      .filter(([key]) => prevExByName[key])
+      .map(([key, cur]) => {
+        const prev = prevExByName[key];
+        const curWeight  = parseFloat(cur.weight) || 0;
+        const prevWeight = parseFloat(prev.weight) || 0;
+        const improvement = prevWeight > 0
+          ? `+${((curWeight - prevWeight) / prevWeight * 100).toFixed(1)}%`
+          : null;
+        return {
+          exercise:    cur.exerciseName,
+          bodyGroup:   cur.bodyPart || "Other",
+          previous:    `${prev.weight} kg x ${prev.reps}`,
+          current:     `${cur.weight} kg x ${cur.reps}`,
+          improvement,
+          sets:        parseInt(cur.sets) || 0,
+          totalTime:   cur.totalTime || "",
+        };
+      })
+      .filter(r => r.improvement);
+
+    // Body progress: compare latest measurement this week vs latest prev week
+    const latestThis = thisWeekMeasurements.sort((a, b) => b.checkInDate.localeCompare(a.checkInDate))[0];
+    const latestPrev = prevWeekMeasurements.sort((a, b) => b.checkInDate.localeCompare(a.checkInDate))[0];
+
+    const bodyProgress = [];
+    if (latestThis && latestPrev) {
+      const measurementFields = [
+        { key: "bodyWeight", label: "Weight", category: "Overall", unit: "kg" },
+        { key: "chest",      label: "Chest",  category: "Upper Body", unit: "cm" },
+        { key: "waist",      label: "Waist",  category: "Core",       unit: "cm" },
+        { key: "armsBiceps", label: "Biceps", category: "Arms",       unit: "cm" },
+        { key: "thighs",     label: "Thigh",  category: "Lower Body", unit: "cm" },
+        { key: "shoulders",  label: "Shoulders", category: "Upper Body", unit: "cm" },
+      ];
+      for (const { key, label, category, unit } of measurementFields) {
+        const cur  = parseFloat(latestThis[key]);
+        const prev = parseFloat(latestPrev[key]);
+        if (isNaN(cur) || isNaN(prev)) continue;
+        const delta = Math.round((cur - prev) * 10) / 10;
+        bodyProgress.push({
+          bodyPart: label,
+          category,
+          previous: `${prev} ${unit}`,
+          current:  `${cur} ${unit}`,
+          change:   delta >= 0 ? `+${delta} ${unit}` : `${delta} ${unit}`,
+          trend:    delta >= 0 ? "up" : "down",
+        });
+      }
+    }
+
+    // Progress photos
+    const progressPhotos = weekDays.map(wd => {
+      const dayDate = new Date(`${wd.dayKey}T00:00:00Z`);
+      const entry = galleryEntries.find(g => {
+        const gDate = new Date(g.checkInDate);
+        return toDayKey(gDate) === wd.dayKey;
+      });
+      const photo = entry?.images?.[0]?.src || null;
+      return {
+        day:   dayDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }),
+        photo,
+      };
+    });
+
+    // Nutrition from active macros plan
+    const nutrition = macroPlan?.values
+      ? {
+          avgProtein:  macroPlan.values.protein  || "",
+          avgCarbs:    macroPlan.values.carbs     || "",
+          avgFats:     macroPlan.values.fats      || "",
+          avgFiber:    macroPlan.values.fiber     || "",
+          avgCalories: macroPlan.values.calories  || "",
+          avgWater:    macroPlan.values.water     || "",
+          avgSugar:    macroPlan.values.sugar     || "",
+          avgSodium:   macroPlan.values.sodium    || "",
+        }
+      : null;
+
+    const consistencyScore = workoutDays > 0 ? Math.round((workoutDays / 6) * 100) : 0;
+    const weeklyScore = Math.min(100, Math.round(consistencyScore * 0.6 + (strengthProgress.length > 0 ? 40 : 20)));
+
+    res.json({
+      id:               weekDays[0].dayKey,
+      date:             formatWeekLabel(weekStart, weekEnd),
+      workoutDays,
+      totalDays:        6,
+      avgWorkoutTime:   avgWorkoutTimeMin ? `${avgWorkoutTimeMin} min` : "",
+      consistencyScore,
+      weeklyScore,
+      strengthProgress,
+      bodyProgress,
+      progressPhotos,
+      nutrition,
+      aiSummary: null,
+    });
+  } catch (err) {
+    console.error("getGymWeeklyReport error:", err);
+    res.status(500).json({ error: "Failed to load gym weekly report" });
+  }
+};

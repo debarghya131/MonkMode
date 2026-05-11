@@ -245,9 +245,13 @@ export default function OverviewHeatmap() {
     };
 
     fetchJournalHeatmap();
+    window.addEventListener("focus", fetchJournalHeatmap);
+    window.addEventListener("monkmode:journal-logged-days-updated", fetchJournalHeatmap);
 
     return () => {
       isMounted = false;
+      window.removeEventListener("focus", fetchJournalHeatmap);
+      window.removeEventListener("monkmode:journal-logged-days-updated", fetchJournalHeatmap);
     };
   }, []);
 
@@ -447,9 +451,13 @@ export default function OverviewHeatmap() {
     };
 
     fetchTodoHeatmap();
+    window.addEventListener("focus", fetchTodoHeatmap);
+    window.addEventListener("monkmode:todos-updated", fetchTodoHeatmap);
 
     return () => {
       isMounted = false;
+      window.removeEventListener("focus", fetchTodoHeatmap);
+      window.removeEventListener("monkmode:todos-updated", fetchTodoHeatmap);
     };
   }, []);
 

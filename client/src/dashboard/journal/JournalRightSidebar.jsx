@@ -1,5 +1,5 @@
 import { motion as Motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
@@ -80,8 +80,8 @@ function EntryModal({ entry, onClose }) {
     : entry.overallRating >= 40 ? "Average day 🤝"
     : "Rough day, but you showed up 💪";
 
-  const formattedDate = new Date(entry.date).toLocaleDateString("en-US", {
-    weekday: "long", month: "long", day: "numeric", year: "numeric",
+  const formattedDate = new Date(`${entry.dayKey ?? entry.date.slice(0, 10)}T12:00:00Z`).toLocaleDateString("en-US", {
+    weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC",
   });
 
   useEffect(() => {
@@ -282,153 +282,164 @@ export default function JournalRightSidebar({ refreshToken = 0 }) {
   const { isDemoMode } = useAuth();
   const [modalEntry, setModalEntry] = useState(null);
   const [history, setHistory] = useState([]);
-  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(!isDemoMode);
+
+  const [missedDays, setMissedDays] = useState([]);
+  const [missedLoading, setMissedLoading] = useState(!isDemoMode);
+  const [editingDay, setEditingDay] = useState(null);
+  const [reasonDraft, setReasonDraft] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (isDemoMode) {
       setHistory(MOCK_HISTORY.map(normalizeEntry));
-      setSummary(null);
       setLoading(false);
       return;
     }
 
     let cancelled = false;
-    const loadSidebar = async () => {
+    const loadEntries = async () => {
       setLoading(true);
       try {
-        const [entriesRes, summaryRes] = await Promise.all([
-          api.get("/journal?page=1&limit=14"),
-          api.get("/journal/summary")
-        ]);
+        const res = await api.get("/journal?page=1&limit=14");
         if (cancelled) return;
-
-        const entries = Array.isArray(entriesRes?.data?.entries)
-          ? entriesRes.data.entries
-          : Array.isArray(entriesRes?.data)
-          ? entriesRes.data
+        const entries = Array.isArray(res?.data?.entries)
+          ? res.data.entries
+          : Array.isArray(res?.data)
+          ? res.data
           : [];
         setHistory(entries.map(normalizeEntry));
-        setSummary(summaryRes?.data || null);
       } catch {
-        if (!cancelled) {
-          setHistory([]);
-          setSummary(null);
-        }
+        if (!cancelled) setHistory([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
 
-    loadSidebar();
+    loadEntries();
     return () => { cancelled = true; };
   }, [isDemoMode, refreshToken]);
 
-  const entries = isDemoMode ? history : history;
-
-  const derivedStats = useMemo(() => {
-    if (!isDemoMode && summary?.currentWeek) {
-      const week = summary.currentWeek;
-      const weekTopMood = week?.topMood?.mood || "Neutral";
-      return {
-        topMood: {
-          label: weekTopMood,
-          emoji: MOOD_EMOJI[weekTopMood] || "😐"
-        },
-        stats: [
-          { icon: "⚡", label: "Avg Energy", value: Number(week?.avgEnergy || 0), color: "text-amber-300" },
-          { icon: "⭐", label: "Avg Day Rating", value: Number(week?.avgDayRating || 0), color: "text-yellow-300" },
-          { icon: "✅", label: "Total Wins", value: Number(week?.totalWins || 0), color: "text-emerald-400" },
-          { icon: "❌", label: "Total Mistakes", value: Number(week?.totalMistakes || 0), color: "text-red-400" },
-          { icon: "🏆", label: "Achievements", value: Number(week?.achievements || 0), color: "text-amber-400" },
-          { icon: "📓", label: "Days Logged", value: Number(week?.daysLogged || 0), color: "text-stone-300" },
-        ]
-      };
+  useEffect(() => {
+    if (isDemoMode) {
+      setMissedDays([]);
+      setMissedLoading(false);
+      return;
     }
 
-    const count = entries.length || 1;
-    const moodFreq = {};
-    entries.forEach((entry) => {
-      const key = entry.mood.label || "Neutral";
-      moodFreq[key] = (moodFreq[key] || { count: 0, emoji: entry.mood.emoji || "🙂" });
-      moodFreq[key].count += 1;
-    });
-    const topMoodFromEntries = Object.entries(moodFreq).sort((a, b) => b[1].count - a[1].count)[0];
-    const topMoodFromSummary = summary?.topMoods?.[0];
-    const topMood = topMoodFromSummary
-      ? {
-          label: topMoodFromSummary.mood,
-          emoji: MOOD_EMOJI[topMoodFromSummary.mood] || "🙂"
-        }
-      : topMoodFromEntries
-      ? { label: topMoodFromEntries[0], emoji: topMoodFromEntries[1].emoji }
-      : { label: "Neutral", emoji: "😐" };
-
-    const avgEnergy = Math.round(entries.reduce((sum, entry) => sum + (entry.energyLevel || 0), 0) / count);
-    const avgRating = Math.round(entries.reduce((sum, entry) => sum + (entry.overallRating || 0), 0) / count);
-    const totalWins = entries.reduce((sum, entry) => sum + entry.wins.length, 0);
-    const totalMistakes = entries.reduce((sum, entry) => sum + entry.mistakes.length, 0);
-    const totalAchievements = entries.reduce((sum, entry) => sum + entry.achievement.length, 0);
-    const totalDays = Number(summary?.totalEntries || entries.length);
-
-    return {
-      topMood,
-      stats: [
-        { icon: "⚡", label: "Avg Energy", value: avgEnergy, color: "text-amber-300" },
-        { icon: "⭐", label: "Avg Day Rating", value: avgRating, color: "text-yellow-300" },
-        { icon: "✅", label: "Total Wins", value: totalWins, color: "text-emerald-400" },
-        { icon: "❌", label: "Total Mistakes", value: totalMistakes, color: "text-red-400" },
-        { icon: "🏆", label: "Achievements", value: totalAchievements, color: "text-amber-400" },
-        { icon: "📓", label: "Days Logged", value: totalDays, color: "text-stone-300" },
-      ]
+    let cancelled = false;
+    const loadMissedDays = async () => {
+      setMissedLoading(true);
+      try {
+        const res = await api.get("/weekly-report/journal/missed-days");
+        if (!cancelled) setMissedDays(Array.isArray(res.data) ? res.data : []);
+      } catch {
+        if (!cancelled) setMissedDays([]);
+      } finally {
+        if (!cancelled) setMissedLoading(false);
+      }
     };
-  }, [entries, summary]);
+
+    loadMissedDays();
+    return () => { cancelled = true; };
+  }, [isDemoMode, refreshToken]);
+
+  const handleStartEdit = (day) => {
+    setEditingDay(day.date);
+    setReasonDraft(day.reason || "");
+  };
+
+  const handleSaveReason = async (dayKey) => {
+    if (!reasonDraft.trim()) return;
+    setSaving(true);
+    try {
+      const res = await api.post("/weekly-report/journal/missed-reason", { dayKey, reason: reasonDraft });
+      setMissedDays(prev => prev.map(d => d.date === dayKey ? { ...d, reason: res.data.reason } : d));
+      setEditingDay(null);
+      setReasonDraft("");
+    } catch {
+      // silent
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const entries = history;
 
   return (
     <>
       <div className="space-y-4">
 
-        {/* Weekly Analysis */}
-        {(
-            <section className="rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur">
-              <div className="mb-3 flex items-center gap-2">
-                <span className="text-sm">📈</span>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-300/80">
-                  Current Week Analysis
-                </p>
-              </div>
+        {/* Missed Days This Week */}
+        <section className="rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-sm">📅</span>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-300/80">
+              Missed Days This Week
+            </p>
+          </div>
 
-              {/* Top Mood banner */}
-              <div className="mb-3 flex items-center justify-between rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-300/70">Top Mood</p>
-                <p className="text-xs font-bold text-amber-200">
-                  {derivedStats.topMood.emoji} {derivedStats.topMood.label}
-                </p>
-              </div>
-
-              {/* Stats grid */}
-              <div className="grid grid-cols-2 gap-2">
-                {derivedStats.stats.map((s, i) => (
-                  <Motion.div
-                    key={s.label}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.07, duration: 0.3 }}
-                    whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)" }}
-                    className="min-h-[50px] rounded-xl border border-amber-100/8 bg-stone-950/40 px-3 py-2"
-                  >
-                    <div className="mb-1 flex items-center justify-between gap-2">
-                      <span className="text-xs leading-none">{s.icon}</span>
-                      <p className={`text-sm font-bold leading-none ${s.color}`}>{s.value}</p>
+          {isDemoMode ? (
+            <p className="text-xs text-stone-500">No missed days this week! 🎉</p>
+          ) : missedLoading ? (
+            <p className="text-xs text-stone-500">Loading...</p>
+          ) : missedDays.length === 0 ? (
+            <p className="text-xs text-stone-400">No missed days this week! 🎉</p>
+          ) : (
+            <div className="space-y-2">
+              {missedDays.map((day) => (
+                <div key={day.date} className="rounded-xl border border-amber-100/8 bg-stone-950/40 px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-semibold text-stone-300">{day.label}</p>
+                      {day.reason ? (
+                        <p className="mt-0.5 text-[11px] text-stone-500 leading-snug">{day.reason}</p>
+                      ) : (
+                        <p className="mt-0.5 text-[11px] text-stone-600 italic">No reason added</p>
+                      )}
                     </div>
-                    <p className="whitespace-nowrap text-[7px] font-semibold uppercase leading-none tracking-[0.02em] text-stone-500">
-                      {s.label}
-                    </p>
-                  </Motion.div>
-                ))}
-              </div>
-            </section>
-        )}
+                    <button
+                      type="button"
+                      onClick={() => handleStartEdit(day)}
+                      className="shrink-0 rounded-lg border border-amber-400/20 bg-amber-500/10 px-2 py-1 text-[10px] font-semibold text-amber-300 transition hover:border-amber-400/40 hover:text-amber-200"
+                    >
+                      {day.reason ? "Edit" : "Add reason"}
+                    </button>
+                  </div>
+
+                  {editingDay === day.date && (
+                    <div className="mt-2 space-y-1.5">
+                      <textarea
+                        value={reasonDraft}
+                        onChange={(e) => setReasonDraft(e.target.value)}
+                        placeholder="Why did you miss this day?"
+                        rows={2}
+                        className="w-full resize-none rounded-lg border border-amber-100/10 bg-stone-900/60 px-3 py-2 text-xs text-stone-200 placeholder-stone-600 focus:border-amber-400/30 focus:outline-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={saving || !reasonDraft.trim()}
+                          onClick={() => handleSaveReason(day.date)}
+                          className="rounded-lg bg-amber-500/20 border border-amber-400/30 px-3 py-1 text-[10px] font-bold text-amber-300 transition hover:bg-amber-500/30 disabled:opacity-40"
+                        >
+                          {saving ? "Saving…" : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setEditingDay(null); setReasonDraft(""); }}
+                          className="rounded-lg border border-stone-700 px-3 py-1 text-[10px] font-semibold text-stone-500 transition hover:text-stone-300"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         {/* Past Entries */}
         <section className="rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur">
@@ -443,8 +454,8 @@ export default function JournalRightSidebar({ refreshToken = 0 }) {
             ) : entries.length === 0 ? (
               <p className="text-xs text-stone-500">No journal entries yet.</p>
             ) : entries.map((item, i) => {
-              const formattedDate = new Date(item.date).toLocaleDateString("en-US", {
-                month: "short", day: "numeric", weekday: "short",
+              const formattedDate = new Date(`${item.dayKey ?? item.date.slice(0, 10)}T12:00:00Z`).toLocaleDateString("en-US", {
+                month: "short", day: "numeric", weekday: "short", timeZone: "UTC",
               });
 
               return (
