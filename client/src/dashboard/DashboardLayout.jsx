@@ -179,6 +179,7 @@ export default function DashboardLayout({ children }) {
   };
 
   const isOverviewRoute = location.pathname === "/dashboard";
+  const isAiGuruRoute = location.pathname === "/dashboard/ai_guru";
   const pageTransition = isOverviewRoute
     ? {
         initial: { opacity: 0, y: 6 },
@@ -186,6 +187,13 @@ export default function DashboardLayout({ children }) {
         exit: { opacity: 0 },
         transition: { duration: 0.14, ease: "easeOut" },
       }
+    : isAiGuruRoute
+      ? {
+          initial: { opacity: 1, y: 0, filter: "blur(0px)" },
+          animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+          exit: { opacity: 1, y: 0, filter: "blur(0px)" },
+          transition: { duration: 0 },
+        }
     : {
         initial: { opacity: 0, y: 18, filter: "blur(6px)" },
         animate: { opacity: 1, y: 0, filter: "blur(0px)" },
@@ -283,17 +291,21 @@ export default function DashboardLayout({ children }) {
             )}
           </AnimatePresence>
 
-          <AnimatePresence mode="wait">
-            <Motion.div
-              key={location.pathname}
-              initial={pageTransition.initial}
-              animate={pageTransition.animate}
-              exit={pageTransition.exit}
-              transition={pageTransition.transition}
-            >
-              {children}
-            </Motion.div>
-          </AnimatePresence>
+          {isAiGuruRoute ? (
+            <div>{children}</div>
+          ) : (
+            <AnimatePresence mode="wait">
+              <Motion.div
+                key={location.pathname}
+                initial={pageTransition.initial}
+                animate={pageTransition.animate}
+                exit={pageTransition.exit}
+                transition={pageTransition.transition}
+              >
+                {children}
+              </Motion.div>
+            </AnimatePresence>
+          )}
         </main>
 
       </div>

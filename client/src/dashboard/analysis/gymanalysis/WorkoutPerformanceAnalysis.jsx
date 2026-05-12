@@ -3,6 +3,7 @@ import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
 import api from "../../../api/axios";
 import useAuth from "../../../hooks/useAuth";
+import { buildDemoGymMonthAnalysis } from "./demoGymAnalysis";
 
 const MONTH_OPTIONS = [
   { value: "01", label: "January" },
@@ -242,24 +243,22 @@ function VolumeTrendChart({ sessions }) {
 
   const width = Math.max(600, sessions.length * 56);
   const height = 280;
-  const pad = { top: 24, right: 22, bottom: 42, left: 52 };
+  const pad = { top: 24, right: 22, bottom: 42, left: 58 };
   const chartW = width - pad.left - pad.right;
   const chartH = height - pad.top - pad.bottom;
   const maxVol = Math.max(1, ...sessions.map((s) => s.volume));
-  const minVol = Math.min(...sessions.map((s) => s.volume));
-  const volRange = maxVol - minVol || 1;
 
-  const xOf = (i) =>
-    sessions.length === 1 ? pad.left + chartW / 2 : pad.left + (i / (sessions.length - 1)) * chartW;
-  const yOf = (v) => pad.top + ((maxVol - v) / volRange) * chartH;
+  const barW = chartW / sessions.length;
+  const barGap = Math.max(6, barW * 0.28);
+  const barDrawW = barW - barGap;
 
-  const linePath = sessions
-    .map((s, i) => `${i === 0 ? "M" : "L"}${xOf(i).toFixed(1)},${yOf(s.volume).toFixed(1)}`)
-    .join(" ");
+  const xBar = (i) => pad.left + i * barW + barGap / 2;
+  const barH = (vol) => Math.max(4, Math.round((vol / maxVol) * chartH));
+  const yBar = (vol) => pad.top + chartH - barH(vol);
+  const yOf = (v) => pad.top + ((maxVol - v) / maxVol) * chartH;
 
-  const areaPath = `${linePath} L${xOf(sessions.length - 1).toFixed(1)},${(pad.top + chartH).toFixed(1)} L${xOf(0).toFixed(1)},${(pad.top + chartH).toFixed(1)} Z`;
-
-  const yTicks = [minVol, Math.round((minVol + maxVol) / 2), maxVol];
+  const yTicks = [...new Set([0, Math.round(maxVol / 2), maxVol])];
+  const fmt = (v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v);
 
   return (
     <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
@@ -277,152 +276,77 @@ function VolumeTrendChart({ sessions }) {
       <div className="mt-5 overflow-x-auto">
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ minWidth: `${width}px` }}>
           <defs>
-            <linearGradient id="volAreaGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#f59e0b" stopOpacity={hovered !== null ? "0.34" : "0.22"} />
-              <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.01" />
+            <linearGradient id="volBarGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#78350f" stopOpacity="0.7" />
             </linearGradient>
-            <filter id="volPointGlow" x="-80%" y="-80%" width="260%" height="260%">
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feColorMatrix
-                in="blur"
-                type="matrix"
-                values="1 0 0 0 0.96 0 0.72 0 0 0.58 0 0 0.32 0 0.05 0 0 0 0.75 0"
-              />
-              <feMerge>
-                <feMergeNode />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
+            <linearGradient id="volBarGradHov" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#fde68a" stopOpacity="1" />
+              <stop offset="100%" stopColor="#92400e" stopOpacity="0.8" />
+            </linearGradient>
+            <filter id="volBarGlow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="5" result="blur" />
+              <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0.96 0 0.72 0 0 0.45 0 0 0 0 0 0 0 0 0.6 0" />
+              <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
           </defs>
-          {yTicks.map((tick) => {
-            const y = yOf(tick);
+
+          {/* grid lines */}
+          {yTicks.map((tick) => (
+            <g key={tick}>
+              <line x1={pad.left} y1={yOf(tick)} x2={width - pad.right} y2={yOf(tick)} stroke="rgba(255,255,255,0.07)" strokeDasharray="4 6" />
+              <text x={pad.left - 8} y={yOf(tick) + 4} textAnchor="end" fontSize="10" fill="rgba(255,255,255,0.4)">{fmt(tick)}</text>
+            </g>
+          ))}
+
+          {/* bars */}
+          {sessions.map((s, i) => {
+            const bh = barH(s.volume);
+            const by = yBar(s.volume);
+            const isHov = hovered === i;
+            const cx = xBar(i) + barDrawW / 2;
             return (
-              <g key={tick}>
-                <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke="rgba(255,255,255,0.07)" strokeDasharray="4 6" />
-                <text x={pad.left - 8} y={y + 4} textAnchor="end" fontSize="10" fill="rgba(255,255,255,0.4)">
-                  {tick >= 1000 ? `${(tick / 1000).toFixed(1)}k` : tick}
-                </text>
+              <g key={s.date}>
+                <Motion.rect
+                  x={xBar(i)}
+                  width={barDrawW}
+                  rx="6"
+                  fill={isHov ? "url(#volBarGradHov)" : "url(#volBarGrad)"}
+                  filter={isHov ? "url(#volBarGlow)" : undefined}
+                  style={{ cursor: "crosshair", opacity: hovered !== null && !isHov ? 0.38 : 1, transition: "opacity 0.15s ease" }}
+                  initial={{ y: pad.top + chartH, height: 0 }}
+                  animate={{ y: by, height: bh }}
+                  transition={{ duration: 0.5, delay: i * 0.04, ease: "easeOut" }}
+                  onMouseEnter={() => setHovered(i)}
+                  onMouseLeave={() => setHovered(null)}
+                />
+                {/* top value label */}
+                {isHov && (
+                  <text x={cx} y={Math.max(by - 7, pad.top + 12)} textAnchor="middle" fontSize="10" fontWeight="700" fill="#fde68a" style={{ pointerEvents: "none" }}>
+                    {fmt(s.volume)}
+                  </text>
+                )}
+                {/* x-axis date */}
+                <text x={cx} y={height - 10} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.38)">{s.date.slice(5)}</text>
               </g>
             );
           })}
-          {hovered !== null && sessions[hovered] ? (
-            <Motion.rect
-              x={Math.max(pad.left, xOf(hovered) - chartW / sessions.length / 2)}
-              y={pad.top}
-              width={chartW / sessions.length}
-              height={chartH}
-              rx="8"
-              fill="rgba(251,191,36,0.08)"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.16 }}
-              style={{ pointerEvents: "none" }}
-            />
-          ) : null}
-          <Motion.path
-            d={areaPath}
-            fill="url(#volAreaGrad)"
-            animate={{ opacity: hovered !== null ? 1 : 0.82 }}
-            transition={{ duration: 0.18 }}
-          />
-          <Motion.path
-            d={linePath}
-            fill="none"
-            stroke="#f59e0b"
-            strokeWidth={hovered !== null ? "3.2" : "2.5"}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            initial={{ pathLength: 0, opacity: 0 }}
-            animate={{ pathLength: 1, opacity: 1 }}
-            transition={{ duration: hovered !== null ? 0.18 : 2.2, ease: "easeInOut" }}
-          />
-          {sessions.map((s, i) => (
-            <Motion.circle
-              key={s.date}
-              cx={xOf(i)}
-              cy={yOf(s.volume)}
-              r={hovered === i ? 8 : 4}
-              fill={hovered === i ? "#f59e0b" : "#0f172a"}
-              stroke="#fbbf24"
-              strokeWidth={hovered === i ? 3 : 2}
-              filter={hovered === i ? "url(#volPointGlow)" : undefined}
-              animate={{ opacity: hovered !== null && hovered !== i ? 0.42 : 1 }}
-              transition={{ duration: 0.16 }}
-              style={{ cursor: "crosshair" }}
-              onMouseEnter={() => setHovered(i)}
-              onMouseLeave={() => setHovered(null)}
-            />
-          ))}
-          {sessions.map((s, i) => (
-            <text
-              key={`x-${s.date}`}
-              x={xOf(i)}
-              y={height - 10}
-              textAnchor="middle"
-              fontSize="9"
-              fill="rgba(255,255,255,0.38)"
-            >
-              {s.date.slice(5)}
-            </text>
-          ))}
-          {hovered !== null && sessions[hovered] ? (
-            <g style={{ pointerEvents: "none" }}>
-              <line
-                x1={xOf(hovered)}
-                y1={pad.top}
-                x2={xOf(hovered)}
-                y2={pad.top + chartH}
-                stroke="rgba(251,191,36,0.38)"
-                strokeWidth="1"
-                strokeDasharray="4 3"
-              />
-              <rect
-                x={Math.min(Math.max(xOf(hovered) - 58, pad.left), width - pad.right - 116)}
-                y={Math.max(yOf(sessions[hovered].volume) - 52, pad.top + 2)}
-                width="116"
-                height="42"
-                rx="7"
-                fill="rgba(15,23,42,0.94)"
-                stroke="rgba(251,191,36,0.4)"
-                strokeWidth="1"
-              />
-              <text
-                x={Math.min(Math.max(xOf(hovered), pad.left + 60), width - pad.right - 58)}
-                y={Math.max(yOf(sessions[hovered].volume) - 32, pad.top + 20)}
-                textAnchor="middle"
-                fontSize="11"
-                fontWeight="700"
-                fill="#fde68a"
-              >
-                {sessions[hovered].date.slice(5)}
-              </text>
-              <text
-                x={Math.min(Math.max(xOf(hovered), pad.left + 60), width - pad.right - 58)}
-                y={Math.max(yOf(sessions[hovered].volume) - 16, pad.top + 36)}
-                textAnchor="middle"
-                fontSize="10"
-                fill="rgba(226,232,240,0.86)"
-              >
-                {sessions[hovered].volume.toLocaleString()} kg vol
-              </text>
-            </g>
-          ) : null}
-          {sessions.map((s, i) => {
-            const bandW = chartW / sessions.length;
+
+          {/* tooltip */}
+          {hovered !== null && sessions[hovered] ? (() => {
+            const s = sessions[hovered];
+            const cx = xBar(hovered) + barDrawW / 2;
+            const ty = Math.max(yBar(s.volume) - 58, pad.top + 2);
+            const tx = Math.min(Math.max(cx, pad.left + 58), width - pad.right - 58);
             return (
-              <rect
-                key={`hover-${s.date}`}
-                x={Math.max(pad.left, xOf(i) - bandW / 2)}
-                y={pad.top}
-                width={bandW}
-                height={chartH}
-                fill="transparent"
-                style={{ cursor: "crosshair" }}
-                onMouseEnter={() => setHovered(i)}
-                onMouseLeave={() => setHovered(null)}
-              />
+              <g style={{ pointerEvents: "none" }}>
+                <line x1={cx} y1={pad.top} x2={cx} y2={yBar(s.volume)} stroke="rgba(251,191,36,0.3)" strokeWidth="1" strokeDasharray="4 3" />
+                <rect x={tx - 58} y={ty} width="116" height="44" rx="7" fill="rgba(15,23,42,0.94)" stroke="rgba(251,191,36,0.4)" strokeWidth="1" />
+                <text x={tx} y={ty + 18} textAnchor="middle" fontSize="11" fontWeight="700" fill="#fde68a">{s.date.slice(5)}</text>
+                <text x={tx} y={ty + 34} textAnchor="middle" fontSize="10" fill="rgba(226,232,240,0.86)">{s.volume.toLocaleString()} kg vol</text>
+              </g>
             );
-          })}
+          })() : null}
         </svg>
       </div>
     </section>
@@ -578,23 +502,52 @@ function BodyPartSplitChart({ sessions }) {
 }
 
 export default function WorkoutPerformanceAnalysis() {
-  const { user } = useAuth();
-  const [selectedYear, setSelectedYear] = useState(String(NOW.getFullYear()));
-  const [selectedMonth, setSelectedMonth] = useState(CURRENT_MONTH);
+  const { user, isDemoMode } = useAuth();
+  const [selectedYear, setSelectedYear] = useState(isDemoMode ? "2026" : String(NOW.getFullYear()));
+  const [selectedMonth, setSelectedMonth] = useState(isDemoMode ? "04" : CURRENT_MONTH);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (isDemoMode) {
+      setSessions(buildDemoGymMonthAnalysis().sessions);
+      setLoading(false);
+      return;
+    }
     if (!user) return;
+
     let cancelled = false;
-    setLoading(true);
-    api
-      .get(`/gym/analysis?year=${selectedYear}&month=${Number(selectedMonth)}`)
-      .then((res) => { if (!cancelled) setSessions(res.data.sessions || []); })
-      .catch(() => { if (!cancelled) setSessions([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [user, selectedYear, selectedMonth]);
+
+    const loadAnalysis = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get(`/gym/analysis?year=${selectedYear}&month=${Number(selectedMonth)}`);
+        if (!cancelled) setSessions(res.data.sessions || []);
+      } catch {
+        if (!cancelled) setSessions([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    const refreshAnalysis = () => {
+      loadAnalysis();
+    };
+
+    loadAnalysis();
+    window.addEventListener("focus", refreshAnalysis);
+    window.addEventListener("storage", refreshAnalysis);
+    window.addEventListener("monkmode:exercise-progress-updated", refreshAnalysis);
+    window.addEventListener("monkmode:gym-workouts-updated", refreshAnalysis);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refreshAnalysis);
+      window.removeEventListener("storage", refreshAnalysis);
+      window.removeEventListener("monkmode:exercise-progress-updated", refreshAnalysis);
+      window.removeEventListener("monkmode:gym-workouts-updated", refreshAnalysis);
+    };
+  }, [isDemoMode, user, selectedYear, selectedMonth]);
 
   const totalVolume = sessions.reduce((sum, s) => sum + s.volume, 0);
   const avgExercises = sessions.length ? round(sessions.reduce((sum, s) => sum + s.exerciseCount, 0) / sessions.length, 1) : 0;
@@ -683,14 +636,25 @@ export default function WorkoutPerformanceAnalysis() {
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
           <span className="text-stone-400">Year</span>
-          <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="bg-transparent text-sky-100 outline-none">
+          <select
+            value={selectedYear}
+            onChange={(e) => {
+              const y = e.target.value;
+              setSelectedYear(y);
+              if (Number(y) === NOW.getFullYear() && Number(selectedMonth) > NOW.getMonth() + 1) {
+                setSelectedMonth(CURRENT_MONTH);
+              }
+            }}
+            className="bg-transparent text-sky-100 outline-none"
+          >
             {YEARS.map((y) => <option key={y} value={y} className="bg-stone-950 text-stone-200">{y}</option>)}
           </select>
         </label>
         <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
           <span className="text-stone-400">Month</span>
           <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-transparent text-sky-100 outline-none">
-            {MONTH_OPTIONS.map((m) => <option key={m.value} value={m.value} className="bg-stone-950 text-stone-200">{m.label}</option>)}
+            {(Number(selectedYear) < NOW.getFullYear() ? MONTH_OPTIONS : MONTH_OPTIONS.filter((m) => Number(m.value) <= NOW.getMonth() + 1))
+              .map((m) => <option key={m.value} value={m.value} className="bg-stone-950 text-stone-200">{m.label}</option>)}
           </select>
         </label>
         <span className="ml-auto flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">

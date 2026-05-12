@@ -83,11 +83,13 @@ const calculateMonkStreak = (allSectionsComplete) => {
   const currentCount = Math.max(0, Number(stored?.count) || 0);
 
   if (!allSectionsComplete) {
-    localStorage.setItem(MONK_STREAK_KEY, JSON.stringify({ count: 0, lastDate: today }));
+    // Don't write to localStorage — user may still complete everything today.
+    // Returning 0 for display only; the previous stored state is preserved.
     return 0;
   }
 
-  if (stored?.lastDate === today) return currentCount;
+  // Already counted a completed day today — return the stored value.
+  if (stored?.lastDate === today && currentCount > 0) return currentCount;
 
   const nextCount = stored?.lastDate === yesterday ? currentCount + 1 : 1;
   localStorage.setItem(MONK_STREAK_KEY, JSON.stringify({ count: nextCount, lastDate: today }));

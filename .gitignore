@@ -1,25 +1,25 @@
-# node modules
+# Dependencies
 node_modules/
 
-# env files
+# Environment files
 .env
+.env.*
+!.env.example
 
-# logs
+# Logs
 logs
 *.log
+
+# Build output
+dist/
+build/
 
 # OS files
 .DS_Store
 Thumbs.db
 
-# build
-dist/
-build/
-
-node_modules/
-.env
+# Local tool metadata
 .codex
-package-lock.json
 .agents
 .claude
 .qodo

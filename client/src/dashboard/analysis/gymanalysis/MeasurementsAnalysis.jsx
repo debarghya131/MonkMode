@@ -1,109 +1,18 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
-
-const MEASUREMENT_CHECKINS = [
-  {
-    date: "2025-12-01",
-    bodyWeight: 78.2,
-    chest: 98,
-    upperWaist: 86,
-    waist: 88,
-    lowerBelly: 90,
-    shoulders: 120,
-    biceps: 34,
-    forearms: 29,
-    thighs: 58,
-    calves: 36,
-  },
-  {
-    date: "2026-01-05",
-    bodyWeight: 77.0,
-    chest: 97.5,
-    upperWaist: 85,
-    waist: 87,
-    lowerBelly: 88,
-    shoulders: 120,
-    biceps: 34.5,
-    forearms: 29.5,
-    thighs: 57.5,
-    calves: 36.5,
-  },
-  {
-    date: "2026-02-02",
-    bodyWeight: 75.8,
-    chest: 97,
-    upperWaist: 84,
-    waist: 86,
-    lowerBelly: 87,
-    shoulders: 120.5,
-    biceps: 35,
-    forearms: 29.5,
-    thighs: 57,
-    calves: 37,
-  },
-  {
-    date: "2026-02-23",
-    bodyWeight: 75.0,
-    chest: 96.5,
-    upperWaist: 83,
-    waist: 85,
-    lowerBelly: 86,
-    shoulders: 121,
-    biceps: 35.5,
-    forearms: 30,
-    thighs: 56.5,
-    calves: 37,
-  },
-  {
-    date: "2026-03-16",
-    bodyWeight: 74.2,
-    chest: 96,
-    upperWaist: 82,
-    waist: 84,
-    lowerBelly: 85,
-    shoulders: 121,
-    biceps: 35.5,
-    forearms: 30,
-    thighs: 56,
-    calves: 37.5,
-  },
-  {
-    date: "2026-04-06",
-    bodyWeight: 73.5,
-    chest: 95.5,
-    upperWaist: 81,
-    waist: 83,
-    lowerBelly: 84,
-    shoulders: 121.5,
-    biceps: 36,
-    forearms: 30.5,
-    thighs: 55.5,
-    calves: 37.5,
-  },
-  {
-    date: "2026-04-21",
-    bodyWeight: 73.0,
-    chest: 95,
-    upperWaist: 80,
-    waist: 82,
-    lowerBelly: 83,
-    shoulders: 122,
-    biceps: 36.5,
-    forearms: 31,
-    thighs: 55,
-    calves: 38,
-  },
-];
+import api from "../../../api/axios";
+import useAuth from "../../../hooks/useAuth";
+import { DEMO_MEASUREMENTS } from "./demoGymAnalysis";
 
 const MEASUREMENT_FIELDS = [
   { key: "bodyWeight", label: "Body Weight", unit: "kg", group: "Weight" },
   { key: "chest", label: "Chest", unit: "cm", group: "Upper Body" },
   { key: "upperWaist", label: "Upper Waist", unit: "cm", group: "Upper Body" },
   { key: "waist", label: "Waist", unit: "cm", group: "Upper Body" },
-  { key: "lowerBelly", label: "Lower Belly", unit: "cm", group: "Upper Body" },
+  { key: "lowerWaist", label: "Lower Waist", unit: "cm", group: "Upper Body" },
   { key: "shoulders", label: "Shoulders", unit: "cm", group: "Upper Body" },
-  { key: "biceps", label: "Biceps", unit: "cm", group: "Arms" },
+  { key: "armsBiceps", label: "Biceps", unit: "cm", group: "Arms" },
   { key: "forearms", label: "Forearms", unit: "cm", group: "Arms" },
   { key: "thighs", label: "Thighs", unit: "cm", group: "Lower Body" },
   { key: "calves", label: "Calves", unit: "cm", group: "Lower Body" },
@@ -191,11 +100,35 @@ function InsightRail({ insights }) {
   );
 }
 
-function MeasurementTrendChart({ fieldKey, fieldLabel, unit }) {
+function MeasurementTrendChart({ checkins, fieldKey, fieldLabel, unit }) {
   const [hovered, setHovered] = useState(null);
-  const data = MEASUREMENT_CHECKINS;
 
-  const values = data.map((d) => d[fieldKey]);
+  const data = useMemo(
+    () =>
+      checkins
+        .filter((d) => {
+          const v = parseFloat(d[fieldKey]);
+          return !isNaN(v) && v > 0;
+        })
+        .map((d) => ({ date: d.checkInDate, value: parseFloat(d[fieldKey]) })),
+    [checkins, fieldKey],
+  );
+
+  if (data.length === 0) {
+    return (
+      <section className="rounded-[1.5rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500">Trend Over Time</p>
+          <h4 className="mt-1.5 text-lg font-semibold text-sky-50">{fieldLabel}</h4>
+        </div>
+        <div className="mt-6 flex h-32 items-center justify-center text-sm text-stone-500">
+          No {fieldLabel.toLowerCase()} data recorded yet.
+        </div>
+      </section>
+    );
+  }
+
+  const values = data.map((d) => d.value);
   const minV = Math.min(...values);
   const maxV = Math.max(...values);
   const range = maxV - minV || 1;
@@ -212,7 +145,7 @@ function MeasurementTrendChart({ fieldKey, fieldLabel, unit }) {
   const linePath = values.map((v, i) => `${i === 0 ? "M" : "L"}${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(" ");
   const areaPath = `${linePath} L${xOf(data.length - 1).toFixed(1)},${(pad.top + ch).toFixed(1)} L${xOf(0).toFixed(1)},${(pad.top + ch).toFixed(1)} Z`;
 
-  const yTicks = [minV, Number(((minV + maxV) / 2).toFixed(1)), maxV];
+  const yTicks = minV === maxV ? [minV] : [minV, Number(((minV + maxV) / 2).toFixed(1)), maxV];
 
   const first = values[0];
   const last = values[values.length - 1];
@@ -335,12 +268,26 @@ function MeasurementTrendChart({ fieldKey, fieldLabel, unit }) {
   );
 }
 
-function FirstVsLatestCards({ groupFilter }) {
-  const first = MEASUREMENT_CHECKINS[0];
-  const last = MEASUREMENT_CHECKINS[MEASUREMENT_CHECKINS.length - 1];
+function FirstVsLatestCards({ checkins, groupFilter }) {
+  if (checkins.length === 0) {
+    return (
+      <section className="rounded-[1.5rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500">Transformation</p>
+          <h4 className="mt-1.5 text-lg font-semibold text-sky-50">First vs Latest Check-in</h4>
+        </div>
+        <div className="mt-6 flex h-20 items-center justify-center text-sm text-stone-500">
+          No check-ins recorded yet.
+        </div>
+      </section>
+    );
+  }
+
+  const first = checkins[0];
+  const last = checkins[checkins.length - 1];
 
   const fields = MEASUREMENT_FIELDS.filter(
-    (f) => groupFilter === "All" || f.group === groupFilter
+    (f) => groupFilter === "All" || f.group === groupFilter,
   );
 
   return (
@@ -348,16 +295,36 @@ function FirstVsLatestCards({ groupFilter }) {
       <div>
         <p className="text-[10px] uppercase tracking-[0.2em] text-stone-500">Transformation</p>
         <h4 className="mt-1.5 text-lg font-semibold text-sky-50">First vs Latest Check-in</h4>
-        <p className="mt-0.5 text-[10px] text-stone-400">{first.date} → {last.date}</p>
+        <p className="mt-0.5 text-[10px] text-stone-400">{first.checkInDate} → {last.checkInDate}</p>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {fields.map((field, index) => {
-          const firstVal = first[field.key];
-          const lastVal = last[field.key];
-          const diff = Number((lastVal - firstVal).toFixed(1));
-          const isUp = diff > 0;
-          const isNeutral = diff === 0;
-          const isGoodUp = ["biceps", "forearms", "chest", "shoulders"].includes(field.key);
+          const firstVal = parseFloat(first[field.key]) || null;
+          const lastVal = parseFloat(last[field.key]) || null;
+
+          if (lastVal === null && firstVal === null) {
+            return (
+              <Motion.div
+                key={field.key}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.04 }}
+                className="rounded-xl border border-stone-700/40 bg-stone-950/30 px-2.5 py-2"
+              >
+                <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-stone-500">{field.label}</p>
+                <div className="mt-1">
+                  <span className="text-sm font-bold text-stone-600">—</span>
+                </div>
+              </Motion.div>
+            );
+          }
+
+          const displayFirst = firstVal ?? lastVal;
+          const displayLast = lastVal ?? firstVal;
+          const diff = displayFirst !== null && displayLast !== null ? Number((displayLast - displayFirst).toFixed(1)) : null;
+          const isUp = diff !== null && diff > 0;
+          const isNeutral = diff === null || diff === 0;
+          const isGoodUp = ["armsBiceps", "forearms", "chest", "shoulders"].includes(field.key);
 
           const borderColor = isNeutral
             ? "border-stone-700/40"
@@ -381,14 +348,16 @@ function FirstVsLatestCards({ groupFilter }) {
             >
               <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-stone-500">{field.label}</p>
               <div className="mt-1 flex items-baseline gap-1.5">
-                <span className="text-base font-bold text-stone-100">{lastVal}</span>
+                <span className="text-base font-bold text-stone-100">{displayLast}</span>
                 <span className="text-[10px] text-stone-500">{field.unit}</span>
               </div>
               <div className="mt-0.5 flex items-center gap-1.5 text-[10px]">
-                <span className="text-stone-500">from {firstVal}</span>
-                <span className={`font-semibold ${diffColor}`}>
-                  {diff >= 0 ? "+" : ""}{diff}
-                </span>
+                <span className="text-stone-500">from {displayFirst}</span>
+                {diff !== null && (
+                  <span className={`font-semibold ${diffColor}`}>
+                    {diff >= 0 ? "+" : ""}{diff}
+                  </span>
+                )}
               </div>
             </Motion.div>
           );
@@ -399,62 +368,127 @@ function FirstVsLatestCards({ groupFilter }) {
 }
 
 export default function MeasurementsAnalysis() {
+  const { user, isDemoMode } = useAuth();
   const [selectedField, setSelectedField] = useState(MEASUREMENT_FIELDS[0].key);
   const [groupFilter, setGroupFilter] = useState("All");
+  const [checkins, setCheckins] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isDemoMode) {
+      setCheckins(DEMO_MEASUREMENTS);
+      setLoading(false);
+      return;
+    }
+    if (!user) return;
+
+    let cancelled = false;
+
+    const loadMeasurements = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get("/gym/measurements");
+        if (!cancelled) {
+          const filtered = (res.data || []).filter((d) => !d.deletedAt);
+          setCheckins([...filtered].reverse());
+        }
+      } catch {
+        if (!cancelled) setCheckins([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    const refreshMeasurements = () => {
+      loadMeasurements();
+    };
+
+    loadMeasurements();
+    window.addEventListener("focus", refreshMeasurements);
+    window.addEventListener("storage", refreshMeasurements);
+    window.addEventListener("monkmode:gym-measurements-updated", refreshMeasurements);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refreshMeasurements);
+      window.removeEventListener("storage", refreshMeasurements);
+      window.removeEventListener("monkmode:gym-measurements-updated", refreshMeasurements);
+    };
+  }, [isDemoMode, user]);
 
   const filteredFields = useMemo(
     () => MEASUREMENT_FIELDS.filter((f) => groupFilter === "All" || f.group === groupFilter),
-    [groupFilter]
+    [groupFilter],
   );
 
   const activeField = MEASUREMENT_FIELDS.find((f) => f.key === selectedField) ?? MEASUREMENT_FIELDS[0];
 
-  const first = MEASUREMENT_CHECKINS[0];
-  const last = MEASUREMENT_CHECKINS[MEASUREMENT_CHECKINS.length - 1];
-  const weightLost = Number((first.bodyWeight - last.bodyWeight).toFixed(1));
-  const totalCheckins = MEASUREMENT_CHECKINS.length;
-  const daySpan = Math.round(
-    (new Date(last.date) - new Date(first.date)) / (1000 * 60 * 60 * 24)
-  );
+  const insights = useMemo(() => {
+    const totalCheckins = checkins.length;
+    if (totalCheckins === 0) {
+      return [
+        { title: "Total Check-ins Recorded", value: "0 check-ins", description: "No measurements recorded yet. Start tracking to see your progress." },
+        { title: "Total Weight Lost", value: "—", description: "No weight data available yet." },
+        { title: "Most Changed Measurement", value: "—", description: "Track multiple check-ins to see which measurement changed the most." },
+        { title: "Tracking Duration", value: "—", description: "No check-ins recorded yet." },
+        { title: "Latest Body Weight", value: "—", description: "No body weight data recorded yet." },
+      ];
+    }
 
-  const mostChangedField = useMemo(() => {
-    let best = { label: "—", pct: 0 };
+    const first = checkins[0];
+    const last = checkins[checkins.length - 1];
+    const daySpan = Math.round(
+      (new Date(last.checkInDate) - new Date(first.checkInDate)) / (1000 * 60 * 60 * 24),
+    );
+
+    const firstWeight = parseFloat(first.bodyWeight) || null;
+    const lastWeight = parseFloat(last.bodyWeight) || null;
+    const weightLost = firstWeight !== null && lastWeight !== null
+      ? Number((firstWeight - lastWeight).toFixed(1))
+      : null;
+
+    let mostChanged = { label: "—", pct: 0 };
     MEASUREMENT_FIELDS.forEach((f) => {
-      const fv = first[f.key];
-      const lv = last[f.key];
-      const pct = fv ? Math.abs(((lv - fv) / fv) * 100) : 0;
-      if (pct > best.pct) best = { label: f.label, pct: Number(pct.toFixed(1)) };
+      const fv = parseFloat(first[f.key]);
+      const lv = parseFloat(last[f.key]);
+      if (!isNaN(fv) && !isNaN(lv) && fv > 0) {
+        const pct = Math.abs(((lv - fv) / fv) * 100);
+        if (pct > mostChanged.pct) mostChanged = { label: f.label, pct: Number(pct.toFixed(1)) };
+      }
     });
-    return best;
-  }, []);
 
-  const insights = [
-    {
-      title: "Total Check-ins Recorded",
-      value: `${totalCheckins} check-ins`,
-      description: `Measurements logged over ${daySpan} days — from ${first.date} to ${last.date}.`,
-    },
-    {
-      title: "Total Weight Lost",
-      value: `${weightLost} kg`,
-      description: `Body weight dropped from ${first.bodyWeight} kg to ${last.bodyWeight} kg over the tracking period.`,
-    },
-    {
-      title: "Most Changed Measurement",
-      value: `${mostChangedField.label} (${mostChangedField.pct}%)`,
-      description: "The body measurement that has changed the most as a percentage since your first check-in.",
-    },
-    {
-      title: "Tracking Duration",
-      value: `${daySpan} days`,
-      description: `You've been tracking measurements consistently for ${daySpan} days since your first check-in.`,
-    },
-    {
-      title: "Latest Body Weight",
-      value: `${last.bodyWeight} kg`,
-      description: `Your most recent check-in on ${last.date} recorded ${last.bodyWeight} kg.`,
-    },
-  ];
+    return [
+      {
+        title: "Total Check-ins Recorded",
+        value: `${totalCheckins} check-ins`,
+        description: `Measurements logged over ${daySpan} days — from ${first.checkInDate} to ${last.checkInDate}.`,
+      },
+      {
+        title: "Total Weight Lost",
+        value: weightLost !== null ? `${weightLost} kg` : "—",
+        description: weightLost !== null
+          ? `Body weight changed from ${firstWeight} kg to ${lastWeight} kg over the tracking period.`
+          : "No body weight data recorded yet.",
+      },
+      {
+        title: "Most Changed Measurement",
+        value: mostChanged.pct > 0 ? `${mostChanged.label} (${mostChanged.pct}%)` : "—",
+        description: "The body measurement that has changed the most as a percentage since your first check-in.",
+      },
+      {
+        title: "Tracking Duration",
+        value: `${daySpan} days`,
+        description: `You've been tracking measurements for ${daySpan} days since your first check-in.`,
+      },
+      {
+        title: "Latest Body Weight",
+        value: lastWeight !== null ? `${lastWeight} kg` : "—",
+        description: lastWeight !== null
+          ? `Your most recent check-in on ${last.checkInDate} recorded ${lastWeight} kg.`
+          : "No body weight data recorded yet.",
+      },
+    ];
+  }, [checkins]);
 
   return (
     <section className="space-y-4">
@@ -479,6 +513,7 @@ export default function MeasurementsAnalysis() {
             </button>
           ))}
         </div>
+        {loading && <span className="animate-pulse text-xs text-stone-500">Loading…</span>}
       </div>
 
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
@@ -508,16 +543,17 @@ export default function MeasurementsAnalysis() {
         >
           <div className="space-y-4 p-4">
             <MeasurementTrendChart
+              checkins={checkins}
               fieldKey={activeField.key}
               fieldLabel={activeField.label}
               unit={activeField.unit}
             />
-            <FirstVsLatestCards groupFilter={groupFilter} />
+            <FirstVsLatestCards checkins={checkins} groupFilter={groupFilter} />
           </div>
         </div>
 
         <div
-          className="journal-scroll flex w-full w-full lg:max-w-[340px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
+          className="journal-scroll flex w-full lg:max-w-[340px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
           style={{ maxHeight: "calc(100vh - 180px)" }}
         >
           <InsightRail insights={insights} />

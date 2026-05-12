@@ -315,14 +315,25 @@ export default function ScoreConsisteDeadAnalysis() {
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
           <span className="text-stone-400">Year</span>
-          <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="bg-transparent text-sky-100 outline-none">
+          <select
+            value={selectedYear}
+            onChange={(e) => {
+              const y = e.target.value;
+              setSelectedYear(y);
+              if (Number(y) === NOW.getFullYear() && Number(selectedMonth) > NOW.getMonth() + 1) {
+                setSelectedMonth(CURRENT_MONTH);
+              }
+            }}
+            className="bg-transparent text-sky-100 outline-none"
+          >
             {YEARS.map((year) => <option key={year} value={year} className="bg-stone-950 text-stone-200">{year}</option>)}
           </select>
         </label>
         <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
           <span className="text-stone-400">Month</span>
           <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-transparent text-sky-100 outline-none">
-            {MONTH_OPTIONS.map((month) => <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">{month.label}</option>)}
+            {(Number(selectedYear) < NOW.getFullYear() ? MONTH_OPTIONS : MONTH_OPTIONS.filter((m) => Number(m.value) <= NOW.getMonth() + 1))
+              .map((month) => <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">{month.label}</option>)}
           </select>
         </label>
         <span className="ml-auto flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
