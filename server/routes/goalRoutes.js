@@ -4,6 +4,7 @@ import {
   createGoal,
   deleteGoal,
   deleteGoalSubgoal,
+  getGoalAnalysis,
   getGoalHeatmap,
   getGoalLogs,
   getGoalSummary,
@@ -20,6 +21,7 @@ const router = express.Router();
 
 router.use(protect);
 
+router.get("/analysis", getGoalAnalysis);
 router.get("/heatmap", getGoalHeatmap);
 router.get("/logs", getGoalLogs);
 router.get("/summary", getGoalSummary);
