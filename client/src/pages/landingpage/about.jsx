@@ -46,16 +46,40 @@ export default function About() {
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, ease: "easeOut" }}
-            className="overflow-hidden rounded-[1.75rem] border border-amber-200/10 bg-stone-950/40 px-5 py-6 shadow-[0_18px_56px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:px-8 sm:py-8"
+            whileHover={{ y: -4 }}
+            className="group relative overflow-hidden rounded-[1.75rem] border border-amber-200/10 bg-stone-950/40 px-5 py-6 shadow-[0_18px_56px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:px-8 sm:py-8"
           >
-            <div className="grid gap-8 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-center">
+            <Motion.div
+              className="pointer-events-none absolute -left-24 -top-24 h-56 w-56 rounded-full bg-amber-400/10 blur-3xl"
+              animate={{ opacity: [0.3, 0.65, 0.3], scale: [0.95, 1.08, 0.95] }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <Motion.div
+              className="pointer-events-none absolute -bottom-28 right-10 h-64 w-64 rounded-full bg-sky-400/10 blur-3xl"
+              animate={{ opacity: [0.18, 0.46, 0.18], x: [0, -18, 0] }}
+              transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+            />
+
+            <div className="relative grid gap-8 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-center">
               <div className="flex flex-col items-center text-center">
                 <div className="relative">
-                  <div className="absolute -inset-3 rounded-full bg-amber-400/15 blur-2xl" />
-                  <img
+                  <Motion.div
+                    className="absolute -inset-4 rounded-full bg-amber-400/15 blur-2xl"
+                    animate={{ opacity: [0.35, 0.8, 0.35], scale: [0.92, 1.08, 0.92] }}
+                    transition={{ duration: 4.8, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                  <Motion.div
+                    className="absolute -inset-2 rounded-full border border-amber-200/15"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+                  />
+                  <Motion.img
                     src={creatorImage}
                     alt="Debarghya Bandyopadhyay"
                     className="relative h-56 w-56 rounded-full border border-amber-100/20 object-cover object-top shadow-[0_24px_60px_rgba(0,0,0,0.42)] sm:h-64 sm:w-64"
+                    animate={{ y: [0, -8, 0] }}
+                    transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
+                    whileHover={{ scale: 1.03 }}
                   />
                 </div>
                 <h3 className="mt-6 font-heading text-2xl font-black text-amber-50">
@@ -87,22 +111,28 @@ export default function About() {
                 </p>
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-amber-100/10 bg-white/[0.045] p-4">
+                  <Motion.div
+                    whileHover={{ y: -5, scale: 1.01 }}
+                    className="rounded-2xl border border-amber-100/10 bg-white/[0.045] p-4 transition-colors hover:border-amber-200/30 hover:bg-amber-300/[0.07]"
+                  >
                     <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-amber-200/60">
                       B.Tech
                     </p>
                     <p className="mt-2 text-sm font-semibold leading-6 text-amber-50">
                       Netaji Subhas Engineering College, Kolkata
                     </p>
-                  </div>
-                  <div className="rounded-2xl border border-amber-100/10 bg-white/[0.045] p-4">
+                  </Motion.div>
+                  <Motion.div
+                    whileHover={{ y: -5, scale: 1.01 }}
+                    className="rounded-2xl border border-amber-100/10 bg-white/[0.045] p-4 transition-colors hover:border-amber-200/30 hover:bg-amber-300/[0.07]"
+                  >
                     <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-amber-200/60">
                       Diploma
                     </p>
                     <p className="mt-2 text-sm font-semibold leading-6 text-amber-50">
                       Technique Polytechnique Institute, Hooghly
                     </p>
-                  </div>
+                  </Motion.div>
                 </div>
 
                 <div className="mt-6">
@@ -110,39 +140,39 @@ export default function About() {
                     Connect on
                   </p>
                   <div className="mt-3 flex flex-wrap gap-3">
-                    <a
-                      href="mailto:bandyopadhyaydebarghya066@gmail.com"
-                      className="inline-flex items-center gap-2 rounded-full border border-amber-100/15 bg-white/[0.045] px-4 py-2 text-sm font-semibold text-amber-50 transition hover:border-amber-200/45 hover:bg-amber-300/15 hover:text-amber-100"
-                    >
-                      Email
-                    </a>
-                    <a
+                    <Motion.a
                       href="https://x.com/debarghya131"
                       target="_blank"
                       rel="noreferrer"
                       aria-label="Connect with Debarghya on X"
+                      whileHover={{ y: -4, scale: 1.08 }}
+                      whileTap={{ scale: 0.96 }}
                       className="inline-flex items-center gap-2 rounded-full border border-amber-100/15 bg-white/[0.045] px-4 py-2 text-sm font-semibold text-amber-50 transition hover:border-amber-200/45 hover:bg-amber-300/15 hover:text-amber-100"
                     >
                       <XLogo />
-                    </a>
-                    <a
+                    </Motion.a>
+                    <Motion.a
                       href="https://www.linkedin.com/in/debarghya-bandyopadhyay-953b02400?utm_source=share_via&utm_content=profile&utm_medium=member_android"
                       target="_blank"
                       rel="noreferrer"
                       aria-label="Connect with Debarghya on LinkedIn"
+                      whileHover={{ y: -4, scale: 1.08 }}
+                      whileTap={{ scale: 0.96 }}
                       className="inline-flex items-center gap-2 rounded-full border border-amber-100/15 bg-white/[0.045] px-4 py-2 text-sm font-semibold text-amber-50 transition hover:border-amber-200/45 hover:bg-amber-300/15 hover:text-amber-100"
                     >
                       <LinkedInLogo />
-                    </a>
-                    <a
+                    </Motion.a>
+                    <Motion.a
                       href="https://github.com/debarghya131"
                       target="_blank"
                       rel="noreferrer"
                       aria-label="Connect with Debarghya on GitHub"
+                      whileHover={{ y: -4, scale: 1.08 }}
+                      whileTap={{ scale: 0.96 }}
                       className="inline-flex items-center gap-2 rounded-full border border-amber-100/15 bg-white/[0.045] px-4 py-2 text-sm font-semibold text-amber-50 transition hover:border-amber-200/45 hover:bg-amber-300/15 hover:text-amber-100"
                     >
                       <GitHubLogo />
-                    </a>
+                    </Motion.a>
                     <span className="inline-flex cursor-not-allowed items-center gap-2 rounded-full border border-amber-100/10 bg-white/[0.025] px-4 py-2 text-sm font-semibold text-stone-500">
                       Portfolio
                     </span>
@@ -156,9 +186,20 @@ export default function About() {
             initial={{ opacity: 0, y: 22 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.14, ease: "easeOut" }}
-            className="relative mt-6 overflow-hidden rounded-[2rem] border border-amber-200/10 bg-stone-950/45 shadow-[0_24px_80px_rgba(0,0,0,0.36)] backdrop-blur-xl"
+            whileHover={{ y: -4 }}
+            className="group relative mt-6 overflow-hidden rounded-[2rem] border border-amber-200/10 bg-stone-950/45 shadow-[0_24px_80px_rgba(0,0,0,0.36)] backdrop-blur-xl"
           >
             <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(251,191,36,0.12),transparent_38%,rgba(59,130,246,0.08))]" />
+            <Motion.div
+              className="pointer-events-none absolute -left-28 top-0 h-72 w-72 rounded-full bg-amber-400/10 blur-3xl"
+              animate={{ opacity: [0.22, 0.52, 0.22], scale: [0.95, 1.12, 0.95] }}
+              transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <Motion.div
+              className="pointer-events-none absolute -right-20 top-16 h-72 w-72 rounded-full bg-sky-500/10 blur-3xl"
+              animate={{ opacity: [0.18, 0.42, 0.18], y: [0, 18, 0] }}
+              transition={{ duration: 7.5, repeat: Infinity, ease: "easeInOut" }}
+            />
 
             <div className="relative grid gap-10 px-5 py-8 sm:px-8 sm:py-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(18rem,0.55fr)] lg:items-center lg:px-10 lg:py-12">
               <div>
@@ -203,6 +244,34 @@ export default function About() {
                   transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
                 />
               </div>
+
+              <Motion.div
+                whileHover={{ y: -5 }}
+                className="relative overflow-hidden rounded-2xl border border-amber-100/10 bg-black/20 p-5 lg:col-span-2"
+              >
+                <Motion.div
+                  className="pointer-events-none absolute inset-y-0 left-[-30%] w-[22%] -skew-x-12 bg-amber-100/10 blur-xl"
+                  animate={{ left: ["-30%", "120%"] }}
+                  transition={{ duration: 3.8, repeat: Infinity, repeatDelay: 2.2, ease: "easeInOut" }}
+                />
+                <p className="text-[0.68rem] font-bold uppercase tracking-[0.3em] text-amber-200/65">
+                  Why MonkMode?
+                </p>
+                <p className="mt-4 text-sm leading-8 text-stone-300 sm:text-base">
+                  I chose the name MonkMode because monks represent discipline,
+                  consistency, self-control, and deep focus. A monk lives with
+                  fewer distractions, follows a simple routine, and trains the
+                  mind to stay calm even when the world is noisy. That mindset
+                  is very powerful for students and builders.
+                </p>
+                <p className="mt-4 text-sm leading-8 text-stone-300 sm:text-base">
+                  Buddhism also teaches awareness, patience, mindfulness, and
+                  control over desire. MonkMode is inspired by that idea: to
+                  observe yourself honestly, reduce distraction, build better
+                  habits, and improve every day with a peaceful but focused
+                  mind.
+                </p>
+              </Motion.div>
             </div>
           </Motion.div>
 

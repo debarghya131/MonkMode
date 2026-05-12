@@ -1,33 +1,38 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import monkModeLogo from "../../assets/monkmode-logo.png";
 
 const goldenHoverClass =
   "hover:-translate-y-0.5 hover:border-amber-200/50 hover:bg-gradient-to-r hover:from-amber-200 hover:via-yellow-300 hover:to-orange-300 hover:text-stone-950 hover:shadow-[0_0_28px_rgba(251,191,36,0.45)]";
 
-const navButtonClass = (isHighlighted) =>
+const navButtonClass = (isHighlighted, isPrimary) =>
   `rounded-full px-5 py-2.5 text-sm font-semibold transition duration-200 ${
-    isHighlighted
+    isPrimary
       ? `border border-transparent bg-gradient-to-r from-amber-300 via-orange-400 to-orange-500 text-stone-950 shadow-lg shadow-orange-950/20 ${goldenHoverClass}`
+      : isHighlighted
+        ? "border border-amber-300/35 bg-amber-300/12 text-amber-100 shadow-[inset_0_0_0_1px_rgba(251,191,36,0.12)]"
       : `border border-transparent text-amber-50 ${goldenHoverClass}`
   }`;
 
 export default function LandingNavbar() {
   const MotionHeader = motion.header;
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
     {
       label: "Features",
+      path: "/features",
       onClick: () => {
         setMobileOpen(false);
-        window.scrollTo({ top: window.innerHeight * 0.55, behavior: "smooth" });
+        navigate("/features");
       },
     },
     {
       label: "Try Demo",
+      path: "/demo-login",
       onClick: () => {
         setMobileOpen(false);
         navigate("/demo-login");
@@ -35,6 +40,7 @@ export default function LandingNavbar() {
     },
     {
       label: "About",
+      path: "/about",
       onClick: () => {
         setMobileOpen(false);
         navigate("/about");
@@ -68,12 +74,13 @@ export default function LandingNavbar() {
 
         {/* Desktop nav links */}
         <nav className="hidden items-center gap-2 rounded-full border border-amber-200/20 bg-gradient-to-r from-amber-500/10 via-orange-400/10 to-yellow-300/10 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] lg:flex">
-          {navItems.map((item, index) => (
+          {navItems.map((item) => (
             <button
               key={item.label}
               type="button"
               onClick={item.onClick}
-              className={navButtonClass(index === 1)}
+              className={navButtonClass(pathname === item.path, item.path === "/demo-login")}
+              aria-current={pathname === item.path ? "page" : undefined}
             >
               {item.label}
             </button>
@@ -155,7 +162,11 @@ export default function LandingNavbar() {
             style={{ transformOrigin: "top" }}
             className="mt-2 overflow-hidden rounded-[1.4rem] border border-amber-200/10 bg-stone-950/80 p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:hidden"
           >
-            {navItems.map((item, index) => (
+            {navItems.map((item, index) => {
+              const isActive = pathname === item.path;
+              const isPrimary = item.path === "/demo-login";
+
+              return (
               <motion.button
                 key={item.label}
                 type="button"
@@ -163,15 +174,19 @@ export default function LandingNavbar() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.06, duration: 0.2 }}
+                aria-current={isActive ? "page" : undefined}
                 className={`w-full rounded-xl px-5 py-3 text-left text-sm font-semibold transition duration-200 ${
-                  index === 1
+                  isPrimary
+                    ? "bg-gradient-to-r from-amber-300/25 to-orange-400/20 text-amber-100 hover:from-amber-300/35"
+                    : isActive
                     ? "bg-gradient-to-r from-amber-300/20 to-orange-400/15 text-amber-200 hover:from-amber-300/30"
                     : "text-amber-50/80 hover:bg-white/6 hover:text-amber-100"
                 }`}
               >
                 {item.label}
               </motion.button>
-            ))}
+              );
+            })}
 
             <div className="mx-2 my-2 border-t border-amber-100/8" />
 

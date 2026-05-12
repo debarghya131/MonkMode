@@ -250,12 +250,11 @@ export default function AIGuru() {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState(null);
-  const [activeTab, setActiveTab] = useState("insights"); // "insights" | "chat"
+  const [activeTab, setActiveTab] = useState("chat"); // "insights" | "chat"
 
   // Chat state
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
   const [prompt, setPrompt]     = useState("");
-  const [showPrompts, setShowPrompts] = useState(false);
   const bottomRef = useRef(null);
   const idRef     = useRef(0);
 
@@ -330,8 +329,8 @@ export default function AIGuru() {
           {/* Tab switcher */}
           <div className="flex w-full gap-2 rounded-xl border border-amber-100/10 bg-white/[0.03] p-1">
             {[
-              { key: "insights", label: "Insights" },
               { key: "chat",     label: "Ask Ming"  },
+              { key: "insights", label: "Insights" },
             ].map((t) => (
               <button
                 key={t.key}
