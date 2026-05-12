@@ -6,6 +6,7 @@ import {
   restoreTodo,
   getTodoSummary,
   getTodos,
+  getTodoAnalysis,
   getTodoHeatmap,
   getTodoLogs,
   createTodoLog,
@@ -21,6 +22,7 @@ router.use(protect);
 
 router.get("/heatmap", getTodoHeatmap);
 router.get("/summary", getTodoSummary);
+router.get("/analysis", getTodoAnalysis);
 router.get("/categories", getTodoCategories);
 router.route("/logs").get(getTodoLogs).post(createTodoLog);
 router.route("/").post(createTodo).get(getTodos);
