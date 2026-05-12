@@ -134,11 +134,12 @@ function getWeekBounds(week) {
   return { weekNumber, startDay, endDay };
 }
 
-function buildMonthlySleepSeries(entries, year, month) {
+function buildMonthlySleepSeries(entries, year, month, maxDay) {
   const entryMap = new Map(entries.map((entry) => [entry.date.slice(8, 10), entry]));
   const daysInMonth = getDaysInMonth(year, month);
+  const lastDay = maxDay != null ? Math.min(daysInMonth, maxDay) : daysInMonth;
 
-  return Array.from({ length: daysInMonth }, (_, index) => {
+  return Array.from({ length: lastDay }, (_, index) => {
     const dayNumber = index + 1;
     const dayKey = String(dayNumber).padStart(2, "0");
     const entry = entryMap.get(dayKey);
@@ -835,9 +836,12 @@ export default function SleepEnergyAnalysis() {
     [rawEntries]
   );
 
+  const isCurrentMonth = selectedYear === String(NOW.getFullYear()) && selectedMonth === String(NOW.getMonth() + 1).padStart(2, "0");
+  const maxDay = isCurrentMonth ? NOW.getDate() : null;
+
   const lineSeries = useMemo(
-    () => buildMonthlySleepSeries(filteredEntries, selectedYear, selectedMonth),
-    [filteredEntries, selectedMonth, selectedYear]
+    () => buildMonthlySleepSeries(filteredEntries, selectedYear, selectedMonth, maxDay),
+    [filteredEntries, selectedMonth, selectedYear, maxDay]
   );
   const comparisonSeries = useMemo(
     () => buildWeeklySeries(filteredEntries, selectedYear, selectedMonth, selectedWeek),
@@ -845,11 +849,17 @@ export default function SleepEnergyAnalysis() {
   );
   const energySeries = comparisonSeries;
 
-  const avgSleepDuration = average(filteredEntries.map((entry) => entry.sleepDuration));
-  const avgWakeupTime = average(filteredEntries.map((entry) => timeToMinutes(entry.wakeTime)));
-  const avgSleepTime = average(filteredEntries.map((entry) => timeToMinutes(entry.sleepTime)));
-  const avgEnergy = average(filteredEntries.map((entry) => entry.energy));
-  const avgDayRating = average(filteredEntries.map((entry) => entry.rating));
+  const sleepDurations = filteredEntries.map(e => e.sleepDuration).filter(v => v != null);
+  const wakeMinutes   = filteredEntries.filter(e => e.wakeTime).map(e => timeToMinutes(e.wakeTime));
+  const sleepMinutes  = filteredEntries.filter(e => e.sleepTime).map(e => timeToMinutes(e.sleepTime));
+  const energyValues  = filteredEntries.map(e => e.energy).filter(v => v != null);
+  const ratingValues  = filteredEntries.map(e => e.rating).filter(v => v != null);
+
+  const avgSleepDuration = sleepDurations.length ? average(sleepDurations) : null;
+  const avgWakeupTime    = wakeMinutes.length    ? average(wakeMinutes)    : null;
+  const avgSleepTime     = sleepMinutes.length   ? average(sleepMinutes)   : null;
+  const avgEnergy        = energyValues.length   ? average(energyValues)   : null;
+  const avgDayRating     = ratingValues.length   ? average(ratingValues)   : null;
   const weekdayRatingSeries = useMemo(() => buildWeekdayRatingSeries(filteredEntries), [filteredEntries]);
   const validWeekdayRatings = weekdayRatingSeries.filter((item) => item.value > 0);
   const highestRatedDay = validWeekdayRatings.length
@@ -869,27 +879,27 @@ export default function SleepEnergyAnalysis() {
   const littleMonkInsights = [
     {
       title: "Avg Sleep Duration",
-      value: formatDuration(avgSleepDuration),
+      value: avgSleepDuration != null ? formatDuration(avgSleepDuration) : "No data",
       description: "This month’s average nightly sleep duration across your logged days.",
     },
     {
       title: "Avg Wakeup Time",
-      value: formatClock(avgWakeupTime),
+      value: avgWakeupTime != null ? formatClock(avgWakeupTime) : "No data",
       description: "Your average wakeup time shows how consistent your morning rhythm has been this month.",
     },
     {
       title: "Avg Sleep Time",
-      value: formatClock(avgSleepTime),
+      value: avgSleepTime != null ? formatClock(avgSleepTime) : "No data",
       description: "Your average sleep time reflects when your nights usually begin in the selected month.",
     },
     {
       title: "Avg Energy This Month",
-      value: `${Math.round(avgEnergy)}%`,
+      value: avgEnergy != null ? `${Math.round(avgEnergy)}%` : "No data",
       description: "Average daytime energy across the current month’s entries.",
     },
     {
       title: "Avg Day Rating This Month",
-      value: `${round(avgDayRating)}%`,
+      value: avgDayRating != null ? `${round(avgDayRating)}%` : "No data",
       description: "Average overall day rating across the current month’s sleep and energy entries.",
     },
     {
@@ -932,8 +942,12 @@ export default function SleepEnergyAnalysis() {
           <select
             value={selectedYear}
             onChange={(event) => {
-              setSelectedYear(event.target.value);
+              const newYear = event.target.value;
+              setSelectedYear(newYear);
               setSelectedWeek(1);
+              if (newYear === String(NOW.getFullYear()) && parseInt(selectedMonth) > NOW.getMonth() + 1) {
+                setSelectedMonth(String(NOW.getMonth() + 1).padStart(2, "0"));
+              }
             }}
             className="bg-transparent text-sky-100 outline-none"
           >
@@ -955,7 +969,10 @@ export default function SleepEnergyAnalysis() {
             }}
             className="bg-transparent text-sky-100 outline-none"
           >
-            {MONTH_OPTIONS.map((month) => (
+            {(selectedYear === String(NOW.getFullYear())
+              ? MONTH_OPTIONS.filter(m => parseInt(m.value) <= NOW.getMonth() + 1)
+              : MONTH_OPTIONS
+            ).map((month) => (
               <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">
                 {month.label}
               </option>

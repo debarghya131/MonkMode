@@ -648,7 +648,11 @@ export default function MoodAnalysis() {
           <select
             value={selectedYear}
             onChange={(event) => {
-              setSelectedYear(event.target.value);
+              const newYear = event.target.value;
+              setSelectedYear(newYear);
+              if (newYear === String(NOW.getFullYear()) && parseInt(selectedMonth) > NOW.getMonth() + 1) {
+                setSelectedMonth(String(NOW.getMonth() + 1).padStart(2, "0"));
+              }
             }}
             className="bg-transparent text-amber-100 outline-none"
           >
@@ -667,7 +671,10 @@ export default function MoodAnalysis() {
             onChange={(event) => setSelectedMonth(event.target.value)}
             className="bg-transparent text-amber-100 outline-none"
           >
-            {MONTH_OPTIONS.map((month) => (
+            {(selectedYear === String(NOW.getFullYear())
+              ? MONTH_OPTIONS.filter(m => parseInt(m.value) <= NOW.getMonth() + 1)
+              : MONTH_OPTIONS
+            ).map((month) => (
               <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">
                 {month.label}
               </option>
