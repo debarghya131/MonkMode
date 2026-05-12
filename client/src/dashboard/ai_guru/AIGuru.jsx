@@ -232,7 +232,7 @@ function ChatBubble({ role, text }) {
         {!isUser && (
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-amber-300/60">Ming</p>
         )}
-        <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+        <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
           {isUser ? text : <TypewriterText key={text} text={text} />}
         </p>
       </article>
