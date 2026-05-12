@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
+import api from "../../../api/axios";
+import useAuth from "../../../hooks/useAuth";
 
 const DAY_ORDER = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_OPTIONS = [
@@ -18,7 +20,7 @@ const MONTH_OPTIONS = [
   { value: "12", label: "December" },
 ];
 
-const SCORE_MONTH_CONFIG = [
+const DEMO_SCORE_MONTH_CONFIG = [
   { year: "2026", month: "04", seed: 5, skippedDays: [6, 14, 21, 30] },
   { year: "2026", month: "03", seed: 3, skippedDays: [2, 11, 18, 24, 29] },
   { year: "2026", month: "02", seed: 1, skippedDays: [4, 9, 15, 23] },
@@ -29,9 +31,8 @@ const BAR_H = 190;
 const LABEL_H = 56;
 const CHART_HEADROOM = 16;
 
-const YEARS = [...new Set(SCORE_MONTH_CONFIG.map((item) => item.year))].sort().reverse();
-const CURRENT_YEAR = String(new Date().getFullYear());
-const CURRENT_MONTH = String(new Date().getMonth() + 1).padStart(2, "0");
+const NOW = new Date();
+const YEARS = Array.from({ length: 4 }, (_, i) => String(NOW.getFullYear() - i));
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const round = (value, precision = 1) => Number(value.toFixed(precision));
@@ -40,19 +41,6 @@ const average = (values) => (values.length ? values.reduce((sum, value) => sum +
 function getDaysInMonth(year, month) {
   return new Date(Number(year), Number(month), 0).getDate();
 }
-
-function getAvailableMonthsForYear(year) {
-  return MONTH_OPTIONS.filter((month) =>
-    SCORE_MONTH_CONFIG.some((entry) => entry.year === year && entry.month === month.value)
-  );
-}
-
-const INITIAL_YEAR = YEARS.includes(CURRENT_YEAR) ? CURRENT_YEAR : YEARS[0];
-const INITIAL_MONTH = (() => {
-  const months = getAvailableMonthsForYear(INITIAL_YEAR);
-  if (months.some((month) => month.value === CURRENT_MONTH)) return CURRENT_MONTH;
-  return months[0]?.value ?? MONTH_OPTIONS[0].value;
-})();
 
 function generateMonthLogs(year, month, seed, skippedDays) {
   const days = getDaysInMonth(year, month);
@@ -75,7 +63,7 @@ function generateMonthLogs(year, month, seed, skippedDays) {
   });
 }
 
-const SCORE_MONTH_LOGS = SCORE_MONTH_CONFIG.map((entry) => ({
+const DEMO_SCORE_MONTH_LOGS = DEMO_SCORE_MONTH_CONFIG.map((entry) => ({
   year: entry.year,
   month: entry.month,
   logs: generateMonthLogs(entry.year, entry.month, entry.seed, entry.skippedDays),
@@ -110,7 +98,11 @@ function buildStreakSeries(logs) {
   const series = [];
   let streak = 0;
   for (const item of logs) {
-    streak = item.submitted ? streak + 1 : 0;
+    if (item.submitted) {
+      streak += 1;
+    } else {
+      streak = 0;
+    }
     series.push({ day: item.day, streak, submitted: item.submitted });
   }
   return series;
@@ -128,7 +120,11 @@ function maxStreak(logs) {
   let current = 0;
   let best = 0;
   for (const item of logs) {
-    current = item.submitted ? current + 1 : 0;
+    if (item.submitted) {
+      current += 1;
+    } else {
+      current = 0;
+    }
     best = Math.max(best, current);
   }
   return best;
@@ -440,98 +436,121 @@ function StreakBreakLineGraph({ series, daysInMonth }) {
 }
 
 export default function ScoreStreakAnalysis() {
-  const [selectedYear, setSelectedYear] = useState(INITIAL_YEAR);
-  const [selectedMonth, setSelectedMonth] = useState(INITIAL_MONTH);
+  const { isDemoMode } = useAuth();
+  const [selectedYear,  setSelectedYear]  = useState(YEARS[0]);
+  const [selectedMonth, setSelectedMonth] = useState(isDemoMode ? "04" : String(NOW.getMonth() + 1).padStart(2, "0"));
+  const [apiData,  setApiData]  = useState(null);
+  const [loading,  setLoading]  = useState(false);
 
-  const availableMonths = useMemo(() => getAvailableMonthsForYear(selectedYear), [selectedYear]);
+  useEffect(() => {
+    if (isDemoMode) {
+      setApiData(null);
+      setLoading(false);
+      return;
+    }
 
-  const selectedMonthData = useMemo(
-    () =>
-      SCORE_MONTH_LOGS.find((item) => item.year === selectedYear && item.month === selectedMonth) ??
-      SCORE_MONTH_LOGS.find((item) => item.year === selectedYear) ??
-      SCORE_MONTH_LOGS[0],
-    [selectedMonth, selectedYear]
-  );
+    let cancelled = false;
 
-  const logs = selectedMonthData.logs;
+    const loadAnalysis = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get(`/todos/analysis?year=${selectedYear}&month=${parseInt(selectedMonth, 10)}`);
+        if (!cancelled) setApiData(res.data);
+      } catch {
+        if (!cancelled) setApiData(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    const refreshAnalysis = () => {
+      loadAnalysis();
+    };
+
+    loadAnalysis();
+    window.addEventListener("focus", refreshAnalysis);
+    window.addEventListener("storage", refreshAnalysis);
+    window.addEventListener("monkmode:todos-updated", refreshAnalysis);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refreshAnalysis);
+      window.removeEventListener("storage", refreshAnalysis);
+      window.removeEventListener("monkmode:todos-updated", refreshAnalysis);
+    };
+  }, [isDemoMode, selectedYear, selectedMonth]);
+
+  const logs = useMemo(() => {
+    if (isDemoMode) {
+      const demo = DEMO_SCORE_MONTH_LOGS.find(d => d.year === selectedYear && d.month === selectedMonth)
+        ?? DEMO_SCORE_MONTH_LOGS[0];
+      return demo.logs;
+    }
+    if (!apiData) return [];
+    const isCurrentMonthSelected = selectedYear === String(NOW.getFullYear()) && selectedMonth === String(NOW.getMonth() + 1).padStart(2, "0");
+    const todayStr = `${NOW.getFullYear()}-${String(NOW.getMonth() + 1).padStart(2, "0")}-${String(NOW.getDate()).padStart(2, "0")}`;
+    return apiData.days
+      .filter(d => !isCurrentMonthSelected || d.date <= todayStr)
+      .map(d => ({
+        day: parseInt(d.date.slice(8), 10),
+        date: d.date,
+        weekday: d.weekday,
+        // Match navbar TODO streak logic: streak day only when all scheduled todos are completed.
+        submitted: d.total > 0 && d.completed === d.total && d.pending === 0 && d.missed === 0,
+        consistencyScore: d.score ?? 0,
+      }));
+  }, [isDemoMode, apiData, selectedYear, selectedMonth]);
+
   const daysInMonth = logs.length;
   const weekdayConsistencySeries = useMemo(() => buildWeekdayConsistencySeries(logs), [logs]);
-  const weeklyScoreSeries = useMemo(() => buildWeeklyScoreSeries(logs), [logs]);
-  const streakSeries = useMemo(() => buildStreakSeries(logs), [logs]);
+  const weeklyScoreSeries        = useMemo(() => buildWeeklyScoreSeries(logs),        [logs]);
+  const streakSeries             = useMemo(() => buildStreakSeries(logs),              [logs]);
 
-  const avgConsistencyScore = round(average(logs.filter((item) => item.submitted).map((item) => item.consistencyScore)));
-  const avgWeeklyScore = round(average(weeklyScoreSeries.map((item) => item.value)));
-
-  const sortableDays = weekdayConsistencySeries.filter((item) => item.value > 0);
-  const highestConsistentDay = sortableDays.reduce((best, current) => (current.value > best.value ? current : best), sortableDays[0]);
-  const lowestConsistentDay = sortableDays.reduce((worst, current) => (current.value < worst.value ? current : worst), sortableDays[0]);
-
-  const thisWeekStart = Math.max(1, daysInMonth - 6);
-  const thisWeekLogs = logs.filter((item) => item.day >= thisWeekStart);
+  const avgConsistencyScore = round(average(logs.filter(l => l.submitted).map(l => l.consistencyScore)));
+  const avgWeeklyScore      = round(average(weeklyScoreSeries.map(s => s.value)));
+  const sortableDays        = weekdayConsistencySeries.filter(d => d.value > 0);
+  const highestConsistentDay = sortableDays.length ? sortableDays.reduce((b, c) => c.value > b.value ? c : b) : null;
+  const lowestConsistentDay  = sortableDays.length ? sortableDays.reduce((b, c) => c.value < b.value ? c : b) : null;
+  const thisWeekStart        = Math.max(1, daysInMonth - 6);
+  const thisWeekLogs         = logs.filter(l => l.day >= thisWeekStart);
   const streakBreaksThisWeek = countStreakBreaks(thisWeekLogs);
   const highestStreakThisWeek = maxStreak(thisWeekLogs);
 
+  const isCurrentMonth = selectedYear === String(NOW.getFullYear()) && selectedMonth === String(NOW.getMonth() + 1).padStart(2, "0");
+
   const insights = [
-    {
-      title: "Avg Consistency Score",
-      value: `${avgConsistencyScore}`,
-      description: "Average day consistency score for the selected month.",
-    },
-    {
-      title: "Highest Consistent Day",
-      value: `${highestConsistentDay.label} (${highestConsistentDay.value})`,
-      description: "Weekday with the highest average consistency score.",
-    },
-    {
-      title: "Lowest Consistent Day",
-      value: `${lowestConsistentDay.label} (${lowestConsistentDay.value})`,
-      description: "Weekday with the lowest average consistency score.",
-    },
-    {
-      title: "No. of Streak Break (This Week)",
-      value: `${streakBreaksThisWeek}`,
-      description: `Break count from day ${thisWeekStart} to day ${daysInMonth}.`,
-    },
-    {
-      title: "Highest Streak (This Week)",
-      value: `${highestStreakThisWeek}`,
-      description: "Highest consecutive submitted-day streak in the current week window.",
-    },
-    {
-      title: "Avg Weekly Score",
-      value: `${avgWeeklyScore}`,
-      description: "Average of W1 to W4 weekly score values.",
-    },
+    { title: "Avg Consistency Score",        value: logs.length ? `${avgConsistencyScore}` : "No data",                                            description: "Average day consistency score for the selected month." },
+    { title: "Highest Consistent Day",       value: highestConsistentDay ? `${highestConsistentDay.label} (${highestConsistentDay.value})` : "No data", description: "Weekday with the highest average consistency score." },
+    { title: "Lowest Consistent Day",        value: lowestConsistentDay  ? `${lowestConsistentDay.label} (${lowestConsistentDay.value})`   : "No data", description: "Weekday with the lowest average consistency score." },
+    { title: "No. of Streak Break (This Week)", value: `${streakBreaksThisWeek}`,  description: `Break count from day ${thisWeekStart} to day ${daysInMonth}.` },
+    { title: "Highest Streak (This Week)",   value: `${highestStreakThisWeek}`,    description: "Highest consecutive submitted-day streak in the current week window." },
+    { title: "Avg Weekly Score",             value: logs.length ? `${avgWeeklyScore}` : "No data", description: "Average of W1 to W4 weekly score values." },
   ];
 
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
+        {isCurrentMonth && (
+          <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+            Live · updates daily
+          </span>
+        )}
         <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
           <span className="text-stone-400">Year</span>
           <select
             value={selectedYear}
             onChange={(event) => {
-              const nextYear = event.target.value;
-              setSelectedYear(nextYear);
-              const nextMonths = getAvailableMonthsForYear(nextYear);
-              const monthSet = new Set(nextMonths.map((month) => month.value));
-              if (monthSet.has(selectedMonth)) {
-                setSelectedMonth(selectedMonth);
-                return;
+              const newYear = event.target.value;
+              setSelectedYear(newYear);
+              if (newYear === String(NOW.getFullYear()) && parseInt(selectedMonth) > NOW.getMonth() + 1) {
+                setSelectedMonth(String(NOW.getMonth() + 1).padStart(2, "0"));
               }
-              if (monthSet.has(CURRENT_MONTH)) {
-                setSelectedMonth(CURRENT_MONTH);
-                return;
-              }
-              setSelectedMonth(nextMonths[0]?.value ?? MONTH_OPTIONS[0].value);
             }}
             className="bg-transparent text-sky-100 outline-none"
           >
             {YEARS.map((year) => (
-              <option key={year} value={year} className="bg-stone-950 text-stone-200">
-                {year}
-              </option>
+              <option key={year} value={year} className="bg-stone-950 text-stone-200">{year}</option>
             ))}
           </select>
         </label>
@@ -543,15 +562,22 @@ export default function ScoreStreakAnalysis() {
             onChange={(event) => setSelectedMonth(event.target.value)}
             className="bg-transparent text-sky-100 outline-none"
           >
-            {availableMonths.map((month) => (
-              <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">
-                {month.label}
-              </option>
+            {(selectedYear === String(NOW.getFullYear())
+              ? MONTH_OPTIONS.filter(m => parseInt(m.value) <= NOW.getMonth() + 1)
+              : MONTH_OPTIONS
+            ).map((month) => (
+              <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">{month.label}</option>
             ))}
           </select>
         </label>
       </div>
 
+      {loading ? (
+        <div className="space-y-3">
+          <div className="h-48 animate-pulse rounded-2xl border border-sky-100/10 bg-white/[0.03]" />
+          <div className="h-36 animate-pulse rounded-2xl border border-sky-100/10 bg-white/[0.03]" />
+        </div>
+      ) : (
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div
           className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
@@ -559,40 +585,29 @@ export default function ScoreStreakAnalysis() {
         >
           <div className="space-y-6 p-6">
             <StreakBreakLineGraph series={streakSeries} daysInMonth={daysInMonth} />
-
             <VerticalScoreGraph
               title="Consistency Score Analysis"
               subtitle="Consistency by Day"
               series={weekdayConsistencySeries}
-              theme={{
-                dot: "bg-emerald-300",
-                fill: "bg-gradient-to-t from-emerald-900/95 to-emerald-300/90",
-                border: "border-emerald-200/25",
-                value: "text-emerald-200",
-              }}
+              theme={{ dot: "bg-emerald-300", fill: "bg-gradient-to-t from-emerald-900/95 to-emerald-300/90", border: "border-emerald-200/25", value: "text-emerald-200" }}
             />
-
             <VerticalScoreGraph
               title="Weekly Score Analysis"
               subtitle="4 Week Breakdown"
               series={weeklyScoreSeries}
-              theme={{
-                dot: "bg-amber-300",
-                fill: "bg-gradient-to-t from-amber-900/95 to-amber-300/90",
-                border: "border-amber-200/25",
-                value: "text-amber-200",
-              }}
+              theme={{ dot: "bg-amber-300", fill: "bg-gradient-to-t from-amber-900/95 to-amber-300/90", border: "border-amber-200/25", value: "text-amber-200" }}
             />
           </div>
         </div>
 
         <div
-          className="journal-scroll flex w-full w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
+          className="journal-scroll flex w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
           style={{ maxHeight: "calc(100vh - 180px)" }}
         >
           <InsightRail insights={insights} />
         </div>
       </div>
+      )}
     </section>
   );
 }

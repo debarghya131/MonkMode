@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
+import api from "../../../api/axios";
+import useAuth from "../../../hooks/useAuth";
 
 const DAY_ORDER = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const TIME_RANGES = ["6 AM - 9 AM", "9 AM - 12 PM", "12 PM - 3 PM", "3 PM - 6 PM", "6 PM - 12 AM"];
@@ -19,7 +21,7 @@ const MONTH_OPTIONS = [
   { value: "12", label: "December" },
 ];
 
-const TODO_ANALYSIS_MONTHLY_DATA = [
+const DEMO_TODO_MONTHLY_DATA = [
   {
     year: "2026",
     month: "04",
@@ -102,22 +104,8 @@ const TODO_ANALYSIS_MONTHLY_DATA = [
   },
 ];
 
-const YEARS = [...new Set(TODO_ANALYSIS_MONTHLY_DATA.map((entry) => entry.year))].sort().reverse();
-const CURRENT_YEAR = String(new Date().getFullYear());
-const CURRENT_MONTH = String(new Date().getMonth() + 1).padStart(2, "0");
-
-function getAvailableMonthsForYear(year) {
-  return MONTH_OPTIONS.filter((month) =>
-    TODO_ANALYSIS_MONTHLY_DATA.some((entry) => entry.year === year && entry.month === month.value)
-  );
-}
-
-const INITIAL_YEAR = YEARS.includes(CURRENT_YEAR) ? CURRENT_YEAR : YEARS[0];
-const INITIAL_MONTH = (() => {
-  const months = getAvailableMonthsForYear(INITIAL_YEAR);
-  if (months.some((month) => month.value === CURRENT_MONTH)) return CURRENT_MONTH;
-  return months[0]?.value ?? MONTH_OPTIONS[0].value;
-})();
+const NOW = new Date();
+const YEARS = Array.from({ length: 4 }, (_, i) => String(NOW.getFullYear() - i));
 
 const BAR_H = 190;
 const LABEL_H = 58;
@@ -418,157 +406,105 @@ function TimeWiseAnalysisGraph({ series }) {
 }
 
 export default function CompleteMissTime() {
-  const [selectedYear, setSelectedYear] = useState(INITIAL_YEAR);
-  const [selectedMonth, setSelectedMonth] = useState(INITIAL_MONTH);
+  const { isDemoMode } = useAuth();
+  const [selectedYear,  setSelectedYear]  = useState(YEARS[0]);
+  const [selectedMonth, setSelectedMonth] = useState(isDemoMode ? "04" : String(NOW.getMonth() + 1).padStart(2, "0"));
+  const [apiData,  setApiData]  = useState(null);
+  const [loading,  setLoading]  = useState(false);
 
-  const availableMonths = useMemo(
-    () => getAvailableMonthsForYear(selectedYear),
-    [selectedYear]
-  );
+  useEffect(() => {
+    if (isDemoMode) { setApiData(null); return; }
+    let cancelled = false;
+    setLoading(true);
+    api.get(`/todos/analysis?year=${selectedYear}&month=${parseInt(selectedMonth, 10)}`)
+      .then(res  => { if (!cancelled) setApiData(res.data); })
+      .catch(()  => { if (!cancelled) setApiData(null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [isDemoMode, selectedYear, selectedMonth]);
 
-  const selectedPeriod = useMemo(
-    () =>
-      TODO_ANALYSIS_MONTHLY_DATA.find((entry) => entry.year === selectedYear && entry.month === selectedMonth) ??
-      TODO_ANALYSIS_MONTHLY_DATA.find((entry) => entry.year === selectedYear) ??
-      TODO_ANALYSIS_MONTHLY_DATA[0],
-    [selectedMonth, selectedYear]
-  );
+  const { orderedWeekData, timeWiseData } = useMemo(() => {
+    let rawWeek, rawTime;
 
-  const orderedWeekData = useMemo(() => {
-    const dataMap = new Map(
-      selectedPeriod.weekTaskDistribution.map((entry) => {
-        const missed = Math.max(0, entry.total - entry.completed);
-        return [
-          entry.day,
-          {
-            ...entry,
-            missed,
-            completionRate: toPercent(entry.completed, entry.total),
-            missedRate: toPercent(missed, entry.total),
-          },
-        ];
-      })
-    );
+    if (isDemoMode) {
+      const demo = DEMO_TODO_MONTHLY_DATA.find(e => e.year === selectedYear && e.month === selectedMonth)
+        ?? DEMO_TODO_MONTHLY_DATA[0];
+      rawWeek = demo.weekTaskDistribution;
+      rawTime = demo.timeTaskDistribution;
+    } else if (apiData) {
+      const byDay = {};
+      for (const d of apiData.days) {
+        if (!byDay[d.weekday]) byDay[d.weekday] = { day: d.weekday, total: 0, completed: 0 };
+        byDay[d.weekday].total     += d.total;
+        byDay[d.weekday].completed += d.completed;
+      }
+      rawWeek = DAY_ORDER.map(day => byDay[day]).filter(Boolean);
+      rawTime = apiData.timeSlots.map(s => ({ range: s.range, total: s.total, completed: s.completed }));
+    } else {
+      return { orderedWeekData: [], timeWiseData: [] };
+    }
 
-    return DAY_ORDER.map((day) => dataMap.get(day)).filter(Boolean);
-  }, [selectedPeriod]);
+    const orderedWeekData = rawWeek.map(entry => {
+      const missed = Math.max(0, entry.total - entry.completed);
+      return { ...entry, missed, completionRate: toPercent(entry.completed, entry.total), missedRate: toPercent(missed, entry.total) };
+    });
 
-  const timeWiseData = useMemo(() => {
-    const dataMap = new Map(
-      selectedPeriod.timeTaskDistribution.map((slot) => {
-        const missed = Math.max(0, slot.total - slot.completed);
-        return [
-          slot.range,
-          {
-            label: slot.range,
-            total: slot.total,
-            completed: slot.completed,
-            missed,
-            completionRate: toPercent(slot.completed, slot.total),
-            missedRate: toPercent(missed, slot.total),
-          },
-        ];
-      })
-    );
+    const timeWiseData = rawTime.map(slot => {
+      const missed = Math.max(0, slot.total - slot.completed);
+      return { label: slot.range, total: slot.total, completed: slot.completed, missed, completionRate: toPercent(slot.completed, slot.total), missedRate: toPercent(missed, slot.total) };
+    }).filter(s => s.total > 0);
 
-    return TIME_RANGES.map((range) => dataMap.get(range)).filter(Boolean);
-  }, [selectedPeriod]);
+    return { orderedWeekData, timeWiseData };
+  }, [isDemoMode, apiData, selectedYear, selectedMonth]);
 
-  const totals = useMemo(
-    () =>
-      orderedWeekData.reduce(
-        (acc, item) => ({
-          total: acc.total + item.total,
-          completed: acc.completed + item.completed,
-          missed: acc.missed + item.missed,
-        }),
-        { total: 0, completed: 0, missed: 0 }
-      ),
-    [orderedWeekData]
+  const totals = orderedWeekData.reduce(
+    (acc, item) => ({ total: acc.total + item.total, completed: acc.completed + item.completed, missed: acc.missed + item.missed }),
+    { total: 0, completed: 0, missed: 0 }
   );
 
   const completionRate = toPercent(totals.completed, totals.total);
-  const missedRate = toPercent(totals.missed, totals.total);
+  const missedRate     = toPercent(totals.missed,    totals.total);
 
-  const bestDay = useMemo(
-    () =>
-      orderedWeekData.reduce((best, current) => (current.completionRate > best.completionRate ? current : best)),
-    [orderedWeekData]
-  );
+  const bestDay     = orderedWeekData.length ? orderedWeekData.reduce((b, c) => c.completionRate > b.completionRate ? c : b) : null;
+  const worstDay    = orderedWeekData.length ? orderedWeekData.reduce((b, c) => c.completionRate < b.completionRate ? c : b) : null;
+  const bestTimeSlot = timeWiseData.length   ? timeWiseData.reduce((b, c)   => c.completionRate > b.completionRate ? c : b) : null;
 
-  const worstDay = useMemo(
-    () =>
-      orderedWeekData.reduce((worst, current) => (current.completionRate < worst.completionRate ? current : worst)),
-    [orderedWeekData]
-  );
+  const combinedDaySeries = orderedWeekData.map(item => ({ label: item.day, completionRate: item.completionRate, missedRate: item.missedRate }));
 
-  const bestTimeSlot = useMemo(
-    () => timeWiseData.reduce((best, current) => (current.completionRate > best.completionRate ? current : best)),
-    [timeWiseData]
-  );
-
-  const combinedDaySeries = orderedWeekData.map((item) => ({
-    label: item.day,
-    completionRate: item.completionRate,
-    missedRate: item.missedRate,
-  }));
+  const isCurrentMonth = selectedYear === String(NOW.getFullYear()) && selectedMonth === String(NOW.getMonth() + 1).padStart(2, "0");
 
   const insights = [
-    {
-      title: "Total Tasks This Week",
-      value: `${totals.total} (${completionRate}% completion)`,
-      description: `${totals.completed} completed out of ${totals.total} planned tasks.`,
-    },
-    {
-      title: "Total Tasks Missed",
-      value: `${totals.missed} (${missedRate}% missed)`,
-      description: `${totals.missed} tasks were not completed in this weekly cycle.`,
-    },
-    {
-      title: "Best Day",
-      value: `${bestDay.day} (${bestDay.completionRate}%)`,
-      description: `${bestDay.completed}/${bestDay.total} tasks completed on ${bestDay.day}.`,
-    },
-    {
-      title: "Worst Day",
-      value: `${worstDay.day} (${worstDay.completionRate}%)`,
-      description: `${worstDay.completed}/${worstDay.total} tasks completed on ${worstDay.day}.`,
-    },
-    {
-      title: "Best Performance Time",
-      value: `${bestTimeSlot.label} (${bestTimeSlot.completionRate}%)`,
-      description: `${bestTimeSlot.completed}/${bestTimeSlot.total} tasks completed in this time slot.`,
-    },
+    { title: "Total Tasks This Month",    value: totals.total ? `${totals.total} (${completionRate}% completion)` : "No data", description: `${totals.completed} completed out of ${totals.total} planned tasks.` },
+    { title: "Total Tasks Missed",        value: totals.total ? `${totals.missed} (${missedRate}% missed)`        : "No data", description: `${totals.missed} tasks were not completed this month.` },
+    { title: "Best Day",                  value: bestDay  ? `${bestDay.day} (${bestDay.completionRate}%)`         : "No data", description: bestDay  ? `${bestDay.completed}/${bestDay.total} tasks completed on ${bestDay.day}.`       : "" },
+    { title: "Worst Day",                 value: worstDay ? `${worstDay.day} (${worstDay.completionRate}%)`       : "No data", description: worstDay ? `${worstDay.completed}/${worstDay.total} tasks completed on ${worstDay.day}.`     : "" },
+    { title: "Best Performance Time",     value: bestTimeSlot ? `${bestTimeSlot.label} (${bestTimeSlot.completionRate}%)` : "No data", description: bestTimeSlot ? `${bestTimeSlot.completed}/${bestTimeSlot.total} tasks in this slot.` : "" },
   ];
 
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
+        {isCurrentMonth && (
+          <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+            Live · updates daily
+          </span>
+        )}
         <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
           <span className="text-stone-400">Year</span>
           <select
             value={selectedYear}
             onChange={(event) => {
-              const nextYear = event.target.value;
-              setSelectedYear(nextYear);
-              const nextMonths = getAvailableMonthsForYear(nextYear);
-              const monthSet = new Set(nextMonths.map((month) => month.value));
-              if (monthSet.has(selectedMonth)) {
-                setSelectedMonth(selectedMonth);
-                return;
+              const newYear = event.target.value;
+              setSelectedYear(newYear);
+              if (newYear === String(NOW.getFullYear()) && parseInt(selectedMonth) > NOW.getMonth() + 1) {
+                setSelectedMonth(String(NOW.getMonth() + 1).padStart(2, "0"));
               }
-              if (monthSet.has(CURRENT_MONTH)) {
-                setSelectedMonth(CURRENT_MONTH);
-                return;
-              }
-              setSelectedMonth(nextMonths[0]?.value ?? MONTH_OPTIONS[0].value);
             }}
             className="bg-transparent text-sky-100 outline-none"
           >
             {YEARS.map((year) => (
-              <option key={year} value={year} className="bg-stone-950 text-stone-200">
-                {year}
-              </option>
+              <option key={year} value={year} className="bg-stone-950 text-stone-200">{year}</option>
             ))}
           </select>
         </label>
@@ -580,15 +516,22 @@ export default function CompleteMissTime() {
             onChange={(event) => setSelectedMonth(event.target.value)}
             className="bg-transparent text-sky-100 outline-none"
           >
-            {availableMonths.map((month) => (
-              <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">
-                {month.label}
-              </option>
+            {(selectedYear === String(NOW.getFullYear())
+              ? MONTH_OPTIONS.filter(m => parseInt(m.value) <= NOW.getMonth() + 1)
+              : MONTH_OPTIONS
+            ).map((month) => (
+              <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">{month.label}</option>
             ))}
           </select>
         </label>
       </div>
 
+      {loading ? (
+        <div className="space-y-3">
+          <div className="h-48 animate-pulse rounded-2xl border border-sky-100/10 bg-white/[0.03]" />
+          <div className="h-36 animate-pulse rounded-2xl border border-sky-100/10 bg-white/[0.03]" />
+        </div>
+      ) : (
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div
           className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
@@ -596,18 +539,18 @@ export default function CompleteMissTime() {
         >
           <div className="space-y-6 p-6">
             <CombinedDayRateGraph series={combinedDaySeries} />
-
             <TimeWiseAnalysisGraph series={timeWiseData} />
           </div>
         </div>
 
         <div
-          className="journal-scroll flex w-full w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
+          className="journal-scroll flex w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
           style={{ maxHeight: "calc(100vh - 180px)" }}
         >
           <InsightRail insights={insights} />
         </div>
       </div>
+      )}
     </section>
   );
 }

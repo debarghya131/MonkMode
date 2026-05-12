@@ -1587,6 +1587,90 @@ export const getExerciseProgress = async (req, res) => {
   }
 };
 
+const MONTH_ABBR_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DAY_NAMES_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+export const getGymAnalysis = async (req, res) => {
+  try {
+    const y = parseInt(req.query.year, 10);
+    const m = parseInt(req.query.month, 10);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) {
+      return res.status(400).json({ message: "Valid year and month (1-12) are required" });
+    }
+
+    const pad = (n) => String(n).padStart(2, "0");
+    const monthStart = `${y}-${pad(m)}-01`;
+    const nextM = m === 12 ? 1 : m + 1;
+    const nextY = m === 12 ? y + 1 : y;
+    const monthEnd = `${nextY}-${pad(nextM)}-01`;
+    const daysInMonth = new Date(y, m, 0).getDate();
+
+    const [docs, macroPlan] = await Promise.all([
+      GymExerciseProgress.find({
+        userId: req.user.id,
+        date: { $gte: monthStart, $lt: monthEnd },
+      }).sort({ date: 1 }),
+      GymDietPlan.findOne({ userId: req.user.id, planType: "macros", isActive: true }),
+    ]);
+
+    const byDate = new Map();
+    for (const doc of docs) {
+      if (!byDate.has(doc.date)) byDate.set(doc.date, []);
+      byDate.get(doc.date).push(doc);
+    }
+
+    const sessions = [...byDate.entries()].map(([date, exercises]) => {
+      const volume = exercises.reduce((sum, ex) => {
+        const s = parseFloat(ex.sets) || 0;
+        const r = parseFloat(ex.reps) || 0;
+        const w = parseFloat(ex.weight) || 0;
+        return sum + s * r * w;
+      }, 0);
+      const bodyGroups = [...new Set(
+        exercises.map((ex) => toBodyGroup(ex.bodyPart)).filter((g) => g && g !== "Other")
+      )];
+      const dayIndex = new Date(`${date}T00:00:00`).getDay();
+      return {
+        date,
+        day: DAY_NAMES_SHORT[dayIndex],
+        exerciseCount: exercises.length,
+        volume: Math.round(volume),
+        bodyGroups,
+      };
+    });
+
+    const weeklyStats = [];
+    for (let ws = 1; ws <= daysInMonth; ws += 7) {
+      const we = Math.min(ws + 6, daysInMonth);
+      const startStr = `${y}-${pad(m)}-${pad(ws)}`;
+      const endStr = `${y}-${pad(m)}-${pad(we)}`;
+      const weekSessions = sessions.filter((s) => s.date >= startStr && s.date <= endStr);
+      const totalDays = we - ws + 1;
+      weeklyStats.push({
+        weekLabel: `${MONTH_ABBR_NAMES[m - 1]} ${ws}–${we}`,
+        workoutDays: weekSessions.length,
+        totalDays,
+        volume: weekSessions.reduce((sum, s) => sum + s.volume, 0),
+        exerciseCount: weekSessions.reduce((sum, s) => sum + s.exerciseCount, 0),
+        consistencyScore: Math.round((weekSessions.length / totalDays) * 100),
+      });
+    }
+
+    const macros = macroPlan
+      ? {
+          protein: parseFloat(macroPlan.values?.protein) || null,
+          carbs: parseFloat(macroPlan.values?.carbs) || null,
+          fats: parseFloat(macroPlan.values?.fats) || null,
+          calories: parseFloat(macroPlan.values?.calories) || null,
+        }
+      : null;
+
+    res.json({ year: y, month: m, sessions, weeklyStats, macros });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const upsertExerciseProgress = async (req, res) => {
   try {
     const { date, exerciseId, repsBreakdown, ...rest } = req.body;

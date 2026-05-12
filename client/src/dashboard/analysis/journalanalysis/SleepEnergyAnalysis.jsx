@@ -1,104 +1,59 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
+import api from "../../../api/axios";
+import useAuth from "../../../hooks/useAuth";
 
 const MONTH_OPTIONS = [
-  { value: "01", label: "January" },
-  { value: "02", label: "February" },
-  { value: "03", label: "March" },
-  { value: "04", label: "April" },
+  { value: "01", label: "January" }, { value: "02", label: "February" },
+  { value: "03", label: "March" },   { value: "04", label: "April" },
+  { value: "05", label: "May" },     { value: "06", label: "June" },
+  { value: "07", label: "July" },    { value: "08", label: "August" },
+  { value: "09", label: "September" },{ value: "10", label: "October" },
+  { value: "11", label: "November" },{ value: "12", label: "December" },
 ];
 
-const SLEEP_ENTRIES = [
-  { date: "2026-04-01", sleepDuration: 7.4, sleepTime: "23:18", wakeTime: "06:44", energy: 78, rating: 80 },
-  { date: "2026-04-02", sleepDuration: 8.1, sleepTime: "22:56", wakeTime: "07:02", energy: 88, rating: 90 },
-  { date: "2026-04-03", sleepDuration: 7.0, sleepTime: "23:42", wakeTime: "06:40", energy: 73, rating: 76 },
-  { date: "2026-04-04", sleepDuration: 7.8, sleepTime: "23:08", wakeTime: "06:55", energy: 76, rating: 78 },
-  { date: "2026-04-05", sleepDuration: 8.3, sleepTime: "22:48", wakeTime: "07:05", energy: 84, rating: 85 },
-  { date: "2026-04-06", sleepDuration: 6.3, sleepTime: "00:14", wakeTime: "06:32", energy: 58, rating: 60 },
-  { date: "2026-04-07", sleepDuration: 8.0, sleepTime: "22:58", wakeTime: "06:59", energy: 90, rating: 91 },
-  { date: "2026-04-08", sleepDuration: 5.8, sleepTime: "00:36", wakeTime: "06:21", energy: 52, rating: 54 },
-  { date: "2026-04-09", sleepDuration: 7.2, sleepTime: "23:26", wakeTime: "06:39", energy: 74, rating: 76 },
-  { date: "2026-04-10", sleepDuration: 7.7, sleepTime: "23:04", wakeTime: "06:48", energy: 82, rating: 83 },
-  { date: "2026-04-11", sleepDuration: 7.1, sleepTime: "23:32", wakeTime: "06:37", energy: 72, rating: 74 },
-  { date: "2026-04-12", sleepDuration: 8.0, sleepTime: "22:53", wakeTime: "07:00", energy: 86, rating: 88 },
-  { date: "2026-04-13", sleepDuration: 7.4, sleepTime: "23:17", wakeTime: "06:43", energy: 77, rating: 79 },
-  { date: "2026-04-14", sleepDuration: 6.8, sleepTime: "23:48", wakeTime: "06:34", energy: 66, rating: 68 },
-  { date: "2026-04-15", sleepDuration: 7.9, sleepTime: "22:58", wakeTime: "06:56", energy: 84, rating: 86 },
-  { date: "2026-04-16", sleepDuration: 7.3, sleepTime: "23:23", wakeTime: "06:40", energy: 74, rating: 75 },
-  { date: "2026-04-17", sleepDuration: 6.6, sleepTime: "00:08", wakeTime: "06:29", energy: 61, rating: 63 },
-  { date: "2026-04-18", sleepDuration: 8.2, sleepTime: "22:46", wakeTime: "07:03", energy: 89, rating: 90 },
-  { date: "2026-04-19", sleepDuration: 7.5, sleepTime: "23:13", wakeTime: "06:46", energy: 78, rating: 80 },
-  { date: "2026-04-20", sleepDuration: 7.0, sleepTime: "23:37", wakeTime: "06:36", energy: 70, rating: 71 },
-  { date: "2026-04-21", sleepDuration: 8.1, sleepTime: "22:51", wakeTime: "07:01", energy: 87, rating: 89 },
-  { date: "2026-04-22", sleepDuration: 7.6, sleepTime: "23:10", wakeTime: "06:49", energy: 80, rating: 81 },
-  { date: "2026-04-23", sleepDuration: 6.9, sleepTime: "23:42", wakeTime: "06:35", energy: 68, rating: 70 },
-  { date: "2026-04-24", sleepDuration: 7.8, sleepTime: "23:01", wakeTime: "06:54", energy: 83, rating: 84 },
-  { date: "2026-04-25", sleepDuration: 7.2, sleepTime: "23:28", wakeTime: "06:39", energy: 73, rating: 75 },
-  { date: "2026-04-26", sleepDuration: 8.3, sleepTime: "22:44", wakeTime: "07:06", energy: 90, rating: 91 },
-  { date: "2026-04-27", sleepDuration: 7.4, sleepTime: "23:15", wakeTime: "06:44", energy: 77, rating: 78 },
-  { date: "2026-04-28", sleepDuration: 6.7, sleepTime: "23:55", wakeTime: "06:33", energy: 64, rating: 66 },
-  { date: "2026-04-29", sleepDuration: 7.9, sleepTime: "22:57", wakeTime: "06:58", energy: 85, rating: 87 },
-  { date: "2026-04-30", sleepDuration: 7.5, sleepTime: "23:11", wakeTime: "06:47", energy: 79, rating: 80 },
-  { date: "2026-03-01", sleepDuration: 7.3, sleepTime: "23:18", wakeTime: "06:36", energy: 76, rating: 78 },
-  { date: "2026-03-02", sleepDuration: 7.8, sleepTime: "22:58", wakeTime: "06:49", energy: 82, rating: 84 },
-  { date: "2026-03-03", sleepDuration: 6.9, sleepTime: "23:45", wakeTime: "06:38", energy: 69, rating: 71 },
-  { date: "2026-03-04", sleepDuration: 8.1, sleepTime: "22:50", wakeTime: "07:00", energy: 86, rating: 87 },
-  { date: "2026-03-05", sleepDuration: 7.4, sleepTime: "23:20", wakeTime: "06:44", energy: 77, rating: 79 },
-  { date: "2026-03-06", sleepDuration: 6.5, sleepTime: "00:12", wakeTime: "06:32", energy: 60, rating: 62 },
-  { date: "2026-03-07", sleepDuration: 7.9, sleepTime: "22:57", wakeTime: "06:56", energy: 85, rating: 86 },
-  { date: "2026-03-08", sleepDuration: 6.8, sleepTime: "23:48", wakeTime: "06:35", energy: 67, rating: 69 },
-  { date: "2026-03-09", sleepDuration: 7.2, sleepTime: "23:30", wakeTime: "06:42", energy: 72, rating: 74 },
-  { date: "2026-03-10", sleepDuration: 7.7, sleepTime: "23:06", wakeTime: "06:50", energy: 80, rating: 81 },
-  { date: "2026-03-11", sleepDuration: 8.0, sleepTime: "22:54", wakeTime: "06:58", energy: 84, rating: 85 },
-  { date: "2026-03-12", sleepDuration: 7.5, sleepTime: "23:10", wakeTime: "06:42", energy: 81, rating: 84 },
-  { date: "2026-03-13", sleepDuration: 7.1, sleepTime: "23:34", wakeTime: "06:38", energy: 74, rating: 77 },
-  { date: "2026-03-14", sleepDuration: 8.4, sleepTime: "22:44", wakeTime: "07:07", energy: 87, rating: 88 },
-  { date: "2026-03-15", sleepDuration: 7.6, sleepTime: "23:12", wakeTime: "06:49", energy: 72, rating: 74 },
-  { date: "2026-03-16", sleepDuration: 6.0, sleepTime: "00:22", wakeTime: "06:18", energy: 56, rating: 55 },
-  { date: "2026-03-17", sleepDuration: 8.2, sleepTime: "22:50", wakeTime: "07:01", energy: 89, rating: 91 },
-  { date: "2026-03-18", sleepDuration: 7.0, sleepTime: "23:34", wakeTime: "06:40", energy: 71, rating: 73 },
-  { date: "2026-03-19", sleepDuration: 7.4, sleepTime: "23:16", wakeTime: "06:45", energy: 76, rating: 77 },
-  { date: "2026-03-20", sleepDuration: 8.1, sleepTime: "22:46", wakeTime: "07:02", energy: 88, rating: 89 },
-  { date: "2026-03-21", sleepDuration: 6.7, sleepTime: "00:08", wakeTime: "06:31", energy: 62, rating: 64 },
-  { date: "2026-03-22", sleepDuration: 7.3, sleepTime: "23:24", wakeTime: "06:41", energy: 74, rating: 75 },
-  { date: "2026-03-23", sleepDuration: 7.8, sleepTime: "23:02", wakeTime: "06:52", energy: 81, rating: 82 },
-  { date: "2026-03-24", sleepDuration: 6.9, sleepTime: "23:40", wakeTime: "06:36", energy: 68, rating: 70 },
-  { date: "2026-03-25", sleepDuration: 7.5, sleepTime: "23:14", wakeTime: "06:46", energy: 78, rating: 79 },
-  { date: "2026-03-26", sleepDuration: 8.3, sleepTime: "22:42", wakeTime: "07:06", energy: 90, rating: 91 },
-  { date: "2026-03-27", sleepDuration: 7.1, sleepTime: "23:32", wakeTime: "06:39", energy: 72, rating: 73 },
-  { date: "2026-03-28", sleepDuration: 7.6, sleepTime: "23:09", wakeTime: "06:51", energy: 79, rating: 80 },
-  { date: "2026-02-01", sleepDuration: 7.0, sleepTime: "23:28", wakeTime: "06:31", energy: 70, rating: 72 },
-  { date: "2026-02-02", sleepDuration: 7.6, sleepTime: "23:08", wakeTime: "06:45", energy: 78, rating: 79 },
-  { date: "2026-02-03", sleepDuration: 6.4, sleepTime: "00:05", wakeTime: "06:24", energy: 58, rating: 60 },
-  { date: "2026-02-04", sleepDuration: 7.9, sleepTime: "22:55", wakeTime: "06:52", energy: 83, rating: 84 },
-  { date: "2026-02-05", sleepDuration: 7.2, sleepTime: "23:26", wakeTime: "06:37", energy: 73, rating: 74 },
-  { date: "2026-02-06", sleepDuration: 8.0, sleepTime: "22:49", wakeTime: "07:00", energy: 86, rating: 87 },
-  { date: "2026-02-07", sleepDuration: 6.8, sleepTime: "23:41", wakeTime: "06:30", energy: 66, rating: 68 },
-  { date: "2026-02-08", sleepDuration: 7.4, sleepTime: "23:18", wakeTime: "06:41", energy: 75, rating: 76 },
-  { date: "2026-02-09", sleepDuration: 7.7, sleepTime: "23:00", wakeTime: "06:47", energy: 80, rating: 81 },
-  { date: "2026-02-10", sleepDuration: 6.6, sleepTime: "23:55", wakeTime: "06:28", energy: 61, rating: 63 },
-  { date: "2026-02-11", sleepDuration: 8.2, sleepTime: "22:43", wakeTime: "07:03", energy: 88, rating: 89 },
-  { date: "2026-02-12", sleepDuration: 7.1, sleepTime: "23:29", wakeTime: "06:36", energy: 71, rating: 72 },
-  { date: "2026-02-13", sleepDuration: 7.5, sleepTime: "23:12", wakeTime: "06:44", energy: 77, rating: 78 },
-  { date: "2026-02-14", sleepDuration: 7.8, sleepTime: "23:04", wakeTime: "06:49", energy: 82, rating: 83 },
-  { date: "2026-02-15", sleepDuration: 6.9, sleepTime: "23:46", wakeTime: "06:34", energy: 67, rating: 69 },
-  { date: "2026-02-16", sleepDuration: 7.3, sleepTime: "23:22", wakeTime: "06:39", energy: 74, rating: 75 },
-  { date: "2026-02-17", sleepDuration: 8.1, sleepTime: "22:52", wakeTime: "07:01", energy: 87, rating: 88 },
-  { date: "2026-02-18", sleepDuration: 6.4, sleepTime: "00:10", wakeTime: "06:31", energy: 57, rating: 59 },
-  { date: "2026-02-19", sleepDuration: 7.9, sleepTime: "23:00", wakeTime: "06:56", energy: 82, rating: 84 },
-  { date: "2026-02-20", sleepDuration: 7.3, sleepTime: "23:22", wakeTime: "06:41", energy: 72, rating: 74 },
-  { date: "2026-02-21", sleepDuration: 7.7, sleepTime: "23:06", wakeTime: "06:50", energy: 79, rating: 80 },
-  { date: "2026-02-22", sleepDuration: 6.7, sleepTime: "23:50", wakeTime: "06:33", energy: 63, rating: 65 },
-  { date: "2026-02-23", sleepDuration: 7.2, sleepTime: "23:27", wakeTime: "06:38", energy: 72, rating: 73 },
-  { date: "2026-02-24", sleepDuration: 8.0, sleepTime: "22:48", wakeTime: "07:00", energy: 85, rating: 86 },
-  { date: "2026-02-25", sleepDuration: 7.4, sleepTime: "23:17", wakeTime: "06:42", energy: 76, rating: 77 },
-  { date: "2026-02-26", sleepDuration: 6.5, sleepTime: "00:04", wakeTime: "06:26", energy: 59, rating: 61 },
-  { date: "2026-02-27", sleepDuration: 7.6, sleepTime: "23:11", wakeTime: "06:46", energy: 79, rating: 80 },
-  { date: "2026-02-28", sleepDuration: 8.2, sleepTime: "22:45", wakeTime: "07:04", energy: 89, rating: 90 },
-];
+function computeSleepDuration(sleepTime, wakeUpTime) {
+  if (!sleepTime || !wakeUpTime) return null;
+  const [sh, sm] = sleepTime.split(":").map(Number);
+  const [wh, wm] = wakeUpTime.split(":").map(Number);
+  const sleepMins = sh * 60 + sm;
+  const wakeMins  = wh * 60 + wm;
+  const diff = wakeMins >= sleepMins ? wakeMins - sleepMins : 24 * 60 - sleepMins + wakeMins;
+  return Math.round(diff / 6) / 10; // 1 decimal
+}
 
-const YEARS = [...new Set(SLEEP_ENTRIES.map((entry) => entry.date.slice(0, 4)))].sort().reverse();
+
+const NOW = new Date();
+const YEARS = Array.from({ length: 4 }, (_, i) => String(NOW.getFullYear() - i));
+
+const DEMO_SLEEP_ENTRIES = Array.from({ length: 30 }, (_, i) => {
+  const d = i + 1;
+  const date = `2026-04-${String(d).padStart(2, "0")}`;
+  const sleepH = d % 3 === 0 ? 0 : 23;
+  const sleepM = [18, 56, 42, 8, 48, 14, 58, 36, 26, 4][d % 10];
+  const wakeH = 6;
+  const wakeM = [44, 2, 40, 55, 5, 32, 59, 21, 39, 48][d % 10];
+  const sleepTime = `${String(sleepH).padStart(2,"0")}:${String(sleepM).padStart(2,"0")}`;
+  const wakeTime  = `${String(wakeH).padStart(2,"0")}:${String(wakeM).padStart(2,"0")}`;
+  const energy = 52 + ((d * 7 + 3) % 40);
+  const rating = energy + Math.round((d % 5) - 2);
+  return { date, sleepTime, wakeTime, energy, rating };
+}).concat(
+  Array.from({ length: 28 }, (_, i) => {
+    const d = i + 1;
+    const date = `2026-03-${String(d).padStart(2, "0")}`;
+    const sleepH = d % 4 === 0 ? 0 : 23;
+    const sleepM = [20, 58, 45, 10, 50, 12, 57, 38, 24, 6][d % 10];
+    const wakeH = 6;
+    const wakeM = [40, 5, 38, 52, 8, 30, 56, 25, 42, 50][d % 10];
+    const sleepTime = `${String(sleepH).padStart(2,"0")}:${String(sleepM).padStart(2,"0")}`;
+    const wakeTime  = `${String(wakeH).padStart(2,"0")}:${String(wakeM).padStart(2,"0")}`;
+    const energy = 55 + ((d * 5 + 7) % 38);
+    const rating = energy + Math.round((d % 4) - 1);
+    return { date, sleepTime, wakeTime, energy, rating };
+  })
+);
 const WEEKDAY_ORDER = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WEEK_OPTIONS = [
   { value: 1, label: "Week 1", range: "1-7" },
@@ -179,11 +134,12 @@ function getWeekBounds(week) {
   return { weekNumber, startDay, endDay };
 }
 
-function buildMonthlySleepSeries(entries, year, month) {
+function buildMonthlySleepSeries(entries, year, month, maxDay) {
   const entryMap = new Map(entries.map((entry) => [entry.date.slice(8, 10), entry]));
   const daysInMonth = getDaysInMonth(year, month);
+  const lastDay = maxDay != null ? Math.min(daysInMonth, maxDay) : daysInMonth;
 
-  return Array.from({ length: daysInMonth }, (_, index) => {
+  return Array.from({ length: lastDay }, (_, index) => {
     const dayNumber = index + 1;
     const dayKey = String(dayNumber).padStart(2, "0");
     const entry = entryMap.get(dayKey);
@@ -833,28 +789,59 @@ function EnergyLevelGraph({ data }) {
 }
 
 export default function SleepEnergyAnalysis() {
-  const [selectedYear, setSelectedYear] = useState(YEARS[0]);
-  const [selectedMonth, setSelectedMonth] = useState("04");
-  const [selectedWeek, setSelectedWeek] = useState(1);
+  const { isDemoMode } = useAuth();
+  const [selectedYear, setSelectedYear]   = useState(YEARS[0]);
+  const [selectedMonth, setSelectedMonth] = useState(isDemoMode ? "04" : String(NOW.getMonth() + 1).padStart(2, "0"));
+  const [selectedWeek, setSelectedWeek]   = useState(1);
+  const [rawEntries, setRawEntries]       = useState([]);
+  const [loading, setLoading]             = useState(false);
 
-  const availableMonths = useMemo(() => {
-    const months = new Set(
-      SLEEP_ENTRIES.filter((entry) => entry.date.startsWith(selectedYear)).map((entry) => entry.date.slice(5, 7))
-    );
-    return MONTH_OPTIONS.filter((month) => months.has(month.value));
-  }, [selectedYear]);
+  useEffect(() => {
+    if (isDemoMode) {
+      const demo = DEMO_SLEEP_ENTRIES
+        .filter(e => e.date.startsWith(selectedYear) && e.date.slice(5, 7) === selectedMonth)
+        .map(e => ({
+          date:          e.date,
+          sleepDuration: computeSleepDuration(e.sleepTime, e.wakeTime),
+          sleepTime:     e.sleepTime,
+          wakeTime:      e.wakeTime,
+          energy:        e.energy,
+          rating:        e.rating,
+        }));
+      setRawEntries(demo);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    api.get(`/journal/analysis?year=${selectedYear}&month=${parseInt(selectedMonth, 10)}`)
+      .then(res => {
+        if (!cancelled) {
+          setRawEntries((res.data.entries || []).map(e => ({
+            date:          e.date,
+            sleepDuration: computeSleepDuration(e.sleepTime, e.wakeUpTime),
+            sleepTime:     e.sleepTime,
+            wakeTime:      e.wakeUpTime,
+            energy:        e.energy,
+            rating:        e.rating,
+          })));
+        }
+      })
+      .catch(() => { if (!cancelled) setRawEntries([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [isDemoMode, selectedYear, selectedMonth]);
 
   const filteredEntries = useMemo(
-    () =>
-      SLEEP_ENTRIES.filter(
-        (entry) => entry.date.startsWith(selectedYear) && entry.date.slice(5, 7) === selectedMonth
-      ).sort((a, b) => a.date.localeCompare(b.date)),
-    [selectedMonth, selectedYear]
+    () => rawEntries.sort((a, b) => a.date.localeCompare(b.date)),
+    [rawEntries]
   );
 
+  const isCurrentMonth = selectedYear === String(NOW.getFullYear()) && selectedMonth === String(NOW.getMonth() + 1).padStart(2, "0");
+  const maxDay = isCurrentMonth ? NOW.getDate() : null;
+
   const lineSeries = useMemo(
-    () => buildMonthlySleepSeries(filteredEntries, selectedYear, selectedMonth),
-    [filteredEntries, selectedMonth, selectedYear]
+    () => buildMonthlySleepSeries(filteredEntries, selectedYear, selectedMonth, maxDay),
+    [filteredEntries, selectedMonth, selectedYear, maxDay]
   );
   const comparisonSeries = useMemo(
     () => buildWeeklySeries(filteredEntries, selectedYear, selectedMonth, selectedWeek),
@@ -862,11 +849,17 @@ export default function SleepEnergyAnalysis() {
   );
   const energySeries = comparisonSeries;
 
-  const avgSleepDuration = average(filteredEntries.map((entry) => entry.sleepDuration));
-  const avgWakeupTime = average(filteredEntries.map((entry) => timeToMinutes(entry.wakeTime)));
-  const avgSleepTime = average(filteredEntries.map((entry) => timeToMinutes(entry.sleepTime)));
-  const avgEnergy = average(filteredEntries.map((entry) => entry.energy));
-  const avgDayRating = average(filteredEntries.map((entry) => entry.rating));
+  const sleepDurations = filteredEntries.map(e => e.sleepDuration).filter(v => v != null);
+  const wakeMinutes   = filteredEntries.filter(e => e.wakeTime).map(e => timeToMinutes(e.wakeTime));
+  const sleepMinutes  = filteredEntries.filter(e => e.sleepTime).map(e => timeToMinutes(e.sleepTime));
+  const energyValues  = filteredEntries.map(e => e.energy).filter(v => v != null);
+  const ratingValues  = filteredEntries.map(e => e.rating).filter(v => v != null);
+
+  const avgSleepDuration = sleepDurations.length ? average(sleepDurations) : null;
+  const avgWakeupTime    = wakeMinutes.length    ? average(wakeMinutes)    : null;
+  const avgSleepTime     = sleepMinutes.length   ? average(sleepMinutes)   : null;
+  const avgEnergy        = energyValues.length   ? average(energyValues)   : null;
+  const avgDayRating     = ratingValues.length   ? average(ratingValues)   : null;
   const weekdayRatingSeries = useMemo(() => buildWeekdayRatingSeries(filteredEntries), [filteredEntries]);
   const validWeekdayRatings = weekdayRatingSeries.filter((item) => item.value > 0);
   const highestRatedDay = validWeekdayRatings.length
@@ -886,27 +879,27 @@ export default function SleepEnergyAnalysis() {
   const littleMonkInsights = [
     {
       title: "Avg Sleep Duration",
-      value: formatDuration(avgSleepDuration),
+      value: avgSleepDuration != null ? formatDuration(avgSleepDuration) : "No data",
       description: "This month’s average nightly sleep duration across your logged days.",
     },
     {
       title: "Avg Wakeup Time",
-      value: formatClock(avgWakeupTime),
+      value: avgWakeupTime != null ? formatClock(avgWakeupTime) : "No data",
       description: "Your average wakeup time shows how consistent your morning rhythm has been this month.",
     },
     {
       title: "Avg Sleep Time",
-      value: formatClock(avgSleepTime),
+      value: avgSleepTime != null ? formatClock(avgSleepTime) : "No data",
       description: "Your average sleep time reflects when your nights usually begin in the selected month.",
     },
     {
       title: "Avg Energy This Month",
-      value: `${Math.round(avgEnergy)}%`,
+      value: avgEnergy != null ? `${Math.round(avgEnergy)}%` : "No data",
       description: "Average daytime energy across the current month’s entries.",
     },
     {
       title: "Avg Day Rating This Month",
-      value: `${round(avgDayRating)}%`,
+      value: avgDayRating != null ? `${round(avgDayRating)}%` : "No data",
       description: "Average overall day rating across the current month’s sleep and energy entries.",
     },
     {
@@ -938,18 +931,23 @@ export default function SleepEnergyAnalysis() {
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
+        {String(NOW.getFullYear()) === selectedYear && String(NOW.getMonth() + 1).padStart(2, "0") === selectedMonth && (
+          <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+            Live · updates daily
+          </span>
+        )}
         <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
           <span className="text-stone-400">Year</span>
           <select
             value={selectedYear}
             onChange={(event) => {
-              const nextYear = event.target.value;
-              setSelectedYear(nextYear);
-              const nextMonths = MONTH_OPTIONS.filter((month) =>
-                SLEEP_ENTRIES.some((entry) => entry.date.startsWith(nextYear) && entry.date.slice(5, 7) === month.value)
-              );
-              setSelectedMonth(nextMonths[0]?.value ?? "01");
+              const newYear = event.target.value;
+              setSelectedYear(newYear);
               setSelectedWeek(1);
+              if (newYear === String(NOW.getFullYear()) && parseInt(selectedMonth) > NOW.getMonth() + 1) {
+                setSelectedMonth(String(NOW.getMonth() + 1).padStart(2, "0"));
+              }
             }}
             className="bg-transparent text-sky-100 outline-none"
           >
@@ -971,7 +969,10 @@ export default function SleepEnergyAnalysis() {
             }}
             className="bg-transparent text-sky-100 outline-none"
           >
-            {availableMonths.map((month) => (
+            {(selectedYear === String(NOW.getFullYear())
+              ? MONTH_OPTIONS.filter(m => parseInt(m.value) <= NOW.getMonth() + 1)
+              : MONTH_OPTIONS
+            ).map((month) => (
               <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">
                 {month.label}
               </option>
@@ -981,6 +982,12 @@ export default function SleepEnergyAnalysis() {
 
       </div>
 
+      {loading ? (
+        <div className="space-y-3">
+          <div className="h-48 animate-pulse rounded-2xl border border-sky-100/10 bg-white/[0.03]" />
+          <div className="h-36 animate-pulse rounded-2xl border border-sky-100/10 bg-white/[0.03]" />
+        </div>
+      ) : (
       <div className="flex flex-col gap-5 xl:flex-row xl:items-start">
         <div className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur xl:max-h-[calc(100vh-350px)]">
           <div className="space-y-6 p-6">
@@ -998,6 +1005,7 @@ export default function SleepEnergyAnalysis() {
           <InsightRail insights={littleMonkInsights} />
         </div>
       </div>
+      )}
     </section>
   );
 }

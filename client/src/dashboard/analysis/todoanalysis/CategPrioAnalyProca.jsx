@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
+import api from "../../../api/axios";
+import useAuth from "../../../hooks/useAuth";
 
 const DAY_ORDER = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const PRIORITY_ORDER = ["High", "Medium", "Low"];
@@ -19,7 +21,7 @@ const MONTH_OPTIONS = [
   { value: "12", label: "December" },
 ];
 
-const TODO_CATEGORY_MONTHLY_DATA = [
+const DEMO_TODO_CATEGORY_MONTHLY_DATA = [
   {
     year: "2026",
     month: "04",
@@ -130,9 +132,8 @@ const TODO_CATEGORY_MONTHLY_DATA = [
   },
 ];
 
-const YEARS = [...new Set(TODO_CATEGORY_MONTHLY_DATA.map((entry) => entry.year))].sort().reverse();
-const CURRENT_YEAR = String(new Date().getFullYear());
-const CURRENT_MONTH = String(new Date().getMonth() + 1).padStart(2, "0");
+const NOW = new Date();
+const YEARS = Array.from({ length: 4 }, (_, i) => String(NOW.getFullYear() - i));
 
 const BAR_H = 190;
 const LABEL_H = 62;
@@ -144,19 +145,6 @@ function toPercent(part, total) {
   if (!total) return 0;
   return round((part / total) * 100);
 }
-
-function getAvailableMonthsForYear(year) {
-  return MONTH_OPTIONS.filter((month) =>
-    TODO_CATEGORY_MONTHLY_DATA.some((entry) => entry.year === year && entry.month === month.value)
-  );
-}
-
-const INITIAL_YEAR = YEARS.includes(CURRENT_YEAR) ? CURRENT_YEAR : YEARS[0];
-const INITIAL_MONTH = (() => {
-  const months = getAvailableMonthsForYear(INITIAL_YEAR);
-  if (months.some((month) => month.value === CURRENT_MONTH)) return CURRENT_MONTH;
-  return months[0]?.value ?? MONTH_OPTIONS[0].value;
-})();
 
 function getCountScale(maxValue) {
   const yMax = Math.max(6, maxValue);
@@ -442,143 +430,123 @@ function SingleBarCountGraph({ title, subtitle, series, colorTheme, note }) {
 }
 
 export default function CategPrioAnalyProca() {
-  const [selectedYear, setSelectedYear] = useState(INITIAL_YEAR);
-  const [selectedMonth, setSelectedMonth] = useState(INITIAL_MONTH);
+  const { isDemoMode } = useAuth();
+  const [selectedYear,  setSelectedYear]  = useState(YEARS[0]);
+  const [selectedMonth, setSelectedMonth] = useState(isDemoMode ? "04" : String(NOW.getMonth() + 1).padStart(2, "0"));
+  const [apiData,  setApiData]  = useState(null);
+  const [loading,  setLoading]  = useState(false);
 
-  const availableMonths = useMemo(() => getAvailableMonthsForYear(selectedYear), [selectedYear]);
+  useEffect(() => {
+    if (isDemoMode) { setApiData(null); return; }
+    let cancelled = false;
+    setLoading(true);
+    api.get(`/todos/analysis?year=${selectedYear}&month=${parseInt(selectedMonth, 10)}`)
+      .then(res  => { if (!cancelled) setApiData(res.data); })
+      .catch(()  => { if (!cancelled) setApiData(null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [isDemoMode, selectedYear, selectedMonth]);
 
-  const selectedPeriod = useMemo(
-    () =>
-      TODO_CATEGORY_MONTHLY_DATA.find((entry) => entry.year === selectedYear && entry.month === selectedMonth) ??
-      TODO_CATEGORY_MONTHLY_DATA.find((entry) => entry.year === selectedYear) ??
-      TODO_CATEGORY_MONTHLY_DATA[0],
-    [selectedMonth, selectedYear]
-  );
+  const { categoriesWithRates, prioritiesRaw, lateByDay } = useMemo(() => {
+    let categories, priorities, lateByDayArr;
 
-  const categoriesWithRates = useMemo(
-    () =>
-      selectedPeriod.categories.map((item) => {
-        const missed = Math.max(0, item.total - item.completed);
-        return {
-          ...item,
-          missed,
-          completionRate: toPercent(item.completed, item.total),
-          missRate: toPercent(missed, item.total),
-        };
-      }),
-    [selectedPeriod]
-  );
+    if (isDemoMode) {
+      const demo = DEMO_TODO_CATEGORY_MONTHLY_DATA.find(e => e.year === selectedYear && e.month === selectedMonth)
+        ?? DEMO_TODO_CATEGORY_MONTHLY_DATA[0];
+      categories   = demo.categories.map(c => ({ ...c, lateCompleted: c.late }));
+      priorities   = demo.priorities;
+      lateByDayArr = demo.lateByDay;
+    } else if (apiData) {
+      categories   = apiData.categories.map(c => ({ ...c, lateCompleted: c.lateCompleted ?? 0 }));
+      priorities   = apiData.priorities;
+      // build lateByDay from days array
+      const byDay = {};
+      for (const d of apiData.days) {
+        if (!byDay[d.weekday]) byDay[d.weekday] = 0;
+        byDay[d.weekday] += d.lateCompleted ?? 0;
+      }
+      lateByDayArr = DAY_ORDER.map(day => ({ day, count: byDay[day] ?? 0 }));
+    } else {
+      return { categoriesWithRates: [], prioritiesRaw: [], lateByDay: [] };
+    }
 
-  const categorySeries = categoriesWithRates.map((item) => ({
+    const categoriesWithRates = categories.map(item => {
+      const missed = Math.max(0, item.total - item.completed);
+      return { ...item, missed, completionRate: toPercent(item.completed, item.total), missRate: toPercent(missed, item.total) };
+    });
+
+    return { categoriesWithRates, prioritiesRaw: priorities, lateByDay: lateByDayArr };
+  }, [isDemoMode, apiData, selectedYear, selectedMonth]);
+
+  const categorySeries = categoriesWithRates.map(item => ({
     label: item.important ? `${item.name} ★` : item.name,
     valueA: item.completed,
     valueB: item.missed,
   }));
 
-  const prioritySeries = PRIORITY_ORDER.map((priority) => {
-    const entry = selectedPeriod.priorities.find((item) => item.name === priority);
-    const total = entry?.total ?? 0;
+  const prioritySeries = PRIORITY_ORDER.map(priority => {
+    const entry    = prioritiesRaw.find(p => p.name === priority);
+    const total    = entry?.total    ?? 0;
     const completed = entry?.completed ?? 0;
-    const missed = Math.max(0, total - completed);
-    return {
-      label: priority,
-      valueA: completed,
-      valueB: missed,
-    };
+    const missed   = Math.max(0, total - completed);
+    return { label: priority, valueA: completed, valueB: missed };
   });
 
-  const procrastinationCategorySeries = categoriesWithRates.map((item) => ({
+  const procrastinationCategorySeries = categoriesWithRates.map(item => ({
     label: item.name,
-    value: item.late,
+    value: item.lateCompleted ?? item.late ?? 0,
   }));
 
-  const dayLateMap = useMemo(
-    () => new Map((selectedPeriod.lateByDay ?? []).map((item) => [item.day, item.count])),
-    [selectedPeriod]
-  );
-  const procrastinationDaySeries = DAY_ORDER.map((day) => ({
-    label: day,
-    value: dayLateMap.get(day) ?? 0,
-  }));
+  const dayLateMap = new Map((lateByDay ?? []).map(item => [item.day, item.count]));
+  const procrastinationDaySeries = DAY_ORDER.map(day => ({ label: day, value: dayLateMap.get(day) ?? 0 }));
 
   const totals = categoriesWithRates.reduce(
-    (acc, item) => ({
-      totalTasks: acc.totalTasks + item.total,
-      lateTasks: acc.lateTasks + item.late,
-    }),
+    (acc, item) => ({ totalTasks: acc.totalTasks + item.total, lateTasks: acc.lateTasks + (item.lateCompleted ?? item.late ?? 0) }),
     { totalTasks: 0, lateTasks: 0 }
   );
 
-  const strongCategory = categoriesWithRates.reduce((best, current) =>
-    current.completionRate > best.completionRate ? current : best
-  );
-  const weakCategory = categoriesWithRates.reduce((worst, current) =>
-    current.missRate > worst.missRate ? current : worst
-  );
-  const lateRate = toPercent(totals.lateTasks, totals.totalTasks);
+  const strongCategory   = categoriesWithRates.length ? categoriesWithRates.reduce((b, c) => c.completionRate > b.completionRate ? c : b) : null;
+  const weakCategory     = categoriesWithRates.length ? categoriesWithRates.reduce((b, c) => c.missRate     > b.missRate     ? c : b) : null;
+  const lateRate         = toPercent(totals.lateTasks, totals.totalTasks);
+  const maxDayLate       = Math.max(0, ...procrastinationDaySeries.map(d => d.value));
+  const mostProcrastinateDays = maxDayLate > 0 ? procrastinationDaySeries.filter(d => d.value === maxDayLate) : [];
+  const maxCatLate       = Math.max(0, ...procrastinationCategorySeries.map(c => c.value));
+  const mostProcrastinateCategories = maxCatLate > 0 ? procrastinationCategorySeries.filter(c => c.value === maxCatLate) : [];
 
-  const maxDayLate = Math.max(...procrastinationDaySeries.map((d) => d.value));
-  const mostProcrastinateDays = procrastinationDaySeries.filter((d) => d.value === maxDayLate);
-
-  const maxCatLate = Math.max(...procrastinationCategorySeries.map((c) => c.value));
-  const mostProcrastinateCategories = procrastinationCategorySeries.filter((c) => c.value === maxCatLate);
+  const isCurrentMonth = selectedYear === String(NOW.getFullYear()) && selectedMonth === String(NOW.getMonth() + 1).padStart(2, "0");
 
   const insights = [
-    {
-      title: "Strong Category",
-      value: `${strongCategory.name} (${strongCategory.completionRate}% completion)`,
-      description: `${strongCategory.completed}/${strongCategory.total} tasks completed in this category.`,
-    },
-    {
-      title: "Weak Category",
-      value: `${weakCategory.name} (${weakCategory.missRate}% miss rate)`,
-      description: `${weakCategory.missed}/${weakCategory.total} tasks were missed in this category.`,
-    },
-    {
-      title: "No. of Late Completion",
-      value: `${totals.lateTasks} (${lateRate}% rate)`,
-      description: `${totals.lateTasks} late submitted tasks out of ${totals.totalTasks} total tasks in this month.`,
-    },
-    {
-      title: "Most Procrastinate Day",
-      value: `${mostProcrastinateDays.map((d) => d.label).join(", ")} (${maxDayLate} late tasks)`,
-      description: `${mostProcrastinateDays.map((d) => d.label).join(" and ")} ${mostProcrastinateDays.length > 1 ? "both have" : "has"} the highest number of late submissions this month. Consider planning lighter or high-priority tasks earlier on ${mostProcrastinateDays.length > 1 ? "these days" : "this day"}.`,
-    },
-    {
-      title: "Most Procrastinate Category",
-      value: `${mostProcrastinateCategories.map((c) => c.label).join(", ")} (${maxCatLate} late tasks)`,
-      description: `${mostProcrastinateCategories.map((c) => c.label).join(" and ")} ${mostProcrastinateCategories.length > 1 ? "have" : "has"} the most late completions this month. ${mostProcrastinateCategories.length > 1 ? "These categories need" : "This category needs"} better time allocation or deadline reminders.`,
-    },
+    { title: "Strong Category",           value: strongCategory  ? `${strongCategory.name} (${strongCategory.completionRate}% completion)` : "No data", description: strongCategory  ? `${strongCategory.completed}/${strongCategory.total} tasks completed in this category.` : "" },
+    { title: "Weak Category",             value: weakCategory    ? `${weakCategory.name} (${weakCategory.missRate}% miss rate)`             : "No data", description: weakCategory    ? `${weakCategory.missed}/${weakCategory.total} tasks were missed in this category.`     : "" },
+    { title: "No. of Late Completion",    value: `${totals.lateTasks} (${lateRate}% rate)`, description: `${totals.lateTasks} late completed tasks out of ${totals.totalTasks} total tasks.` },
+    { title: "Most Procrastinate Day",    value: mostProcrastinateDays.length    ? `${mostProcrastinateDays.map(d => d.label).join(", ")} (${maxDayLate} late)`    : "No late completions", description: mostProcrastinateDays.length    ? `${mostProcrastinateDays.map(d => d.label).join(" and ")} had the highest late submissions.`    : "" },
+    { title: "Most Procrastinate Category", value: mostProcrastinateCategories.length ? `${mostProcrastinateCategories.map(c => c.label).join(", ")} (${maxCatLate} late)` : "No late completions", description: mostProcrastinateCategories.length ? `${mostProcrastinateCategories.map(c => c.label).join(" and ")} had the most late completions.` : "" },
   ];
 
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
+        {isCurrentMonth && (
+          <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+            Live · updates daily
+          </span>
+        )}
         <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
           <span className="text-stone-400">Year</span>
           <select
             value={selectedYear}
             onChange={(event) => {
-              const nextYear = event.target.value;
-              setSelectedYear(nextYear);
-              const nextMonths = getAvailableMonthsForYear(nextYear);
-              const monthSet = new Set(nextMonths.map((month) => month.value));
-              if (monthSet.has(selectedMonth)) {
-                setSelectedMonth(selectedMonth);
-                return;
+              const newYear = event.target.value;
+              setSelectedYear(newYear);
+              if (newYear === String(NOW.getFullYear()) && parseInt(selectedMonth) > NOW.getMonth() + 1) {
+                setSelectedMonth(String(NOW.getMonth() + 1).padStart(2, "0"));
               }
-              if (monthSet.has(CURRENT_MONTH)) {
-                setSelectedMonth(CURRENT_MONTH);
-                return;
-              }
-              setSelectedMonth(nextMonths[0]?.value ?? MONTH_OPTIONS[0].value);
             }}
             className="bg-transparent text-sky-100 outline-none"
           >
             {YEARS.map((year) => (
-              <option key={year} value={year} className="bg-stone-950 text-stone-200">
-                {year}
-              </option>
+              <option key={year} value={year} className="bg-stone-950 text-stone-200">{year}</option>
             ))}
           </select>
         </label>
@@ -590,14 +558,23 @@ export default function CategPrioAnalyProca() {
             onChange={(event) => setSelectedMonth(event.target.value)}
             className="bg-transparent text-sky-100 outline-none"
           >
-            {availableMonths.map((month) => (
-              <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">
-                {month.label}
-              </option>
+            {(selectedYear === String(NOW.getFullYear())
+              ? MONTH_OPTIONS.filter(m => parseInt(m.value) <= NOW.getMonth() + 1)
+              : MONTH_OPTIONS
+            ).map((month) => (
+              <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">{month.label}</option>
             ))}
           </select>
         </label>
       </div>
+
+      {loading && (
+        <div className="space-y-3">
+          <div className="h-48 animate-pulse rounded-2xl border border-sky-100/10 bg-white/[0.03]" />
+          <div className="h-36 animate-pulse rounded-2xl border border-sky-100/10 bg-white/[0.03]" />
+        </div>
+      )}
+      {!loading && (
 
       <div className="flex flex-col gap-5 xl:flex-row xl:items-start">
         <div className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur xl:max-h-[calc(100vh-350px)]">
@@ -668,6 +645,7 @@ export default function CategPrioAnalyProca() {
           <InsightRail insights={insights} />
         </div>
       </div>
+      )}
     </section>
   );
 }

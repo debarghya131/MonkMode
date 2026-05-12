@@ -1341,7 +1341,10 @@ export const generateJournalAiSummary = async (req, res) => {
 
     // Return cached summary unless regenerate is explicitly requested
     if (!regenerate) {
-      const cached = await JournalWeeklySummary.findOne({ userId, weekStart: startDayKey }).lean();
+      const cached = await JournalWeeklySummary.findOne({
+        userId,
+        $or: [{ weekStart: startDayKey }, { weekId: startDayKey }]
+      }).lean();
       if (cached) return res.json({ aiSummary: cached.aiSummary, cached: true });
     }
 
@@ -1415,7 +1418,7 @@ Rules:
     if (aiSummary) {
       await JournalWeeklySummary.findOneAndUpdate(
         { userId, weekStart: startDayKey },
-        { aiSummary },
+        { weekStart: startDayKey, weekId: startDayKey, aiSummary },
         { upsert: true, returnDocument: "after" }
       );
     }

@@ -222,12 +222,12 @@ function ChatBubble({ role, text }) {
   return (
     <div className={`msg-slide-in flex w-full items-start gap-3 ${isUser ? "justify-end flex-row-reverse" : ""}`}>
       {!isUser && (
-        <img src={mingAvatar} alt="Ming" className="soft-float h-14 w-auto shrink-0 self-end drop-shadow-[0_0_8px_rgba(245,181,47,0.5)]" />
+        <img src={mingAvatar} alt="Ming" className="soft-float h-14 w-auto shrink-0 self-end" />
       )}
       <article className={`rounded-2xl border px-4 py-3 text-sm leading-6 shadow-none ${
         isUser
           ? "ml-auto w-fit max-w-[85%] border-amber-300/30 bg-amber-500/12 text-amber-100"
-          : "w-full max-w-4xl border-sky-200/20 bg-sky-500/10 text-stone-200"
+          : "w-full max-w-4xl border-sky-200/15 bg-stone-950/65 text-stone-200 shadow-none drop-shadow-none backdrop-blur-0"
       }`}>
         {!isUser && (
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-amber-300/60">Ming</p>
@@ -278,16 +278,39 @@ export default function AIGuru() {
   // Chat helpers
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
-  const sendPrompt = (value) => {
+  const [chatLoading, setChatLoading] = useState(false);
+
+  const sendPrompt = async (value) => {
     const clean = value.trim();
-    if (!clean) return;
+    if (!clean || chatLoading) return;
     const nextId = (idRef.current += 1);
-    setMessages((prev) => [
-      ...prev,
-      { id: `user-${nextId}`, role: "user", text: clean },
-      { id: `guru-${nextId}`, role: "guru", text: "Here is your next best move: set one non-negotiable priority, time-box it for 45 minutes, then execute before switching tabs. Full AI features coming soon." },
-    ]);
+
+    if (isDemoMode) {
+      setMessages((prev) => [
+        ...prev,
+        { id: `user-${nextId}`, role: "user", text: clean },
+        { id: `guru-${nextId}`, role: "guru", text: "Sign in to your account to speak with Ming. Demo mode cannot access personalized guidance." },
+      ]);
+      setPrompt("");
+      return;
+    }
+
+    setMessages((prev) => [...prev, { id: `user-${nextId}`, role: "user", text: clean }]);
     setPrompt("");
+    setChatLoading(true);
+
+    try {
+      const history = messages
+        .filter((m) => m.id !== "greeting")
+        .map((m) => ({ role: m.role === "guru" ? "assistant" : "user", content: m.text }));
+
+      const { data } = await api.post("/insights/chat", { message: clean, history, scope });
+      setMessages((prev) => [...prev, { id: `guru-${nextId}`, role: "guru", text: data.reply }]);
+    } catch {
+      setMessages((prev) => [...prev, { id: `guru-${nextId}`, role: "guru", text: "The path is unclear at this moment. Try again shortly." }]);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -300,7 +323,7 @@ export default function AIGuru() {
 
   return (
     <section className="h-full min-h-0 w-full lg:-mt-4 xl:-mt-6">
-      <div className="panel-rise-in grid min-h-[78vh] overflow-hidden rounded-[1.5rem] border border-amber-100/10 shadow-2xl shadow-black/30 lg:h-[calc(100vh-9rem)] lg:min-h-0 lg:grid-cols-[minmax(15rem,20rem)_minmax(0,1fr)] xl:rounded-[2rem]">
+      <div className="grid min-h-[78vh] overflow-hidden rounded-[1.5rem] border border-amber-100/10 shadow-2xl shadow-black/30 lg:h-[calc(100vh-9rem)] lg:min-h-0 lg:grid-cols-[minmax(15rem,20rem)_minmax(0,1fr)] xl:rounded-[2rem]">
 
         {/* ── LEFT: Avatar panel ── */}
         <div className="order-1 flex flex-col gap-4 border-b border-amber-100/10 bg-stone-950/60 px-4 py-5 backdrop-blur sm:px-5 md:px-6 lg:order-1 lg:min-h-0 lg:gap-4 lg:overflow-y-auto lg:border-r lg:border-b-0 lg:px-6 lg:py-4 xl:px-8 xl:py-5">
@@ -431,6 +454,58 @@ export default function AIGuru() {
                     {error}
                   </div>
                 )}
+
+                {/* Full Features Coming Soon banner */}
+                <Motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
+                  whileHover={{ scale: 1.003 }}
+                  style={{ willChange: "transform, box-shadow" }}
+                  className="relative mb-6 flex items-center gap-4 overflow-hidden rounded-2xl border border-amber-400/25 bg-gradient-to-r from-amber-500/10 via-orange-500/8 to-amber-500/10 px-5 py-4 sm:px-6 sm:py-4"
+                >
+                  <Motion.span
+                    className="pointer-events-none absolute inset-y-0 left-[-45%] w-[28%] -skew-x-12 bg-white/20 blur-sm"
+                    animate={{ left: ["-45%", "130%"] }}
+                    transition={{ duration: 2.6, repeat: Infinity, repeatDelay: 1.2, ease: "easeInOut" }}
+                  />
+                  <Motion.span
+                    className="pointer-events-none absolute inset-0 rounded-2xl"
+                    animate={{
+                      boxShadow: [
+                        "0 0 0px rgba(251,191,36,0), inset 0 0 0px rgba(251,191,36,0)",
+                        "0 0 20px rgba(251,191,36,0.16), inset 0 0 12px rgba(251,191,36,0.08)",
+                        "0 0 0px rgba(251,191,36,0), inset 0 0 0px rgba(251,191,36,0)"
+                      ]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                  <Motion.div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-400/30 bg-amber-500/15 text-lg"
+                    animate={{ y: [0, -1.5, 0], scale: [1, 1.06, 1], rotate: [0, -8, 0, 8, 0] }}
+                    transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    ✦
+                  </Motion.div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-300 sm:text-[0.78rem]">Full Features Coming Soon</p>
+                    <p className="mt-0.5 text-[0.72rem] leading-5 text-stone-500 sm:text-[0.76rem]">AI-powered deep analysis, trend forecasting &amp; personalised action plans</p>
+                  </div>
+                  <Motion.span
+                    className="ml-auto shrink-0 rounded-full border border-amber-400/30 bg-amber-500/15 px-3 py-1 text-[0.62rem] font-bold uppercase tracking-widest text-amber-300"
+                    animate={{
+                      opacity: [0.7, 1, 0.7],
+                      boxShadow: [
+                        "0 0 0px rgba(251,191,36,0)",
+                        "0 0 10px rgba(251,191,36,0.28)",
+                        "0 0 0px rgba(251,191,36,0)"
+                      ]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    Beta
+                  </Motion.span>
+                </Motion.div>
 
                 {isDemoMode && !loading && (
                   <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm text-amber-200">
@@ -576,11 +651,28 @@ export default function AIGuru() {
 
                 {/* Messages */}
                 <div className="relative flex-1 overflow-hidden lg:min-h-0">
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 hidden h-14 bg-gradient-to-t from-[#221714] to-transparent lg:block" />
-                  <div className="journal-scroll flex min-h-[12rem] flex-col gap-3 overflow-y-auto px-4 py-4 pr-2 sm:px-5 md:px-6 md:pr-3 lg:h-full lg:min-h-0">
+                  <div className="journal-scroll scrollbar-none flex min-h-[12rem] flex-col gap-3 overflow-y-auto px-4 py-4 sm:px-5 md:px-6 lg:h-full lg:min-h-0">
                     {messages.map((msg) => (
                       <ChatBubble key={msg.id} role={msg.role} text={msg.text} />
                     ))}
+                    {chatLoading && (
+                      <div className="flex items-start gap-3">
+                        <img src={mingAvatar} alt="Ming" className="h-14 w-auto shrink-0 self-end" />
+                        <div className="rounded-2xl border border-sky-200/15 bg-stone-950/65 px-4 py-3 shadow-none drop-shadow-none backdrop-blur-0">
+                          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-amber-300/60">Ming</p>
+                          <div className="flex items-center gap-1.5">
+                            {[0, 1, 2].map((i) => (
+                              <Motion.span
+                                key={i}
+                                className="h-1.5 w-1.5 rounded-full bg-amber-400/60"
+                                animate={{ opacity: [0.3, 1, 0.3] }}
+                                transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div ref={bottomRef} />
                   </div>
                 </div>
@@ -602,11 +694,12 @@ export default function AIGuru() {
                     <Motion.button
                       type="button"
                       onClick={() => sendPrompt(prompt)}
-                      animate={{ boxShadow: ["0 8px 20px rgba(245,181,47,0.2)", "0 0 22px rgba(245,181,47,0.48)", "0 8px 20px rgba(245,181,47,0.2)"] }}
+                      disabled={chatLoading}
+                      animate={chatLoading ? {} : { boxShadow: ["0 8px 20px rgba(245,181,47,0.2)", "0 0 22px rgba(245,181,47,0.48)", "0 8px 20px rgba(245,181,47,0.2)"] }}
                       transition={{ boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
-                      whileHover={{ y: -2, scale: 1.04 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="relative min-h-[3rem] w-full overflow-hidden rounded-[1rem] border border-amber-200/35 bg-gradient-to-r from-[#ffd86b] via-[#f7bc3a] to-[#ee971d] px-5 text-sm font-black uppercase tracking-[0.16em] text-stone-950 transition hover:brightness-105 sm:w-auto sm:min-w-[6.5rem]"
+                      whileHover={chatLoading ? {} : { y: -2, scale: 1.04 }}
+                      whileTap={chatLoading ? {} : { scale: 0.95 }}
+                      className="relative min-h-[3rem] w-full overflow-hidden rounded-[1rem] border border-amber-200/35 bg-gradient-to-r from-[#ffd86b] via-[#f7bc3a] to-[#ee971d] px-5 text-sm font-black uppercase tracking-[0.16em] text-stone-950 transition hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto sm:min-w-[6.5rem]"
                     >
                       <Motion.span
                         className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/35 blur-sm"

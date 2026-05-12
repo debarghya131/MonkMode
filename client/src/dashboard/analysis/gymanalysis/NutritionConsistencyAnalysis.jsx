@@ -1,239 +1,37 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
+import api from "../../../api/axios";
+import useAuth from "../../../hooks/useAuth";
+import { buildDemoGymMonthAnalysis } from "./demoGymAnalysis";
 
 const MONTH_OPTIONS = [
-  { value: "01", label: "January" },
-  { value: "02", label: "February" },
-  { value: "03", label: "March" },
-  { value: "04", label: "April" },
-  { value: "05", label: "May" },
-  { value: "06", label: "June" },
-  { value: "07", label: "July" },
-  { value: "08", label: "August" },
-  { value: "09", label: "September" },
+  { value: "1", label: "January" },
+  { value: "2", label: "February" },
+  { value: "3", label: "March" },
+  { value: "4", label: "April" },
+  { value: "5", label: "May" },
+  { value: "6", label: "June" },
+  { value: "7", label: "July" },
+  { value: "8", label: "August" },
+  { value: "9", label: "September" },
   { value: "10", label: "October" },
   { value: "11", label: "November" },
   { value: "12", label: "December" },
 ];
 
-const WEEKLY_GYM_REPORTS = [
-  {
-    year: "2026",
-    month: "04",
-    weekLabel: "Apr 1–5",
-    workoutDays: 3,
-    totalDays: 7,
-    consistencyScore: 74,
-    weeklyScore: 72,
-    avgProtein: 136,
-    avgCarbs: 204,
-    avgFats: 50,
-    avgCalories: 1820,
-    proteinTarget: 150,
-    carbsTarget: 220,
-    fatsTarget: 55,
-    caloriesTarget: 2000,
-  },
-  {
-    year: "2026",
-    month: "04",
-    weekLabel: "Apr 21–27",
-    workoutDays: 4,
-    totalDays: 7,
-    consistencyScore: 84,
-    weeklyScore: 81,
-    avgProtein: 148,
-    avgCarbs: 218,
-    avgFats: 54,
-    avgCalories: 1960,
-    proteinTarget: 150,
-    carbsTarget: 220,
-    fatsTarget: 55,
-    caloriesTarget: 2000,
-  },
-  {
-    year: "2026",
-    month: "04",
-    weekLabel: "Apr 13–19",
-    workoutDays: 5,
-    totalDays: 7,
-    consistencyScore: 88,
-    weeklyScore: 85,
-    avgProtein: 152,
-    avgCarbs: 222,
-    avgFats: 56,
-    avgCalories: 2010,
-    proteinTarget: 150,
-    carbsTarget: 220,
-    fatsTarget: 55,
-    caloriesTarget: 2000,
-  },
-  {
-    year: "2026",
-    month: "04",
-    weekLabel: "Apr 6–12",
-    workoutDays: 4,
-    totalDays: 7,
-    consistencyScore: 80,
-    weeklyScore: 76,
-    avgProtein: 140,
-    avgCarbs: 210,
-    avgFats: 52,
-    avgCalories: 1880,
-    proteinTarget: 150,
-    carbsTarget: 220,
-    fatsTarget: 55,
-    caloriesTarget: 2000,
-  },
-  {
-    year: "2026",
-    month: "03",
-    weekLabel: "Mar 23–29",
-    workoutDays: 4,
-    totalDays: 7,
-    consistencyScore: 78,
-    weeklyScore: 74,
-    avgProtein: 138,
-    avgCarbs: 205,
-    avgFats: 50,
-    avgCalories: 1840,
-    proteinTarget: 150,
-    carbsTarget: 220,
-    fatsTarget: 55,
-    caloriesTarget: 2000,
-  },
-  {
-    year: "2026",
-    month: "03",
-    weekLabel: "Mar 16–22",
-    workoutDays: 5,
-    totalDays: 7,
-    consistencyScore: 82,
-    weeklyScore: 79,
-    avgProtein: 144,
-    avgCarbs: 212,
-    avgFats: 53,
-    avgCalories: 1910,
-    proteinTarget: 150,
-    carbsTarget: 220,
-    fatsTarget: 55,
-    caloriesTarget: 2000,
-  },
-  {
-    year: "2026",
-    month: "03",
-    weekLabel: "Mar 9–15",
-    workoutDays: 4,
-    totalDays: 7,
-    consistencyScore: 76,
-    weeklyScore: 72,
-    avgProtein: 135,
-    avgCarbs: 200,
-    avgFats: 49,
-    avgCalories: 1800,
-    proteinTarget: 150,
-    carbsTarget: 220,
-    fatsTarget: 55,
-    caloriesTarget: 2000,
-  },
-  {
-    year: "2026",
-    month: "02",
-    weekLabel: "Feb 23–Mar 1",
-    workoutDays: 4,
-    totalDays: 7,
-    consistencyScore: 74,
-    weeklyScore: 70,
-    avgProtein: 132,
-    avgCarbs: 198,
-    avgFats: 48,
-    avgCalories: 1780,
-    proteinTarget: 150,
-    carbsTarget: 220,
-    fatsTarget: 55,
-    caloriesTarget: 2000,
-  },
-  {
-    year: "2026",
-    month: "02",
-    weekLabel: "Feb 16–22",
-    workoutDays: 3,
-    totalDays: 7,
-    consistencyScore: 68,
-    weeklyScore: 65,
-    avgProtein: 126,
-    avgCarbs: 192,
-    avgFats: 47,
-    avgCalories: 1720,
-    proteinTarget: 150,
-    carbsTarget: 220,
-    fatsTarget: 55,
-    caloriesTarget: 2000,
-  },
-  {
-    year: "2025",
-    month: "12",
-    weekLabel: "Dec 15–21",
-    workoutDays: 3,
-    totalDays: 7,
-    consistencyScore: 62,
-    weeklyScore: 60,
-    avgProtein: 120,
-    avgCarbs: 185,
-    avgFats: 45,
-    avgCalories: 1680,
-    proteinTarget: 150,
-    carbsTarget: 220,
-    fatsTarget: 55,
-    caloriesTarget: 2000,
-  },
-  {
-    year: "2025",
-    month: "12",
-    weekLabel: "Dec 8–14",
-    workoutDays: 3,
-    totalDays: 7,
-    consistencyScore: 64,
-    weeklyScore: 61,
-    avgProtein: 122,
-    avgCarbs: 188,
-    avgFats: 46,
-    avgCalories: 1700,
-    proteinTarget: 150,
-    carbsTarget: 220,
-    fatsTarget: 55,
-    caloriesTarget: 2000,
-  },
-];
+const NOW = new Date();
+const YEARS = Array.from({ length: NOW.getFullYear() - 2023 }, (_, i) => String(NOW.getFullYear() - i));
+const CURRENT_MONTH = String(NOW.getMonth() + 1);
 
-const YEARS = [...new Set(WEEKLY_GYM_REPORTS.map((e) => e.year))].sort().reverse();
-const CURRENT_YEAR = String(new Date().getFullYear());
-const CURRENT_MONTH = String(new Date().getMonth() + 1).padStart(2, "0");
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-function getAvailableMonthsForYear(year) {
-  return MONTH_OPTIONS.filter((m) =>
-    WEEKLY_GYM_REPORTS.some((e) => e.year === year && e.month === m.value)
-  );
-}
-
-const INITIAL_YEAR = YEARS.includes(CURRENT_YEAR) ? CURRENT_YEAR : YEARS[0];
-const INITIAL_MONTH = (() => {
-  const months = getAvailableMonthsForYear(INITIAL_YEAR);
-  if (months.some((m) => m.value === CURRENT_MONTH)) return CURRENT_MONTH;
-  return months[0]?.value ?? MONTH_OPTIONS[0].value;
-})();
-
-const round = (v, p = 1) => Number(v.toFixed(p));
-
-function getWeekStartDay(weekLabel) {
-  const match = weekLabel.match(/\b(\d{1,2})/);
-  return match ? Number(match[1]) : 0;
-}
-
-function sortWeeksChronologically(weeks) {
-  return [...weeks].sort((a, b) => getWeekStartDay(a.weekLabel) - getWeekStartDay(b.weekLabel));
-}
+const MACRO_COLORS = {
+  Protein: { color: "#38bdf8", text: "text-sky-300", border: "border-sky-400/30" },
+  Carbs: { color: "#f59e0b", text: "text-amber-300", border: "border-amber-400/30" },
+  Fats: { color: "#fb7185", text: "text-rose-300", border: "border-rose-400/30" },
+  Calories: { color: "#c084fc", text: "text-violet-300", border: "border-violet-400/30" },
+};
 
 function InsightRail({ insights }) {
   const [selected, setSelected] = useState(null);
@@ -304,119 +102,47 @@ function InsightRail({ insights }) {
   );
 }
 
-const MACRO_COLORS = {
-  Protein: { color: "#38bdf8", text: "text-sky-300", border: "border-sky-400/30" },
-  Carbs: { color: "#f59e0b", text: "text-amber-300", border: "border-amber-400/30" },
-  Fats: { color: "#fb7185", text: "text-rose-300", border: "border-rose-400/30" },
-  Fiber: { color: "#34d399", text: "text-emerald-300", border: "border-emerald-400/30" },
-  Sugar: { color: "#a78bfa", text: "text-violet-300", border: "border-violet-400/30" },
-  Calories: { color: "#c084fc", text: "text-violet-300", border: "border-violet-400/30" },
-  "Water Intake": { color: "#22d3ee", text: "text-cyan-300", border: "border-cyan-400/30" },
-  Sodium: { color: "#f97316", text: "text-orange-300", border: "border-orange-400/30" },
-};
-
-const averageBy = (weeks, getValue, precision = 0) =>
-  weeks.length ? round(weeks.reduce((sum, week) => sum + getValue(week), 0) / weeks.length, precision) : 0;
-
-const CONSISTENCY_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function buildDayWiseConsistency(weeks) {
-  if (!weeks.length) {
-    return CONSISTENCY_DAYS.map((day) => ({ day, value: 0 }));
-  }
-
-  const totalConsistency = weeks.reduce((sum, week) => sum + week.consistencyScore, 0);
-  const avgConsistency = totalConsistency / weeks.length;
-  const workoutRatio = weeks.reduce((sum, week) => sum + week.workoutDays / week.totalDays, 0) / weeks.length;
-
-  const dayBias = {
-    Sun: 0.92,
-    Mon: 1.06,
-    Tue: 1.02,
-    Wed: 1.04,
-    Thu: 1.03,
-    Fri: 0.98,
-    Sat: 0.95,
-  };
-
-  return CONSISTENCY_DAYS.map((day) => {
-    const rawScore = avgConsistency * (0.82 + workoutRatio * 0.28) * dayBias[day];
-    const value = Math.max(0, Math.min(100, round(rawScore, 0)));
-    return { day, value };
-  });
-}
-
-function AverageMacroIntakeChart({ weeks }) {
+function MacroTargetsChart({ macros }) {
   const [hoveredMacro, setHoveredMacro] = useState(null);
 
-  const nutritionAverages = [
-    {
-      macro: "Protein",
-      value: averageBy(weeks, (w) => w.avgProtein),
-      unit: "g",
-      pie: true,
-    },
-    {
-      macro: "Carbs",
-      value: averageBy(weeks, (w) => w.avgCarbs),
-      unit: "g",
-      pie: true,
-    },
-    {
-      macro: "Fats",
-      value: averageBy(weeks, (w) => w.avgFats),
-      unit: "g",
-      pie: true,
-    },
-    {
-      macro: "Fiber",
-      value: averageBy(weeks, (w) => w.avgFiber ?? w.avgCarbs * 0.14),
-      unit: "g",
-      pie: true,
-    },
-    {
-      macro: "Sugar",
-      value: averageBy(weeks, (w) => w.avgSugar ?? w.avgCarbs * 0.16),
-      unit: "g",
-      pie: true,
-    },
-    {
-      macro: "Calories",
-      value: averageBy(weeks, (w) => w.avgCalories),
-      unit: "kcal",
-      pie: false,
-    },
-    {
-      macro: "Water Intake",
-      value: averageBy(weeks, (w) => w.avgWater ?? 2.6 + w.workoutDays * 0.12, 1),
-      unit: "L",
-      pie: false,
-    },
-    {
-      macro: "Sodium",
-      value: averageBy(weeks, (w) => w.avgSodium ?? w.avgCalories * 0.92),
-      unit: "mg",
-      pie: false,
-    },
+  if (!macros) {
+    return (
+      <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Nutrition Targets</p>
+          <h4 className="mt-2 text-xl font-semibold text-sky-50">Active Macro Plan</h4>
+          <p className="mt-1 text-[11px] text-stone-400">Set up a macro diet plan in the Gym module to see your targets here</p>
+        </div>
+        <div className="mt-6 flex h-24 items-center justify-center text-sm text-stone-500">
+          No active macro plan found.
+        </div>
+      </section>
+    );
+  }
+
+  const protein = parseFloat(macros.protein) || 0;
+  const carbs = parseFloat(macros.carbs) || 0;
+  const fats = parseFloat(macros.fats) || 0;
+  const calories = parseFloat(macros.calories) || 0;
+
+  const pieMacros = [
+    { macro: "Protein", value: protein, unit: "g" },
+    { macro: "Carbs", value: carbs, unit: "g" },
+    { macro: "Fats", value: fats, unit: "g" },
   ];
 
-  const pieMacros = nutritionAverages.filter((item) => item.pie);
-  const totalMacroGrams = pieMacros.reduce((sum, item) => sum + item.value, 0) || 1;
-  const topMacro = pieMacros.reduce((top, item) => (item.value > top.value ? item : top), pieMacros[0]);
-  const activeMacro = hoveredMacro ?? topMacro.macro;
-  const activeItem = pieMacros.find((item) => item.macro === activeMacro) ?? topMacro;
+  const totalMacroGrams = pieMacros.reduce((sum, m) => sum + m.value, 0) || 1;
+  const activeMacro = hoveredMacro ?? "Protein";
+  const activeItem = pieMacros.find((m) => m.macro === activeMacro) ?? pieMacros[0];
   const circumference = 2 * Math.PI * 68;
   let runningOffset = 0;
-  const formatIntakeValue = (item) => `${item.value.toLocaleString()}${item.unit === "kcal" ? " kcal" : item.unit}`;
 
   return (
     <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
       <div>
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Nutrition Tracking</p>
-          <h4 className="mt-2 text-xl font-semibold text-sky-50">Average Nutrition Intake</h4>
-          <p className="mt-1 text-[11px] text-stone-400">Daily average across selected weekly reports</p>
-        </div>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Nutrition Targets</p>
+        <h4 className="mt-2 text-xl font-semibold text-sky-50">Active Macro Plan</h4>
+        <p className="mt-1 text-[11px] text-stone-400">Daily macro targets from your active diet plan</p>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(220px,0.75fr)_1fr] lg:items-center">
@@ -433,7 +159,6 @@ function AverageMacroIntakeChart({ weeks }) {
               const dashOffset = -runningOffset;
               runningOffset += slice;
               const isActive = activeMacro === item.macro;
-
               return (
                 <Motion.circle
                   key={item.macro}
@@ -468,22 +193,22 @@ function AverageMacroIntakeChart({ weeks }) {
               className="rounded-2xl border border-white/8 bg-stone-950/70 px-4 py-3 shadow-xl shadow-black/30 backdrop-blur"
             >
               <p className={`text-sm font-bold ${MACRO_COLORS[activeItem.macro].text}`}>{activeItem.macro}</p>
-              <p className="mt-1 text-2xl font-black text-stone-50">{formatIntakeValue(activeItem)}</p>
+              <p className="mt-1 text-2xl font-black text-stone-50">{activeItem.value}{activeItem.unit}</p>
               <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                {Math.round((activeItem.value / totalMacroGrams) * 100)}% of grams
+                {Math.round((activeItem.value / totalMacroGrams) * 100)}% of macros
               </p>
             </Motion.div>
           </div>
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2">
-          {nutritionAverages.map((item, index) => {
-            const isActive = item.pie && activeMacro === item.macro;
+          {[...pieMacros, { macro: "Calories", value: calories, unit: "kcal" }].map((item, index) => {
+            const isActive = item.macro !== "Calories" && activeMacro === item.macro;
             return (
               <Motion.button
                 key={item.macro}
                 type="button"
-                onMouseEnter={() => setHoveredMacro(item.pie ? item.macro : null)}
+                onMouseEnter={() => item.macro !== "Calories" ? setHoveredMacro(item.macro) : null}
                 onMouseLeave={() => setHoveredMacro(null)}
                 initial={{ opacity: 0, x: 12 }}
                 animate={{ opacity: hoveredMacro && !isActive ? 0.45 : 1, x: 0 }}
@@ -499,11 +224,11 @@ function AverageMacroIntakeChart({ weeks }) {
                   />
                   <span className="min-w-0">
                     <span className="block truncate text-xs font-semibold text-stone-200">{item.macro}</span>
-                    <span className="text-[10px] text-stone-500">Avg daily intake</span>
+                    <span className="text-[10px] text-stone-500">Daily target</span>
                   </span>
                 </span>
                 <span className={`text-sm font-bold ${MACRO_COLORS[item.macro].text}`}>
-                  {formatIntakeValue(item)}
+                  {item.value}{item.unit === "kcal" ? " kcal" : item.unit}
                 </span>
               </Motion.button>
             );
@@ -514,30 +239,36 @@ function AverageMacroIntakeChart({ weeks }) {
   );
 }
 
-function DayWiseConsistencyChart({ weeks }) {
+function DayWiseWorkoutFrequency({ sessions }) {
   const [hovered, setHovered] = useState(null);
-  const series = useMemo(() => buildDayWiseConsistency(weeks), [weeks]);
+
+  const series = useMemo(
+    () => DAY_NAMES.map((day) => ({ day, count: sessions.filter((s) => s.day === day).length })),
+    [sessions],
+  );
+
+  const maxCount = Math.max(...series.map((s) => s.count), 1);
   const barH = 150;
   const labelH = 44;
-  const ticks = [0, 20, 40, 60, 80, 100];
+  const yTicks = [...new Set([0, Math.ceil(maxCount / 2), maxCount])];
 
   return (
     <section className="journal-scroll max-h-[310px] overflow-y-auto rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Consistency by Day</p>
-          <h4 className="mt-2 text-xl font-semibold text-sky-50">Day Wise Consistency</h4>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Workout Frequency</p>
+          <h4 className="mt-2 text-xl font-semibold text-sky-50">Sessions per Weekday</h4>
         </div>
         <span className="flex items-center gap-2 text-xs text-stone-400">
           <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
-          Score
+          Sessions
         </span>
       </div>
 
       <div className="mt-5 flex gap-3">
         <div className="relative z-10 w-9 shrink-0 text-right text-[11px] font-semibold text-stone-300" style={{ height: barH, marginBottom: labelH }}>
-          {ticks.map((tick) => (
-            <span key={tick} className="absolute right-0 rounded bg-stone-950/55 px-0.5" style={{ bottom: `${(tick / 100) * barH - (tick === 0 ? 0 : 7)}px` }}>
+          {yTicks.map((tick) => (
+            <span key={tick} className="absolute right-0 rounded bg-stone-950/55 px-0.5" style={{ bottom: `${(tick / maxCount) * barH - (tick === 0 ? 0 : 7)}px` }}>
               {tick}
             </span>
           ))}
@@ -545,35 +276,33 @@ function DayWiseConsistencyChart({ weeks }) {
 
         <div className="relative flex-1 overflow-x-auto">
           <div className="relative min-w-[520px]" style={{ height: barH + labelH }}>
-            {ticks.map((tick) => (
-              <div key={tick} className="absolute left-0 right-0 border-t border-dashed border-white/6" style={{ bottom: labelH + (tick / 100) * barH }} />
+            {yTicks.map((tick) => (
+              <div key={tick} className="absolute left-0 right-0 border-t border-dashed border-white/6" style={{ bottom: labelH + (tick / maxCount) * barH }} />
             ))}
 
-            <div className="absolute inset-0 flex items-end gap-2.5" style={{ paddingBottom: `${labelH}px` }}>
+            <div className="absolute left-0 right-0 flex items-end gap-2.5" style={{ top: 0, bottom: labelH }}>
               {series.map((item, index) => (
                 <div
                   key={item.day}
                   className="flex min-w-0 flex-1 flex-col items-center justify-end"
-                  style={{ opacity: hovered !== null && hovered !== index ? 0.4 : 1, transition: "opacity 0.18s ease", cursor: "default" }}
+                  style={{ height: "100%", opacity: hovered !== null && hovered !== index ? 0.4 : 1, transition: "opacity 0.18s ease", cursor: "default" }}
                   onMouseEnter={() => setHovered(index)}
                   onMouseLeave={() => setHovered(null)}
                 >
-                  <span className="mb-1 text-[10px] font-semibold text-emerald-200">{item.value}</span>
+                  <span className="mb-1 text-[10px] font-semibold text-emerald-200">{item.count}</span>
                   <Motion.div
                     className="w-full max-w-[42px] rounded-t-xl border border-emerald-200/25 bg-gradient-to-t from-emerald-900/95 to-emerald-300/90"
                     initial={{ height: 0 }}
-                    animate={{ height: Math.max(10, Math.round((item.value / 100) * barH)) }}
+                    animate={{ height: item.count > 0 ? Math.max(10, Math.round((item.count / maxCount) * barH)) : 3 }}
                     transition={{ duration: 0.42, delay: index * 0.04 }}
                   />
                 </div>
               ))}
             </div>
 
-            <div className="mt-0.5 flex items-center text-[10px] text-stone-500">
+            <div className="absolute bottom-0 left-0 right-0 flex items-center text-[10px] text-stone-500" style={{ height: `${labelH}px` }}>
               {series.map((item) => (
-                <span key={`x-${item.day}`} className="flex-1 text-center">
-                  {item.day}
-                </span>
+                <span key={`x-${item.day}`} className="flex-1 text-center">{item.day}</span>
               ))}
             </div>
           </div>
@@ -584,61 +313,109 @@ function DayWiseConsistencyChart({ weeks }) {
 }
 
 export default function NutritionConsistencyAnalysis() {
-  const [selectedYear, setSelectedYear] = useState(INITIAL_YEAR);
-  const [selectedMonth, setSelectedMonth] = useState(INITIAL_MONTH);
+  const { user, isDemoMode } = useAuth();
+  const [selectedYear, setSelectedYear] = useState(isDemoMode ? "2026" : String(NOW.getFullYear()));
+  const [selectedMonth, setSelectedMonth] = useState(isDemoMode ? "4" : CURRENT_MONTH);
+  const [sessions, setSessions] = useState([]);
+  const [weeklyStats, setWeeklyStats] = useState([]);
+  const [macros, setMacros] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const availableMonths = useMemo(() => getAvailableMonthsForYear(selectedYear), [selectedYear]);
+  useEffect(() => {
+    if (isDemoMode) {
+      const demo = buildDemoGymMonthAnalysis();
+      setSessions(demo.sessions);
+      setWeeklyStats(demo.weeklyStats);
+      setMacros(demo.macros);
+      setLoading(false);
+      return;
+    }
+    if (!user) return;
 
-  const weeks = useMemo(
-    () => sortWeeksChronologically(WEEKLY_GYM_REPORTS.filter((e) => e.year === selectedYear && e.month === selectedMonth)),
-    [selectedYear, selectedMonth]
-  );
+    let cancelled = false;
 
-  const displayWeeks = weeks.length ? weeks.slice(0, 4) : sortWeeksChronologically(WEEKLY_GYM_REPORTS.slice(0, 4));
+    const loadAnalysis = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get(`/gym/analysis?year=${selectedYear}&month=${Number(selectedMonth)}`);
+        if (!cancelled) {
+          setSessions(res.data.sessions || []);
+          setWeeklyStats(res.data.weeklyStats || []);
+          setMacros(res.data.macros || null);
+        }
+      } catch {
+        if (!cancelled) {
+          setSessions([]);
+          setWeeklyStats([]);
+          setMacros(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
 
-  const avgConsistency = displayWeeks.length
-    ? round(displayWeeks.reduce((s, w) => s + w.consistencyScore, 0) / displayWeeks.length, 0)
-    : 0;
-  const avgWeeklyScore = displayWeeks.length
-    ? round(displayWeeks.reduce((s, w) => s + w.weeklyScore, 0) / displayWeeks.length, 0)
-    : 0;
-  const avgProtein = displayWeeks.length
-    ? round(displayWeeks.reduce((s, w) => s + w.avgProtein, 0) / displayWeeks.length, 0)
-    : 0;
-  const avgCarbs = displayWeeks.length
-    ? round(displayWeeks.reduce((s, w) => s + w.avgCarbs, 0) / displayWeeks.length, 0)
-    : 0;
-  const avgCalories = displayWeeks.length
-    ? round(displayWeeks.reduce((s, w) => s + w.avgCalories, 0) / displayWeeks.length, 0)
-    : 0;
+    const refreshAnalysis = () => {
+      loadAnalysis();
+    };
 
-  const insights = [
-    {
-      title: "Avg Consistency Score",
-      value: `${avgConsistency} / 100`,
-      description: `Average consistency score across ${displayWeeks.length} weeks this month. Scores ≥80 indicate excellent adherence.`,
-    },
-    {
-      title: "Avg Weekly Score",
-      value: `${avgWeeklyScore} / 100`,
-      description: "Combined performance score factoring in training volume, consistency, and nutrition adherence.",
-    },
-    {
-      title: "Avg Protein Intake",
-      value: `${avgProtein}g`,
-      description: `Average daily protein intake across ${displayWeeks.length} weeks in this month.`,
-    },
-    {
-      title: "Avg Calorie Intake",
-      value: `${avgCalories.toLocaleString()} kcal`,
-      description: `Average daily calorie intake across ${displayWeeks.length} weeks in this month.`,
-    },
-    {
-      title: "Avg Carbs Intake",
-      value: `${avgCarbs}g`,
-      description: `Average daily carbohydrate intake across ${displayWeeks.length} weeks in this month.`,
-    },
-  ];
+    loadAnalysis();
+    window.addEventListener("focus", refreshAnalysis);
+    window.addEventListener("storage", refreshAnalysis);
+    window.addEventListener("monkmode:exercise-progress-updated", refreshAnalysis);
+    window.addEventListener("monkmode:gym-workouts-updated", refreshAnalysis);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refreshAnalysis);
+      window.removeEventListener("storage", refreshAnalysis);
+      window.removeEventListener("monkmode:exercise-progress-updated", refreshAnalysis);
+      window.removeEventListener("monkmode:gym-workouts-updated", refreshAnalysis);
+    };
+  }, [isDemoMode, user, selectedYear, selectedMonth]);
+
+  const insights = useMemo(() => {
+    const avgConsistency = weeklyStats.length
+      ? Math.round(weeklyStats.reduce((s, w) => s + w.consistencyScore, 0) / weeklyStats.length)
+      : 0;
+    const totalWorkoutDays = weeklyStats.reduce((s, w) => s + w.workoutDays, 0);
+    const bestWeek = weeklyStats.length
+      ? weeklyStats.reduce((best, w) => (w.consistencyScore > best.consistencyScore ? w : best), weeklyStats[0])
+      : null;
+    const protein = macros ? (parseFloat(macros.protein) || 0) : 0;
+    const calories = macros ? (parseFloat(macros.calories) || 0) : 0;
+
+    return [
+      {
+        title: "Avg Consistency Score",
+        value: weeklyStats.length ? `${avgConsistency} / 100` : "—",
+        description: weeklyStats.length
+          ? `Average consistency score across ${weeklyStats.length} week${weeklyStats.length !== 1 ? "s" : ""} this month. Scores ≥80 indicate excellent adherence.`
+          : "No workout data for this month.",
+      },
+      {
+        title: "Total Workout Days",
+        value: `${totalWorkoutDays} days`,
+        description: "Total days with at least one workout logged this month.",
+      },
+      {
+        title: "Protein Target",
+        value: protein ? `${protein}g / day` : "—",
+        description: macros ? "Daily protein target from your active macro plan." : "No active macro plan found.",
+      },
+      {
+        title: "Calorie Target",
+        value: calories ? `${calories.toLocaleString()} kcal` : "—",
+        description: macros ? "Daily calorie target from your active macro plan." : "No active macro plan found.",
+      },
+      {
+        title: "Best Week",
+        value: bestWeek ? `${bestWeek.weekLabel} (${bestWeek.consistencyScore}%)` : "—",
+        description: bestWeek
+          ? `Your most consistent week this month with ${bestWeek.workoutDays} out of ${bestWeek.totalDays} days active.`
+          : "No workout data for this month.",
+      },
+    ];
+  }, [weeklyStats, macros]);
 
   return (
     <section className="space-y-4">
@@ -648,11 +425,11 @@ export default function NutritionConsistencyAnalysis() {
           <select
             value={selectedYear}
             onChange={(e) => {
-              const nextYear = e.target.value;
-              setSelectedYear(nextYear);
-              const nextMonths = getAvailableMonthsForYear(nextYear);
-              const has = nextMonths.some((m) => m.value === selectedMonth);
-              setSelectedMonth(has ? selectedMonth : nextMonths[0]?.value ?? MONTH_OPTIONS[0].value);
+              const y = e.target.value;
+              setSelectedYear(y);
+              if (Number(y) === NOW.getFullYear() && Number(selectedMonth) > NOW.getMonth() + 1) {
+                setSelectedMonth(CURRENT_MONTH);
+              }
             }}
             className="bg-transparent text-sky-100 outline-none"
           >
@@ -668,11 +445,13 @@ export default function NutritionConsistencyAnalysis() {
             onChange={(e) => setSelectedMonth(e.target.value)}
             className="bg-transparent text-sky-100 outline-none"
           >
-            {availableMonths.map((m) => (
-              <option key={m.value} value={m.value} className="bg-stone-950 text-stone-200">{m.label}</option>
-            ))}
+            {(Number(selectedYear) < NOW.getFullYear() ? MONTH_OPTIONS : MONTH_OPTIONS.filter((m) => Number(m.value) <= NOW.getMonth() + 1))
+              .map((m) => (
+                <option key={m.value} value={m.value} className="bg-stone-950 text-stone-200">{m.label}</option>
+              ))}
           </select>
         </label>
+        {loading && <span className="animate-pulse text-xs text-stone-500">Loading…</span>}
       </div>
 
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
@@ -681,13 +460,13 @@ export default function NutritionConsistencyAnalysis() {
           style={{ maxHeight: "calc(100vh - 350px)" }}
         >
           <div className="space-y-6 p-6">
-            <AverageMacroIntakeChart weeks={displayWeeks} />
-            <DayWiseConsistencyChart weeks={displayWeeks} />
+            <MacroTargetsChart macros={macros} />
+            <DayWiseWorkoutFrequency sessions={sessions} />
           </div>
         </div>
 
         <div
-          className="journal-scroll flex w-full w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
+          className="journal-scroll flex w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
           style={{ maxHeight: "calc(100vh - 180px)" }}
         >
           <InsightRail insights={insights} />

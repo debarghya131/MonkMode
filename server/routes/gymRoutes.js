@@ -15,6 +15,7 @@ import {
   getGymGallerySummary,
   getGymDietPlans,
   getGymCustomExercises,
+  getGymAnalysis,
   getGymHeatmap,
   getGymSummary,
   getWorkouts,
@@ -40,6 +41,7 @@ const router = express.Router();
 
 router.use(protect);
 
+router.get("/analysis", getGymAnalysis);
 router.get("/heatmap", getGymHeatmap);
 router.get("/summary", getGymSummary);
 router.get("/plans/logs", getWorkoutPlanLogs);

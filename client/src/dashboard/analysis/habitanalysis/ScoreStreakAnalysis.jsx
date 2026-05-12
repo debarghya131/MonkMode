@@ -1,6 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
+import api from "../../../api/axios";
+import useAuth from "../../../hooks/useAuth";
+import { INITIAL_HABITS } from "../../../../data/HabitDummyData";
 
 const DAY_ORDER = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_OPTIONS = [
@@ -18,156 +21,89 @@ const MONTH_OPTIONS = [
   { value: "12", label: "December" },
 ];
 
-const HABIT_STREAK_MONTH_CONFIG = [
-  {
-    year: "2026",
-    month: "04",
-    habits: [
-      { name: "Morning Walk", breakDays: [12, 23] },
-      { name: "Sleep by 11 PM", breakDays: [4, 8, 17, 25] },
-      { name: "Read 30 min", breakDays: [9, 22] },
-      { name: "Meditate", breakDays: [5, 13, 21, 29] },
-      { name: "Deep Work Sprint", breakDays: [6, 18] },
-      { name: "Drink 3L Water", breakDays: [] },
-      { name: "Weekend Planning", breakDays: [20] },
-      { name: "Take Vitamins", breakDays: [7, 14, 28] },
-    ],
-  },
-  {
-    year: "2026",
-    month: "03",
-    habits: [
-      { name: "Morning Walk", breakDays: [16] },
-      { name: "Sleep by 11 PM", breakDays: [9, 19, 27] },
-      { name: "Read 30 min", breakDays: [11, 24] },
-      { name: "Meditate", breakDays: [6, 15, 25] },
-      { name: "Deep Work Sprint", breakDays: [14] },
-      { name: "Drink 3L Water", breakDays: [] },
-      { name: "No Sugar", breakDays: [10, 23] },
-      { name: "Night Journal", breakDays: [5, 12, 26] },
-    ],
-  },
-  {
-    year: "2026",
-    month: "02",
-    habits: [
-      { name: "Morning Walk", breakDays: [7, 20] },
-      { name: "Sleep by 11 PM", breakDays: [4, 11, 18, 26] },
-      { name: "Read 30 min", breakDays: [8, 17] },
-      { name: "Meditate", breakDays: [5, 13, 21] },
-      { name: "Deep Work Sprint", breakDays: [6, 15, 23] },
-      { name: "Drink 3L Water", breakDays: [19] },
-      { name: "Stretching", breakDays: [10, 24] },
-      { name: "Plan Tomorrow", breakDays: [3, 12, 22] },
-    ],
-  },
-  {
-    year: "2026",
-    month: "01",
-    habits: [
-      { name: "Morning Walk", breakDays: [] },
-      { name: "Sleep by 11 PM", breakDays: [15] },
-      { name: "Read 30 min", breakDays: [8, 21] },
-      { name: "Meditate", breakDays: [11, 28] },
-      { name: "Deep Work Sprint", breakDays: [13, 25] },
-      { name: "Drink 3L Water", breakDays: [] },
-      { name: "No Sugar", breakDays: [6, 19, 30] },
-      { name: "Night Journal", breakDays: [10, 24] },
-    ],
-  },
-  {
-    year: "2025",
-    month: "12",
-    habits: [
-      { name: "Morning Walk", breakDays: [5, 18, 29] },
-      { name: "Sleep by 11 PM", breakDays: [4, 8, 14, 22, 30] },
-      { name: "Read 30 min", breakDays: [7, 16, 24] },
-      { name: "Meditate", breakDays: [3, 11, 19, 27] },
-      { name: "Deep Work Sprint", breakDays: [6, 13, 20] },
-      { name: "Drink 3L Water", breakDays: [12, 26] },
-      { name: "Gratitude Note", breakDays: [9, 23] },
-      { name: "Digital Detox", breakDays: [5, 15, 25] },
-    ],
-  },
-];
-
-const YEARS = [...new Set(HABIT_STREAK_MONTH_CONFIG.map((item) => item.year))].sort().reverse();
-const CURRENT_YEAR = String(new Date().getFullYear());
-const CURRENT_MONTH = String(new Date().getMonth() + 1).padStart(2, "0");
+const NOW = new Date();
+const YEARS = Array.from({ length: NOW.getFullYear() - 2023 }, (_, i) =>
+  String(NOW.getFullYear() - i)
+);
+const CURRENT_MONTH = String(NOW.getMonth() + 1).padStart(2, "0");
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const round = (value, precision = 1) => Number(value.toFixed(precision));
-const average = (values) => (values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0);
+const average = (values) =>
+  values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 
 function getDaysInMonth(year, month) {
   return new Date(Number(year), Number(month), 0).getDate();
 }
 
-function getAvailableMonthsForYear(year) {
-  return MONTH_OPTIONS.filter((month) =>
-    HABIT_STREAK_MONTH_CONFIG.some((entry) => entry.year === year && entry.month === month.value)
-  );
-}
+function buildDemoHabitAnalysis(year, month) {
+  const daysInMonth = getDaysInMonth(year, month);
+  const habitStats = INITIAL_HABITS.map((habit) => ({
+    name: habit.title,
+    total: 0,
+    completed: 0,
+    missed: 0,
+  }));
 
-const INITIAL_YEAR = YEARS.includes(CURRENT_YEAR) ? CURRENT_YEAR : YEARS[0];
-const INITIAL_MONTH = (() => {
-  const months = getAvailableMonthsForYear(INITIAL_YEAR);
-  if (months.some((month) => month.value === CURRENT_MONTH)) return CURRENT_MONTH;
-  return months[0]?.value ?? MONTH_OPTIONS[0].value;
-})();
-
-function buildDailyMetrics(config) {
-  const daysInMonth = getDaysInMonth(config.year, config.month);
-  const streakByHabit = new Map(config.habits.map((habit) => [habit.name, 0]));
-  const breakLengths = [];
-  let longestStreak = 0;
-
-  const daily = Array.from({ length: daysInMonth }, (_, index) => {
+  const days = Array.from({ length: daysInMonth }, (_, index) => {
     const day = index + 1;
-    const date = `${config.year}-${config.month}-${String(day).padStart(2, "0")}`;
+    const date = `${year}-${month}-${String(day).padStart(2, "0")}`;
     const weekday = new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short" });
-    let maintained = 0;
-    let breaks = 0;
-    let streakTotal = 0;
+    let total = 0;
+    let completed = 0;
 
-    config.habits.forEach((habit) => {
-      const currentStreak = streakByHabit.get(habit.name) ?? 0;
-      if (habit.breakDays.includes(day)) {
-        breaks += 1;
-        if (currentStreak > 0) breakLengths.push(currentStreak);
-        streakByHabit.set(habit.name, 0);
-        return;
+    INITIAL_HABITS.forEach((habit, habitIndex) => {
+      const isWeekend = weekday === "Sat" || weekday === "Sun";
+      const expected = habit.category === "Fitness" ? !isWeekend || day % 2 === 0 : true;
+      if (!expected) return;
+
+      const missed = [6, 13, 21, 27].includes(day) && habitIndex % 2 === 0;
+      const lightDay = [9, 18, 24].includes(day) && habitIndex > 2;
+      const completedHabit = !missed && !lightDay && ((day + habitIndex) % 11 !== 0);
+
+      total++;
+      habitStats[habitIndex].total++;
+      if (completedHabit) {
+        completed++;
+        habitStats[habitIndex].completed++;
+      } else {
+        habitStats[habitIndex].missed++;
       }
-
-      const nextStreak = currentStreak + 1;
-      streakByHabit.set(habit.name, nextStreak);
-      maintained += 1;
-      streakTotal += nextStreak;
-      longestStreak = Math.max(longestStreak, nextStreak);
     });
 
-    const consistencyScore = round((maintained / config.habits.length) * 100);
-    const avgStreak = maintained ? round(streakTotal / maintained) : 0;
-    const dayPressure = breaks * 4;
+    const missed = Math.max(0, total - completed);
+    const score = total ? Math.round((completed / total) * 100) : null;
 
     return {
-      day,
+      date,
       weekday,
-      maintained,
-      breaks,
-      avgStreak,
-      consistencyScore: clamp(consistencyScore - dayPressure, 0, 100),
+      total,
+      completed,
+      missed,
+      pending: 0,
+      score,
+      submitted: completed > 0,
     };
   });
 
-  return { daily, breakLengths, longestStreak };
+  return {
+    year,
+    month,
+    days,
+    habits: habitStats,
+    categories: [],
+    priorities: [],
+    times: [],
+  };
 }
 
 function buildWeeklyScoreSeries(daily) {
   return [1, 2, 3, 4].map((week) => {
     const start = (week - 1) * 7 + 1;
     const end = week * 7;
-    const values = daily.filter((day) => day.day >= start && day.day <= end).map((day) => day.consistencyScore);
+    const values = daily
+      .filter((day) => day.day >= start && day.day <= end)
+      .map((day) => day.consistencyScore);
     return {
       label: `W${week}`,
       value: round(average(values)),
@@ -177,7 +113,9 @@ function buildWeeklyScoreSeries(daily) {
 
 function buildWeekdayConsistencySeries(daily) {
   return DAY_ORDER.map((weekday) => {
-    const values = daily.filter((day) => day.weekday === weekday).map((day) => day.consistencyScore);
+    const values = daily
+      .filter((day) => day.weekday === weekday)
+      .map((day) => day.consistencyScore);
     return {
       label: weekday,
       value: round(average(values)),
@@ -288,7 +226,8 @@ function StreakLineGraph({ series, daysInMonth }) {
     (value) => value % 2 === 0 || value === Math.ceil(maxValue)
   );
 
-  const xOf = (index) => (series.length === 1 ? pad.left + chartW / 2 : pad.left + (index / (series.length - 1)) * chartW);
+  const xOf = (index) =>
+    series.length === 1 ? pad.left + chartW / 2 : pad.left + (index / (series.length - 1)) * chartW;
   const yOf = (value) => pad.top + ((maxValue - value) / maxValue) * chartH;
   const linePath = series
     .map((point, index) => `${index === 0 ? "M" : "L"}${xOf(index).toFixed(1)},${yOf(point.value).toFixed(1)}`)
@@ -304,7 +243,7 @@ function StreakLineGraph({ series, daysInMonth }) {
         </div>
         <span className="flex items-center gap-2 text-xs text-stone-400">
           <span className="h-2.5 w-2.5 rounded-full bg-sky-400" />
-          Average streak length
+          Full completion streak (days)
         </span>
       </div>
 
@@ -314,7 +253,14 @@ function StreakLineGraph({ series, daysInMonth }) {
             const y = yOf(mark);
             return (
               <g key={mark}>
-                <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke="rgba(255,255,255,0.08)" strokeDasharray="4 6" />
+                <line
+                  x1={pad.left}
+                  y1={y}
+                  x2={width - pad.right}
+                  y2={y}
+                  stroke="rgba(255,255,255,0.08)"
+                  strokeDasharray="4 6"
+                />
                 <text x={pad.left - 10} y={y + 4} textAnchor="end" fontSize="10" fill="rgba(255,255,255,0.45)">
                   {mark}
                 </text>
@@ -347,16 +293,38 @@ function StreakLineGraph({ series, daysInMonth }) {
           ))}
 
           {series.map((point, index) => (
-            <text key={`x-${point.day}`} x={xOf(index)} y={height - 12} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.42)">
+            <text
+              key={`x-${point.day}`}
+              x={xOf(index)}
+              y={height - 12}
+              textAnchor="middle"
+              fontSize="9"
+              fill="rgba(255,255,255,0.42)"
+            >
               {point.day}
             </text>
           ))}
 
           {hovered !== null && series[hovered] ? (
             <g style={{ pointerEvents: "none" }}>
-              <rect x={Math.min(Math.max(xOf(hovered) - 42, pad.left), width - pad.right - 84)} y={Math.max(yOf(series[hovered].value) - 42, pad.top)} width="84" height="34" rx="6" fill="rgba(15,23,42,0.92)" stroke="rgba(56,189,248,0.4)" />
-              <text x={Math.min(Math.max(xOf(hovered), pad.left + 42), width - pad.right - 42)} y={Math.max(yOf(series[hovered].value) - 21, pad.top + 21)} textAnchor="middle" fontSize="11" fontWeight="700" fill="#bae6fd">
-                Avg {series[hovered].value}
+              <rect
+                x={Math.min(Math.max(xOf(hovered) - 42, pad.left), width - pad.right - 84)}
+                y={Math.max(yOf(series[hovered].value) - 42, pad.top)}
+                width="84"
+                height="34"
+                rx="6"
+                fill="rgba(15,23,42,0.92)"
+                stroke="rgba(56,189,248,0.4)"
+              />
+              <text
+                x={Math.min(Math.max(xOf(hovered), pad.left + 42), width - pad.right - 42)}
+                y={Math.max(yOf(series[hovered].value) - 21, pad.top + 21)}
+                textAnchor="middle"
+                fontSize="11"
+                fontWeight="700"
+                fill="#bae6fd"
+              >
+                Day {series[hovered].value}
               </text>
             </g>
           ) : null}
@@ -402,9 +370,16 @@ function VerticalScoreGraph({ title, subtitle, series, theme }) {
       </div>
 
       <div className="mt-6 flex gap-3">
-        <div className="relative z-10 w-9 shrink-0 text-right text-[11px] font-semibold text-stone-300" style={{ height: barH, marginBottom: labelH }}>
+        <div
+          className="relative z-10 w-9 shrink-0 text-right text-[11px] font-semibold text-stone-300"
+          style={{ height: barH, marginBottom: labelH }}
+        >
           {ticks.map((tick) => (
-            <span key={tick} className="absolute right-0 rounded bg-stone-950/55 px-0.5" style={{ bottom: `${(tick / 100) * barH - (tick === 0 ? 0 : 7)}px` }}>
+            <span
+              key={tick}
+              className="absolute right-0 rounded bg-stone-950/55 px-0.5"
+              style={{ bottom: `${(tick / 100) * barH - (tick === 0 ? 0 : 7)}px` }}
+            >
               {tick}
             </span>
           ))}
@@ -413,7 +388,11 @@ function VerticalScoreGraph({ title, subtitle, series, theme }) {
         <div className="relative flex-1">
           <div className="relative" style={{ height: barH + labelH }}>
             {ticks.map((tick) => (
-              <div key={tick} className="absolute left-0 right-0 border-t border-dashed border-white/6" style={{ bottom: labelH + (tick / 100) * barH }} />
+              <div
+                key={tick}
+                className="absolute left-0 right-0 border-t border-dashed border-white/6"
+                style={{ bottom: labelH + (tick / 100) * barH }}
+              />
             ))}
 
             <div className="absolute inset-0 flex items-end gap-2.5" style={{ paddingBottom: `${labelH}px` }}>
@@ -421,7 +400,11 @@ function VerticalScoreGraph({ title, subtitle, series, theme }) {
                 <div
                   key={item.label}
                   className="flex min-w-0 flex-1 flex-col items-center justify-end"
-                  style={{ opacity: hovered !== null && hovered !== index ? 0.4 : 1, transition: "opacity 0.18s ease", cursor: "default" }}
+                  style={{
+                    opacity: hovered !== null && hovered !== index ? 0.4 : 1,
+                    transition: "opacity 0.18s ease",
+                    cursor: "default",
+                  }}
                   onMouseEnter={() => setHovered(index)}
                   onMouseLeave={() => setHovered(null)}
                 >
@@ -451,74 +434,135 @@ function VerticalScoreGraph({ title, subtitle, series, theme }) {
 }
 
 export default function ScoreStreakAnalysis() {
-  const [selectedYear, setSelectedYear] = useState(INITIAL_YEAR);
-  const [selectedMonth, setSelectedMonth] = useState(INITIAL_MONTH);
+  const { isDemoMode, user } = useAuth();
+  const [selectedYear, setSelectedYear] = useState(String(NOW.getFullYear()));
+  const [selectedMonth, setSelectedMonth] = useState(isDemoMode ? "04" : CURRENT_MONTH);
+  const [apiData, setApiData] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const availableMonths = useMemo(() => getAvailableMonthsForYear(selectedYear), [selectedYear]);
+  useEffect(() => {
+    if (!user) return;
+    if (isDemoMode) {
+      setApiData(buildDemoHabitAnalysis(selectedYear, selectedMonth));
+      setLoading(false);
+      return;
+    }
 
-  const selectedConfig = useMemo(
-    () =>
-      HABIT_STREAK_MONTH_CONFIG.find((item) => item.year === selectedYear && item.month === selectedMonth) ??
-      HABIT_STREAK_MONTH_CONFIG.find((item) => item.year === selectedYear) ??
-      HABIT_STREAK_MONTH_CONFIG[0],
-    [selectedMonth, selectedYear]
-  );
+    setLoading(true);
+    setApiData(null);
+    api
+      .get("/habits/analysis", { params: { year: selectedYear, month: selectedMonth } })
+      .then((res) => setApiData(res.data))
+      .catch(() => setApiData(null))
+      .finally(() => setLoading(false));
+  }, [isDemoMode, user, selectedYear, selectedMonth]);
 
-  const { daily, breakLengths, longestStreak } = useMemo(() => buildDailyMetrics(selectedConfig), [selectedConfig]);
+  const { daily, breakLengths, longestStreak } = useMemo(() => {
+    if (!apiData?.days?.length) return { daily: [], breakLengths: [], longestStreak: 0 };
+
+    const isCurrentMonth =
+      selectedYear === String(NOW.getFullYear()) &&
+      selectedMonth === String(NOW.getMonth() + 1).padStart(2, "0");
+    const todayStr = `${NOW.getFullYear()}-${String(NOW.getMonth() + 1).padStart(2, "0")}-${String(NOW.getDate()).padStart(2, "0")}`;
+
+    const sourceDays = apiData.days.filter((d) => !isCurrentMonth || d.date <= todayStr);
+
+    const breaks = [];
+    let longestSt = 0;
+    let currentSt = 0;
+
+    const builtDaily = sourceDays.map((d) => {
+      const dayNum = parseInt(d.date.split("-")[2], 10);
+      const isToday = d.date === todayStr;
+      const fullyCompleted = d.total > 0 && d.completed >= d.total;
+      // Match navbar streak behavior: keep yesterday's streak visible until today is fully completed
+      // or the day actually rolls over into a miss.
+      const shouldCarryTodayStreak = isToday && d.total > 0 && d.completed < d.total;
+
+      if (fullyCompleted) {
+        currentSt++;
+        longestSt = Math.max(longestSt, currentSt);
+      } else if (d.total > 0 && !shouldCarryTodayStreak) {
+        if (currentSt > 0) breaks.push(currentSt);
+        currentSt = 0;
+      }
+
+      return {
+        day: dayNum,
+        weekday: d.weekday,
+        maintained: d.completed,
+        breaks: d.missed,
+        avgStreak: currentSt,
+        consistencyScore: clamp(d.score ?? 0, 0, 100),
+        fullyCompleted,
+      };
+    });
+
+    return { daily: builtDaily, breakLengths: breaks, longestStreak: longestSt };
+  }, [apiData, selectedYear, selectedMonth]);
+
   const weeklyScoreSeries = useMemo(() => buildWeeklyScoreSeries(daily), [daily]);
   const weekdayConsistencySeries = useMemo(() => buildWeekdayConsistencySeries(daily), [daily]);
   const streakSeries = daily.map((day) => ({ day: day.day, value: day.avgStreak }));
 
-  const maintainedHabitCount = selectedConfig.habits.filter((habit) => habit.breakDays.length === 0).length;
-  const brokenHabitCount = selectedConfig.habits.length - maintainedHabitCount;
+  const hasData = daily.length > 0;
+  const fullCompletionDays = daily.filter((d) => d.fullyCompleted).length;
+  const maintainedHabitCount = apiData?.habits?.filter((h) => h.missed === 0).length ?? 0;
+  const brokenHabitCount = apiData?.habits?.filter((h) => h.missed > 0).length ?? 0;
   const commonBreakLength = getMostCommonBreakLength(breakLengths);
+  const longestHabitStreak = longestStreak;
   const avgStreakLength = round(average(daily.map((day) => day.avgStreak)));
   const avgWeeklyScore = round(average(weeklyScoreSeries.map((week) => week.value)));
   const avgConsistencyScore = round(average(daily.map((day) => day.consistencyScore)));
-  const bestConsistentDay = weekdayConsistencySeries.reduce((best, current) =>
-    current.value > best.value ? current : best
-  );
-  const worstConsistentDay = weekdayConsistencySeries.reduce((worst, current) =>
-    current.value < worst.value ? current : worst
-  );
+  const bestConsistentDay = weekdayConsistencySeries.length
+    ? weekdayConsistencySeries.reduce((best, current) => (current.value > best.value ? current : best))
+    : { label: "—", value: 0 };
+  const worstConsistentDay = weekdayConsistencySeries.length
+    ? weekdayConsistencySeries.reduce((worst, current) => (current.value < worst.value ? current : worst))
+    : { label: "—", value: 0 };
 
   const insights = [
     {
+      title: "Full Completion Days",
+      value: `${fullCompletionDays} days`,
+      description: "Days where every expected habit was completed — matches the streak counter in the navbar.",
+    },
+    {
       title: "Avg Frequency Of Streak Break",
-      value: commonBreakLength.length ? `Day ${commonBreakLength.length}` : "No breaks",
+      value: commonBreakLength.length ? `After ${commonBreakLength.length} days` : "No breaks",
       description: commonBreakLength.length
-        ? `Most habit streak breaks happened after ${commonBreakLength.length} maintained days (${commonBreakLength.count} times).`
+        ? `Most habit streak breaks happened after ${commonBreakLength.length} consecutive days (${commonBreakLength.count} times).`
         : "No habit streak broke in this selected month.",
     },
     {
-      title: "Longest Habit Streak On This Month",
-      value: `${longestStreak} days`,
-      description: "Longest continuous maintained streak achieved by any habit this month.",
+      title: "Longest Habit Streak This Month",
+      value: `${longestHabitStreak} days`,
+      description: "Longest consecutive full-completion-day streak in this month.",
     },
     {
-      title: "No Of Habit Streak Maintain",
+      title: "Habits With No Break",
       value: `${maintainedHabitCount} habits`,
-      description: "Habits with no streak break in the selected month.",
+      description: "Habits with no missed days in the selected month.",
     },
     {
-      title: "No Of Habit Streak Break",
+      title: "Habits With Streak Break",
       value: `${brokenHabitCount} habits`,
-      description: "Habits that had at least one streak break in the selected month.",
+      description: "Habits that had at least one missed day in the selected month.",
     },
     {
       title: "Avg Streak Length",
       value: `${avgStreakLength} days`,
-      description: "Average daily streak length across maintained habits.",
+      description: "Average daily running streak length across the selected month.",
     },
     {
       title: "Avg Weekly Score",
       value: `${avgWeeklyScore}`,
-      description: "Average score across W1 to W4.",
+      description: "Average consistency score across W1 to W4.",
     },
     {
       title: "Avg Consistency Score",
       value: `${avgConsistencyScore}`,
-      description: "Average daily consistency score for all active habits.",
+      description: "Average daily consistency score based on habits completed vs. expected.",
     },
     {
       title: "Best Consistent Day",
@@ -539,21 +583,7 @@ export default function ScoreStreakAnalysis() {
           <span className="text-stone-400">Year</span>
           <select
             value={selectedYear}
-            onChange={(event) => {
-              const nextYear = event.target.value;
-              setSelectedYear(nextYear);
-              const nextMonths = getAvailableMonthsForYear(nextYear);
-              const monthSet = new Set(nextMonths.map((month) => month.value));
-              if (monthSet.has(selectedMonth)) {
-                setSelectedMonth(selectedMonth);
-                return;
-              }
-              if (monthSet.has(CURRENT_MONTH)) {
-                setSelectedMonth(CURRENT_MONTH);
-                return;
-              }
-              setSelectedMonth(nextMonths[0]?.value ?? MONTH_OPTIONS[0].value);
-            }}
+            onChange={(event) => setSelectedYear(event.target.value)}
             className="bg-transparent text-sky-100 outline-none"
           >
             {YEARS.map((year) => (
@@ -571,56 +601,71 @@ export default function ScoreStreakAnalysis() {
             onChange={(event) => setSelectedMonth(event.target.value)}
             className="bg-transparent text-sky-100 outline-none"
           >
-            {availableMonths.map((month) => (
+            {MONTH_OPTIONS.map((month) => (
               <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">
                 {month.label}
               </option>
             ))}
           </select>
         </label>
+
+        <span className="ml-auto flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+          Live
+        </span>
       </div>
 
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-        <div
-          className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
-          style={{ maxHeight: "calc(100vh - 350px)" }}
-        >
-          <div className="space-y-6 p-6">
-            <StreakLineGraph series={streakSeries} daysInMonth={daily.length} />
+      {loading ? (
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
+        </div>
+      ) : !hasData ? (
+        <div className="flex h-64 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.03]">
+          <p className="text-sm text-stone-500">No habit data for this period.</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+          <div
+            className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
+            style={{ maxHeight: "calc(100vh - 350px)" }}
+          >
+            <div className="space-y-6 p-6">
+              <StreakLineGraph series={streakSeries} daysInMonth={daily.length} />
 
-            <VerticalScoreGraph
-              title="Avg Weekly Score"
-              subtitle="4 Week Breakdown"
-              series={weeklyScoreSeries}
-              theme={{
-                dot: "bg-amber-300",
-                fill: "bg-gradient-to-t from-amber-900/95 to-amber-300/90",
-                border: "border-amber-200/25",
-                value: "text-amber-200",
-              }}
-            />
+              <VerticalScoreGraph
+                title="Avg Weekly Score"
+                subtitle="4 Week Breakdown"
+                series={weeklyScoreSeries}
+                theme={{
+                  dot: "bg-amber-300",
+                  fill: "bg-gradient-to-t from-amber-900/95 to-amber-300/90",
+                  border: "border-amber-200/25",
+                  value: "text-amber-200",
+                }}
+              />
 
-            <VerticalScoreGraph
-              title="Consistency Score Analysis"
-              subtitle="Consistency by Weekday"
-              series={weekdayConsistencySeries}
-              theme={{
-                dot: "bg-emerald-300",
-                fill: "bg-gradient-to-t from-emerald-900/95 to-emerald-300/90",
-                border: "border-emerald-200/25",
-                value: "text-emerald-200",
-              }}
-            />
+              <VerticalScoreGraph
+                title="Consistency Score Analysis"
+                subtitle="Consistency by Weekday"
+                series={weekdayConsistencySeries}
+                theme={{
+                  dot: "bg-emerald-300",
+                  fill: "bg-gradient-to-t from-emerald-900/95 to-emerald-300/90",
+                  border: "border-emerald-200/25",
+                  value: "text-emerald-200",
+                }}
+              />
+            </div>
+          </div>
+
+          <div
+            className="journal-scroll flex w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
+            style={{ maxHeight: "calc(100vh - 180px)" }}
+          >
+            <InsightRail insights={insights} />
           </div>
         </div>
-
-        <div
-          className="journal-scroll flex w-full w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
-          style={{ maxHeight: "calc(100vh - 180px)" }}
-        >
-          <InsightRail insights={insights} />
-        </div>
-      </div>
+      )}
     </section>
   );
 }

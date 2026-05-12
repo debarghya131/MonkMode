@@ -1180,3 +1180,134 @@ export const createTodoLog = async (req, res) => {
     return res.status(400).json({ message: error.message });
   }
 };
+
+const IMPORTANT_CATEGORIES = new Set(["Health", "Bill & Payment"]);
+const TIME_SLOTS_ORDER = ["6 AM - 9 AM", "9 AM - 12 PM", "12 PM - 3 PM", "3 PM - 6 PM", "6 PM - 12 AM"];
+
+const getTimeSlot = (time) => {
+  if (!time) return "6 PM - 12 AM";
+  const h = parseInt(time.split(":")[0], 10);
+  if (h >= 6 && h < 9)  return "6 AM - 9 AM";
+  if (h >= 9 && h < 12) return "9 AM - 12 PM";
+  if (h >= 12 && h < 15) return "12 PM - 3 PM";
+  if (h >= 15 && h < 18) return "3 PM - 6 PM";
+  return "6 PM - 12 AM";
+};
+
+export const getTodoAnalysis = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const y = parseInt(req.query.year, 10);
+    const m = parseInt(req.query.month, 10);
+    if (!y || !m || m < 1 || m > 12) return res.status(400).json({ message: "Invalid year or month" });
+
+    const prefix = `${y}-${String(m).padStart(2, "0")}`;
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const todayKey = toDayKey(new Date());
+
+    // Fetch all todos including deleted ones — a todo deleted mid-month was still alive earlier
+    const todos = await Todo.find(
+      { userId },
+      { category: 1, priority: 1, time: 1, dayStates: 1, repeatType: 1, date: 1, startDate: 1, endDate: 1, days: 1, pendingDays: 1, daysChangeEffectiveFrom: 1, deletedAt: 1, createdAt: 1, completed: 1 }
+    ).lean();
+
+    const dayMap = new Map();
+    const categoryMap = new Map();
+    const priorityMap = {
+      High:   { total: 0, completed: 0, missed: 0, pending: 0 },
+      Medium: { total: 0, completed: 0, missed: 0, pending: 0 },
+      Low:    { total: 0, completed: 0, missed: 0, pending: 0 },
+    };
+    const slotMap = Object.fromEntries(
+      TIME_SLOTS_ORDER.map((range) => [range, { total: 0, completed: 0, pending: 0 }])
+    );
+
+    for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+      const date = `${prefix}-${String(dayNum).padStart(2, "0")}`;
+      if (date > todayKey) break;
+
+      for (const todo of todos) {
+        if (!isTaskAliveOnDay(todo, date)) continue;
+        if (!isTaskScheduledOnDay(todo, date)) continue;
+
+        const status = getTodoStatusForDay(todo, date, todayKey);
+
+        const isCompleted = status === "completed";
+        const isPending = status === "pending";
+        const dayState = getExistingDayState(todo, date);
+        const isLate = isCompleted && Boolean(dayState?.lateCompleted);
+
+        const cat  = (todo.category || "Others").trim();
+        const pri  = todo.priority || "Medium";
+        const slot = getTimeSlot(todo.time);
+
+        if (!dayMap.has(date)) dayMap.set(date, {
+          total: 0,
+          completed: 0,
+          missed: 0,
+          pending: 0,
+          lateCompleted: 0
+        });
+        const d = dayMap.get(date);
+        d.total++;
+        if (isCompleted) d.completed++;
+        else if (isPending) d.pending++;
+        else d.missed++;
+        if (isLate) d.lateCompleted++;
+
+        if (!categoryMap.has(cat)) categoryMap.set(cat, {
+          total: 0,
+          completed: 0,
+          missed: 0,
+          pending: 0,
+          lateCompleted: 0
+        });
+        const c = categoryMap.get(cat);
+        c.total++;
+        if (isCompleted) c.completed++;
+        else if (isPending) c.pending++;
+        else c.missed++;
+        if (isLate) c.lateCompleted++;
+
+        if (priorityMap[pri]) {
+          priorityMap[pri].total++;
+          if (isCompleted) priorityMap[pri].completed++;
+          else if (isPending) priorityMap[pri].pending++;
+          else priorityMap[pri].missed++;
+        }
+
+        slotMap[slot].total++;
+        if (isCompleted) slotMap[slot].completed++;
+        else if (isPending) slotMap[slot].pending++;
+      }
+    }
+
+    const WEEK_DAYS_LOCAL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    const days = Array.from({ length: daysInMonth }, (_, i) => {
+      const dayNum = i + 1;
+      const date   = `${prefix}-${String(dayNum).padStart(2, "0")}`;
+      const weekday = WEEK_DAYS_LOCAL[new Date(y, m - 1, dayNum).getDay()];
+      const entry  = dayMap.get(date) || {
+        total: 0,
+        completed: 0,
+        missed: 0,
+        pending: 0,
+        lateCompleted: 0
+      };
+      const score  = entry.total ? Math.round((entry.completed / entry.total) * 100) : null;
+      return { date, weekday, ...entry, score, submitted: entry.total > 0 };
+    });
+
+    const categories = [...categoryMap.entries()]
+      .map(([name, data]) => ({ name, ...data, important: IMPORTANT_CATEGORIES.has(name) }))
+      .sort((a, b) => b.total - a.total);
+
+    const priorities = ["High", "Medium", "Low"].map(name => ({ name, ...priorityMap[name] }));
+    const timeSlots  = TIME_SLOTS_ORDER.map(range => ({ range, ...slotMap[range] }));
+
+    return res.json({ year: y, month: m, days, categories, priorities, timeSlots });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};

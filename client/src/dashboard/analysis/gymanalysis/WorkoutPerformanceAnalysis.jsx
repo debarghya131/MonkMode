@@ -1,6 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
+import api from "../../../api/axios";
+import useAuth from "../../../hooks/useAuth";
+import { buildDemoGymMonthAnalysis } from "./demoGymAnalysis";
 
 const MONTH_OPTIONS = [
   { value: "01", label: "January" },
@@ -21,95 +24,9 @@ const BODY_GROUPS = ["Chest", "Back", "Shoulders", "Arms", "Legs", "Core"];
 const DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const REST_DAYS = ["Sun"];
 
-const WORKOUT_SESSION_DATA = [
-  {
-    year: "2026",
-    month: "04",
-    sessions: [
-      { date: "2026-04-01", day: "Wed", duration: 65, volume: 7800, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-04-03", day: "Fri", duration: 72, volume: 9200, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-04-05", day: "Sun", duration: 55, volume: 5400, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2026-04-07", day: "Tue", duration: 78, volume: 11200, bodyGroups: ["Legs"] },
-      { date: "2026-04-09", day: "Thu", duration: 62, volume: 8100, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-04-11", day: "Sat", duration: 68, volume: 9800, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-04-13", day: "Mon", duration: 52, volume: 5200, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2026-04-15", day: "Wed", duration: 80, volume: 12400, bodyGroups: ["Legs"] },
-      { date: "2026-04-17", day: "Fri", duration: 60, volume: 7600, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-04-19", day: "Sun", duration: 74, volume: 10200, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-04-21", day: "Tue", duration: 85, volume: 13500, bodyGroups: ["Legs", "Core"] },
-      { date: "2026-04-23", day: "Thu", duration: 82, volume: 12800, bodyGroups: ["Legs"] },
-      { date: "2026-04-25", day: "Sat", duration: 67, volume: 8400, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-04-27", day: "Mon", duration: 70, volume: 10500, bodyGroups: ["Chest", "Arms"] },
-    ],
-  },
-  {
-    year: "2026",
-    month: "03",
-    sessions: [
-      { date: "2026-03-02", day: "Mon", duration: 60, volume: 7000, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-03-04", day: "Wed", duration: 68, volume: 8600, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-03-06", day: "Fri", duration: 50, volume: 4800, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2026-03-09", day: "Mon", duration: 74, volume: 10400, bodyGroups: ["Legs"] },
-      { date: "2026-03-11", day: "Wed", duration: 58, volume: 7200, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-03-13", day: "Fri", duration: 65, volume: 9000, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-03-16", day: "Mon", duration: 76, volume: 11600, bodyGroups: ["Legs"] },
-      { date: "2026-03-18", day: "Wed", duration: 55, volume: 6800, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2026-03-20", day: "Fri", duration: 63, volume: 8200, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-03-23", day: "Mon", duration: 70, volume: 9600, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-03-25", day: "Wed", duration: 78, volume: 12000, bodyGroups: ["Legs"] },
-      { date: "2026-03-27", day: "Fri", duration: 64, volume: 8900, bodyGroups: ["Back", "Arms"] },
-    ],
-  },
-  {
-    year: "2026",
-    month: "02",
-    sessions: [
-      { date: "2026-02-02", day: "Mon", duration: 55, volume: 6200, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-02-04", day: "Wed", duration: 62, volume: 7600, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-02-07", day: "Sat", duration: 48, volume: 4400, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2026-02-09", day: "Mon", duration: 70, volume: 9800, bodyGroups: ["Legs"] },
-      { date: "2026-02-11", day: "Wed", duration: 58, volume: 6800, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-02-14", day: "Sat", duration: 65, volume: 8400, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-02-16", day: "Mon", duration: 72, volume: 10200, bodyGroups: ["Legs"] },
-      { date: "2026-02-18", day: "Wed", duration: 50, volume: 5600, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2026-02-21", day: "Sat", duration: 60, volume: 7800, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-02-23", day: "Mon", duration: 68, volume: 9200, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-02-25", day: "Wed", duration: 75, volume: 11000, bodyGroups: ["Legs"] },
-    ],
-  },
-  {
-    year: "2025",
-    month: "12",
-    sessions: [
-      { date: "2025-12-01", day: "Mon", duration: 52, volume: 5800, bodyGroups: ["Chest", "Arms"] },
-      { date: "2025-12-03", day: "Wed", duration: 58, volume: 7000, bodyGroups: ["Back", "Arms"] },
-      { date: "2025-12-06", day: "Sat", duration: 45, volume: 4200, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2025-12-08", day: "Mon", duration: 66, volume: 9000, bodyGroups: ["Legs"] },
-      { date: "2025-12-10", day: "Wed", duration: 54, volume: 6400, bodyGroups: ["Chest", "Arms"] },
-      { date: "2025-12-13", day: "Sat", duration: 60, volume: 7800, bodyGroups: ["Back", "Arms"] },
-      { date: "2025-12-15", day: "Mon", duration: 68, volume: 9600, bodyGroups: ["Legs"] },
-      { date: "2025-12-17", day: "Wed", duration: 48, volume: 5200, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2025-12-20", day: "Sat", duration: 58, volume: 7200, bodyGroups: ["Chest", "Arms"] },
-    ],
-  },
-];
-
-const YEARS = [...new Set(WORKOUT_SESSION_DATA.map((e) => e.year))].sort().reverse();
-const CURRENT_YEAR = String(new Date().getFullYear());
-const CURRENT_MONTH = String(new Date().getMonth() + 1).padStart(2, "0");
-
-function getAvailableMonthsForYear(year) {
-  return MONTH_OPTIONS.filter((m) =>
-    WORKOUT_SESSION_DATA.some((e) => e.year === year && e.month === m.value)
-  );
-}
-
-const INITIAL_YEAR = YEARS.includes(CURRENT_YEAR) ? CURRENT_YEAR : YEARS[0];
-const INITIAL_MONTH = (() => {
-  const months = getAvailableMonthsForYear(INITIAL_YEAR);
-  if (months.some((m) => m.value === CURRENT_MONTH)) return CURRENT_MONTH;
-  return months[0]?.value ?? MONTH_OPTIONS[0].value;
-})();
+const NOW = new Date();
+const YEARS = Array.from({ length: NOW.getFullYear() - 2023 }, (_, i) => String(NOW.getFullYear() - i));
+const CURRENT_MONTH = String(NOW.getMonth() + 1).padStart(2, "0");
 
 const round = (v, p = 1) => Number(v.toFixed(p));
 
@@ -202,17 +119,17 @@ function DayWisePerformanceChart({ sessions }) {
   const drawableBarH = DAY_PERFORMANCE_BAR_H - DAY_PERFORMANCE_CHART_HEADROOM;
 
   const dayPerformance = useMemo(() => {
-    const stats = Object.fromEntries(DAY_ORDER.map((d) => [d, { day: d, sessions: 0, volume: 0, duration: 0 }]));
+    const stats = Object.fromEntries(DAY_ORDER.map((d) => [d, { day: d, sessions: 0, volume: 0, exercises: 0 }]));
     sessions.forEach((s) => {
       if (!stats[s.day] || REST_DAYS.includes(s.day)) return;
       stats[s.day].sessions += 1;
       stats[s.day].volume += s.volume;
-      stats[s.day].duration += s.duration;
+      stats[s.day].exercises += s.exerciseCount;
     });
     return DAY_ORDER.map((day) => ({
       ...stats[day],
       isRestDay: REST_DAYS.includes(day),
-      avgDuration: stats[day].sessions ? Math.round(stats[day].duration / stats[day].sessions) : 0,
+      avgExercises: stats[day].sessions ? Math.round(stats[day].exercises / stats[day].sessions) : 0,
     }));
   }, [sessions]);
 
@@ -281,7 +198,7 @@ function DayWisePerformanceChart({ sessions }) {
                       ) : (
                         <>
                           <p className="text-[10px] font-bold text-amber-200">{formatVolume(item.volume)} kg</p>
-                          <p className="text-[9px] text-stone-400">{item.sessions} sessions · {item.avgDuration}m avg</p>
+                          <p className="text-[9px] text-stone-400">{item.sessions} sessions · {item.avgExercises} ex avg</p>
                         </>
                       )}
                     </Motion.div>
@@ -326,24 +243,22 @@ function VolumeTrendChart({ sessions }) {
 
   const width = Math.max(600, sessions.length * 56);
   const height = 280;
-  const pad = { top: 24, right: 22, bottom: 42, left: 52 };
+  const pad = { top: 24, right: 22, bottom: 42, left: 58 };
   const chartW = width - pad.left - pad.right;
   const chartH = height - pad.top - pad.bottom;
   const maxVol = Math.max(1, ...sessions.map((s) => s.volume));
-  const minVol = Math.min(...sessions.map((s) => s.volume));
-  const volRange = maxVol - minVol || 1;
 
-  const xOf = (i) =>
-    sessions.length === 1 ? pad.left + chartW / 2 : pad.left + (i / (sessions.length - 1)) * chartW;
-  const yOf = (v) => pad.top + ((maxVol - v) / volRange) * chartH;
+  const barW = chartW / sessions.length;
+  const barGap = Math.max(6, barW * 0.28);
+  const barDrawW = barW - barGap;
 
-  const linePath = sessions
-    .map((s, i) => `${i === 0 ? "M" : "L"}${xOf(i).toFixed(1)},${yOf(s.volume).toFixed(1)}`)
-    .join(" ");
+  const xBar = (i) => pad.left + i * barW + barGap / 2;
+  const barH = (vol) => Math.max(4, Math.round((vol / maxVol) * chartH));
+  const yBar = (vol) => pad.top + chartH - barH(vol);
+  const yOf = (v) => pad.top + ((maxVol - v) / maxVol) * chartH;
 
-  const areaPath = `${linePath} L${xOf(sessions.length - 1).toFixed(1)},${(pad.top + chartH).toFixed(1)} L${xOf(0).toFixed(1)},${(pad.top + chartH).toFixed(1)} Z`;
-
-  const yTicks = [minVol, Math.round((minVol + maxVol) / 2), maxVol];
+  const yTicks = [...new Set([0, Math.round(maxVol / 2), maxVol])];
+  const fmt = (v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v);
 
   return (
     <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
@@ -361,152 +276,77 @@ function VolumeTrendChart({ sessions }) {
       <div className="mt-5 overflow-x-auto">
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ minWidth: `${width}px` }}>
           <defs>
-            <linearGradient id="volAreaGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#f59e0b" stopOpacity={hovered !== null ? "0.34" : "0.22"} />
-              <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.01" />
+            <linearGradient id="volBarGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#78350f" stopOpacity="0.7" />
             </linearGradient>
-            <filter id="volPointGlow" x="-80%" y="-80%" width="260%" height="260%">
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feColorMatrix
-                in="blur"
-                type="matrix"
-                values="1 0 0 0 0.96 0 0.72 0 0 0.58 0 0 0.32 0 0.05 0 0 0 0.75 0"
-              />
-              <feMerge>
-                <feMergeNode />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
+            <linearGradient id="volBarGradHov" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#fde68a" stopOpacity="1" />
+              <stop offset="100%" stopColor="#92400e" stopOpacity="0.8" />
+            </linearGradient>
+            <filter id="volBarGlow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="5" result="blur" />
+              <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0.96 0 0.72 0 0 0.45 0 0 0 0 0 0 0 0 0.6 0" />
+              <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
           </defs>
-          {yTicks.map((tick) => {
-            const y = yOf(tick);
+
+          {/* grid lines */}
+          {yTicks.map((tick) => (
+            <g key={tick}>
+              <line x1={pad.left} y1={yOf(tick)} x2={width - pad.right} y2={yOf(tick)} stroke="rgba(255,255,255,0.07)" strokeDasharray="4 6" />
+              <text x={pad.left - 8} y={yOf(tick) + 4} textAnchor="end" fontSize="10" fill="rgba(255,255,255,0.4)">{fmt(tick)}</text>
+            </g>
+          ))}
+
+          {/* bars */}
+          {sessions.map((s, i) => {
+            const bh = barH(s.volume);
+            const by = yBar(s.volume);
+            const isHov = hovered === i;
+            const cx = xBar(i) + barDrawW / 2;
             return (
-              <g key={tick}>
-                <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke="rgba(255,255,255,0.07)" strokeDasharray="4 6" />
-                <text x={pad.left - 8} y={y + 4} textAnchor="end" fontSize="10" fill="rgba(255,255,255,0.4)">
-                  {tick >= 1000 ? `${(tick / 1000).toFixed(1)}k` : tick}
-                </text>
+              <g key={s.date}>
+                <Motion.rect
+                  x={xBar(i)}
+                  width={barDrawW}
+                  rx="6"
+                  fill={isHov ? "url(#volBarGradHov)" : "url(#volBarGrad)"}
+                  filter={isHov ? "url(#volBarGlow)" : undefined}
+                  style={{ cursor: "crosshair", opacity: hovered !== null && !isHov ? 0.38 : 1, transition: "opacity 0.15s ease" }}
+                  initial={{ y: pad.top + chartH, height: 0 }}
+                  animate={{ y: by, height: bh }}
+                  transition={{ duration: 0.5, delay: i * 0.04, ease: "easeOut" }}
+                  onMouseEnter={() => setHovered(i)}
+                  onMouseLeave={() => setHovered(null)}
+                />
+                {/* top value label */}
+                {isHov && (
+                  <text x={cx} y={Math.max(by - 7, pad.top + 12)} textAnchor="middle" fontSize="10" fontWeight="700" fill="#fde68a" style={{ pointerEvents: "none" }}>
+                    {fmt(s.volume)}
+                  </text>
+                )}
+                {/* x-axis date */}
+                <text x={cx} y={height - 10} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.38)">{s.date.slice(5)}</text>
               </g>
             );
           })}
-          {hovered !== null && sessions[hovered] ? (
-            <Motion.rect
-              x={Math.max(pad.left, xOf(hovered) - chartW / sessions.length / 2)}
-              y={pad.top}
-              width={chartW / sessions.length}
-              height={chartH}
-              rx="8"
-              fill="rgba(251,191,36,0.08)"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.16 }}
-              style={{ pointerEvents: "none" }}
-            />
-          ) : null}
-          <Motion.path
-            d={areaPath}
-            fill="url(#volAreaGrad)"
-            animate={{ opacity: hovered !== null ? 1 : 0.82 }}
-            transition={{ duration: 0.18 }}
-          />
-          <Motion.path
-            d={linePath}
-            fill="none"
-            stroke="#f59e0b"
-            strokeWidth={hovered !== null ? "3.2" : "2.5"}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            initial={{ pathLength: 0, opacity: 0 }}
-            animate={{ pathLength: 1, opacity: 1 }}
-            transition={{ duration: hovered !== null ? 0.18 : 2.2, ease: "easeInOut" }}
-          />
-          {sessions.map((s, i) => (
-            <Motion.circle
-              key={s.date}
-              cx={xOf(i)}
-              cy={yOf(s.volume)}
-              r={hovered === i ? 8 : 4}
-              fill={hovered === i ? "#f59e0b" : "#0f172a"}
-              stroke="#fbbf24"
-              strokeWidth={hovered === i ? 3 : 2}
-              filter={hovered === i ? "url(#volPointGlow)" : undefined}
-              animate={{ opacity: hovered !== null && hovered !== i ? 0.42 : 1 }}
-              transition={{ duration: 0.16 }}
-              style={{ cursor: "crosshair" }}
-              onMouseEnter={() => setHovered(i)}
-              onMouseLeave={() => setHovered(null)}
-            />
-          ))}
-          {sessions.map((s, i) => (
-            <text
-              key={`x-${s.date}`}
-              x={xOf(i)}
-              y={height - 10}
-              textAnchor="middle"
-              fontSize="9"
-              fill="rgba(255,255,255,0.38)"
-            >
-              {s.date.slice(5)}
-            </text>
-          ))}
-          {hovered !== null && sessions[hovered] ? (
-            <g style={{ pointerEvents: "none" }}>
-              <line
-                x1={xOf(hovered)}
-                y1={pad.top}
-                x2={xOf(hovered)}
-                y2={pad.top + chartH}
-                stroke="rgba(251,191,36,0.38)"
-                strokeWidth="1"
-                strokeDasharray="4 3"
-              />
-              <rect
-                x={Math.min(Math.max(xOf(hovered) - 58, pad.left), width - pad.right - 116)}
-                y={Math.max(yOf(sessions[hovered].volume) - 52, pad.top + 2)}
-                width="116"
-                height="42"
-                rx="7"
-                fill="rgba(15,23,42,0.94)"
-                stroke="rgba(251,191,36,0.4)"
-                strokeWidth="1"
-              />
-              <text
-                x={Math.min(Math.max(xOf(hovered), pad.left + 60), width - pad.right - 58)}
-                y={Math.max(yOf(sessions[hovered].volume) - 32, pad.top + 20)}
-                textAnchor="middle"
-                fontSize="11"
-                fontWeight="700"
-                fill="#fde68a"
-              >
-                {sessions[hovered].date.slice(5)}
-              </text>
-              <text
-                x={Math.min(Math.max(xOf(hovered), pad.left + 60), width - pad.right - 58)}
-                y={Math.max(yOf(sessions[hovered].volume) - 16, pad.top + 36)}
-                textAnchor="middle"
-                fontSize="10"
-                fill="rgba(226,232,240,0.86)"
-              >
-                {sessions[hovered].volume.toLocaleString()} kg vol
-              </text>
-            </g>
-          ) : null}
-          {sessions.map((s, i) => {
-            const bandW = chartW / sessions.length;
+
+          {/* tooltip */}
+          {hovered !== null && sessions[hovered] ? (() => {
+            const s = sessions[hovered];
+            const cx = xBar(hovered) + barDrawW / 2;
+            const ty = Math.max(yBar(s.volume) - 58, pad.top + 2);
+            const tx = Math.min(Math.max(cx, pad.left + 58), width - pad.right - 58);
             return (
-              <rect
-                key={`hover-${s.date}`}
-                x={Math.max(pad.left, xOf(i) - bandW / 2)}
-                y={pad.top}
-                width={bandW}
-                height={chartH}
-                fill="transparent"
-                style={{ cursor: "crosshair" }}
-                onMouseEnter={() => setHovered(i)}
-                onMouseLeave={() => setHovered(null)}
-              />
+              <g style={{ pointerEvents: "none" }}>
+                <line x1={cx} y1={pad.top} x2={cx} y2={yBar(s.volume)} stroke="rgba(251,191,36,0.3)" strokeWidth="1" strokeDasharray="4 3" />
+                <rect x={tx - 58} y={ty} width="116" height="44" rx="7" fill="rgba(15,23,42,0.94)" stroke="rgba(251,191,36,0.4)" strokeWidth="1" />
+                <text x={tx} y={ty + 18} textAnchor="middle" fontSize="11" fontWeight="700" fill="#fde68a">{s.date.slice(5)}</text>
+                <text x={tx} y={ty + 34} textAnchor="middle" fontSize="10" fill="rgba(226,232,240,0.86)">{s.volume.toLocaleString()} kg vol</text>
+              </g>
             );
-          })}
+          })() : null}
         </svg>
       </div>
     </section>
@@ -662,25 +502,56 @@ function BodyPartSplitChart({ sessions }) {
 }
 
 export default function WorkoutPerformanceAnalysis() {
-  const [selectedYear, setSelectedYear] = useState(INITIAL_YEAR);
-  const [selectedMonth, setSelectedMonth] = useState(INITIAL_MONTH);
+  const { user, isDemoMode } = useAuth();
+  const [selectedYear, setSelectedYear] = useState(isDemoMode ? "2026" : String(NOW.getFullYear()));
+  const [selectedMonth, setSelectedMonth] = useState(isDemoMode ? "04" : CURRENT_MONTH);
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const availableMonths = useMemo(() => getAvailableMonthsForYear(selectedYear), [selectedYear]);
+  useEffect(() => {
+    if (isDemoMode) {
+      setSessions(buildDemoGymMonthAnalysis().sessions);
+      setLoading(false);
+      return;
+    }
+    if (!user) return;
 
-  const periodData = useMemo(
-    () =>
-      WORKOUT_SESSION_DATA.find((e) => e.year === selectedYear && e.month === selectedMonth) ??
-      WORKOUT_SESSION_DATA[0],
-    [selectedYear, selectedMonth]
-  );
+    let cancelled = false;
 
-  const sessions = periodData.sessions;
+    const loadAnalysis = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get(`/gym/analysis?year=${selectedYear}&month=${Number(selectedMonth)}`);
+        if (!cancelled) setSessions(res.data.sessions || []);
+      } catch {
+        if (!cancelled) setSessions([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    const refreshAnalysis = () => {
+      loadAnalysis();
+    };
+
+    loadAnalysis();
+    window.addEventListener("focus", refreshAnalysis);
+    window.addEventListener("storage", refreshAnalysis);
+    window.addEventListener("monkmode:exercise-progress-updated", refreshAnalysis);
+    window.addEventListener("monkmode:gym-workouts-updated", refreshAnalysis);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refreshAnalysis);
+      window.removeEventListener("storage", refreshAnalysis);
+      window.removeEventListener("monkmode:exercise-progress-updated", refreshAnalysis);
+      window.removeEventListener("monkmode:gym-workouts-updated", refreshAnalysis);
+    };
+  }, [isDemoMode, user, selectedYear, selectedMonth]);
 
   const totalVolume = sessions.reduce((sum, s) => sum + s.volume, 0);
-  const avgDuration = sessions.length ? round(sessions.reduce((sum, s) => sum + s.duration, 0) / sessions.length, 0) : 0;
-  const bestVolumeSession = sessions.length
-    ? sessions.reduce((best, s) => (s.volume > best.volume ? s : best))
-    : null;
+  const avgExercises = sessions.length ? round(sessions.reduce((sum, s) => sum + s.exerciseCount, 0) / sessions.length, 1) : 0;
+  const bestVolumeSession = sessions.length ? sessions.reduce((best, s) => s.volume > best.volume ? s : best) : null;
 
   const mostFreqDay = (() => {
     const counts = {};
@@ -709,12 +580,8 @@ export default function WorkoutPerformanceAnalysis() {
   })();
   const bestPerformanceDayEntry = [...dayPerformanceRanking].sort((a, b) => b.volume - a.volume)[0];
   const weakPerformanceDayEntry = [...dayPerformanceRanking].sort((a, b) => a.volume - b.volume)[0];
-  const bestPerformanceDay = bestPerformanceDayEntry
-    ? `${bestPerformanceDayEntry.day} (${bestPerformanceDayEntry.volume.toLocaleString()} kg)`
-    : "—";
-  const weakPerformanceDay = weakPerformanceDayEntry
-    ? `${weakPerformanceDayEntry.day} (${weakPerformanceDayEntry.volume.toLocaleString()} kg)`
-    : "—";
+  const bestPerformanceDay = bestPerformanceDayEntry ? `${bestPerformanceDayEntry.day} (${bestPerformanceDayEntry.volume.toLocaleString()} kg)` : "—";
+  const weakPerformanceDay = weakPerformanceDayEntry ? `${weakPerformanceDayEntry.day} (${weakPerformanceDayEntry.volume.toLocaleString()} kg)` : "—";
 
   const insights = [
     {
@@ -728,9 +595,9 @@ export default function WorkoutPerformanceAnalysis() {
       description: "Total volume is calculated as sets × reps × weight across all sessions.",
     },
     {
-      title: "Avg Session Duration",
-      value: `${avgDuration} min`,
-      description: `Your sessions averaged ${avgDuration} minutes. Consistency in duration helps with planning and recovery.`,
+      title: "Avg Exercises Per Session",
+      value: `${avgExercises} exercises`,
+      description: "Average number of exercises logged per workout session this month.",
     },
     {
       title: "Most Frequent Training Day",
@@ -745,7 +612,7 @@ export default function WorkoutPerformanceAnalysis() {
     {
       title: "Weak Performance Day",
       value: weakPerformanceDay,
-      description: `Your lowest-volume training weekday this month. Sunday is excluded because it is treated as a rest day.`,
+      description: "Your lowest-volume training weekday this month. Sunday is excluded because it is treated as a rest day.",
     },
     {
       title: "Most Targeted Body Group",
@@ -757,15 +624,11 @@ export default function WorkoutPerformanceAnalysis() {
       value: leastGroup,
       description: "The muscle group you trained the least this month. Consider adding volume here if it fits your program.",
     },
-    ...(bestVolumeSession
-      ? [
-          {
-            title: "Best Volume Session",
-            value: `${bestVolumeSession.date} — ${bestVolumeSession.volume.toLocaleString()} kg`,
-            description: `Your highest output session this month lasted ${bestVolumeSession.duration} minutes targeting ${bestVolumeSession.bodyGroups.join(" + ")}.`,
-          },
-        ]
-      : []),
+    ...(bestVolumeSession ? [{
+      title: "Best Volume Session",
+      value: `${bestVolumeSession.date} — ${bestVolumeSession.volume.toLocaleString()} kg`,
+      description: `Your highest output session this month, targeting ${bestVolumeSession.bodyGroups.join(" + ") || "various groups"}.`,
+    }] : []),
   ];
 
   return (
@@ -776,52 +639,55 @@ export default function WorkoutPerformanceAnalysis() {
           <select
             value={selectedYear}
             onChange={(e) => {
-              const nextYear = e.target.value;
-              setSelectedYear(nextYear);
-              const nextMonths = getAvailableMonthsForYear(nextYear);
-              const has = nextMonths.some((m) => m.value === selectedMonth);
-              setSelectedMonth(has ? selectedMonth : nextMonths[0]?.value ?? MONTH_OPTIONS[0].value);
+              const y = e.target.value;
+              setSelectedYear(y);
+              if (Number(y) === NOW.getFullYear() && Number(selectedMonth) > NOW.getMonth() + 1) {
+                setSelectedMonth(CURRENT_MONTH);
+              }
             }}
             className="bg-transparent text-sky-100 outline-none"
           >
-            {YEARS.map((y) => (
-              <option key={y} value={y} className="bg-stone-950 text-stone-200">{y}</option>
-            ))}
+            {YEARS.map((y) => <option key={y} value={y} className="bg-stone-950 text-stone-200">{y}</option>)}
           </select>
         </label>
         <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
           <span className="text-stone-400">Month</span>
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="bg-transparent text-sky-100 outline-none"
-          >
-            {availableMonths.map((m) => (
-              <option key={m.value} value={m.value} className="bg-stone-950 text-stone-200">{m.label}</option>
-            ))}
+          <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-transparent text-sky-100 outline-none">
+            {(Number(selectedYear) < NOW.getFullYear() ? MONTH_OPTIONS : MONTH_OPTIONS.filter((m) => Number(m.value) <= NOW.getMonth() + 1))
+              .map((m) => <option key={m.value} value={m.value} className="bg-stone-950 text-stone-200">{m.label}</option>)}
           </select>
         </label>
+        <span className="ml-auto flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+          Live
+        </span>
       </div>
 
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-        <div
-          className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
-          style={{ maxHeight: "calc(100vh - 350px)" }}
-        >
-          <div className="space-y-6 p-6">
-            <BodyPartSplitChart sessions={sessions} />
-            <DayWisePerformanceChart sessions={sessions} />
-            <VolumeTrendChart sessions={sessions} />
+      {loading ? (
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+          <div
+            className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
+            style={{ maxHeight: "calc(100vh - 350px)" }}
+          >
+            <div className="space-y-6 p-6">
+              <BodyPartSplitChart sessions={sessions} />
+              <DayWisePerformanceChart sessions={sessions} />
+              <VolumeTrendChart sessions={sessions} />
+            </div>
+          </div>
+
+          <div
+            className="flex w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2"
+            style={{ maxHeight: "calc(100vh - 230px)" }}
+          >
+            <InsightRail insights={insights} />
           </div>
         </div>
-
-        <div
-          className="flex w-full w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2"
-          style={{ maxHeight: "calc(100vh - 230px)" }}
-        >
-          <InsightRail insights={insights} />
-        </div>
-      </div>
+      )}
     </section>
   );
 }
