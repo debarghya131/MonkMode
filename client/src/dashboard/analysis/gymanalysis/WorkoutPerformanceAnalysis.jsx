@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
+import api from "../../../api/axios";
+import useAuth from "../../../hooks/useAuth";
 
 const MONTH_OPTIONS = [
   { value: "01", label: "January" },
@@ -21,95 +23,9 @@ const BODY_GROUPS = ["Chest", "Back", "Shoulders", "Arms", "Legs", "Core"];
 const DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const REST_DAYS = ["Sun"];
 
-const WORKOUT_SESSION_DATA = [
-  {
-    year: "2026",
-    month: "04",
-    sessions: [
-      { date: "2026-04-01", day: "Wed", duration: 65, volume: 7800, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-04-03", day: "Fri", duration: 72, volume: 9200, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-04-05", day: "Sun", duration: 55, volume: 5400, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2026-04-07", day: "Tue", duration: 78, volume: 11200, bodyGroups: ["Legs"] },
-      { date: "2026-04-09", day: "Thu", duration: 62, volume: 8100, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-04-11", day: "Sat", duration: 68, volume: 9800, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-04-13", day: "Mon", duration: 52, volume: 5200, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2026-04-15", day: "Wed", duration: 80, volume: 12400, bodyGroups: ["Legs"] },
-      { date: "2026-04-17", day: "Fri", duration: 60, volume: 7600, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-04-19", day: "Sun", duration: 74, volume: 10200, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-04-21", day: "Tue", duration: 85, volume: 13500, bodyGroups: ["Legs", "Core"] },
-      { date: "2026-04-23", day: "Thu", duration: 82, volume: 12800, bodyGroups: ["Legs"] },
-      { date: "2026-04-25", day: "Sat", duration: 67, volume: 8400, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-04-27", day: "Mon", duration: 70, volume: 10500, bodyGroups: ["Chest", "Arms"] },
-    ],
-  },
-  {
-    year: "2026",
-    month: "03",
-    sessions: [
-      { date: "2026-03-02", day: "Mon", duration: 60, volume: 7000, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-03-04", day: "Wed", duration: 68, volume: 8600, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-03-06", day: "Fri", duration: 50, volume: 4800, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2026-03-09", day: "Mon", duration: 74, volume: 10400, bodyGroups: ["Legs"] },
-      { date: "2026-03-11", day: "Wed", duration: 58, volume: 7200, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-03-13", day: "Fri", duration: 65, volume: 9000, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-03-16", day: "Mon", duration: 76, volume: 11600, bodyGroups: ["Legs"] },
-      { date: "2026-03-18", day: "Wed", duration: 55, volume: 6800, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2026-03-20", day: "Fri", duration: 63, volume: 8200, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-03-23", day: "Mon", duration: 70, volume: 9600, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-03-25", day: "Wed", duration: 78, volume: 12000, bodyGroups: ["Legs"] },
-      { date: "2026-03-27", day: "Fri", duration: 64, volume: 8900, bodyGroups: ["Back", "Arms"] },
-    ],
-  },
-  {
-    year: "2026",
-    month: "02",
-    sessions: [
-      { date: "2026-02-02", day: "Mon", duration: 55, volume: 6200, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-02-04", day: "Wed", duration: 62, volume: 7600, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-02-07", day: "Sat", duration: 48, volume: 4400, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2026-02-09", day: "Mon", duration: 70, volume: 9800, bodyGroups: ["Legs"] },
-      { date: "2026-02-11", day: "Wed", duration: 58, volume: 6800, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-02-14", day: "Sat", duration: 65, volume: 8400, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-02-16", day: "Mon", duration: 72, volume: 10200, bodyGroups: ["Legs"] },
-      { date: "2026-02-18", day: "Wed", duration: 50, volume: 5600, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2026-02-21", day: "Sat", duration: 60, volume: 7800, bodyGroups: ["Chest", "Arms"] },
-      { date: "2026-02-23", day: "Mon", duration: 68, volume: 9200, bodyGroups: ["Back", "Arms"] },
-      { date: "2026-02-25", day: "Wed", duration: 75, volume: 11000, bodyGroups: ["Legs"] },
-    ],
-  },
-  {
-    year: "2025",
-    month: "12",
-    sessions: [
-      { date: "2025-12-01", day: "Mon", duration: 52, volume: 5800, bodyGroups: ["Chest", "Arms"] },
-      { date: "2025-12-03", day: "Wed", duration: 58, volume: 7000, bodyGroups: ["Back", "Arms"] },
-      { date: "2025-12-06", day: "Sat", duration: 45, volume: 4200, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2025-12-08", day: "Mon", duration: 66, volume: 9000, bodyGroups: ["Legs"] },
-      { date: "2025-12-10", day: "Wed", duration: 54, volume: 6400, bodyGroups: ["Chest", "Arms"] },
-      { date: "2025-12-13", day: "Sat", duration: 60, volume: 7800, bodyGroups: ["Back", "Arms"] },
-      { date: "2025-12-15", day: "Mon", duration: 68, volume: 9600, bodyGroups: ["Legs"] },
-      { date: "2025-12-17", day: "Wed", duration: 48, volume: 5200, bodyGroups: ["Shoulders", "Core"] },
-      { date: "2025-12-20", day: "Sat", duration: 58, volume: 7200, bodyGroups: ["Chest", "Arms"] },
-    ],
-  },
-];
-
-const YEARS = [...new Set(WORKOUT_SESSION_DATA.map((e) => e.year))].sort().reverse();
-const CURRENT_YEAR = String(new Date().getFullYear());
-const CURRENT_MONTH = String(new Date().getMonth() + 1).padStart(2, "0");
-
-function getAvailableMonthsForYear(year) {
-  return MONTH_OPTIONS.filter((m) =>
-    WORKOUT_SESSION_DATA.some((e) => e.year === year && e.month === m.value)
-  );
-}
-
-const INITIAL_YEAR = YEARS.includes(CURRENT_YEAR) ? CURRENT_YEAR : YEARS[0];
-const INITIAL_MONTH = (() => {
-  const months = getAvailableMonthsForYear(INITIAL_YEAR);
-  if (months.some((m) => m.value === CURRENT_MONTH)) return CURRENT_MONTH;
-  return months[0]?.value ?? MONTH_OPTIONS[0].value;
-})();
+const NOW = new Date();
+const YEARS = Array.from({ length: NOW.getFullYear() - 2023 }, (_, i) => String(NOW.getFullYear() - i));
+const CURRENT_MONTH = String(NOW.getMonth() + 1).padStart(2, "0");
 
 const round = (v, p = 1) => Number(v.toFixed(p));
 
@@ -202,17 +118,17 @@ function DayWisePerformanceChart({ sessions }) {
   const drawableBarH = DAY_PERFORMANCE_BAR_H - DAY_PERFORMANCE_CHART_HEADROOM;
 
   const dayPerformance = useMemo(() => {
-    const stats = Object.fromEntries(DAY_ORDER.map((d) => [d, { day: d, sessions: 0, volume: 0, duration: 0 }]));
+    const stats = Object.fromEntries(DAY_ORDER.map((d) => [d, { day: d, sessions: 0, volume: 0, exercises: 0 }]));
     sessions.forEach((s) => {
       if (!stats[s.day] || REST_DAYS.includes(s.day)) return;
       stats[s.day].sessions += 1;
       stats[s.day].volume += s.volume;
-      stats[s.day].duration += s.duration;
+      stats[s.day].exercises += s.exerciseCount;
     });
     return DAY_ORDER.map((day) => ({
       ...stats[day],
       isRestDay: REST_DAYS.includes(day),
-      avgDuration: stats[day].sessions ? Math.round(stats[day].duration / stats[day].sessions) : 0,
+      avgExercises: stats[day].sessions ? Math.round(stats[day].exercises / stats[day].sessions) : 0,
     }));
   }, [sessions]);
 
@@ -281,7 +197,7 @@ function DayWisePerformanceChart({ sessions }) {
                       ) : (
                         <>
                           <p className="text-[10px] font-bold text-amber-200">{formatVolume(item.volume)} kg</p>
-                          <p className="text-[9px] text-stone-400">{item.sessions} sessions · {item.avgDuration}m avg</p>
+                          <p className="text-[9px] text-stone-400">{item.sessions} sessions · {item.avgExercises} ex avg</p>
                         </>
                       )}
                     </Motion.div>
@@ -662,25 +578,27 @@ function BodyPartSplitChart({ sessions }) {
 }
 
 export default function WorkoutPerformanceAnalysis() {
-  const [selectedYear, setSelectedYear] = useState(INITIAL_YEAR);
-  const [selectedMonth, setSelectedMonth] = useState(INITIAL_MONTH);
+  const { user } = useAuth();
+  const [selectedYear, setSelectedYear] = useState(String(NOW.getFullYear()));
+  const [selectedMonth, setSelectedMonth] = useState(CURRENT_MONTH);
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const availableMonths = useMemo(() => getAvailableMonthsForYear(selectedYear), [selectedYear]);
-
-  const periodData = useMemo(
-    () =>
-      WORKOUT_SESSION_DATA.find((e) => e.year === selectedYear && e.month === selectedMonth) ??
-      WORKOUT_SESSION_DATA[0],
-    [selectedYear, selectedMonth]
-  );
-
-  const sessions = periodData.sessions;
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    setLoading(true);
+    api
+      .get(`/gym/analysis?year=${selectedYear}&month=${Number(selectedMonth)}`)
+      .then((res) => { if (!cancelled) setSessions(res.data.sessions || []); })
+      .catch(() => { if (!cancelled) setSessions([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [user, selectedYear, selectedMonth]);
 
   const totalVolume = sessions.reduce((sum, s) => sum + s.volume, 0);
-  const avgDuration = sessions.length ? round(sessions.reduce((sum, s) => sum + s.duration, 0) / sessions.length, 0) : 0;
-  const bestVolumeSession = sessions.length
-    ? sessions.reduce((best, s) => (s.volume > best.volume ? s : best))
-    : null;
+  const avgExercises = sessions.length ? round(sessions.reduce((sum, s) => sum + s.exerciseCount, 0) / sessions.length, 1) : 0;
+  const bestVolumeSession = sessions.length ? sessions.reduce((best, s) => s.volume > best.volume ? s : best) : null;
 
   const mostFreqDay = (() => {
     const counts = {};
@@ -709,12 +627,8 @@ export default function WorkoutPerformanceAnalysis() {
   })();
   const bestPerformanceDayEntry = [...dayPerformanceRanking].sort((a, b) => b.volume - a.volume)[0];
   const weakPerformanceDayEntry = [...dayPerformanceRanking].sort((a, b) => a.volume - b.volume)[0];
-  const bestPerformanceDay = bestPerformanceDayEntry
-    ? `${bestPerformanceDayEntry.day} (${bestPerformanceDayEntry.volume.toLocaleString()} kg)`
-    : "—";
-  const weakPerformanceDay = weakPerformanceDayEntry
-    ? `${weakPerformanceDayEntry.day} (${weakPerformanceDayEntry.volume.toLocaleString()} kg)`
-    : "—";
+  const bestPerformanceDay = bestPerformanceDayEntry ? `${bestPerformanceDayEntry.day} (${bestPerformanceDayEntry.volume.toLocaleString()} kg)` : "—";
+  const weakPerformanceDay = weakPerformanceDayEntry ? `${weakPerformanceDayEntry.day} (${weakPerformanceDayEntry.volume.toLocaleString()} kg)` : "—";
 
   const insights = [
     {
@@ -728,9 +642,9 @@ export default function WorkoutPerformanceAnalysis() {
       description: "Total volume is calculated as sets × reps × weight across all sessions.",
     },
     {
-      title: "Avg Session Duration",
-      value: `${avgDuration} min`,
-      description: `Your sessions averaged ${avgDuration} minutes. Consistency in duration helps with planning and recovery.`,
+      title: "Avg Exercises Per Session",
+      value: `${avgExercises} exercises`,
+      description: "Average number of exercises logged per workout session this month.",
     },
     {
       title: "Most Frequent Training Day",
@@ -745,7 +659,7 @@ export default function WorkoutPerformanceAnalysis() {
     {
       title: "Weak Performance Day",
       value: weakPerformanceDay,
-      description: `Your lowest-volume training weekday this month. Sunday is excluded because it is treated as a rest day.`,
+      description: "Your lowest-volume training weekday this month. Sunday is excluded because it is treated as a rest day.",
     },
     {
       title: "Most Targeted Body Group",
@@ -757,15 +671,11 @@ export default function WorkoutPerformanceAnalysis() {
       value: leastGroup,
       description: "The muscle group you trained the least this month. Consider adding volume here if it fits your program.",
     },
-    ...(bestVolumeSession
-      ? [
-          {
-            title: "Best Volume Session",
-            value: `${bestVolumeSession.date} — ${bestVolumeSession.volume.toLocaleString()} kg`,
-            description: `Your highest output session this month lasted ${bestVolumeSession.duration} minutes targeting ${bestVolumeSession.bodyGroups.join(" + ")}.`,
-          },
-        ]
-      : []),
+    ...(bestVolumeSession ? [{
+      title: "Best Volume Session",
+      value: `${bestVolumeSession.date} — ${bestVolumeSession.volume.toLocaleString()} kg`,
+      description: `Your highest output session this month, targeting ${bestVolumeSession.bodyGroups.join(" + ") || "various groups"}.`,
+    }] : []),
   ];
 
   return (
@@ -773,55 +683,47 @@ export default function WorkoutPerformanceAnalysis() {
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
           <span className="text-stone-400">Year</span>
-          <select
-            value={selectedYear}
-            onChange={(e) => {
-              const nextYear = e.target.value;
-              setSelectedYear(nextYear);
-              const nextMonths = getAvailableMonthsForYear(nextYear);
-              const has = nextMonths.some((m) => m.value === selectedMonth);
-              setSelectedMonth(has ? selectedMonth : nextMonths[0]?.value ?? MONTH_OPTIONS[0].value);
-            }}
-            className="bg-transparent text-sky-100 outline-none"
-          >
-            {YEARS.map((y) => (
-              <option key={y} value={y} className="bg-stone-950 text-stone-200">{y}</option>
-            ))}
+          <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="bg-transparent text-sky-100 outline-none">
+            {YEARS.map((y) => <option key={y} value={y} className="bg-stone-950 text-stone-200">{y}</option>)}
           </select>
         </label>
         <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
           <span className="text-stone-400">Month</span>
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="bg-transparent text-sky-100 outline-none"
-          >
-            {availableMonths.map((m) => (
-              <option key={m.value} value={m.value} className="bg-stone-950 text-stone-200">{m.label}</option>
-            ))}
+          <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-transparent text-sky-100 outline-none">
+            {MONTH_OPTIONS.map((m) => <option key={m.value} value={m.value} className="bg-stone-950 text-stone-200">{m.label}</option>)}
           </select>
         </label>
+        <span className="ml-auto flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+          Live
+        </span>
       </div>
 
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-        <div
-          className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
-          style={{ maxHeight: "calc(100vh - 350px)" }}
-        >
-          <div className="space-y-6 p-6">
-            <BodyPartSplitChart sessions={sessions} />
-            <DayWisePerformanceChart sessions={sessions} />
-            <VolumeTrendChart sessions={sessions} />
+      {loading ? (
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+          <div
+            className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
+            style={{ maxHeight: "calc(100vh - 350px)" }}
+          >
+            <div className="space-y-6 p-6">
+              <BodyPartSplitChart sessions={sessions} />
+              <DayWisePerformanceChart sessions={sessions} />
+              <VolumeTrendChart sessions={sessions} />
+            </div>
+          </div>
+
+          <div
+            className="flex w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2"
+            style={{ maxHeight: "calc(100vh - 230px)" }}
+          >
+            <InsightRail insights={insights} />
           </div>
         </div>
-
-        <div
-          className="flex w-full w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2"
-          style={{ maxHeight: "calc(100vh - 230px)" }}
-        >
-          <InsightRail insights={insights} />
-        </div>
-      </div>
+      )}
     </section>
   );
 }

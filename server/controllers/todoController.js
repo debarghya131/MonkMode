@@ -1214,11 +1214,13 @@ export const getTodoAnalysis = async (req, res) => {
     const dayMap = new Map();
     const categoryMap = new Map();
     const priorityMap = {
-      High:   { total: 0, completed: 0, missed: 0 },
-      Medium: { total: 0, completed: 0, missed: 0 },
-      Low:    { total: 0, completed: 0, missed: 0 },
+      High:   { total: 0, completed: 0, missed: 0, pending: 0 },
+      Medium: { total: 0, completed: 0, missed: 0, pending: 0 },
+      Low:    { total: 0, completed: 0, missed: 0, pending: 0 },
     };
-    const slotMap = Object.fromEntries(TIME_SLOTS_ORDER.map(r => [r, { total: 0, completed: 0 }]));
+    const slotMap = Object.fromEntries(
+      TIME_SLOTS_ORDER.map((range) => [range, { total: 0, completed: 0, pending: 0 }])
+    );
 
     for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
       const date = `${prefix}-${String(dayNum).padStart(2, "0")}`;
@@ -1229,9 +1231,9 @@ export const getTodoAnalysis = async (req, res) => {
         if (!isTaskScheduledOnDay(todo, date)) continue;
 
         const status = getTodoStatusForDay(todo, date, todayKey);
-        if (status === "pending") continue;
 
         const isCompleted = status === "completed";
+        const isPending = status === "pending";
         const dayState = getExistingDayState(todo, date);
         const isLate = isCompleted && Boolean(dayState?.lateCompleted);
 
@@ -1239,25 +1241,44 @@ export const getTodoAnalysis = async (req, res) => {
         const pri  = todo.priority || "Medium";
         const slot = getTimeSlot(todo.time);
 
-        if (!dayMap.has(date)) dayMap.set(date, { total: 0, completed: 0, missed: 0, lateCompleted: 0 });
+        if (!dayMap.has(date)) dayMap.set(date, {
+          total: 0,
+          completed: 0,
+          missed: 0,
+          pending: 0,
+          lateCompleted: 0
+        });
         const d = dayMap.get(date);
         d.total++;
-        if (isCompleted) d.completed++; else d.missed++;
+        if (isCompleted) d.completed++;
+        else if (isPending) d.pending++;
+        else d.missed++;
         if (isLate) d.lateCompleted++;
 
-        if (!categoryMap.has(cat)) categoryMap.set(cat, { total: 0, completed: 0, missed: 0, lateCompleted: 0 });
+        if (!categoryMap.has(cat)) categoryMap.set(cat, {
+          total: 0,
+          completed: 0,
+          missed: 0,
+          pending: 0,
+          lateCompleted: 0
+        });
         const c = categoryMap.get(cat);
         c.total++;
-        if (isCompleted) c.completed++; else c.missed++;
+        if (isCompleted) c.completed++;
+        else if (isPending) c.pending++;
+        else c.missed++;
         if (isLate) c.lateCompleted++;
 
         if (priorityMap[pri]) {
           priorityMap[pri].total++;
-          if (isCompleted) priorityMap[pri].completed++; else priorityMap[pri].missed++;
+          if (isCompleted) priorityMap[pri].completed++;
+          else if (isPending) priorityMap[pri].pending++;
+          else priorityMap[pri].missed++;
         }
 
         slotMap[slot].total++;
         if (isCompleted) slotMap[slot].completed++;
+        else if (isPending) slotMap[slot].pending++;
       }
     }
 
@@ -1267,7 +1288,13 @@ export const getTodoAnalysis = async (req, res) => {
       const dayNum = i + 1;
       const date   = `${prefix}-${String(dayNum).padStart(2, "0")}`;
       const weekday = WEEK_DAYS_LOCAL[new Date(y, m - 1, dayNum).getDay()];
-      const entry  = dayMap.get(date) || { total: 0, completed: 0, missed: 0, lateCompleted: 0 };
+      const entry  = dayMap.get(date) || {
+        total: 0,
+        completed: 0,
+        missed: 0,
+        pending: 0,
+        lateCompleted: 0
+      };
       const score  = entry.total ? Math.round((entry.completed / entry.total) * 100) : null;
       return { date, weekday, ...entry, score, submitted: entry.total > 0 };
     });

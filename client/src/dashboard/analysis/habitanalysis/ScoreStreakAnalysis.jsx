@@ -3,6 +3,7 @@ import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
 import api from "../../../api/axios";
 import useAuth from "../../../hooks/useAuth";
+import { INITIAL_HABITS } from "../../../../data/HabitDummyData";
 
 const DAY_ORDER = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_OPTIONS = [
@@ -33,6 +34,67 @@ const average = (values) =>
 
 function getDaysInMonth(year, month) {
   return new Date(Number(year), Number(month), 0).getDate();
+}
+
+function buildDemoHabitAnalysis(year, month) {
+  const daysInMonth = getDaysInMonth(year, month);
+  const habitStats = INITIAL_HABITS.map((habit) => ({
+    name: habit.title,
+    total: 0,
+    completed: 0,
+    missed: 0,
+  }));
+
+  const days = Array.from({ length: daysInMonth }, (_, index) => {
+    const day = index + 1;
+    const date = `${year}-${month}-${String(day).padStart(2, "0")}`;
+    const weekday = new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short" });
+    let total = 0;
+    let completed = 0;
+
+    INITIAL_HABITS.forEach((habit, habitIndex) => {
+      const isWeekend = weekday === "Sat" || weekday === "Sun";
+      const expected = habit.category === "Fitness" ? !isWeekend || day % 2 === 0 : true;
+      if (!expected) return;
+
+      const missed = [6, 13, 21, 27].includes(day) && habitIndex % 2 === 0;
+      const lightDay = [9, 18, 24].includes(day) && habitIndex > 2;
+      const completedHabit = !missed && !lightDay && ((day + habitIndex) % 11 !== 0);
+
+      total++;
+      habitStats[habitIndex].total++;
+      if (completedHabit) {
+        completed++;
+        habitStats[habitIndex].completed++;
+      } else {
+        habitStats[habitIndex].missed++;
+      }
+    });
+
+    const missed = Math.max(0, total - completed);
+    const score = total ? Math.round((completed / total) * 100) : null;
+
+    return {
+      date,
+      weekday,
+      total,
+      completed,
+      missed,
+      pending: 0,
+      score,
+      submitted: completed > 0,
+    };
+  });
+
+  return {
+    year,
+    month,
+    days,
+    habits: habitStats,
+    categories: [],
+    priorities: [],
+    times: [],
+  };
 }
 
 function buildWeeklyScoreSeries(daily) {
@@ -372,14 +434,20 @@ function VerticalScoreGraph({ title, subtitle, series, theme }) {
 }
 
 export default function ScoreStreakAnalysis() {
-  const { user } = useAuth();
+  const { isDemoMode, user } = useAuth();
   const [selectedYear, setSelectedYear] = useState(String(NOW.getFullYear()));
-  const [selectedMonth, setSelectedMonth] = useState(CURRENT_MONTH);
+  const [selectedMonth, setSelectedMonth] = useState(isDemoMode ? "04" : CURRENT_MONTH);
   const [apiData, setApiData] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
+    if (isDemoMode) {
+      setApiData(buildDemoHabitAnalysis(selectedYear, selectedMonth));
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setApiData(null);
     api
@@ -387,7 +455,7 @@ export default function ScoreStreakAnalysis() {
       .then((res) => setApiData(res.data))
       .catch(() => setApiData(null))
       .finally(() => setLoading(false));
-  }, [user, selectedYear, selectedMonth]);
+  }, [isDemoMode, user, selectedYear, selectedMonth]);
 
   const { daily, breakLengths, longestStreak } = useMemo(() => {
     if (!apiData?.days?.length) return { daily: [], breakLengths: [], longestStreak: 0 };
@@ -405,14 +473,16 @@ export default function ScoreStreakAnalysis() {
 
     const builtDaily = sourceDays.map((d) => {
       const dayNum = parseInt(d.date.split("-")[2], 10);
-      // Exclude today: pending habits are stripped from today's total in the API,
-      // making completed >= total trivially true. Only past days can be "fully done".
-      const fullyCompleted = d.total > 0 && d.completed >= d.total && d.date < todayStr;
+      const isToday = d.date === todayStr;
+      const fullyCompleted = d.total > 0 && d.completed >= d.total;
+      // Match navbar streak behavior: keep yesterday's streak visible until today is fully completed
+      // or the day actually rolls over into a miss.
+      const shouldCarryTodayStreak = isToday && d.total > 0 && d.completed < d.total;
 
       if (fullyCompleted) {
         currentSt++;
         longestSt = Math.max(longestSt, currentSt);
-      } else if (d.total > 0) {
+      } else if (d.total > 0 && !shouldCarryTodayStreak) {
         if (currentSt > 0) breaks.push(currentSt);
         currentSt = 0;
       }
@@ -440,6 +510,7 @@ export default function ScoreStreakAnalysis() {
   const maintainedHabitCount = apiData?.habits?.filter((h) => h.missed === 0).length ?? 0;
   const brokenHabitCount = apiData?.habits?.filter((h) => h.missed > 0).length ?? 0;
   const commonBreakLength = getMostCommonBreakLength(breakLengths);
+  const longestHabitStreak = longestStreak;
   const avgStreakLength = round(average(daily.map((day) => day.avgStreak)));
   const avgWeeklyScore = round(average(weeklyScoreSeries.map((week) => week.value)));
   const avgConsistencyScore = round(average(daily.map((day) => day.consistencyScore)));
@@ -465,8 +536,8 @@ export default function ScoreStreakAnalysis() {
     },
     {
       title: "Longest Habit Streak This Month",
-      value: `${longestStreak} days`,
-      description: "Longest consecutive streak of maintaining at least one habit each day.",
+      value: `${longestHabitStreak} days`,
+      description: "Longest consecutive full-completion-day streak in this month.",
     },
     {
       title: "Habits With No Break",

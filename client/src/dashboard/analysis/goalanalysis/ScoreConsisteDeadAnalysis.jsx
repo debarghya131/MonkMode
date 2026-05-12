@@ -3,6 +3,7 @@ import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
 import api from "../../../api/axios";
 import useAuth from "../../../hooks/useAuth";
+import { buildDemoGoalAnalysis } from "./demoGoalAnalysis";
 
 const MONTH_OPTIONS = [
   { value: "01", label: "January" },
@@ -231,14 +232,20 @@ function WeeklyScoreGraph({ series }) {
 }
 
 export default function ScoreConsisteDeadAnalysis() {
-  const { user } = useAuth();
+  const { isDemoMode, user } = useAuth();
   const [selectedYear, setSelectedYear] = useState(String(NOW.getFullYear()));
-  const [selectedMonth, setSelectedMonth] = useState(CURRENT_MONTH);
+  const [selectedMonth, setSelectedMonth] = useState(isDemoMode ? "05" : CURRENT_MONTH);
   const [apiData, setApiData] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
+    if (isDemoMode) {
+      setApiData(buildDemoGoalAnalysis(selectedYear, selectedMonth));
+      setLoading(false);
+      return;
+    }
+
     let active = true;
 
     async function loadGoalAnalysis() {
@@ -259,7 +266,7 @@ export default function ScoreConsisteDeadAnalysis() {
     return () => {
       active = false;
     };
-  }, [user, selectedYear, selectedMonth]);
+  }, [isDemoMode, user, selectedYear, selectedMonth]);
 
   const goals = apiData?.goals ?? [];
   const weeklyScores = apiData?.weeklyScores ?? [0, 0, 0, 0];

@@ -197,45 +197,20 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
       }
 
       try {
-        const [habitRes, todoSummaryRes, journalSummaryRes] = await Promise.all([
-          api.get("/habits/consistency"),
-          api.get("/todos/summary"),
-          api.get("/journal/summary")
-        ]);
+        const { data } = await api.get("/insights/consistency");
         if (cancelled) return;
 
-        const habitCompleted = Math.max(0, Number(habitRes?.data?.completedToday || 0));
-        const habitExpected = Math.max(0, Number(habitRes?.data?.expectedToday || 0));
-        const habitScore = habitExpected > 0 ? (habitCompleted / habitExpected) * 100 : 0;
-        setHabitStreak(Number(habitRes?.data?.fullCompletionStreakDays || 0));
+        const nextConsistency = Math.max(0, Math.min(100, Number(data?.consistencyScore || 0)));
+        const nextJournalStreak = Math.max(0, Number(data?.sections?.journal?.currentStreakDays || 0));
+        const nextTodoStreak = Math.max(0, Number(data?.sections?.todo?.fullCompletionStreakDays || 0));
+        const nextHabitStreak = Math.max(0, Number(data?.sections?.habit?.fullCompletionStreakDays || 0));
+        const allSectionsComplete = Boolean(data?.allSectionsComplete);
 
-        const todoTotal = Math.max(0, Number(todoSummaryRes?.data?.today?.total || 0));
-        const todoCompleted = Math.max(0, Number(todoSummaryRes?.data?.today?.completed || 0));
-        const todoScore = todoTotal > 0 ? (todoCompleted / todoTotal) * 100 : 0;
-        setTodoStreak(Math.max(0, Number(todoSummaryRes?.data?.fullCompletionStreakDays || 0)));
-
-        const journalTodaySubmitted = Boolean(journalSummaryRes?.data?.todayLogged);
-        setJournalStreak(Math.max(0, Number(journalSummaryRes?.data?.currentStreakDays || 0)));
-        const journalScore = journalTodaySubmitted ? 100 : 0;
-
-        const consistency = Math.round((journalScore + todoScore + habitScore) / 3);
-        const noNewDayActivityYet =
-          !journalTodaySubmitted &&
-          todoCompleted === 0 &&
-          habitCompleted === 0;
-
-        setConsistencyScore((previousScore) => {
-          const nextScore = noNewDayActivityYet ? previousScore : consistency;
-          localStorage.setItem(CONSISTENCY_SCORE_KEY, String(nextScore));
-          return nextScore;
-        });
-
-        const allSectionsComplete =
-          journalTodaySubmitted &&
-          todoTotal > 0 &&
-          todoCompleted >= todoTotal &&
-          habitExpected > 0 &&
-          habitCompleted >= habitExpected;
+        setJournalStreak(nextJournalStreak);
+        setTodoStreak(nextTodoStreak);
+        setHabitStreak(nextHabitStreak);
+        setConsistencyScore(nextConsistency);
+        localStorage.setItem(CONSISTENCY_SCORE_KEY, String(nextConsistency));
         setMonkStreak(calculateMonkStreak(allSectionsComplete));
       } catch {
         // keep previous values on transient failure

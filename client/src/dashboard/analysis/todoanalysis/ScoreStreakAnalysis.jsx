@@ -98,7 +98,11 @@ function buildStreakSeries(logs) {
   const series = [];
   let streak = 0;
   for (const item of logs) {
-    streak = item.submitted ? streak + 1 : 0;
+    if (item.submitted) {
+      streak += 1;
+    } else {
+      streak = 0;
+    }
     series.push({ day: item.day, streak, submitted: item.submitted });
   }
   return series;
@@ -116,7 +120,11 @@ function maxStreak(logs) {
   let current = 0;
   let best = 0;
   for (const item of logs) {
-    current = item.submitted ? current + 1 : 0;
+    if (item.submitted) {
+      current += 1;
+    } else {
+      current = 0;
+    }
     best = Math.max(best, current);
   }
   return best;
@@ -435,14 +443,41 @@ export default function ScoreStreakAnalysis() {
   const [loading,  setLoading]  = useState(false);
 
   useEffect(() => {
-    if (isDemoMode) { setApiData(null); return; }
+    if (isDemoMode) {
+      setApiData(null);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
-    setLoading(true);
-    api.get(`/todos/analysis?year=${selectedYear}&month=${parseInt(selectedMonth, 10)}`)
-      .then(res  => { if (!cancelled) setApiData(res.data); })
-      .catch(()  => { if (!cancelled) setApiData(null); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+
+    const loadAnalysis = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get(`/todos/analysis?year=${selectedYear}&month=${parseInt(selectedMonth, 10)}`);
+        if (!cancelled) setApiData(res.data);
+      } catch {
+        if (!cancelled) setApiData(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    const refreshAnalysis = () => {
+      loadAnalysis();
+    };
+
+    loadAnalysis();
+    window.addEventListener("focus", refreshAnalysis);
+    window.addEventListener("storage", refreshAnalysis);
+    window.addEventListener("monkmode:todos-updated", refreshAnalysis);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refreshAnalysis);
+      window.removeEventListener("storage", refreshAnalysis);
+      window.removeEventListener("monkmode:todos-updated", refreshAnalysis);
+    };
   }, [isDemoMode, selectedYear, selectedMonth]);
 
   const logs = useMemo(() => {
@@ -460,9 +495,8 @@ export default function ScoreStreakAnalysis() {
         day: parseInt(d.date.slice(8), 10),
         date: d.date,
         weekday: d.weekday,
-        // Exclude today: pending tasks are stripped from today's total in the API,
-        // making completed > 0 trivially true. Only past days count toward streak.
-        submitted: d.completed > 0 && d.date < todayStr,
+        // Match navbar TODO streak logic: streak day only when all scheduled todos are completed.
+        submitted: d.total > 0 && d.completed === d.total && d.pending === 0 && d.missed === 0,
         consistencyScore: d.score ?? 0,
       }));
   }, [isDemoMode, apiData, selectedYear, selectedMonth]);
