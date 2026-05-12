@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
+import api from "../../../api/axios";
+import useAuth from "../../../hooks/useAuth";
 
 const DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const BAR_H = 190;
@@ -21,7 +23,10 @@ const MONTH_OPTIONS = [
   { value: "12", label: "December" },
 ];
 
-const HABIT_COMPLETION_WEEKLY_DATA = [
+const NOW = new Date();
+const YEARS = Array.from({ length: 4 }, (_, i) => String(NOW.getFullYear() - i));
+
+const DEMO_HABIT_COMPLETION_WEEKLY_DATA = [
   {
     id: "2026-04-13",
     year: "2026",
@@ -173,22 +178,7 @@ const HABIT_COMPLETION_WEEKLY_DATA = [
   },
 ];
 
-const YEARS = [...new Set(HABIT_COMPLETION_WEEKLY_DATA.map((entry) => entry.year))].sort().reverse();
-const CURRENT_YEAR = String(new Date().getFullYear());
-const CURRENT_MONTH = String(new Date().getMonth() + 1).padStart(2, "0");
-
-function getAvailableMonthsForYear(year) {
-  return MONTH_OPTIONS.filter((month) =>
-    HABIT_COMPLETION_WEEKLY_DATA.some((entry) => entry.year === year && entry.month === month.value)
-  );
-}
-
-const INITIAL_YEAR = YEARS.includes(CURRENT_YEAR) ? CURRENT_YEAR : YEARS[0];
-const INITIAL_MONTH = (() => {
-  const months = getAvailableMonthsForYear(INITIAL_YEAR);
-  if (months.some((month) => month.value === CURRENT_MONTH)) return CURRENT_MONTH;
-  return months[0]?.value ?? MONTH_OPTIONS[0].value;
-})();
+const CURRENT_MONTH = String(NOW.getMonth() + 1).padStart(2, "0");
 
 const round = (value, precision = 1) => Number(value.toFixed(precision));
 
@@ -460,174 +450,102 @@ function HabitWiseRateGraph({ series }) {
 }
 
 export default function ComplationMissAnalysis() {
-  const [selectedYear, setSelectedYear] = useState(INITIAL_YEAR);
-  const [selectedMonth, setSelectedMonth] = useState(INITIAL_MONTH);
+  const { isDemoMode } = useAuth();
+  const [selectedYear,  setSelectedYear]  = useState(YEARS[0]);
+  const [selectedMonth, setSelectedMonth] = useState(isDemoMode ? "04" : CURRENT_MONTH);
+  const [apiData,  setApiData]  = useState(null);
+  const [loading,  setLoading]  = useState(false);
 
-  const availableMonths = useMemo(
-    () => getAvailableMonthsForYear(selectedYear),
-    [selectedYear]
-  );
+  useEffect(() => {
+    if (isDemoMode) { setApiData(null); return; }
+    let cancelled = false;
+    setLoading(true);
+    api.get(`/habits/analysis?year=${selectedYear}&month=${parseInt(selectedMonth, 10)}`)
+      .then(res  => { if (!cancelled) setApiData(res.data); })
+      .catch(()  => { if (!cancelled) setApiData(null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [isDemoMode, selectedYear, selectedMonth]);
 
-  const selectedMonthEntries = useMemo(
-    () => {
-      const monthEntries = HABIT_COMPLETION_WEEKLY_DATA.filter(
-        (entry) => entry.year === selectedYear && entry.month === selectedMonth
-      );
-      if (monthEntries.length) return monthEntries;
+  const { daySeries, habitSeries } = useMemo(() => {
+    let rawDays, rawHabits;
 
-      const yearEntries = HABIT_COMPLETION_WEEKLY_DATA.filter((entry) => entry.year === selectedYear);
-      return yearEntries.length ? yearEntries : [HABIT_COMPLETION_WEEKLY_DATA[0]];
-    },
-    [selectedMonth, selectedYear]
-  );
+    if (isDemoMode) {
+      const demo = DEMO_HABIT_COMPLETION_WEEKLY_DATA.find(e => e.year === selectedYear && e.month === selectedMonth)
+        ?? DEMO_HABIT_COMPLETION_WEEKLY_DATA[0];
+      const dataMap = new Map(DAY_ORDER.map(day => [day, { label: day, completed: 0, total: 0 }]));
+      [demo].forEach(entry => entry.dailyStats.forEach(day => {
+        const cur = dataMap.get(day.day) ?? { label: day.day, completed: 0, total: 0 };
+        dataMap.set(day.day, { ...cur, completed: cur.completed + day.completed, total: cur.total + day.total });
+      }));
+      rawDays = DAY_ORDER.map(day => dataMap.get(day));
+      rawHabits = demo.habits.map(h => ({ name: h.name, completed: h.completed, total: h.total }));
+    } else if (apiData) {
+      const dataMap = new Map(DAY_ORDER.map(day => [day, { label: day, completed: 0, total: 0 }]));
+      for (const d of apiData.days) {
+        const cur = dataMap.get(d.weekday) ?? { label: d.weekday, completed: 0, total: 0 };
+        dataMap.set(d.weekday, { ...cur, completed: cur.completed + d.completed, total: cur.total + d.total });
+      }
+      rawDays = DAY_ORDER.map(day => dataMap.get(day)).filter(Boolean);
+      rawHabits = apiData.habits;
+    } else {
+      return { daySeries: [], habitSeries: [] };
+    }
 
-  const daySeries = useMemo(() => {
-    const dataMap = new Map(DAY_ORDER.map((day) => [day, { label: day, completed: 0, total: 0 }]));
-
-    selectedMonthEntries.forEach((entry) => {
-      entry.dailyStats.forEach((day) => {
-        const current = dataMap.get(day.day) ?? { label: day.day, completed: 0, total: 0 };
-        dataMap.set(day.day, {
-          ...current,
-          completed: current.completed + day.completed,
-          total: current.total + day.total,
-        });
-      });
-    });
-
-    return DAY_ORDER.map((day) => {
-      const item = dataMap.get(day);
+    const daySeries = rawDays.map(item => {
       const missed = Math.max(0, item.total - item.completed);
-      return {
-        ...item,
-        missed,
-        completionRate: toPercent(item.completed, item.total),
-        missedRate: toPercent(missed, item.total),
-      };
+      return { ...item, missed, completionRate: toPercent(item.completed, item.total), missedRate: toPercent(missed, item.total) };
     });
-  }, [selectedMonthEntries]);
-
-  const habitSeries = useMemo(() => {
-    const habitMap = new Map();
-
-    selectedMonthEntries.forEach((entry) => {
-      entry.habits.forEach((habit) => {
-        const current = habitMap.get(habit.name) ?? { name: habit.name, completed: 0, total: 0 };
-        habitMap.set(habit.name, {
-          ...current,
-          completed: current.completed + habit.completed,
-          total: current.total + habit.total,
-        });
-      });
+    const habitSeries = rawHabits.map(h => {
+      const missed = Math.max(0, h.total - h.completed);
+      return { ...h, missed, completionRate: toPercent(h.completed, h.total), missedRate: toPercent(missed, h.total) };
     });
+    return { daySeries, habitSeries };
+  }, [isDemoMode, apiData, selectedYear, selectedMonth]);
 
-    return Array.from(habitMap.values()).map((habit) => {
-      const missed = Math.max(0, habit.total - habit.completed);
-      return {
-        ...habit,
-        missed,
-        completionRate: toPercent(habit.completed, habit.total),
-        missedRate: toPercent(missed, habit.total),
-      };
-    });
-  }, [selectedMonthEntries]);
-
-  const totals = useMemo(
-    () =>
-      habitSeries.reduce(
-        (acc, habit) => ({
-          total: acc.total + habit.total,
-          completed: acc.completed + habit.completed,
-          missed: acc.missed + habit.missed,
-        }),
-        { total: 0, completed: 0, missed: 0 }
-      ),
-    [habitSeries]
+  const totals = habitSeries.reduce(
+    (acc, h) => ({ total: acc.total + h.total, completed: acc.completed + h.completed, missed: acc.missed + h.missed }),
+    { total: 0, completed: 0, missed: 0 }
   );
-
   const completionRate = toPercent(totals.completed, totals.total);
-  const missedRate = toPercent(totals.missed, totals.total);
+  const missedRate     = toPercent(totals.missed,    totals.total);
+  const highestCompletionHabit = habitSeries.length ? habitSeries.reduce((b, h) => h.completionRate > b.completionRate ? h : b) : null;
+  const mostMissedHabit        = habitSeries.length ? habitSeries.reduce((b, h) => h.missedRate     > b.missedRate     ? h : b) : null;
 
-  const highestCompletionHabit = useMemo(
-    () =>
-      habitSeries.length
-        ? habitSeries.reduce((best, h) => (h.completionRate > best.completionRate ? h : best))
-        : null,
-    [habitSeries]
-  );
-
-  const mostMissedHabit = useMemo(
-    () =>
-      habitSeries.length
-        ? habitSeries.reduce((worst, h) => (h.missedRate > worst.missedRate ? h : worst))
-        : null,
-    [habitSeries]
-  );
+  const isCurrentMonth = selectedYear === String(NOW.getFullYear()) && selectedMonth === CURRENT_MONTH;
 
   const insights = [
-    {
-      title: "Total Active Habit On This Month",
-      value: `${habitSeries.length} habits`,
-      description: `${habitSeries.length} active habits generated ${totals.total} scheduled check-ins this month.`,
-    },
-    {
-      title: "Completion Rate On This Month",
-      value: `${completionRate}%`,
-      description: `${totals.completed} of ${totals.total} habit check-ins were completed.`,
-    },
-    {
-      title: "Miss Rate On This Month",
-      value: `${missedRate}%`,
-      description: `${totals.missed} of ${totals.total} habit check-ins were missed.`,
-    },
-    ...(highestCompletionHabit
-      ? [
-          {
-            title: "Highest Completion Rate Habit",
-            value: `${highestCompletionHabit.name} (${highestCompletionHabit.completionRate}%)`,
-            description: `${highestCompletionHabit.completed} of ${highestCompletionHabit.total} check-ins completed — your most consistent habit this month.`,
-          },
-        ]
-      : []),
-    ...(mostMissedHabit
-      ? [
-          {
-            title: "Most Missed Rate Habit",
-            value: `${mostMissedHabit.name} (${mostMissedHabit.missedRate}%)`,
-            description: `${mostMissedHabit.missed} of ${mostMissedHabit.total} check-ins missed — needs the most attention this month.`,
-          },
-        ]
-      : []),
+    { title: "Total Active Habit On This Month", value: habitSeries.length ? `${habitSeries.length} habits` : "No data", description: `${habitSeries.length} active habits generated ${totals.total} scheduled check-ins this month.` },
+    { title: "Completion Rate On This Month",    value: totals.total ? `${completionRate}%` : "No data", description: `${totals.completed} of ${totals.total} habit check-ins were completed.` },
+    { title: "Miss Rate On This Month",          value: totals.total ? `${missedRate}%`     : "No data", description: `${totals.missed} of ${totals.total} habit check-ins were missed.` },
+    ...(highestCompletionHabit ? [{ title: "Highest Completion Rate Habit", value: `${highestCompletionHabit.name} (${highestCompletionHabit.completionRate}%)`, description: `${highestCompletionHabit.completed} of ${highestCompletionHabit.total} check-ins completed — your most consistent habit this month.` }] : []),
+    ...(mostMissedHabit        ? [{ title: "Most Missed Rate Habit",        value: `${mostMissedHabit.name} (${mostMissedHabit.missedRate}%)`,                 description: `${mostMissedHabit.missed} of ${mostMissedHabit.total} check-ins missed — needs the most attention this month.` }] : []),
   ];
 
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
+        {isCurrentMonth && (
+          <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+            Live · updates daily
+          </span>
+        )}
         <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
           <span className="text-stone-400">Year</span>
           <select
             value={selectedYear}
             onChange={(event) => {
-              const nextYear = event.target.value;
-              setSelectedYear(nextYear);
-              const nextMonths = getAvailableMonthsForYear(nextYear);
-              const monthSet = new Set(nextMonths.map((month) => month.value));
-              if (monthSet.has(selectedMonth)) {
-                setSelectedMonth(selectedMonth);
-                return;
-              }
-              if (monthSet.has(CURRENT_MONTH)) {
+              const newYear = event.target.value;
+              setSelectedYear(newYear);
+              if (newYear === String(NOW.getFullYear()) && parseInt(selectedMonth) > NOW.getMonth() + 1) {
                 setSelectedMonth(CURRENT_MONTH);
-                return;
               }
-              setSelectedMonth(nextMonths[0]?.value ?? MONTH_OPTIONS[0].value);
             }}
             className="bg-transparent text-sky-100 outline-none"
           >
-            {YEARS.map((year) => (
-              <option key={year} value={year} className="bg-stone-950 text-stone-200">
-                {year}
-              </option>
+            {YEARS.map(year => (
+              <option key={year} value={year} className="bg-stone-950 text-stone-200">{year}</option>
             ))}
           </select>
         </label>
@@ -639,15 +557,22 @@ export default function ComplationMissAnalysis() {
             onChange={(event) => setSelectedMonth(event.target.value)}
             className="bg-transparent text-sky-100 outline-none"
           >
-            {availableMonths.map((month) => (
-              <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">
-                {month.label}
-              </option>
+            {(selectedYear === String(NOW.getFullYear())
+              ? MONTH_OPTIONS.filter(m => parseInt(m.value) <= NOW.getMonth() + 1)
+              : MONTH_OPTIONS
+            ).map(month => (
+              <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">{month.label}</option>
             ))}
           </select>
         </label>
       </div>
 
+      {loading ? (
+        <div className="space-y-3">
+          <div className="h-48 animate-pulse rounded-2xl border border-sky-100/10 bg-white/[0.03]" />
+          <div className="h-36 animate-pulse rounded-2xl border border-sky-100/10 bg-white/[0.03]" />
+        </div>
+      ) : (
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div
           className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
@@ -660,12 +585,13 @@ export default function ComplationMissAnalysis() {
         </div>
 
         <div
-          className="journal-scroll flex w-full w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
+          className="journal-scroll flex w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
           style={{ maxHeight: "calc(100vh - 180px)" }}
         >
           <InsightRail insights={insights} />
         </div>
       </div>
+      )}
     </section>
   );
 }

@@ -1473,3 +1473,120 @@ export const getHabitHeatmap = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+const WEEK_DAYS_LABEL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+export const getHabitAnalysis = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const y = parseInt(req.query.year, 10);
+    const m = parseInt(req.query.month, 10);
+    if (!y || !m || m < 1 || m > 12) return res.status(400).json({ message: "Invalid year or month" });
+
+    const prefix = `${y}-${String(m).padStart(2, "0")}`;
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const todayKey = toDayKey(new Date());
+
+    const habits = await Habit.find({ userId }).lean();
+    const habitIds = habits.map(h => h._id);
+
+    const nextMonthDate = new Date(y, m, 1);
+    const nextPrefix = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}-`;
+
+    const logs = await HabitLog.find({
+      habitId: { $in: habitIds },
+      completed: true,
+      $or: [
+        { dayKey: { $gte: `${prefix}-01`, $lt: nextPrefix } },
+        { dayKey: { $exists: false }, date: { $gte: new Date(y, m - 1, 1), $lt: new Date(y, m, 1) } }
+      ]
+    }).select("habitId dayKey date").lean();
+
+    const completedSet = new Set();
+    for (const log of logs) {
+      const dk = log.dayKey || toDayKey(log.date);
+      if (dk && dk.startsWith(prefix)) completedSet.add(`${log.habitId}_${dk}`);
+    }
+
+    const dayMap = new Map();
+    const categoryMap = new Map();
+    const priorityMap = {
+      High:   { total: 0, completed: 0, missed: 0 },
+      Medium: { total: 0, completed: 0, missed: 0 },
+      Low:    { total: 0, completed: 0, missed: 0 },
+    };
+    const timeMap = {
+      Morning:   { total: 0, completed: 0, missed: 0 },
+      Afternoon: { total: 0, completed: 0, missed: 0 },
+      Evening:   { total: 0, completed: 0, missed: 0 },
+      Night:     { total: 0, completed: 0, missed: 0 },
+    };
+    const habitMap = new Map();
+
+    for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+      const date = `${prefix}-${String(dayNum).padStart(2, "0")}`;
+      if (date > todayKey) break;
+
+      for (const habit of habits) {
+        if (!isHabitExpectedOnDate(habit, date)) continue;
+
+        const isCompleted = completedSet.has(`${habit._id}_${date}`);
+        const isPast = date < todayKey;
+        if (!isCompleted && !isPast) continue;
+
+        const cat = (habit.category || "General").trim();
+        const pri = habit.priority || "Medium";
+        const tod = habit.timeOfDay || null;
+        const name = habit.title;
+
+        if (!dayMap.has(date)) dayMap.set(date, { total: 0, completed: 0, missed: 0 });
+        const d = dayMap.get(date);
+        d.total++;
+        if (isCompleted) d.completed++; else d.missed++;
+
+        if (!categoryMap.has(cat)) categoryMap.set(cat, { total: 0, completed: 0, missed: 0 });
+        const c = categoryMap.get(cat);
+        c.total++;
+        if (isCompleted) c.completed++; else c.missed++;
+
+        if (priorityMap[pri]) {
+          priorityMap[pri].total++;
+          if (isCompleted) priorityMap[pri].completed++; else priorityMap[pri].missed++;
+        }
+
+        if (tod && timeMap[tod]) {
+          timeMap[tod].total++;
+          if (isCompleted) timeMap[tod].completed++; else timeMap[tod].missed++;
+        }
+
+        if (!habitMap.has(name)) habitMap.set(name, { total: 0, completed: 0, missed: 0 });
+        const h = habitMap.get(name);
+        h.total++;
+        if (isCompleted) h.completed++; else h.missed++;
+      }
+    }
+
+    const days = Array.from({ length: daysInMonth }, (_, i) => {
+      const dayNum = i + 1;
+      const date = `${prefix}-${String(dayNum).padStart(2, "0")}`;
+      const weekday = WEEK_DAYS_LABEL[new Date(y, m - 1, dayNum).getDay()];
+      const entry = dayMap.get(date) || { total: 0, completed: 0, missed: 0 };
+      const score = entry.total ? Math.round((entry.completed / entry.total) * 100) : null;
+      return { date, weekday, ...entry, score, submitted: entry.completed > 0 };
+    });
+
+    const categories = [...categoryMap.entries()]
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.total - a.total);
+
+    const priorities = ["High", "Medium", "Low"].map(name => ({ name, ...priorityMap[name] }));
+    const times = ["Morning", "Afternoon", "Evening", "Night"].map(name => ({ name, ...timeMap[name] }));
+    const habitsList = [...habitMap.entries()]
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.total - a.total);
+
+    return res.json({ year: y, month: m, days, habits: habitsList, categories, priorities, times });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};

@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.png";
+import api from "../../../api/axios";
+import useAuth from "../../../hooks/useAuth";
 
 const TIME_ORDER = ["Morning", "Afternoon", "Evening", "Night"];
 const PRIORITY_ORDER = ["High", "Medium", "Low"];
@@ -22,7 +24,10 @@ const MONTH_OPTIONS = [
   { value: "12", label: "December" },
 ];
 
-const HABIT_CATEGORY_MONTHLY_DATA = [
+const NOW = new Date();
+const YEARS = Array.from({ length: 4 }, (_, i) => String(NOW.getFullYear() - i));
+
+const DEMO_HABIT_CATEGORY_MONTHLY_DATA = [
   {
     year: "2026",
     month: "04",
@@ -140,9 +145,7 @@ const HABIT_CATEGORY_MONTHLY_DATA = [
   },
 ];
 
-const YEARS = [...new Set(HABIT_CATEGORY_MONTHLY_DATA.map((entry) => entry.year))].sort().reverse();
-const CURRENT_YEAR = String(new Date().getFullYear());
-const CURRENT_MONTH = String(new Date().getMonth() + 1).padStart(2, "0");
+const CURRENT_MONTH = String(NOW.getMonth() + 1).padStart(2, "0");
 
 const round = (value, precision = 1) => Number(value.toFixed(precision));
 
@@ -161,18 +164,8 @@ function withRates(item) {
   };
 }
 
-function getAvailableMonthsForYear(year) {
-  return MONTH_OPTIONS.filter((month) =>
-    HABIT_CATEGORY_MONTHLY_DATA.some((entry) => entry.year === year && entry.month === month.value)
-  );
-}
 
-const INITIAL_YEAR = YEARS.includes(CURRENT_YEAR) ? CURRENT_YEAR : YEARS[0];
-const INITIAL_MONTH = (() => {
-  const months = getAvailableMonthsForYear(INITIAL_YEAR);
-  if (months.some((month) => month.value === CURRENT_MONTH)) return CURRENT_MONTH;
-  return months[0]?.value ?? MONTH_OPTIONS[0].value;
-})();
+
 
 function InsightRail({ insights }) {
   const [selectedInsight, setSelectedInsight] = useState(null);
@@ -362,104 +355,96 @@ function RateBarGraph({ title, subtitle, series, minWidth = 760 }) {
 }
 
 export default function CategPrioTimeAnalysis() {
-  const [selectedYear, setSelectedYear] = useState(INITIAL_YEAR);
-  const [selectedMonth, setSelectedMonth] = useState(INITIAL_MONTH);
+  const { isDemoMode } = useAuth();
+  const [selectedYear,  setSelectedYear]  = useState(YEARS[0]);
+  const [selectedMonth, setSelectedMonth] = useState(isDemoMode ? "04" : CURRENT_MONTH);
+  const [apiData,  setApiData]  = useState(null);
+  const [loading,  setLoading]  = useState(false);
 
-  const availableMonths = useMemo(() => getAvailableMonthsForYear(selectedYear), [selectedYear]);
+  useEffect(() => {
+    if (isDemoMode) { setApiData(null); return; }
+    let cancelled = false;
+    setLoading(true);
+    api.get(`/habits/analysis?year=${selectedYear}&month=${parseInt(selectedMonth, 10)}`)
+      .then(res  => { if (!cancelled) setApiData(res.data); })
+      .catch(()  => { if (!cancelled) setApiData(null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [isDemoMode, selectedYear, selectedMonth]);
 
-  const selectedPeriod = useMemo(
-    () =>
-      HABIT_CATEGORY_MONTHLY_DATA.find((entry) => entry.year === selectedYear && entry.month === selectedMonth) ??
-      HABIT_CATEGORY_MONTHLY_DATA.find((entry) => entry.year === selectedYear) ??
-      HABIT_CATEGORY_MONTHLY_DATA[0],
-    [selectedMonth, selectedYear]
-  );
+  const { categorySeries, timeSeries, prioritySeries } = useMemo(() => {
+    let rawCats, rawTimes, rawPrios;
 
-  const categorySeries = useMemo(
-    () => selectedPeriod.categories.map((category) => ({ label: category.name, ...withRates(category) })),
-    [selectedPeriod]
-  );
+    if (isDemoMode) {
+      const demo = DEMO_HABIT_CATEGORY_MONTHLY_DATA.find(e => e.year === selectedYear && e.month === selectedMonth)
+        ?? DEMO_HABIT_CATEGORY_MONTHLY_DATA[0];
+      rawCats  = demo.categories;
+      rawTimes = demo.times;
+      rawPrios = demo.priorities;
+    } else if (apiData) {
+      rawCats  = apiData.categories;
+      rawTimes = apiData.times;
+      rawPrios = apiData.priorities;
+    } else {
+      return { categorySeries: [], timeSeries: [], prioritySeries: [] };
+    }
 
-  const timeSeries = useMemo(() => {
-    const dataMap = new Map(selectedPeriod.times.map((time) => [time.name, time]));
-    return TIME_ORDER.map((time) => {
-      const entry = dataMap.get(time) ?? { name: time, total: 0, completed: 0 };
-      return { label: time, ...withRates(entry) };
+    const categorySeries = rawCats.map(c => ({ label: c.name, ...withRates(c) }));
+
+    const timeDataMap = new Map((rawTimes || []).map(t => [t.name, t]));
+    const timeSeries = TIME_ORDER.map(name => {
+      const entry = timeDataMap.get(name) ?? { name, total: 0, completed: 0 };
+      return { label: name, ...withRates(entry) };
+    }).filter(t => t.total > 0);
+
+    const prioDataMap = new Map((rawPrios || []).map(p => [p.name, p]));
+    const prioritySeries = PRIORITY_ORDER.map(name => {
+      const entry = prioDataMap.get(name) ?? { name, total: 0, completed: 0 };
+      return { label: name, ...withRates(entry) };
     });
-  }, [selectedPeriod]);
 
-  const prioritySeries = useMemo(() => {
-    const dataMap = new Map(selectedPeriod.priorities.map((priority) => [priority.name, priority]));
-    return PRIORITY_ORDER.map((priority) => {
-      const entry = dataMap.get(priority) ?? { name: priority, total: 0, completed: 0 };
-      return { label: priority, ...withRates(entry) };
-    });
-  }, [selectedPeriod]);
+    return { categorySeries, timeSeries, prioritySeries };
+  }, [isDemoMode, apiData, selectedYear, selectedMonth]);
 
-  const bestCategory = categorySeries.reduce((best, current) =>
-    current.completionRate > best.completionRate ? current : best
-  );
-  const worstCategory = categorySeries.reduce((worst, current) =>
-    current.missedRate > worst.missedRate ? current : worst
-  );
-  const bestTime = timeSeries.reduce((best, current) =>
-    current.completionRate > best.completionRate ? current : best
-  );
-  const worstTime = timeSeries.reduce((worst, current) =>
-    current.missedRate > worst.missedRate ? current : worst
-  );
+  const activeCats = categorySeries.filter(c => c.total > 0);
+  const bestCategory  = activeCats.length ? activeCats.reduce((b, c) => c.completionRate > b.completionRate ? c : b) : null;
+  const worstCategory = activeCats.length ? activeCats.reduce((b, c) => c.missedRate     > b.missedRate     ? c : b) : null;
+  const bestTime  = timeSeries.length ? timeSeries.reduce((b, c) => c.completionRate > b.completionRate ? c : b) : null;
+  const worstTime = timeSeries.length ? timeSeries.reduce((b, c) => c.missedRate     > b.missedRate     ? c : b) : null;
+
+  const isCurrentMonth = selectedYear === String(NOW.getFullYear()) && selectedMonth === CURRENT_MONTH;
 
   const insights = [
-    {
-      title: "Best Category",
-      value: `${bestCategory.name} (${bestCategory.completionRate}%)`,
-      description: `${bestCategory.completed}/${bestCategory.total} habit check-ins completed in ${bestCategory.name}.`,
-    },
-    {
-      title: "Worst Category",
-      value: `${worstCategory.name} (${worstCategory.missedRate}% miss)`,
-      description: `${worstCategory.missed}/${worstCategory.total} habit check-ins were missed in ${worstCategory.name}.`,
-    },
-    {
-      title: "Best Time In Day",
-      value: `${bestTime.name} (${bestTime.completionRate}%)`,
-      description: `${bestTime.completed}/${bestTime.total} habit check-ins completed during ${bestTime.name.toLowerCase()}.`,
-    },
-    {
-      title: "Worst Time Of Day",
-      value: `${worstTime.name} (${worstTime.missedRate}% miss)`,
-      description: `${worstTime.missed}/${worstTime.total} habit check-ins were missed during ${worstTime.name.toLowerCase()}.`,
-    },
+    { title: "Best Category",    value: bestCategory  ? `${bestCategory.name} (${bestCategory.completionRate}%)`    : "No data", description: bestCategory  ? `${bestCategory.completed}/${bestCategory.total} check-ins completed in ${bestCategory.name}.`     : "" },
+    { title: "Worst Category",   value: worstCategory ? `${worstCategory.name} (${worstCategory.missedRate}% miss)` : "No data", description: worstCategory ? `${worstCategory.missed}/${worstCategory.total} check-ins missed in ${worstCategory.name}.`         : "" },
+    { title: "Best Time In Day", value: bestTime  ? `${bestTime.name} (${bestTime.completionRate}%)`               : "No data", description: bestTime  ? `${bestTime.completed}/${bestTime.total} check-ins completed during ${bestTime.name.toLowerCase()}.`   : "" },
+    { title: "Worst Time Of Day",value: worstTime ? `${worstTime.name} (${worstTime.missedRate}% miss)`            : "No data", description: worstTime ? `${worstTime.missed}/${worstTime.total} check-ins missed during ${worstTime.name.toLowerCase()}.`       : "" },
   ];
 
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
+        {isCurrentMonth && (
+          <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+            Live · updates daily
+          </span>
+        )}
         <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
           <span className="text-stone-400">Year</span>
           <select
             value={selectedYear}
             onChange={(event) => {
-              const nextYear = event.target.value;
-              setSelectedYear(nextYear);
-              const nextMonths = getAvailableMonthsForYear(nextYear);
-              const monthSet = new Set(nextMonths.map((month) => month.value));
-              if (monthSet.has(selectedMonth)) {
-                setSelectedMonth(selectedMonth);
-                return;
-              }
-              if (monthSet.has(CURRENT_MONTH)) {
+              const newYear = event.target.value;
+              setSelectedYear(newYear);
+              if (newYear === String(NOW.getFullYear()) && parseInt(selectedMonth) > NOW.getMonth() + 1) {
                 setSelectedMonth(CURRENT_MONTH);
-                return;
               }
-              setSelectedMonth(nextMonths[0]?.value ?? MONTH_OPTIONS[0].value);
             }}
             className="bg-transparent text-sky-100 outline-none"
           >
-            {YEARS.map((year) => (
-              <option key={year} value={year} className="bg-stone-950 text-stone-200">
-                {year}
-              </option>
+            {YEARS.map(year => (
+              <option key={year} value={year} className="bg-stone-950 text-stone-200">{year}</option>
             ))}
           </select>
         </label>
@@ -471,50 +456,42 @@ export default function CategPrioTimeAnalysis() {
             onChange={(event) => setSelectedMonth(event.target.value)}
             className="bg-transparent text-sky-100 outline-none"
           >
-            {availableMonths.map((month) => (
-              <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">
-                {month.label}
-              </option>
+            {(selectedYear === String(NOW.getFullYear())
+              ? MONTH_OPTIONS.filter(m => parseInt(m.value) <= NOW.getMonth() + 1)
+              : MONTH_OPTIONS
+            ).map(month => (
+              <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">{month.label}</option>
             ))}
           </select>
         </label>
       </div>
 
+      {loading ? (
+        <div className="space-y-3">
+          <div className="h-48 animate-pulse rounded-2xl border border-sky-100/10 bg-white/[0.03]" />
+          <div className="h-36 animate-pulse rounded-2xl border border-sky-100/10 bg-white/[0.03]" />
+        </div>
+      ) : (
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div
           className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
           style={{ maxHeight: "calc(100vh - 350px)" }}
         >
           <div className="space-y-6 p-6">
-            <RateBarGraph
-              title="Category Wise Analysis"
-              subtitle="Completion & Miss Rate"
-              series={categorySeries}
-            />
-
-            <RateBarGraph
-              title="Time Of The Day Analysis"
-              subtitle="Morning | Afternoon | Evening | Night"
-              series={timeSeries}
-              minWidth={620}
-            />
-
-            <RateBarGraph
-              title="Priority Wise Analysis"
-              subtitle="Completion & Miss Rate"
-              series={prioritySeries}
-              minWidth={520}
-            />
+            <RateBarGraph title="Category Wise Analysis" subtitle="Completion & Miss Rate" series={categorySeries} />
+            <RateBarGraph title="Time Of The Day Analysis" subtitle="Morning | Afternoon | Evening | Night" series={timeSeries} minWidth={620} />
+            <RateBarGraph title="Priority Wise Analysis" subtitle="Completion & Miss Rate" series={prioritySeries} minWidth={520} />
           </div>
         </div>
 
         <div
-          className="journal-scroll flex w-full w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
+          className="journal-scroll flex w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
           style={{ maxHeight: "calc(100vh - 180px)" }}
         >
           <InsightRail insights={insights} />
         </div>
       </div>
+      )}
     </section>
   );
 }

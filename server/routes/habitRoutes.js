@@ -4,6 +4,7 @@ import {
   createHabit,
   deleteHabit,
   endHabit,
+  getHabitAnalysis,
   getHabitConsistency,
   getHabitHeatmap,
   getHabitTracking,
@@ -19,6 +20,7 @@ const router = express.Router();
 
 router.use(protect);
 
+router.get("/analysis", getHabitAnalysis);
 router.get("/consistency", getHabitConsistency);
 router.get("/heatmap", getHabitHeatmap);
 router.get("/tracking", getHabitTracking);

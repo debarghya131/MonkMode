@@ -460,7 +460,9 @@ export default function ScoreStreakAnalysis() {
         day: parseInt(d.date.slice(8), 10),
         date: d.date,
         weekday: d.weekday,
-        submitted: d.completed > 0,
+        // Exclude today: pending tasks are stripped from today's total in the API,
+        // making completed > 0 trivially true. Only past days count toward streak.
+        submitted: d.completed > 0 && d.date < todayStr,
         consistencyScore: d.score ?? 0,
       }));
   }, [isDemoMode, apiData, selectedYear, selectedMonth]);
