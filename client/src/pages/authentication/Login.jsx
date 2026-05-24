@@ -136,6 +136,8 @@ export default function Login() {
                     {error}
                   </Motion.div>
                 ) : null}
+
+                <div id="clerk-captcha" className="min-h-0" />
               </div>
 
               <Motion.div
