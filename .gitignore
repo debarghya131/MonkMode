@@ -13,10 +13,21 @@ logs
 # Build output
 dist/
 build/
+coverage/
+.vite/
 
 # OS files
 .DS_Store
 Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+
+# Deploy / local platform metadata
+.vercel/
+.render/
+.turbo/
 
 # Local tool metadata
 .codex
