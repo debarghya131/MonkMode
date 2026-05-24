@@ -10,10 +10,19 @@ import { getJournalSummary } from "./journalController.js";
 import { getTodoSummary } from "./todoController.js";
 import { getHabitConsistency } from "./habitController.js";
 
+const APP_TIMEZONE = process.env.APP_TIMEZONE || "Asia/Kolkata";
+const DAY_KEY_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  timeZone: APP_TIMEZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const getFormatterPart = (parts, type) => parts.find((part) => part.type === type)?.value || "";
 function toDayKey(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
+  const parts = DAY_KEY_FORMATTER.formatToParts(new Date(date));
+  const y = getFormatterPart(parts, "year");
+  const m = getFormatterPart(parts, "month");
+  const d = getFormatterPart(parts, "day");
   return `${y}-${m}-${d}`;
 }
 

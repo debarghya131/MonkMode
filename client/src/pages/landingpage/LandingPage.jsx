@@ -1,6 +1,5 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import Hero from "./Hero";
 import LandingNavbar from "./LandingNavbar";
 
@@ -11,51 +10,8 @@ const animatedGradientStyle = {
 };
 
 export default function LandingPage() {
-  const navigate = useNavigate();
   const audioRef = useRef(null);
-  const hasNavigatedRef = useRef(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
-
-  useEffect(() => {
-    let touchStartY = 0;
-
-    const goToSignup = () => {
-      if (hasNavigatedRef.current) {
-        return;
-      }
-
-      hasNavigatedRef.current = true;
-      navigate("/login");
-    };
-
-    const handleWheel = (event) => {
-      if (event.deltaY > 35) {
-        goToSignup();
-      }
-    };
-
-    const handleTouchStart = (event) => {
-      touchStartY = event.touches[0]?.clientY ?? 0;
-    };
-
-    const handleTouchMove = (event) => {
-      const currentY = event.touches[0]?.clientY ?? 0;
-
-      if (touchStartY - currentY > 40) {
-        goToSignup();
-      }
-    };
-
-    window.addEventListener("wheel", handleWheel, { passive: true });
-    window.addEventListener("touchstart", handleTouchStart, { passive: true });
-    window.addEventListener("touchmove", handleTouchMove, { passive: true });
-
-    return () => {
-      window.removeEventListener("wheel", handleWheel);
-      window.removeEventListener("touchstart", handleTouchStart);
-      window.removeEventListener("touchmove", handleTouchMove);
-    };
-  }, [navigate]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -139,14 +95,6 @@ export default function LandingPage() {
         <LandingNavbar />
         <Hero />
       </div>
-      {/* Scroll to continue — raised on mobile so it clears the bottom badges */}
-      <div className="pointer-events-none fixed bottom-24 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-amber-200/10 bg-stone-950/25 px-3 py-1.5 text-center shadow-[0_10px_22px_rgba(0,0,0,0.2)] backdrop-blur sm:bottom-4 md:bottom-4">
-        <span className="block h-2 w-2 animate-bounce rounded-full bg-amber-300/90 shadow-[0_0_12px_rgba(251,191,36,0.5)]" />
-        <p className="text-[0.56rem] font-semibold uppercase tracking-[0.24em] text-amber-100/65 md:text-[0.62rem]">
-          Scroll to continue
-        </p>
-      </div>
-
       {/* Crafted with focus — bottom-right */}
       <Motion.div
         className="pointer-events-none fixed bottom-3 right-3 z-20 max-w-[min(66vw,15rem)] overflow-hidden rounded-2xl border border-amber-200/10 bg-stone-950/35 px-3 py-2 text-right shadow-[0_14px_34px_rgba(0,0,0,0.28)] backdrop-blur sm:bottom-4 sm:right-4 sm:max-w-none sm:px-4 sm:py-3 md:bottom-6 md:right-6 md:px-5"

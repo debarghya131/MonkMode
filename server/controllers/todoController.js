@@ -7,6 +7,34 @@ const DELETE_UNDO_WINDOW_MS = 48 * 60 * 60 * 1000;
 const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DEFAULT_WEEKDAY_SELECTION = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 const DEFAULT_IMPORTANT_TODO_CATEGORIES = ["Health", "Bill & Payment"];
+const APP_TIMEZONE = process.env.APP_TIMEZONE || "Asia/Kolkata";
+const DAY_KEY_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  timeZone: APP_TIMEZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const TIME_KEY_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  timeZone: APP_TIMEZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+const getFormatterPart = (parts, type) => parts.find((part) => part.type === type)?.value || "";
+const getAppDayKey = (value = new Date()) => {
+  const parts = DAY_KEY_FORMATTER.formatToParts(new Date(value));
+  const year = getFormatterPart(parts, "year");
+  const month = getFormatterPart(parts, "month");
+  const day = getFormatterPart(parts, "day");
+  return `${year}-${month}-${day}`;
+};
+const getAppTimeKey = (value = new Date()) => {
+  const parts = TIME_KEY_FORMATTER.formatToParts(new Date(value));
+  const hour = getFormatterPart(parts, "hour");
+  const minute = getFormatterPart(parts, "minute");
+  return `${hour}:${minute}`;
+};
 
 const getStartOfDay = (value = new Date()) => {
   const date = new Date(value);
@@ -14,13 +42,7 @@ const getStartOfDay = (value = new Date()) => {
   return date;
 };
 
-const toDayKey = (value = new Date()) => {
-  const date = getStartOfDay(value);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
+const toDayKey = (value = new Date()) => getAppDayKey(value);
 
 const parseDateInput = (value) => {
   if (value === null || value === undefined || value === "") return null;
@@ -131,10 +153,7 @@ const normalizeDayStatus = (value) => {
   return status;
 };
 
-const getCurrentTimeKey = (value = new Date()) => {
-  const date = new Date(value);
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-};
+const getCurrentTimeKey = (value = new Date()) => getAppTimeKey(value);
 
 const toTimeKey = (value = new Date()) => {
   const date = new Date(value);
