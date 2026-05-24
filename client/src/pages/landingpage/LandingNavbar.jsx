@@ -55,20 +55,20 @@ export default function LandingNavbar() {
       initial={{ opacity: 0, y: -18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55 }}
-      className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 sm:py-6 md:px-8"
+      className="mx-auto w-full max-w-7xl px-3 py-3 sm:px-6 sm:py-6 md:px-8"
     >
-      <div className="flex items-center justify-between gap-3 rounded-[1.75rem] border border-amber-200/10 bg-stone-950/45 px-3 py-2.5 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:px-4 sm:py-3 md:px-6">
+      <div className="flex items-center justify-between gap-2 rounded-[1.5rem] border border-amber-200/10 bg-stone-950/45 px-2.5 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:gap-3 sm:px-4 sm:py-3 md:rounded-[1.75rem] md:px-6">
 
         {/* Logo */}
         <button
           type="button"
           onClick={handleHomeNavigation}
-          className="h-[60px] w-[150px] overflow-hidden rounded-[1.4rem] border border-amber-300/15 bg-gradient-to-br from-[#2a120b] via-[#1d0d08] to-[#170907] shadow-[0_0_30px_rgba(251,191,36,0.12),inset_0_1px_0_rgba(255,240,200,0.06)] transition duration-300 hover:-translate-y-0.5 hover:border-amber-200/25 hover:shadow-[0_0_42px_rgba(251,191,36,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 sm:h-[72px] sm:w-[180px] md:h-[88px] md:w-[220px]"
+          className="h-[50px] w-[122px] overflow-hidden rounded-[1.15rem] border border-amber-300/15 bg-gradient-to-br from-[#2a120b] via-[#1d0d08] to-[#170907] shadow-[0_0_30px_rgba(251,191,36,0.12),inset_0_1px_0_rgba(255,240,200,0.06)] transition duration-300 hover:-translate-y-0.5 hover:border-amber-200/25 hover:shadow-[0_0_42px_rgba(251,191,36,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 sm:h-[72px] sm:w-[180px] md:h-[88px] md:w-[220px]"
         >
           <img
             src={monkModeLogo}
             alt="MonkMode logo"
-            className="pointer-events-none mt-[2px] h-[108px] w-[246px] max-w-none -translate-x-[44px] -translate-y-[28px] object-contain drop-shadow-[0_10px_24px_rgba(251,146,60,0.3)] sm:h-[126px] sm:w-[288px] sm:-translate-x-[52px] sm:-translate-y-[32px] md:h-[162px] md:w-[368px] md:-translate-x-[66px] md:-translate-y-[42px]"
+            className="pointer-events-none mt-[1px] h-[90px] w-[204px] max-w-none -translate-x-[37px] -translate-y-[23px] object-contain drop-shadow-[0_10px_24px_rgba(251,146,60,0.3)] sm:h-[126px] sm:w-[288px] sm:-translate-x-[52px] sm:-translate-y-[32px] md:h-[162px] md:w-[368px] md:-translate-x-[66px] md:-translate-y-[42px]"
           />
         </button>
 
@@ -88,7 +88,7 @@ export default function LandingNavbar() {
         </nav>
 
         {/* Right side: auth buttons + hamburger */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             type="button"
             onClick={() => navigate("/login")}
@@ -99,7 +99,7 @@ export default function LandingNavbar() {
           <button
             type="button"
             onClick={() => navigate("/signup")}
-            className={`rounded-full border border-transparent bg-gradient-to-r from-amber-300 via-orange-400 to-orange-500 px-4 py-2 text-sm font-bold text-stone-950 shadow-lg shadow-orange-950/20 transition sm:px-5 sm:py-2.5 ${goldenHoverClass}`}
+            className={`rounded-full border border-transparent bg-gradient-to-r from-amber-300 via-orange-400 to-orange-500 px-3 py-2 text-xs font-bold text-stone-950 shadow-lg shadow-orange-950/20 transition sm:px-5 sm:py-2.5 sm:text-sm ${goldenHoverClass}`}
           >
             Signup
           </button>
@@ -109,7 +109,7 @@ export default function LandingNavbar() {
             type="button"
             onClick={() => setMobileOpen((prev) => !prev)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-200/20 bg-white/5 text-amber-200 transition hover:border-amber-300/40 hover:bg-white/10 lg:hidden"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-amber-200/20 bg-white/5 text-amber-200 transition hover:border-amber-300/40 hover:bg-white/10 lg:hidden sm:h-9 sm:w-9"
           >
             <AnimatePresence mode="wait" initial={false}>
               {mobileOpen ? (

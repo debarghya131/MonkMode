@@ -13,6 +13,23 @@ const getGroq = () => {
   if (!groq) groq = new Groq({ apiKey: process.env.API_KEY });
   return groq;
 };
+const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 15_000);
+
+const withTimeout = async (promise, timeoutMs, timeoutMessage) => {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error(timeoutMessage));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
 
 function toDayKey(date) {
   const y = date.getFullYear();
@@ -142,12 +159,16 @@ export const chatWithMing = async (req, res) => {
       { role: "user", content: message.trim() },
     ];
 
-    const completion = await getGroq().chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: chatMessages,
-      temperature: 0.72,
-      max_tokens: 200,
-    });
+    const completion = await withTimeout(
+      getGroq().chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: chatMessages,
+        temperature: 0.72,
+        max_tokens: 200,
+      }),
+      AI_TIMEOUT_MS,
+      "AI chat request timed out",
+    );
 
     const reply = completion.choices[0]?.message?.content?.trim() || "The path forward requires stillness. Reflect on what you logged today and return.";
 

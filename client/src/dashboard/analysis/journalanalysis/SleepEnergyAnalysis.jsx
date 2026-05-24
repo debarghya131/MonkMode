@@ -189,8 +189,8 @@ function InsightRail({ insights }) {
   const [selectedInsight, setSelectedInsight] = useState(null);
 
   return (
-    <aside className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur">
-      <div className="shrink-0 p-5 pb-4">
+    <aside className="flex h-full w-full flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl">
+      <div className="shrink-0 p-4 pb-3 sm:p-5 sm:pb-4">
         <div className="flex items-center gap-3">
           <Motion.div
             className="relative grid h-16 w-16 place-items-center"
@@ -219,7 +219,7 @@ function InsightRail({ insights }) {
         </div>
       </div>
 
-      <div className="journal-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-5 pb-5 pr-4">
+      <div className="journal-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-4 pr-3 sm:px-5 sm:pb-5 sm:pr-4">
         {insights.map((insight) => {
           const isSelected = selectedInsight === insight.title;
           return (
@@ -232,7 +232,7 @@ function InsightRail({ insights }) {
                   : "border-sky-100/10 bg-stone-950/45 hover:border-sky-300/20"
               }`}
             >
-              <div className="grid grid-cols-[1fr_auto] items-start gap-3">
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
                 <div className="min-w-0">
                   <span className="text-xs font-semibold text-sky-200">{insight.title}</span>
                   <p className="text-sm font-semibold text-stone-200">{insight.value}</p>
@@ -249,7 +249,7 @@ function InsightRail({ insights }) {
                 <button
                   type="button"
                   onClick={() => setSelectedInsight(isSelected ? null : insight.title)}
-                  className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                  className={`w-full rounded-full border px-3 py-1 text-xs font-semibold transition-colors sm:w-fit ${
                     isSelected
                       ? "border-sky-400/40 bg-sky-400/15 text-sky-100"
                       : "border-sky-400/20 text-sky-200 hover:border-sky-300/45 hover:bg-sky-400/10"
@@ -272,7 +272,7 @@ function SleepDurationLineGraph({ data }) {
 
   if (populatedData.length === 0) {
     return (
-      <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+      <section className="rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Sleep Trend</p>
           <h4 className="mt-2 text-xl font-semibold text-sky-50">Total Sleep Duration</h4>
@@ -313,7 +313,7 @@ function SleepDurationLineGraph({ data }) {
 
   return (
     <Motion.section
-      className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20"
+      className="rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5"
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.25 }}
@@ -553,7 +553,7 @@ function SleepDurationLineGraph({ data }) {
 function SleepVsScoreGraph({ data, selectedWeek, onWeekChange }) {
   const [hovered, setHovered] = useState(null);
   return (
-    <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+    <section className="rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Comparison</p>
@@ -691,7 +691,7 @@ function SleepVsScoreGraph({ data, selectedWeek, onWeekChange }) {
 function EnergyLevelGraph({ data }) {
   const [hovered, setHovered] = useState(null);
   return (
-    <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+    <section className="rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Energy & Rating</p>
@@ -809,6 +809,7 @@ export default function SleepEnergyAnalysis() {
           rating:        e.rating,
         }));
       setRawEntries(demo);
+      setLoading(false);
       return;
     }
     let cancelled = false;
@@ -832,7 +833,7 @@ export default function SleepEnergyAnalysis() {
   }, [isDemoMode, selectedYear, selectedMonth]);
 
   const filteredEntries = useMemo(
-    () => rawEntries.sort((a, b) => a.date.localeCompare(b.date)),
+    () => [...rawEntries].sort((a, b) => a.date.localeCompare(b.date)),
     [rawEntries]
   );
 
@@ -930,14 +931,14 @@ export default function SleepEnergyAnalysis() {
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
         {String(NOW.getFullYear()) === selectedYear && String(NOW.getMonth() + 1).padStart(2, "0") === selectedMonth && (
           <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
             Live · updates daily
           </span>
         )}
-        <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
+        <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
           <span className="text-stone-400">Year</span>
           <select
             value={selectedYear}
@@ -959,7 +960,7 @@ export default function SleepEnergyAnalysis() {
           </select>
         </label>
 
-        <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
+        <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
           <span className="text-stone-400">Month</span>
           <select
             value={selectedMonth}
@@ -988,9 +989,9 @@ export default function SleepEnergyAnalysis() {
           <div className="h-36 animate-pulse rounded-2xl border border-sky-100/10 bg-white/[0.03]" />
         </div>
       ) : (
-      <div className="flex flex-col gap-5 xl:flex-row xl:items-start">
-        <div className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur xl:max-h-[calc(100vh-350px)]">
-          <div className="space-y-6 p-6">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
+        <div className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[1.6rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem] xl:max-h-[calc(100vh-350px)]">
+          <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
             <SleepDurationLineGraph data={lineSeries} />
             <SleepVsScoreGraph
               data={comparisonSeries}
@@ -1001,7 +1002,7 @@ export default function SleepEnergyAnalysis() {
           </div>
         </div>
 
-        <div className="journal-scroll flex w-full flex-col gap-2 overflow-hidden scroll-smooth xl:h-[calc(100vh-350px)] xl:max-h-[calc(100vh-350px)] xl:max-w-[360px] xl:shrink-0 xl:self-start">
+        <div className="journal-scroll flex w-full flex-col gap-3 overflow-hidden scroll-smooth xl:h-[calc(100vh-350px)] xl:max-h-[calc(100vh-350px)] xl:max-w-[380px] xl:shrink-0 xl:self-start">
           <InsightRail insights={littleMonkInsights} />
         </div>
       </div>

@@ -30,7 +30,7 @@ function GitHubLogo() {
 
 export default function About() {
   return (
-    <main className="auth-page relative min-h-screen overflow-x-hidden text-white">
+    <main className="auth-page relative min-h-dvh overflow-x-hidden text-white sm:min-h-screen">
       <div className="fixed inset-0">
         <AuthBackground />
       </div>
@@ -40,14 +40,14 @@ export default function About() {
 
         <section
           id="about"
-          className="mx-auto w-full max-w-7xl px-4 pb-20 pt-8 sm:px-6 sm:pb-24 md:px-8"
+          className="mx-auto w-full max-w-7xl px-3 pb-14 pt-5 sm:px-6 sm:pb-24 sm:pt-8 md:px-8"
         >
           <Motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, ease: "easeOut" }}
             whileHover={{ y: -4 }}
-            className="group relative overflow-hidden rounded-[1.75rem] border border-amber-200/10 bg-stone-950/40 px-5 py-6 shadow-[0_18px_56px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:px-8 sm:py-8"
+            className="group relative overflow-hidden rounded-[1.35rem] border border-amber-200/10 bg-stone-950/40 px-4 py-5 shadow-[0_18px_56px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:rounded-[1.75rem] sm:px-8 sm:py-8"
           >
             <Motion.div
               className="pointer-events-none absolute -left-24 -top-24 h-56 w-56 rounded-full bg-amber-400/10 blur-3xl"
@@ -60,7 +60,7 @@ export default function About() {
               transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
             />
 
-            <div className="relative grid gap-8 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-center">
+            <div className="relative grid gap-6 sm:gap-8 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-center">
               <div className="flex flex-col items-center text-center">
                 <div className="relative">
                   <Motion.div
@@ -76,13 +76,13 @@ export default function About() {
                   <Motion.img
                     src={creatorImage}
                     alt="Debarghya Bandyopadhyay"
-                    className="relative h-56 w-56 rounded-full border border-amber-100/20 object-cover object-top shadow-[0_24px_60px_rgba(0,0,0,0.42)] sm:h-64 sm:w-64"
+                    className="relative h-44 w-44 rounded-full border border-amber-100/20 object-cover object-top shadow-[0_24px_60px_rgba(0,0,0,0.42)] sm:h-56 sm:w-56 lg:h-64 lg:w-64"
                     animate={{ y: [0, -8, 0] }}
                     transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
                     whileHover={{ scale: 1.03 }}
                   />
                 </div>
-                <h3 className="mt-6 font-heading text-2xl font-black text-amber-50">
+                <h3 className="mt-5 font-heading text-xl font-black text-amber-50 sm:mt-6 sm:text-2xl">
                   Debarghya Bandyopadhyay
                 </h3>
                 <p className="mt-2 text-sm font-semibold text-amber-200/70">
@@ -90,18 +90,18 @@ export default function About() {
                 </p>
               </div>
 
-              <div className="text-left">
-                <p className="text-[0.68rem] font-bold uppercase tracking-[0.32em] text-amber-200/60">
+              <div className="text-center sm:text-left">
+                <p className="text-[0.64rem] font-bold uppercase tracking-[0.24em] text-amber-200/60 sm:text-[0.68rem] sm:tracking-[0.32em]">
                   Creator Details
                 </p>
-                <p className="mt-4 max-w-3xl text-sm leading-8 text-stone-300 sm:text-base">
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-300 sm:text-base sm:leading-8">
                   🙏 Namo Buddhaya , I am Debarghya Bandyopadhyay, the creator of
                   MonkMode. You can contact me at{" "}
                   <a
-                    href="mailto:bandyopadhyaydebarghya066@gmail.com"
+                    href="mailto:debarghyabandyopadhyay191@gmail.com"
                     className="font-semibold text-amber-200 transition hover:text-amber-100"
                   >
-                    bandyopadhyaydebarghya066@gmail.com
+                    debarghyabandyopadhyay191@gmail.com
                   </a>
                   . I am pursuing B.Tech from Netaji Subhas Engineering College,
                   Kolkata, and completed my Diploma from Technique Polytechnique
@@ -113,7 +113,7 @@ export default function About() {
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   <Motion.div
                     whileHover={{ y: -5, scale: 1.01 }}
-                    className="rounded-2xl border border-amber-100/10 bg-white/[0.045] p-4 transition-colors hover:border-amber-200/30 hover:bg-amber-300/[0.07]"
+                    className="rounded-[1.15rem] border border-amber-100/10 bg-white/[0.045] p-4 text-left transition-colors hover:border-amber-200/30 hover:bg-amber-300/[0.07] sm:rounded-2xl"
                   >
                     <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-amber-200/60">
                       B.Tech
@@ -124,7 +124,7 @@ export default function About() {
                   </Motion.div>
                   <Motion.div
                     whileHover={{ y: -5, scale: 1.01 }}
-                    className="rounded-2xl border border-amber-100/10 bg-white/[0.045] p-4 transition-colors hover:border-amber-200/30 hover:bg-amber-300/[0.07]"
+                    className="rounded-[1.15rem] border border-amber-100/10 bg-white/[0.045] p-4 text-left transition-colors hover:border-amber-200/30 hover:bg-amber-300/[0.07] sm:rounded-2xl"
                   >
                     <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-amber-200/60">
                       Diploma
@@ -136,10 +136,13 @@ export default function About() {
                 </div>
 
                 <div className="mt-6">
-                  <p className="text-[0.62rem] font-bold uppercase tracking-[0.24em] text-amber-200/60">
-                    Connect on
+                  <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-amber-200/60 sm:tracking-[0.24em]">
+                    Be My Friend
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-3">
+                  <p className="mt-3 text-sm leading-7 text-stone-300 sm:text-base sm:leading-8">
+                    I always like to make new friends follow me on
+                  </p>
+                  <div className="mt-3 flex flex-wrap justify-center gap-3 sm:justify-start">
                     <Motion.a
                       href="https://x.com/debarghya131"
                       target="_blank"
@@ -187,7 +190,7 @@ export default function About() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.14, ease: "easeOut" }}
             whileHover={{ y: -4 }}
-            className="group relative mt-6 overflow-hidden rounded-[2rem] border border-amber-200/10 bg-stone-950/45 shadow-[0_24px_80px_rgba(0,0,0,0.36)] backdrop-blur-xl"
+            className="group relative mt-6 overflow-hidden rounded-[1.5rem] border border-amber-200/10 bg-stone-950/45 shadow-[0_24px_80px_rgba(0,0,0,0.36)] backdrop-blur-xl sm:rounded-[2rem]"
           >
             <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(251,191,36,0.12),transparent_38%,rgba(59,130,246,0.08))]" />
             <Motion.div
@@ -201,21 +204,21 @@ export default function About() {
               transition={{ duration: 7.5, repeat: Infinity, ease: "easeInOut" }}
             />
 
-            <div className="relative grid gap-10 px-5 py-8 sm:px-8 sm:py-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(18rem,0.55fr)] lg:items-center lg:px-10 lg:py-12">
+            <div className="relative grid gap-8 px-4 py-6 sm:px-8 sm:py-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(18rem,0.55fr)] lg:items-center lg:px-10 lg:py-12">
               <div>
-                <p className="text-[0.72rem] font-bold uppercase tracking-[0.34em] text-amber-200/65">
+                <p className="text-[0.64rem] font-bold uppercase tracking-[0.24em] text-amber-200/65 sm:text-[0.72rem] sm:tracking-[0.34em]">
                   Motivation
                 </p>
-                <h2 className="mt-3 max-w-4xl font-heading text-xl font-black leading-tight text-amber-50 sm:text-2xl lg:whitespace-nowrap lg:text-[1.85rem] xl:text-[2.15rem]">
+                <h2 className="mt-3 max-w-4xl font-heading text-[1.15rem] font-black leading-tight text-amber-50 sm:text-2xl lg:whitespace-nowrap lg:text-[1.85rem] xl:text-[2.15rem]">
                   Motivation for creating this project.
                 </h2>
-                <p className="mt-8 max-w-3xl text-sm leading-8 text-stone-300 sm:text-base">
+                <p className="mt-6 max-w-3xl text-sm leading-7 text-stone-300 sm:mt-8 sm:text-base sm:leading-8">
                   I was also a less disciplined student. I was not consistent,
                   and I could not focus on one work for a long time. Over time,
                   I realized how important discipline is for a student, not only
                   for study, but also for building a better life.
                 </p>
-                <p className="mt-4 max-w-3xl text-sm leading-8 text-stone-300 sm:text-base">
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-300 sm:text-base sm:leading-8">
                   That realization became the motivation behind MonkMode. I
                   wanted to create one calm place where a person can track their
                   daily actions, goals, habits, journal reflections, fitness
@@ -225,21 +228,21 @@ export default function About() {
                 </p>
               </div>
 
-              <div className="relative flex min-h-[18rem] items-center justify-center">
+              <div className="relative flex min-h-[14rem] items-center justify-center sm:min-h-[18rem]">
                 <Motion.div
-                  className="absolute h-56 w-56 rounded-full border border-amber-200/15"
+                  className="absolute h-44 w-44 rounded-full border border-amber-200/15 sm:h-56 sm:w-56"
                   animate={{ scale: [0.94, 1.06, 0.94], opacity: [0.4, 0.8, 0.4] }}
                   transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
                 />
                 <Motion.div
-                  className="absolute h-72 w-72 rounded-full border border-amber-200/10"
+                  className="absolute h-56 w-56 rounded-full border border-amber-200/10 sm:h-72 sm:w-72"
                   animate={{ scale: [1.04, 0.94, 1.04], opacity: [0.22, 0.5, 0.22] }}
                   transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                 />
                 <Motion.img
                   src={monkIllustration}
                   alt="Meditating monk"
-                  className="relative z-10 w-56 drop-shadow-[0_28px_50px_rgba(0,0,0,0.42)] sm:w-64 lg:w-72"
+                  className="relative z-10 w-44 drop-shadow-[0_28px_50px_rgba(0,0,0,0.42)] sm:w-56 lg:w-72"
                   animate={{ y: [0, -12, 0] }}
                   transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
                 />
@@ -247,24 +250,24 @@ export default function About() {
 
               <Motion.div
                 whileHover={{ y: -5 }}
-                className="relative overflow-hidden rounded-2xl border border-amber-100/10 bg-black/20 p-5 lg:col-span-2"
+                className="relative overflow-hidden rounded-[1.25rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl sm:p-5 lg:col-span-2"
               >
                 <Motion.div
                   className="pointer-events-none absolute inset-y-0 left-[-30%] w-[22%] -skew-x-12 bg-amber-100/10 blur-xl"
                   animate={{ left: ["-30%", "120%"] }}
                   transition={{ duration: 3.8, repeat: Infinity, repeatDelay: 2.2, ease: "easeInOut" }}
                 />
-                <p className="text-[0.68rem] font-bold uppercase tracking-[0.3em] text-amber-200/65">
+                <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-amber-200/65 sm:text-[0.68rem] sm:tracking-[0.3em]">
                   Why MonkMode?
                 </p>
-                <p className="mt-4 text-sm leading-8 text-stone-300 sm:text-base">
+                <p className="mt-4 text-sm leading-7 text-stone-300 sm:text-base sm:leading-8">
                   I chose the name MonkMode because monks represent discipline,
                   consistency, self-control, and deep focus. A monk lives with
                   fewer distractions, follows a simple routine, and trains the
                   mind to stay calm even when the world is noisy. That mindset
                   is very powerful for students and builders.
                 </p>
-                <p className="mt-4 text-sm leading-8 text-stone-300 sm:text-base">
+                <p className="mt-4 text-sm leading-7 text-stone-300 sm:text-base sm:leading-8">
                   Buddhism also teaches awareness, patience, mindfulness, and
                   control over desire. MonkMode is inspired by that idea: to
                   observe yourself honestly, reduce distraction, build better

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_CATEGORIES,
   DEFAULT_IMPORTANT_CATEGORIES,
@@ -129,8 +129,6 @@ const priorityStyles = {
   Medium: "border-yellow-400/40 text-yellow-200 bg-yellow-500/10",
   Low: "border-green-400/40 text-green-200 bg-green-500/10",
 };
-const SCHEDULE_PANEL_HEIGHT = "650px";
-
 const formatDisplayTime = (timeValue) => {
   if (!timeValue || typeof timeValue !== "string") return "--";
   const normalized = timeValue.slice(0, 5);
@@ -195,7 +193,7 @@ export default function Schedule({
   const calendarSectionRef = useRef(null);
   const endedLogQueueRef = useRef(new Set());
 
-  const refreshTaskLogs = async () => {
+  const refreshTaskLogs = useCallback(async () => {
     if (isDemoMode) return;
     try {
       const { data } = await api.get("/todos/logs");
@@ -203,17 +201,14 @@ export default function Schedule({
     } catch {
       // keep current logs on transient failure
     }
-  };
+  }, [isDemoMode]);
 
   const [isCatOpen, setIsCatOpen] = useState(false);
-  const [isEditCatOpen, setIsEditCatOpen] = useState(false);
   const catDropRef = useRef(null);
-  const editCatDropRef = useRef(null);
 
   useEffect(() => {
     const handler = (e) => {
       if (catDropRef.current && !catDropRef.current.contains(e.target)) setIsCatOpen(false);
-      if (editCatDropRef.current && !editCatDropRef.current.contains(e.target)) setIsEditCatOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -221,7 +216,7 @@ export default function Schedule({
 
   useEffect(() => {
     refreshTaskLogs();
-  }, [isDemoMode]);
+  }, [refreshTaskLogs]);
 
   const [showCustomCategory, setShowCustomCategory] = useState(false);
   const [customCategory, setCustomCategory] = useState("");
@@ -242,7 +237,6 @@ export default function Schedule({
   const [undoError, setUndoError] = useState("");
   const [restoringLogId, setRestoringLogId] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({});
 
   const [viewMonth, setViewMonth] = useState(() => {
     const now = new Date();
@@ -345,7 +339,9 @@ export default function Schedule({
       try {
         const { data } = await api.get("/todos/logs");
         if (!cancelled) setTaskLogs(data);
-      } catch {}
+      } catch {
+        // keep current logs if the refresh fails
+      }
     };
     run();
     return () => { cancelled = true; };
@@ -474,13 +470,6 @@ export default function Schedule({
       ...prev,
       category: prev.category.toLowerCase() === categoryName.toLowerCase() ? "" : prev.category,
     }));
-
-    if (editingId) {
-      setEditForm((prev) => ({
-        ...prev,
-        category: prev.category?.toLowerCase() === categoryName.toLowerCase() ? "" : prev.category,
-      }));
-    }
   };
 
   const handleToggleImportantCategory = (categoryName) => {
@@ -595,7 +584,7 @@ export default function Schedule({
           }
           setEditingId(null);
         } else {
-          const { data } = await api.post("/todos", apiPayload);
+          await api.post("/todos", apiPayload);
           if (form.repeatType === "once") {
             setSelectedDate(form.date);
             setViewMonth(new Date(parseISODate(form.date).getFullYear(), parseISODate(form.date).getMonth(), 1));
@@ -774,67 +763,10 @@ export default function Schedule({
     });
   };
 
-  const handleUpdate = (id) => {
-    if (!editForm.title.trim()) return;
-    if (editForm.repeatType !== "once" && !editForm.neverEnds) {
-      if (!editForm.endDate) {
-        setError("End date is required or select Never.");
-        return;
-      }
-      if (editForm.endDate <= today) {
-        setError("End date must be after today.");
-        return;
-      }
-      if (editForm.endDate < editForm.startDate) {
-        setError("End date cannot be earlier than start date.");
-        return;
-      }
-      if (!hasOccurrenceInRange(editForm.repeatType, editForm.startDate, editForm.endDate, editForm.days)) {
-        if (editForm.repeatType === "weekend") {
-          setError("Selected range has no weekend day. Choose a later end date.");
-          return;
-        }
-        if (editForm.repeatType === "weekdays") {
-          setError("Selected range has no chosen weekday. Adjust start/end date.");
-          return;
-        }
-      }
-    }
-
-    const updatedFields = {
-      title: editForm.title.trim(),
-      description: editForm.description,
-      category: editForm.category,
-      priority: editForm.priority,
-      time: editForm.time,
-      repeatType: editForm.repeatType,
-      ...(editForm.repeatType === "once"
-        ? { date: editForm.date, startDate: undefined, endDate: undefined, days: undefined }
-        : {
-            startDate: editForm.startDate,
-            endDate: editForm.neverEnds ? null : editForm.endDate,
-            days: editForm.repeatType === "weekdays" ? editForm.days : undefined,
-            date: undefined,
-          }),
-    };
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...updatedFields } : t)));
-    setTaskLogs((prev) => [
-      {
-        id: `${id}-edited-${Date.now()}`,
-        title: editForm.title.trim(),
-        date: editForm.repeatType === "once" ? editForm.date : editForm.startDate,
-        time: editForm.time,
-        action: "edited",
-      },
-      ...prev,
-    ]);
-    setEditingId(null);
-  };
-
   return (
     <div className="space-y-5">
       <div className="schedule-layout">
-        <div className="schedule-main journal-scroll rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20" style={{ height: SCHEDULE_PANEL_HEIGHT, overflowY: "auto" }}>
+        <div className="schedule-main journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5 xl:h-[650px]" style={{ overflowY: "auto" }}>
           <h3 className="mb-4 text-sm font-semibold text-amber-200">{editingId ? "Edit Task" : "Create Task"}</h3>
           <form className="space-y-3" onSubmit={handleSubmit}>
             {/* Row 1: Title */}
@@ -869,7 +801,7 @@ export default function Schedule({
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Category <span className="text-red-400">*</span>
                 </label>
-                <div className="flex gap-1">
+                <div className="flex flex-col gap-2 sm:flex-row sm:gap-1">
                   <div ref={catDropRef} className="relative min-w-0 flex-1">
                     <button
                       type="button"
@@ -905,14 +837,14 @@ export default function Schedule({
                   <button
                     type="button"
                     onClick={() => setShowCustomCategory((prev) => !prev)}
-                    className="rounded-lg border border-amber-300/25 px-2 py-1 text-[11px] font-semibold text-amber-200 transition hover:border-amber-300/45"
+                    className="rounded-lg border border-amber-300/25 px-2 py-1.5 text-[11px] font-semibold text-amber-200 transition hover:border-amber-300/45 sm:py-1"
                   >
                     + Category
                   </button>
                 </div>
                 {showCustomCategory ? (
                   <>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <input
                         type="text"
                         value={customCategory}
@@ -929,7 +861,7 @@ export default function Schedule({
                         placeholder="Custom category"
                         className="flex-1 rounded-lg border border-amber-100/15 bg-white/5 px-3 py-1.5 text-xs text-stone-100 outline-none transition focus:border-amber-300/35"
                       />
-                    <button type="button" onClick={handleAddCustomCategory} className="rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20">Add</button>
+                    <button type="button" onClick={handleAddCustomCategory} className="rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20 sm:py-1.5">Add</button>
                     </div>
                     <label className="flex items-center gap-2 text-xs text-stone-300">
                       <input
@@ -995,7 +927,7 @@ export default function Schedule({
                       key={priority}
                       type="button"
                       onClick={() => handleInputChange("priority", priority)}
-                      className={`flex min-w-[84px] flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-2 py-1.5 text-[10px] font-semibold transition ${
+                      className={`flex min-w-[84px] flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-2 py-2 text-[10px] font-semibold transition sm:py-1.5 ${
                         form.priority === priority ? priorityStyles[priority] : "border-amber-100/15 bg-white/5 text-stone-300"
                       }`}
                     >
@@ -1068,7 +1000,7 @@ export default function Schedule({
               </div>
             ) : (
               <div className="space-y-2 rounded-lg border border-amber-100/10 bg-white/5 p-2.5">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Start</label>
                     <input
@@ -1097,8 +1029,8 @@ export default function Schedule({
                   Never End
                 </label>
                 {form.repeatType === "weekdays" && (
-                  <div className="grid grid-cols-7 gap-1">
-                    {WEEK_DAYS.map((day) => (
+                    <div className="grid grid-cols-4 gap-1 sm:grid-cols-7">
+                      {WEEK_DAYS.map((day) => (
                       <button key={day} type="button" onClick={() => toggleDay(day)}
                         className={`rounded border py-1 text-[10px] font-semibold transition ${form.days.includes(day) ? "border-amber-300/55 bg-amber-400/15 text-amber-100" : "border-amber-100/15 bg-white/5 text-stone-300"}`}>
                         {day}
@@ -1131,8 +1063,8 @@ export default function Schedule({
         </div>
 
         {/* All Tasks column */}
-        <section className="schedule-all-tasks rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20">
-          <div className="mb-4 flex items-center justify-between">
+        <section className="schedule-all-tasks rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-amber-200">All Tasks</p>
               <p className="mt-0.5 text-xs text-stone-400">Every scheduled task at a glance.</p>
@@ -1153,7 +1085,7 @@ export default function Schedule({
                 ))}
               </div>
             </div>
-            <span className="rounded-full border border-amber-100/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
+            <span className="self-start rounded-full border border-amber-100/10 bg-white/5 px-3 py-1 text-xs text-stone-300 sm:self-auto">
               {displayedTasks.length} total
             </span>
           </div>
@@ -1176,174 +1108,10 @@ export default function Schedule({
 
                 return (
                 <article key={task.id} className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 p-3">
-                  {false ? (
-                    /* ── Inline edit form ── */
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        value={editForm.title}
-                        onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))}
-                        className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2.5 py-1.5 text-sm text-stone-100 outline-none focus:border-amber-300/40"
-                      />
-                      <input
-                        type="text"
-                        value={editForm.description}
-                        onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
-                        placeholder="Description"
-                        className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2.5 py-1.5 text-xs text-stone-300 outline-none focus:border-amber-300/40"
-                      />
-                      <div className="grid grid-cols-2 gap-2">
-                        <div ref={editCatDropRef} className="relative">
-                          <button
-                            type="button"
-                            onClick={() => setIsEditCatOpen((p) => !p)}
-                            className="relative h-9 w-full rounded-lg border border-amber-100/15 bg-stone-900 pl-2 pr-6 text-left text-[11px] text-stone-100 outline-none"
-                          >
-                            {editForm.category || <span className="text-stone-500">Category</span>}
-                            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-stone-400">▾</span>
-                          </button>
-                          {isEditCatOpen && (
-                            <div className="journal-scroll absolute z-50 mt-1 max-h-40 w-full overflow-y-auto rounded-lg border border-amber-100/15 bg-stone-900 py-1 shadow-xl shadow-black/50">
-                              {categoryOptions.map((c) => (
-                                <button
-                                  key={c}
-                                  type="button"
-                                  onClick={() => { setEditForm((p) => ({ ...p, category: c })); setIsEditCatOpen(false); }}
-                                  className={`w-full px-3 py-1.5 text-left text-[11px] transition hover:bg-amber-500/10 hover:text-amber-200 ${
-                                    editForm.category === c ? "bg-amber-500/15 text-amber-200" : "text-stone-100"
-                                  }`}
-                                >
-                                  {importantCategories.some((i) => i.toLowerCase() === c.toLowerCase()) ? `${c} ⭐` : c}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <input
-                          type="time"
-                          value={editForm.time}
-                          onChange={(e) => setEditForm((p) => ({ ...p, time: e.target.value }))}
-                          className="rounded-lg border border-amber-100/15 bg-black/30 px-2 py-1.5 text-xs text-stone-100 outline-none"
-                        />
-                      </div>
-                      <div className="flex gap-1.5">
-                        {PRIORITIES.map((pr) => (
-                          <button
-                            key={pr}
-                            type="button"
-                            onClick={() => setEditForm((p) => ({ ...p, priority: pr }))}
-                            className={`flex flex-1 items-center justify-center gap-1 rounded-lg border py-1 text-[10px] font-semibold transition ${
-                              editForm.priority === pr ? priorityStyles[pr] : "border-amber-100/15 bg-white/5 text-stone-400"
-                            }`}
-                          >
-                            {pr} {PRIORITY_EMOJI[pr]}
-                          </button>
-                        ))}
-                      </div>
-                      {/* Repeat type selector */}
-                      <select
-                        value={editForm.repeatType}
-                        onChange={(e) => setEditForm((p) => ({ ...p, repeatType: e.target.value }))}
-                        disabled
-                        className="w-full cursor-not-allowed rounded-lg border border-amber-100/15 bg-stone-900 px-2 py-1.5 text-[11px] text-stone-100 opacity-60 outline-none"
-                      >
-                        {REPEAT_TYPES.map((r) => (
-                          <option key={r.value} value={r.value} style={{ backgroundColor: "#1c1917" }}>{r.label}</option>
-                        ))}
-                      </select>
-
-                      {/* Date fields based on repeat type */}
-                      {editForm.repeatType === "once" ? (
-                        <input
-                          type="date"
-                          value={editForm.date}
-                          onChange={(e) => setEditForm((p) => ({ ...p, date: e.target.value }))}
-                          className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2 py-1.5 text-xs text-stone-100 outline-none"
-                        />
-                      ) : (
-                        <div className="space-y-1.5 rounded-lg border border-amber-100/10 bg-white/[0.03] p-2">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <p className="mb-1 text-[10px] uppercase tracking-wide text-stone-500">Start</p>
-                              <input
-                                type="date"
-                                value={editForm.startDate}
-                                onChange={(e) => setEditForm((p) => ({ ...p, startDate: e.target.value }))}
-                                className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2 py-1 text-[11px] text-stone-100 outline-none"
-                              />
-                            </div>
-                            {!editForm.neverEnds && (
-                              <div>
-                                <p className="mb-1 text-[10px] uppercase tracking-wide text-stone-500">End</p>
-                                <input
-                                  type="date"
-                                  value={editForm.endDate}
-                                  min={maxISODate(editForm.startDate || "", tomorrow) || undefined}
-                                  onChange={(e) => setEditForm((p) => ({ ...p, endDate: e.target.value }))}
-                                  className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2 py-1 text-[11px] text-stone-100 outline-none"
-                                />
-                              </div>
-                            )}
-                          </div>
-                          <label className="flex items-center gap-2 text-[11px] text-stone-300">
-                            <input
-                              type="checkbox"
-                              checked={editForm.neverEnds}
-                              onChange={(e) => setEditForm((p) => ({ ...p, neverEnds: e.target.checked }))}
-                              className="accent-amber-400"
-                            />
-                            Never End
-                          </label>
-                          {editForm.repeatType === "weekdays" && (
-                            <div className="grid grid-cols-7 gap-1 pt-1">
-                              {WEEK_DAYS.map((day) => (
-                                <button
-                                  key={day}
-                                  type="button"
-                                  onClick={() =>
-                                    setEditForm((p) => ({
-                                      ...p,
-                                      days: p.days.includes(day)
-                                        ? p.days.filter((d) => d !== day)
-                                        : [...p.days, day],
-                                    }))
-                                  }
-                                  className={`rounded border py-1 text-[10px] font-semibold transition ${
-                                    editForm.days.includes(day)
-                                      ? "border-amber-300/55 bg-amber-400/15 text-amber-100"
-                                      : "border-amber-100/15 bg-white/5 text-stone-300"
-                                  }`}
-                                >
-                                  {day}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          type="button"
-                          onClick={() => handleUpdate(task.id)}
-                          className="flex-1 rounded-lg border border-amber-300/30 bg-amber-400/10 py-1.5 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20"
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingId(null)}
-                          className="flex-1 rounded-lg border border-amber-100/15 bg-white/5 py-1.5 text-[11px] font-semibold text-stone-400 transition hover:text-stone-200"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    /* ── Normal card view ── */
-                    <>
-                      <div className="flex items-start justify-between gap-2">
+                  <>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <p className="text-sm font-semibold text-stone-100">{task.title}</p>
-                        <div className="flex shrink-0 items-center gap-1.5">
+                        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                           {isArchiveView && (
                             <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
                               isDeletedTask
@@ -1403,8 +1171,7 @@ export default function Schedule({
                           </span>
                         ))}
                       </div>
-                    </>
-                  )}
+                  </>
                 </article>
                 );
               })
@@ -1413,11 +1180,11 @@ export default function Schedule({
         </section>
 
         <aside className="schedule-sidebar">
-          <div className="flex flex-col gap-0 rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20" style={{ height: SCHEDULE_PANEL_HEIGHT }}>
+          <div className="flex flex-col gap-0 rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl xl:h-[650px]">
 
             {/* Calendar */}
             <section ref={calendarSectionRef} className="relative shrink-0">
-              <div className="mb-3 flex items-center justify-between">
+              <div className="mb-3 flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold tracking-wide text-amber-200">Calendar</h3>
                 <div className="flex items-center gap-1">
                   <button
@@ -1440,7 +1207,7 @@ export default function Schedule({
 
               <div className="grid grid-cols-7 gap-0.5 text-center text-xs text-stone-400">
                 {WEEK_DAYS.map((day) => (
-                  <div key={day} className="py-1 text-[10px] font-semibold">{day}</div>
+                  <div key={day} className="py-1 text-[9px] font-semibold sm:text-[10px]">{day}</div>
                 ))}
                 {calendarCells.map((cellDate, idx) => {
                   if (!cellDate) return <div key={`empty-${idx}`} className="h-8 rounded" />;
@@ -1489,7 +1256,7 @@ export default function Schedule({
                         });
                       }}
                       onMouseLeave={() => setHoveredCalendarDate((current) => (current === isoDate ? null : current))}
-                      className={`relative h-8 rounded text-xs transition ${
+                      className={`relative h-8 rounded text-[11px] transition sm:text-xs ${
                         isSelected
                           ? "border border-amber-300/60 bg-amber-400/15 text-amber-100"
                           : "border border-amber-100/10 bg-white/5 text-stone-200 hover:border-amber-300/35"

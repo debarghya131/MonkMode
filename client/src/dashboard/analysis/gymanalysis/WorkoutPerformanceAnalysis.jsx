@@ -34,7 +34,7 @@ function InsightRail({ insights }) {
   const [selected, setSelected] = useState(null);
 
   return (
-    <aside className="flex w-full flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur">
+    <aside className="flex w-full flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl">
       <div className="shrink-0 px-4 pb-3 pt-4">
         <div className="flex items-center gap-3">
           <Motion.div
@@ -63,7 +63,7 @@ function InsightRail({ insights }) {
           </div>
         </div>
       </div>
-      <div className="journal-scroll max-h-[450px] space-y-2.5 overflow-y-auto px-4 pb-4 pr-3">
+      <div className="journal-scroll min-h-0 space-y-2.5 overflow-y-auto px-4 pb-4 pr-3 sm:px-5 sm:pb-5 sm:pr-4 lg:max-h-[450px]">
         {insights.map((insight) => {
           const isSelected = selected === insight.title;
           return (
@@ -76,7 +76,7 @@ function InsightRail({ insights }) {
                   : "border-sky-100/10 bg-stone-950/45 hover:border-sky-300/20"
               }`}
             >
-              <div className="grid grid-cols-[1fr_auto] items-start gap-3">
+              <div className="grid items-start gap-3 sm:grid-cols-[1fr_auto]">
                 <div className="min-w-0">
                   <span className="text-xs font-semibold text-sky-200">{insight.title}</span>
                   <p className="text-sm font-semibold text-stone-200">{insight.value}</p>
@@ -93,7 +93,7 @@ function InsightRail({ insights }) {
                 <button
                   type="button"
                   onClick={() => setSelected(isSelected ? null : insight.title)}
-                  className={`w-fit rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                  className={`w-full rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors sm:w-fit ${
                     isSelected
                       ? "border-sky-400/40 bg-sky-400/15 text-sky-100"
                       : "border-sky-400/20 text-sky-200 hover:border-sky-300/45 hover:bg-sky-400/10"
@@ -137,7 +137,7 @@ function DayWisePerformanceChart({ sessions }) {
   const formatVolume = (value) => (value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value);
 
   return (
-    <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+    <section className="rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5">
       <div>
         <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Monthly Performance</p>
         <h4 className="mt-2 text-xl font-semibold text-sky-50">Day Wise Performance</h4>
@@ -261,7 +261,7 @@ function VolumeTrendChart({ sessions }) {
   const fmt = (v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v);
 
   return (
-    <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+    <section className="rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Session Volume</p>
@@ -372,6 +372,16 @@ function BodyPartSplitChart({ sessions }) {
   const activeGroup = hoveredGroup ?? topGroup.group;
   const activeItem = groupCounts.find((item) => item.group === activeGroup) ?? topGroup;
   const circumference = 2 * Math.PI * 68;
+  const groupSegments = groupCounts.reduce(
+    (state, item) => {
+      const slice = (item.count / totalTargets) * circumference;
+      return {
+        runningOffset: state.runningOffset + slice,
+        items: [...state.items, { ...item, slice, dashOffset: -state.runningOffset }]
+      };
+    },
+    { runningOffset: 0, items: [] }
+  ).items;
 
   const GROUP_COLORS = {
     Chest: "#fb7185",
@@ -391,16 +401,14 @@ function BodyPartSplitChart({ sessions }) {
     Core: "text-orange-200",
   };
 
-  let runningOffset = 0;
-
   return (
-    <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+    <section className="rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5">
       <div>
         <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Training Split</p>
         <h4 className="mt-2 text-xl font-semibold text-sky-50">Body Group Distribution</h4>
         <p className="mt-1 text-[11px] text-stone-400">Sessions that targeted each muscle group</p>
       </div>
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(220px,0.8fr)_1fr] lg:items-center">
+      <div className="mt-6 grid gap-4 sm:gap-6 lg:grid-cols-[minmax(220px,0.8fr)_1fr] lg:items-center">
         <div className="relative mx-auto aspect-square w-full max-w-[280px]">
           <Motion.div
             className="absolute inset-4 rounded-full bg-amber-400/8 blur-2xl"
@@ -409,10 +417,7 @@ function BodyPartSplitChart({ sessions }) {
           />
           <svg viewBox="0 0 180 180" className="relative z-10 h-full w-full -rotate-90 drop-shadow-[0_16px_35px_rgba(0,0,0,0.32)]">
             <circle cx="90" cy="90" r="68" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="28" />
-            {groupCounts.map((item, index) => {
-              const slice = (item.count / totalTargets) * circumference;
-              const dashOffset = -runningOffset;
-              runningOffset += slice;
+            {groupSegments.map((item, index) => {
               const isActive = activeGroup === item.group;
 
               return (
@@ -424,12 +429,12 @@ function BodyPartSplitChart({ sessions }) {
                   fill="none"
                   stroke={GROUP_COLORS[item.group] ?? "#a8a29e"}
                   strokeWidth={isActive ? 32 : 26}
-                  strokeDasharray={`${slice} ${circumference - slice}`}
-                  strokeDashoffset={dashOffset}
+                  strokeDasharray={`${item.slice} ${circumference - item.slice}`}
+                  strokeDashoffset={item.dashOffset}
                   strokeLinecap="round"
                   initial={{ strokeDasharray: `0 ${circumference}`, opacity: 0 }}
                   animate={{
-                    strokeDasharray: `${slice} ${circumference - slice}`,
+                    strokeDasharray: `${item.slice} ${circumference - item.slice}`,
                     opacity: hoveredGroup && !isActive ? 0.34 : 0.96,
                   }}
                   transition={{ duration: 0.8, delay: index * 0.08, ease: "easeOut" }}
@@ -514,7 +519,11 @@ export default function WorkoutPerformanceAnalysis() {
       setLoading(false);
       return;
     }
-    if (!user) return;
+    if (!user) {
+      setSessions([]);
+      setLoading(false);
+      return;
+    }
 
     let cancelled = false;
 
@@ -634,7 +643,7 @@ export default function WorkoutPerformanceAnalysis() {
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
+        <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
           <span className="text-stone-400">Year</span>
           <select
             value={selectedYear}
@@ -650,14 +659,14 @@ export default function WorkoutPerformanceAnalysis() {
             {YEARS.map((y) => <option key={y} value={y} className="bg-stone-950 text-stone-200">{y}</option>)}
           </select>
         </label>
-        <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
+        <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
           <span className="text-stone-400">Month</span>
           <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-transparent text-sky-100 outline-none">
             {(Number(selectedYear) < NOW.getFullYear() ? MONTH_OPTIONS : MONTH_OPTIONS.filter((m) => Number(m.value) <= NOW.getMonth() + 1))
               .map((m) => <option key={m.value} value={m.value} className="bg-stone-950 text-stone-200">{m.label}</option>)}
           </select>
         </label>
-        <span className="ml-auto flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
+        <span className="flex w-full items-center justify-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 sm:ml-auto sm:w-auto">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
           Live
         </span>
@@ -668,22 +677,18 @@ export default function WorkoutPerformanceAnalysis() {
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
         </div>
       ) : (
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
           <div
-            className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
-            style={{ maxHeight: "calc(100vh - 350px)" }}
+            className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[1.6rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem] lg:max-h-[calc(100vh-350px)]"
           >
-            <div className="space-y-6 p-6">
+            <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
               <BodyPartSplitChart sessions={sessions} />
               <DayWisePerformanceChart sessions={sessions} />
               <VolumeTrendChart sessions={sessions} />
             </div>
           </div>
 
-          <div
-            className="flex w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2"
-            style={{ maxHeight: "calc(100vh - 230px)" }}
-          >
+          <div className="self-start flex w-full flex-col gap-2 lg:max-h-[calc(100vh-230px)] lg:max-w-[380px] lg:shrink-0">
             <InsightRail insights={insights} />
           </div>
         </div>

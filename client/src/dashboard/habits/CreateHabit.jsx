@@ -1050,8 +1050,8 @@ export default function CreateHabit({ entity = "habit" }) {
 
         {/* ── Column 1 : Create Habit Form ── */}
         <div
-          className="schedule-main journal-scroll rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20"
-          style={{ height: PANEL_H, overflowY: "auto" }}
+          className="schedule-main journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5 xl:h-[650px]"
+          style={{ overflowY: "auto" }}
         >
           <h3 className="mb-4 text-sm font-semibold text-amber-200">{editingId ? `Edit ${singular}` : `New ${singular}`}</h3>
           <form className="space-y-3" onSubmit={handleSubmit}>
@@ -1081,7 +1081,7 @@ export default function CreateHabit({ entity = "habit" }) {
             </div>
 
             {/* Target Streak + Time of Day */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Target Streak (Days)</label>
                 <input
@@ -1117,7 +1117,7 @@ export default function CreateHabit({ entity = "habit" }) {
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Category <span className="text-red-400">*</span>
                 </label>
-                <div className="flex gap-1">
+                <div className="flex flex-col gap-2 sm:flex-row sm:gap-1">
                   <div ref={catDropRef} className="relative min-w-0 flex-1">
                     <button
                       type="button"
@@ -1145,7 +1145,7 @@ export default function CreateHabit({ entity = "habit" }) {
                   <button
                     type="button"
                     onClick={() => setShowCustomCat((p) => !p)}
-                    className="rounded-lg border border-amber-300/25 px-2 py-1 text-[11px] font-semibold text-amber-200 transition hover:border-amber-300/45"
+                    className="rounded-lg border border-amber-300/25 px-2 py-2 text-[11px] font-semibold text-amber-200 transition hover:border-amber-300/45 sm:py-1"
                   >
                     + Category
                   </button>
@@ -1153,7 +1153,7 @@ export default function CreateHabit({ entity = "habit" }) {
 
                 {showCustomCat && (
                   <>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <input
                         type="text"
                         value={customCat}
@@ -1163,7 +1163,7 @@ export default function CreateHabit({ entity = "habit" }) {
                         className="flex-1 rounded-lg border border-amber-100/15 bg-white/5 px-3 py-1.5 text-xs text-stone-100 outline-none transition focus:border-amber-300/35"
                       />
                       <button type="button" onClick={addCustomCategory}
-                        className="rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20">
+                        className="rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20 sm:py-1.5">
                         Add
                       </button>
                     </div>
@@ -1246,7 +1246,7 @@ export default function CreateHabit({ entity = "habit" }) {
             {/* Date fields */}
             {FIXED_DURATION[form.repeatType] ? (
               <div className="space-y-2 rounded-lg border border-amber-100/10 bg-white/5 p-2.5">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                       Start Date {!startDateLocked && <span className="text-red-400">*</span>}
@@ -1271,7 +1271,7 @@ export default function CreateHabit({ entity = "habit" }) {
               </div>
             ) : form.repeatType ? (
               <div className="space-y-2 rounded-lg border border-amber-100/10 bg-white/5 p-2.5">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                       Start
@@ -1297,7 +1297,7 @@ export default function CreateHabit({ entity = "habit" }) {
                   Never End
                 </label>
                 {form.repeatType === "weekdays" && (
-                  <div className="grid grid-cols-7 gap-1">
+                  <div className="grid grid-cols-4 gap-1 sm:grid-cols-7">
                     {WEEK_DAYS.map((d) => (
                       <button key={d} type="button" onClick={() => toggleDay(d)}
                         className={`rounded border py-1 text-[10px] font-semibold transition ${form.days.includes(d) ? "border-amber-300/55 bg-amber-400/15 text-amber-100" : "border-amber-100/15 bg-white/5 text-stone-300"}`}>
@@ -1327,12 +1327,12 @@ export default function CreateHabit({ entity = "habit" }) {
         </div>
 
         {/* ── Column 2 : All Habits ── */}
-        <section className="schedule-all-tasks rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20" style={{ height: PANEL_H }}>
-          <div className="mb-4 flex items-center justify-between">
+        <section className="schedule-all-tasks rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5 xl:h-[650px]">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-amber-200">{`All ${plural}`}</p>
               <p className="mt-0.5 text-xs text-stone-400">{`Every scheduled ${lowerSingular} at a glance.`}</p>
-              <div className="mt-2 flex items-center gap-1.5">
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 {["active", "archive"].map((view) => (
                   <button
                     key={view}
@@ -1462,12 +1462,11 @@ export default function CreateHabit({ entity = "habit" }) {
 
         {/* ── Column 3 : Calendar + Habit Log ── */}
         <aside className="schedule-sidebar">
-          <div className="flex flex-col gap-0 rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20"
-            style={{ height: PANEL_H }}>
+          <div className="flex flex-col gap-0 rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl xl:h-[650px]">
 
             {/* Calendar */}
             <section className="shrink-0">
-              <div className="mb-3 flex items-center justify-between">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold tracking-wide text-amber-200">Calendar</h3>
                 <div className="flex items-center gap-1">
                   <button type="button"
@@ -1521,7 +1520,7 @@ export default function CreateHabit({ entity = "habit" }) {
                     const runtimeUndoMeta = getDeleteUndoMeta(log.deletedAt || log.deletedItem?.deletedAt);
                     const canShowUndo = undoEligibleLogIds.has(log.id);
                     return (
-                    <div key={log.id} className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-[11px] ${
+                    <div key={log.id} className={`flex flex-col items-start gap-2 rounded-md border px-2 py-1.5 text-[11px] sm:flex-row sm:items-center sm:justify-between ${
                       log.action==="deleted" ? "border-rose-400/20 bg-rose-500/5 text-stone-300"
                       : log.action==="edited" ? "border-amber-300/20 bg-amber-500/5 text-stone-300"
                       : log.action==="ended" ? "border-blue-400/20 bg-blue-500/5 text-stone-300"
@@ -1541,20 +1540,20 @@ export default function CreateHabit({ entity = "habit" }) {
                         <span className="break-all font-semibold text-stone-100">{log.title}</span> on {log.date} at {fmtTime(log.time)}
                       </p>
                       {canShowUndo && (
-                        <button
-                          type="button"
-                          onClick={() => handleUndoDelete(log.id)}
-                          disabled={restoringLogId === log.id || deletingHabitId != null}
-                          className="shrink-0 rounded border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
-                          title="Undo delete (available for 48 hours)"
-                        >
-                          {restoringLogId === log.id ? "..." : "↺"}
-                        </button>
-                      )}
-                      {canShowUndo && (
-                        <span className="shrink-0 text-[10px] text-amber-200/80">
-                          {formatRemainingUndo(runtimeUndoMeta.deleteUndoRemainingMs)} left
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleUndoDelete(log.id)}
+                            disabled={restoringLogId === log.id || deletingHabitId != null}
+                            className="shrink-0 rounded border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
+                            title="Undo delete (available for 48 hours)"
+                          >
+                            {restoringLogId === log.id ? "..." : "↺"}
+                          </button>
+                          <span className="shrink-0 text-[10px] text-amber-200/80">
+                            {formatRemainingUndo(runtimeUndoMeta.deleteUndoRemainingMs)} left
+                          </span>
+                        </div>
                       )}
                     </div>
                     );

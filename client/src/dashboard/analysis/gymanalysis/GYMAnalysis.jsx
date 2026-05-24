@@ -20,7 +20,7 @@ export default function GYMAnalysis() {
   const ActiveComponent = activeTab.component;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       {/* Mobile: hamburger dropdown */}
       <div className="relative sm:hidden">
         <button
@@ -77,7 +77,7 @@ export default function GYMAnalysis() {
                   : { boxShadow: "0 0 0px rgba(251,191,36,0)" }
               }
               transition={{ duration: 0.2 }}
-              className={`relative flex min-w-[7rem] flex-1 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+              className={`relative flex min-w-[7rem] items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition-colors md:flex-1 ${
                 isActive
                   ? "border border-amber-300/30 bg-amber-500/15 text-amber-100"
                   : "border border-transparent text-stone-400 hover:text-stone-200"

@@ -58,7 +58,7 @@ export default function Hero() {
   }, [parallaxX, parallaxY]);
 
   return (
-    <main className="relative mx-auto flex min-h-[calc(100vh-90px)] w-full max-w-7xl flex-col items-center justify-center px-4 pb-12 pt-2 sm:min-h-[calc(100vh-110px)] sm:px-6 sm:pb-16 sm:pt-4 md:px-8">
+    <main className="relative mx-auto flex min-h-[calc(100vh-90px)] w-full max-w-7xl flex-col items-center justify-center px-4 pb-24 pt-2 sm:min-h-[calc(100vh-110px)] sm:px-6 sm:pb-28 sm:pt-4 md:px-8 md:pb-32">
       {sparkles.map((sparkle) => (
         <MotionDiv
           key={sparkle.id}
@@ -83,7 +83,7 @@ export default function Hero() {
         />
       ))}
 
-      <div className="relative flex h-[42vh] min-h-[240px] w-full items-center justify-center sm:h-[47vh] sm:min-h-[300px]">
+      <div className="relative flex h-[38vh] min-h-[220px] w-full items-center justify-center sm:h-[42vh] sm:min-h-[280px] md:h-[44vh]">
         <MotionDiv
           className="absolute left-1/2 top-[72%] h-6 w-36 -translate-x-1/2 rounded-full bg-black/40 blur-xl sm:w-44"
           animate={{
@@ -121,7 +121,7 @@ export default function Hero() {
             <MotionImg
               src={monkIllustration}
               alt="Floating monk"
-              className="w-[220px] sm:w-[270px] md:w-[510px]"
+              className="w-[210px] sm:w-[255px] md:w-[460px] lg:w-[500px]"
               animate={{
                 scale: [1, 1.06, 1]
               }}
@@ -135,32 +135,51 @@ export default function Hero() {
         </MotionDiv>
       </div>
 
-      <MotionButton
-        type="button"
+      <MotionDiv
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        whileHover={{
-          y: -6,
-          scale: 1.04,
-          boxShadow:
-            "0 0 0 1px rgba(255,236,178,0.34), 0 0 44px rgba(251,191,36,0.56), 0 26px 54px rgba(120,52,8,0.46)"
-        }}
-        whileTap={{ scale: 0.98, y: -2 }}
         transition={{ duration: 0.55, delay: 0.15 }}
-        onClick={() => navigate("/signup")}
-        className="group relative overflow-hidden rounded-full border border-amber-200/45 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] px-6 py-2.5 text-xs font-black uppercase tracking-[0.16em] text-stone-950 shadow-[0_0_0_1px_rgba(255,236,178,0.24),0_0_30px_rgba(251,191,36,0.34),0_18px_42px_rgba(120,52,8,0.34)] transition duration-300 hover:border-amber-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/80 sm:px-8 sm:py-3 sm:text-sm"
+        className="flex flex-col items-center gap-3 sm:flex-row sm:gap-4"
       >
-        <span className="pointer-events-none absolute inset-y-0 left-[-35%] w-[32%] -skew-x-12 bg-white/35 opacity-0 blur-md transition duration-500 group-hover:left-[108%] group-hover:opacity-100" />
-        <span className="relative z-10 transition duration-300 group-hover:tracking-[0.2em]">
-          Turn On Monk Mode
-        </span>
-      </MotionButton>
+        <MotionButton
+          type="button"
+          whileHover={{
+            y: -6,
+            scale: 1.04,
+            boxShadow:
+              "0 0 0 1px rgba(255,236,178,0.34), 0 0 44px rgba(251,191,36,0.56), 0 26px 54px rgba(120,52,8,0.46)"
+          }}
+          whileTap={{ scale: 0.98, y: -2 }}
+          onClick={() => navigate("/signup")}
+          className="group relative overflow-hidden rounded-full border border-amber-200/45 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] px-6 py-2.5 text-xs font-black uppercase tracking-[0.16em] text-stone-950 shadow-[0_0_0_1px_rgba(255,236,178,0.24),0_0_30px_rgba(251,191,36,0.34),0_18px_42px_rgba(120,52,8,0.34)] transition duration-300 hover:border-amber-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/80 sm:px-8 sm:py-3 sm:text-sm"
+        >
+          <span className="pointer-events-none absolute inset-y-0 left-[-35%] w-[32%] -skew-x-12 bg-white/35 opacity-0 blur-md transition duration-500 group-hover:left-[108%] group-hover:opacity-100" />
+          <span className="relative z-10 transition duration-300 group-hover:tracking-[0.2em]">
+            Turn On Monk Mode
+          </span>
+        </MotionButton>
+
+        <MotionButton
+          type="button"
+          whileHover={{
+            y: -4,
+            scale: 1.03,
+            boxShadow:
+              "0 0 0 1px rgba(251,191,36,0.18), 0 0 30px rgba(251,191,36,0.22), 0 18px 38px rgba(35,12,6,0.45)"
+          }}
+          whileTap={{ scale: 0.98, y: -1 }}
+          onClick={() => navigate("/demo-login")}
+          className="group rounded-full border border-amber-200/20 bg-white/6 px-6 py-2.5 text-[0.68rem] font-bold uppercase tracking-[0.24em] text-amber-100/90 shadow-[0_10px_26px_rgba(0,0,0,0.24)] backdrop-blur transition duration-300 hover:border-amber-200/45 hover:bg-white/10 hover:text-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/70 sm:px-7 sm:py-3 sm:text-xs"
+        >
+          <span className="relative z-10">Try Demo</span>
+        </MotionButton>
+      </MotionDiv>
 
       <MotionDiv
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.25 }}
-        className="mt-12 max-w-3xl text-center"
+        className="mt-8 max-w-3xl text-center sm:mt-10"
       >
         <h1 className="bg-gradient-to-r from-orange-400 via-amber-300 to-sky-400 bg-clip-text text-4xl font-black tracking-tight text-transparent font-heading sm:text-5xl md:text-6xl lg:text-7xl">
           MonkMode

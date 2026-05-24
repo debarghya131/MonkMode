@@ -87,11 +87,21 @@ const stableExerciseKey = (exercise = {}) => {
   return (exercise?.name || "").toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 };
 
+const mergeDemoWorkoutProgressSource = (source = {}) => {
+  const storedSource = source && typeof source === "object" && !Array.isArray(source) ? source : {};
+  return { ...createDemoWorkoutProgressMap(), ...storedSource };
+};
+
 const ensureWorkoutProgressSeed = () => {
   try {
     const seed = localStorage.getItem(WORKOUT_PROGRESS_SEED_KEY);
     if (seed === WORKOUT_PROGRESS_SEED_VERSION) return;
-    localStorage.setItem(WORKOUT_PROGRESS_KEY, JSON.stringify(createDemoWorkoutProgressMap()));
+    const stored = localStorage.getItem(WORKOUT_PROGRESS_KEY);
+    const parsed = stored ? JSON.parse(stored) : {};
+    localStorage.setItem(
+      WORKOUT_PROGRESS_KEY,
+      JSON.stringify(mergeDemoWorkoutProgressSource(parsed))
+    );
     localStorage.setItem(WORKOUT_PROGRESS_SEED_KEY, WORKOUT_PROGRESS_SEED_VERSION);
   } catch {
     // Ignore storage failures in private/incognito contexts.
@@ -151,8 +161,7 @@ const loadWorkoutProgressEntries = (workouts = []) => {
     ensureWorkoutProgressSeed();
     const stored = localStorage.getItem(WORKOUT_PROGRESS_KEY);
     const parsed = stored ? JSON.parse(stored) : {};
-    const baseSource = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-    const source = Object.keys(baseSource).length ? baseSource : createDemoWorkoutProgressMap();
+    const source = mergeDemoWorkoutProgressSource(parsed);
     return mapWorkoutProgressEntries(source, workouts);
   } catch {
     return [];
@@ -340,7 +349,7 @@ function WorkoutProgress({ workouts }) {
 
   return (
     <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-      <div className="min-w-0 rounded-2xl border border-amber-100/10 bg-black/20 p-4">
+      <div className="min-w-0 rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Exercises</p>
           <span className="shrink-0 rounded-full border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-300">
@@ -380,7 +389,7 @@ function WorkoutProgress({ workouts }) {
                   : "border-amber-100/10 bg-white/5 hover:bg-white/10"
               }`}
             >
-              <div className="flex min-w-0 items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="min-w-0 truncate text-xs font-semibold text-stone-100">{exercise.name}</p>
                 <span className="rounded-full border border-amber-300/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
                   {exercise.logs.length}
@@ -396,8 +405,8 @@ function WorkoutProgress({ workouts }) {
 
       <div className="min-w-0 space-y-4">
         {selectedExercise && (
-          <div className="rounded-2xl border border-amber-100/10 bg-black/20 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-stone-100">{selectedExercise.name}</p>
                 <p className="mt-1 text-xs text-stone-500">{selectedExercise.bodyPart || selectedExercise.bodyGroup}</p>
@@ -421,12 +430,12 @@ function WorkoutProgress({ workouts }) {
             return (
               <Motion.div
                 key={metric.key}
-                className="rounded-2xl border border-amber-100/10 bg-black/20 p-4"
+                className="rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: mi * 0.06, duration: 0.2 }}
               >
-                <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="mb-2 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs font-semibold text-stone-200">{metric.label}</p>
                   <span className="text-[10px] font-semibold text-amber-200">
                     Latest: {formatMetricValue(latest, metric.unit)}
@@ -518,22 +527,22 @@ function MeasurementsProgress() {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
 
         {/* Field list */}
-        <div className="rounded-2xl border border-amber-100/10 bg-black/20 p-4">
+        <div className="rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
           <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Select Metric</p>
-          <div className="journal-scroll max-h-[58.1vh] space-y-1 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
+          <div className="journal-scroll max-h-[42vh] space-y-1 overflow-y-auto pr-1 sm:max-h-[58.1vh] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
             {visibleFields.map((f) => {
               const vals = entries.map((e) => parseFloat(e[f.key])).filter((v) => !isNaN(v));
               const latest = vals.length ? vals[vals.length - 1] : null;
               const diff = vals.length > 1 ? vals[vals.length - 1] - vals[0] : null;
               return (
                 <button key={f.key} type="button" onClick={() => setSelectedField(f.key)}
-                  className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition ${
+                  className={`flex w-full flex-col items-start gap-2 rounded-xl border px-3 py-2 text-left transition sm:flex-row sm:items-center sm:justify-between sm:gap-3 ${
                     selectedField === f.key
                       ? "border-amber-300/40 bg-amber-500/10"
                       : "border-amber-100/8 bg-white/3 hover:bg-white/6"
                   }`}>
                   <span className="text-xs font-semibold text-stone-200">{f.label}</span>
-                  <div className="shrink-0 text-right">
+                  <div className="text-left sm:shrink-0 sm:text-right">
                     {latest != null ? (
                       <>
                         <p className="text-[10px] font-semibold text-amber-200">{latest} {f.unit}</p>
@@ -551,8 +560,8 @@ function MeasurementsProgress() {
 
         {/* Chart + history */}
         <div className="space-y-4">
-          <div className="rounded-2xl border border-amber-100/10 bg-black/20 p-4">
-            <div className="mb-2 flex items-center justify-between">
+          <div className="rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
+            <div className="mb-2 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs font-semibold text-stone-200">{activeField?.label} over time</p>
               {points.length > 1 && (
                 <span className="text-[10px] text-stone-500">{points.length} data points</span>
@@ -568,9 +577,9 @@ function MeasurementsProgress() {
           </div>
 
           {/* Check-in history */}
-          <div className="rounded-2xl border border-amber-100/10 bg-black/20 p-4">
+          <div className="rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
             <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Check-in Updates</p>
-            <div className="journal-scroll max-h-[37vh] space-y-2 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
+            <div className="journal-scroll max-h-[37vh] space-y-2 overflow-y-auto pr-1 sm:max-h-[42vh] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
               {[...entries].reverse().map((entry, idx, arr) => {
                 const prev = arr[idx + 1];
                 const changed = visibleFields.filter((f) => {
@@ -587,7 +596,7 @@ function MeasurementsProgress() {
                     transition={{ delay: idx * 0.06, duration: 0.2 }}
                     whileHover={{ y: -1, borderColor: "rgba(251,191,36,0.18)" }}
                   >
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-xs font-semibold text-stone-100">{fmtDate(entry.checkInDate)}</span>
                       <span className="rounded-full border border-amber-300/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
                         {changed.length} updated
@@ -600,8 +609,8 @@ function MeasurementsProgress() {
                           const old = prev ? parseFloat(prev[f.key]) : null;
                           const diff = old != null && !isNaN(old) ? cur - old : null;
                           return (
-                            <div key={f.key} className="rounded-lg border border-amber-100/10 bg-white/5 px-2.5 py-1.5">
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-stone-500">{f.label}</p>
+                        <div key={f.key} className="min-w-0 rounded-lg border border-amber-100/10 bg-white/5 px-2.5 py-1.5">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-stone-500">{f.label}</p>
                               <p className="mt-0.5 text-xs font-semibold text-stone-100">{cur} {f.unit}</p>
                               {diff !== null && !isNaN(diff) && (
                                 <p className={`text-[10px] font-semibold ${diffColor(diff)}`}>{diffLabel(diff, f.unit)}</p>
@@ -647,7 +656,7 @@ export default function Progress({ initialTab = "measurements" }) {
     <div className="space-y-4">
 
       {/* Tab bar */}
-      <div className="flex items-center gap-2 rounded-2xl border border-amber-100/10 bg-black/20 p-1.5">
+      <div className="flex flex-col gap-2 rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-1.5 sm:flex-row sm:items-center sm:rounded-2xl">
         {[
           { id: "measurements", label: "📏 Measurements Progress" },
           { id: "workouts",     label: "🏋️ Workout Progress"        },
@@ -678,7 +687,7 @@ export default function Progress({ initialTab = "measurements" }) {
                 boxShadow: "0 0 18px rgba(251,191,36,0.55), 0 0 36px rgba(251,191,36,0.2)",
               } : {}}
               whileTap={{ scale: 0.95 }}
-              className={`relative flex-1 overflow-hidden rounded-xl py-2.5 text-xs font-semibold transition duration-200 ${
+              className={`relative w-full overflow-hidden rounded-xl py-2.5 text-xs font-semibold transition duration-200 sm:flex-1 ${
                 isActive
                   ? "border border-amber-300/40 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] text-stone-950"
                   : "border border-amber-100/10 text-stone-400 hover:border-amber-300/25 hover:bg-amber-500/10 hover:text-amber-200"

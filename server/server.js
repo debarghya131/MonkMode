@@ -1,3 +1,4 @@
+import { clerkMiddleware } from "@clerk/express";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
@@ -8,8 +9,41 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const CONFIGURED_CORS_ORIGINS = (process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const DEV_CORS_ORIGINS = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:4173",
+  "http://127.0.0.1:4173",
+];
+let server;
+let isShuttingDown = false;
 
-app.use(cors());
+const allowedOrigins = new Set(IS_PRODUCTION ? CONFIGURED_CORS_ORIGINS : [...DEV_CORS_ORIGINS, ...CONFIGURED_CORS_ORIGINS]);
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (allowedOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error("CORS origin not allowed"));
+  },
+  methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(clerkMiddleware());
+app.use(cors(corsOptions));
 app.use(express.json({ limit: "25mb" }));
 
 // Models
@@ -41,29 +75,9 @@ import gymRoutes from "./routes/gymRoutes.js";
 import insightsRoutes from "./routes/insightsRoutes.js";
 import weeklyReportRoutes from "./routes/weeklyReportRoutes.js";
 
-const registeredModels = {
-  User: User.modelName,
-  Habit: Habit.modelName,
-  HabitLog: HabitLog.modelName,
-  Todo: Todo.modelName,
-  Goal: Goal.modelName,
-  GoalProgressLog: GoalProgressLog.modelName,
-  Journal: Journal.modelName,
-  JournalMissedReason: JournalMissedReason.modelName,
-  GymGalleryEntry: GymGalleryEntry.modelName,
-  GymCustomExercise: GymCustomExercise.modelName,
-  GymDietPlan: GymDietPlan.modelName,
-  GymExerciseProgress: GymExerciseProgress.modelName,
-  GymMeasurement: GymMeasurement.modelName,
-  Workout: Workout.modelName,
-  WorkoutPlan: WorkoutPlan.modelName,
-  WorkoutPlanLog: WorkoutPlanLog.modelName
-};
-
 app.get("/", (_req, res) => {
   res.json({
-    message: "MonkMode server is running",
-    models: Object.values(registeredModels)
+    message: "MonkMode server is running"
   });
 });
 
@@ -76,6 +90,10 @@ app.get("/health", (_req, res) => {
 });
 
 app.get("/test-db", async (_req, res) => {
+  if (IS_PRODUCTION) {
+    return res.status(404).json({ message: "Route not found" });
+  }
+
   try {
     const admin = mongoose.connection.db.admin();
     const pingResult = await admin.ping();
@@ -107,18 +125,84 @@ app.use((_req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
+const closeServer = async (signal) => {
+  if (isShuttingDown) {
+    return;
+  }
+
+  isShuttingDown = true;
+
+  try {
+    await new Promise((resolve, reject) => {
+      if (!server) {
+        resolve();
+        return;
+      }
+
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve();
+      });
+    });
+
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+    }
+  } catch (error) {
+    console.error("Failed to close server cleanly:", error.message);
+  } finally {
+    isShuttingDown = false;
+
+    if (signal === "SIGUSR2") {
+      process.kill(process.pid, "SIGUSR2");
+      return;
+    }
+
+    process.exit(0);
+  }
+};
+
+const registerShutdownHandlers = () => {
+  process.once("SIGINT", () => {
+    void closeServer("SIGINT");
+  });
+
+  process.once("SIGTERM", () => {
+    void closeServer("SIGTERM");
+  });
+
+  process.once("SIGUSR2", () => {
+    void closeServer("SIGUSR2");
+  });
+};
+
 const startServer = async () => {
   if (!MONGO_URI) {
     throw new Error("MONGO_URI is missing in server/.env");
   }
 
-  await mongoose.connect(MONGO_URI);
-  console.log("MongoDB connected");
+  if (mongoose.connection.readyState === 0) {
+    await mongoose.connect(MONGO_URI);
+    console.log("MongoDB connected");
+  }
 
-  app.listen(PORT, () => {
-    console.log(`MonkMode server listening on port ${PORT}`);
+  await new Promise((resolve, reject) => {
+    server = app.listen(PORT, () => {
+      console.log(`MonkMode server listening on port ${PORT}`);
+      resolve();
+    });
+
+    server.on("error", (error) => {
+      reject(error);
+    });
   });
 };
+
+registerShutdownHandlers();
 
 startServer().catch((error) => {
   console.error("Failed to start server:", error.message);

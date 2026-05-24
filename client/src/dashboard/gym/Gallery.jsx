@@ -1,5 +1,5 @@
 import { motion as Motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api/axios";
 import transformatiomImage1 from "../../assets/transformatiom image 1.png";
 import transformatiomImage2 from "../../assets/transformatiom image 2.png";
@@ -209,7 +209,7 @@ export default function Gallery() {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef();
 
-  const refreshGallery = async () => {
+  const refreshGallery = useCallback(async () => {
     if (isDemoMode) {
       setLogs(DEMO_LOGS);
       setLoading(false);
@@ -228,11 +228,11 @@ export default function Gallery() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isDemoMode]);
 
   useEffect(() => {
     refreshGallery();
-  }, [isDemoMode]);
+  }, [refreshGallery]);
 
   useEffect(() => {
     if (isDemoMode) return undefined;
@@ -243,7 +243,7 @@ export default function Gallery() {
 
     window.addEventListener("focus", handleRefresh);
     return () => window.removeEventListener("focus", handleRefresh);
-  }, [isDemoMode]);
+  }, [isDemoMode, refreshGallery]);
 
   const processFiles = async (files) => {
     if (isDemoMode || uploading) return;
@@ -307,7 +307,7 @@ export default function Gallery() {
   return (
     <>
       <div className="space-y-4">
-        <div className="rounded-3xl border border-amber-100/10 bg-black/20 p-3 sm:p-4">
+        <div className="rounded-[1.5rem] border border-amber-100/10 bg-black/20 p-3 sm:rounded-3xl sm:p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
             <div
               onDragOver={(event) => {
@@ -317,7 +317,7 @@ export default function Gallery() {
               onDragLeave={() => setDragging(false)}
               onDrop={isDemoMode ? undefined : handleDrop}
               onClick={isDemoMode ? undefined : () => fileRef.current?.click()}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-2 transition ${
+              className={`flex flex-1 flex-col items-start gap-3 rounded-[1.4rem] border-2 border-dashed px-4 py-3 transition sm:flex-row sm:items-center sm:justify-center sm:rounded-2xl sm:py-2 ${
                 isDemoMode
                   ? "cursor-not-allowed border-amber-100/10 bg-white/[0.03] opacity-60"
                   : "cursor-pointer"
@@ -327,7 +327,7 @@ export default function Gallery() {
                   : "border-amber-100/15 bg-white/5 hover:border-amber-300/30 hover:bg-white/8"
               }`}
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-amber-300/25 bg-amber-500/10 text-lg text-amber-200">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-amber-300/25 bg-amber-500/10 text-lg text-amber-200">
                 ↑
               </div>
               <div className="text-left">
@@ -354,7 +354,7 @@ export default function Gallery() {
             </div>
 
             {logs.length > 0 && (
-              <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-100/10 bg-black/20 px-4 py-2 lg:w-72">
+              <div className="flex flex-col gap-3 rounded-[1.4rem] border border-amber-100/10 bg-black/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:rounded-2xl sm:py-2 lg:w-72">
                 <span className="text-xs font-semibold text-stone-400">
                   {totalImages} photo{totalImages !== 1 ? "s" : ""} across {logs.length} check-in{logs.length !== 1 ? "s" : ""}
                 </span>
@@ -382,7 +382,7 @@ export default function Gallery() {
                   transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                   whileHover={{ scale: 1.1, boxShadow: "0 0 20px rgba(251,191,36,0.65), 0 0 40px rgba(251,191,36,0.2)" }}
                   whileTap={{ scale: 0.93 }}
-                  className="relative shrink-0 overflow-hidden rounded-full border border-amber-300/40 bg-amber-500/15 px-3 py-1 text-[10px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950"
+                  className="relative w-full overflow-hidden rounded-full border border-amber-300/40 bg-amber-500/15 px-3 py-1 text-[10px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 sm:w-auto sm:shrink-0"
                 >
                   <Motion.span
                     className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/30 blur-sm"
@@ -402,7 +402,7 @@ export default function Gallery() {
           </div>
         ) : null}
 
-        <div className="h-[calc(100vh-23rem)] overflow-y-auto rounded-3xl border border-amber-100/10 bg-black/20 p-4 sm:p-5">
+        <div className="max-h-[54vh] overflow-y-auto rounded-[1.5rem] border border-amber-100/10 bg-black/20 p-3 sm:max-h-[calc(100vh-23rem)] sm:rounded-3xl sm:p-5">
           {loading ? (
             <div className="rounded-2xl border border-dashed border-amber-100/10 bg-black/15 py-12 text-center">
               <p className="text-sm font-semibold text-stone-300">Loading gallery...</p>
@@ -417,7 +417,7 @@ export default function Gallery() {
               {logs.map((log, logIndex) => (
                 <Motion.div
                   key={log.id}
-                  className="rounded-2xl border border-amber-100/10 bg-black/20 p-3"
+                  className="rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-3 sm:rounded-2xl"
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: logIndex * 0.07, duration: 0.25 }}
@@ -432,11 +432,11 @@ export default function Gallery() {
                     </div>
                   </div>
 
-                  <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:overflow-x-auto sm:pb-1">
                     {log.images.map((image, imageIndex) => (
                       <Motion.div
                         key={image.id}
-                        className="group relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-amber-100/10"
+                        className="group relative h-28 w-full overflow-hidden rounded-xl border border-amber-100/10 sm:h-24 sm:w-24 sm:shrink-0"
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: logIndex * 0.07 + imageIndex * 0.04, duration: 0.2 }}

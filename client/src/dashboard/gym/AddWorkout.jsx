@@ -1035,7 +1035,7 @@ export default function AddWorkout() {
 
         {/* ── FORM ── */}
         <div
-          className="journal-scroll min-w-0 rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20 lg:w-80 xl:w-[32rem] lg:shrink-0 lg:overflow-y-auto lg:[height:min(720px,78vh)]"
+          className="journal-scroll min-w-0 rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5 lg:w-80 lg:shrink-0 lg:overflow-y-auto lg:[height:min(720px,78vh)] xl:w-[32rem]"
         >
           <h3 className="mb-4 text-sm font-semibold text-amber-200">
             {editingId ? "Edit Workout" : "New Workout"}
@@ -1058,7 +1058,7 @@ export default function AddWorkout() {
             {/* Goal Type */}
             <div>
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Goal Type *</label>
-              <div className="flex gap-1">
+              <div className="flex flex-col gap-2 sm:flex-row sm:gap-1">
                 <div ref={goalDropRef} className="relative min-w-0 flex-1">
                   <button
                     type="button"
@@ -1110,13 +1110,13 @@ export default function AddWorkout() {
                 <button
                   type="button"
                   onClick={() => setShowCustomGoal((p) => !p)}
-                  className="rounded-lg border border-amber-300/25 px-2 py-1 text-[11px] font-semibold text-amber-200 transition hover:border-amber-300/45"
+                  className="rounded-lg border border-amber-300/25 px-2 py-2 text-[11px] font-semibold text-amber-200 transition hover:border-amber-300/45 sm:py-1"
                 >
                   + Goal
                 </button>
               </div>
               {showCustomGoal && (
-                <div className="mt-1.5 flex gap-2">
+                <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
                   <input
                     type="text"
                     value={customGoal}
@@ -1128,7 +1128,7 @@ export default function AddWorkout() {
                   <button
                     type="button"
                     onClick={handleAddGoal}
-                    className="rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20"
+                    className="rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20 sm:py-1.5"
                   >
                     Add
                   </button>
@@ -1139,7 +1139,7 @@ export default function AddWorkout() {
             {/* Workout Split */}
             <div>
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Workout Split *</label>
-              <div className="flex gap-1">
+              <div className="flex flex-col gap-2 sm:flex-row sm:gap-1">
                 <div ref={splitDropRef} className="relative min-w-0 flex-1">
                   <button
                     type="button"
@@ -1191,13 +1191,13 @@ export default function AddWorkout() {
                 <button
                   type="button"
                   onClick={() => setShowCustomSplit((p) => !p)}
-                  className="rounded-lg border border-amber-300/25 px-2 py-1 text-[11px] font-semibold text-amber-200 transition hover:border-amber-300/45"
+                  className="rounded-lg border border-amber-300/25 px-2 py-2 text-[11px] font-semibold text-amber-200 transition hover:border-amber-300/45 sm:py-1"
                 >
                   + Split
                 </button>
               </div>
               {showCustomSplit && (
-                <div className="mt-1.5 flex gap-2">
+                <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
                   <input
                     type="text"
                     value={customSplit}
@@ -1209,7 +1209,7 @@ export default function AddWorkout() {
                   <button
                     type="button"
                     onClick={handleAddSplit}
-                    className="rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20"
+                    className="rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20 sm:py-1.5"
                   >
                     Add
                   </button>
@@ -1260,7 +1260,7 @@ export default function AddWorkout() {
               {showExForm && (
                 <div className="mt-2 space-y-2 rounded-lg border border-amber-100/15 bg-white/5 p-3">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-200">{currentEx.name}</p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <div>
                       <label className="mb-0.5 block text-[10px] text-stone-400">Sets *</label>
                       <input type="number" min="1" value={currentEx.sets}
@@ -1390,7 +1390,7 @@ export default function AddWorkout() {
             {/* Days */}
             <div>
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Days *</label>
-              <div className="grid grid-cols-7 gap-1">
+              <div className="grid grid-cols-4 gap-1 sm:grid-cols-7">
                 {WEEK_DAYS.map((day) => (
                   <button
                     key={day}
@@ -1410,7 +1410,7 @@ export default function AddWorkout() {
 
             {/* Dates */}
             <div className="space-y-2 rounded-lg border border-amber-100/10 bg-white/5 p-2.5">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Start *</label>
                   <input
@@ -1444,13 +1444,13 @@ export default function AddWorkout() {
             {/* Difficulty */}
             <div>
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Difficulty Level *</label>
-              <div className="flex gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 {DIFFICULTY_LEVELS.map((lvl) => (
                   <button
                     key={lvl}
                     type="button"
                     onClick={() => setField("difficulty", lvl)}
-                    className={`flex flex-1 items-center justify-center rounded-lg border px-2 py-1.5 text-[10px] font-semibold transition ${
+                    className={`flex min-w-[88px] flex-1 items-center justify-center rounded-lg border px-2 py-1.5 text-[10px] font-semibold transition ${
                       form.difficulty === lvl
                         ? DIFFICULTY_STYLES[lvl]
                         : "border-amber-100/15 bg-white/5 text-stone-300"
@@ -1481,13 +1481,13 @@ export default function AddWorkout() {
 
         {/* ── ALL WORKOUTS ── */}
         <section
-          className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20 lg:flex-1 lg:[height:min(720px,78vh)]"
+          className="flex min-h-0 min-w-0 flex-col rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5 lg:flex-1 lg:[height:min(720px,78vh)]"
         >
           <div className="mb-4 shrink-0 flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-amber-200">All Workouts</p>
               <p className="mt-0.5 text-xs text-stone-400">Your saved workout plans.</p>
-              <div className="mt-2 flex items-center gap-1.5">
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 {["active", "archive"].map((view) => (
                   <button
                     key={view}
@@ -1662,7 +1662,7 @@ export default function AddWorkout() {
         {/* ── SIDEBAR: Logs ── */}
         <aside className="min-w-0 lg:w-52 xl:w-[22rem] lg:shrink-0">
           <div
-            className="flex flex-col rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 lg:[height:min(720px,78vh)]"
+            className="flex flex-col rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl lg:[height:min(720px,78vh)]"
           >
             <div className="mb-3 shrink-0 border-b border-amber-100/10 pb-3">
               <p className="text-sm font-semibold tracking-wide text-amber-200">Workout Logs</p>
@@ -1684,7 +1684,7 @@ export default function AddWorkout() {
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: li * 0.04, duration: 0.18 }}
-                    className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-[11px] ${
+                    className={`flex flex-col items-start justify-between gap-2 rounded-md border px-2 py-1.5 text-[11px] sm:flex-row sm:items-center ${
                       log.action === "deleted"
                         ? "border-rose-400/20 bg-rose-500/5 text-stone-300"
                         : log.action === "updated"
@@ -1716,7 +1716,7 @@ export default function AddWorkout() {
                       {log.note ? ` ${log.note}` : ""} on {log.date} at {fmtTime(log.time)}
                     </p>
                     {log.action === "deleted" && (
-                      <div className="shrink-0 flex items-center gap-1">
+                      <div className="flex shrink-0 flex-wrap items-center gap-1 sm:justify-end">
                         {isDeletedButAlreadyRestored ? (
                           <span className="rounded border border-cyan-300/25 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-200">
                             restored

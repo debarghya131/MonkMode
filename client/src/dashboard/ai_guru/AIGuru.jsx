@@ -220,14 +220,14 @@ function TypewriterText({ text }) {
 function ChatBubble({ role, text }) {
   const isUser = role === "user";
   return (
-    <div className={`msg-slide-in flex w-full items-start gap-3 ${isUser ? "justify-end flex-row-reverse" : ""}`}>
+    <div className={`msg-slide-in flex w-full items-start gap-2.5 sm:gap-3 ${isUser ? "justify-end flex-row-reverse" : ""}`}>
       {!isUser && (
-        <img src={mingAvatar} alt="Ming" className="soft-float h-14 w-auto shrink-0 self-end" />
+        <img src={mingAvatar} alt="Ming" className="soft-float h-10 w-auto shrink-0 self-end sm:h-14" />
       )}
-      <article className={`rounded-2xl border px-4 py-3 text-sm leading-6 shadow-none ${
+      <article className={`rounded-2xl border px-3 py-3 text-sm leading-6 shadow-none sm:px-4 ${
         isUser
-          ? "ml-auto w-fit max-w-[85%] border-amber-300/30 bg-amber-500/12 text-amber-100"
-          : "w-full max-w-4xl border-sky-200/15 bg-stone-950/65 text-stone-200 shadow-none drop-shadow-none backdrop-blur-0"
+          ? "ml-auto w-fit max-w-[88%] border-amber-300/30 bg-amber-500/12 text-amber-100 sm:max-w-[85%]"
+          : "w-full max-w-[calc(100%-3rem)] border-sky-200/15 bg-stone-950/65 text-stone-200 shadow-none drop-shadow-none backdrop-blur-0 sm:max-w-4xl"
       }`}>
         {!isUser && (
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-amber-300/60">Ming</p>
@@ -323,17 +323,17 @@ export default function AIGuru() {
 
   return (
     <section className="h-full min-h-0 w-full lg:-mt-4 xl:-mt-6">
-      <div className="grid min-h-[78vh] overflow-hidden rounded-[1.5rem] border border-amber-100/10 shadow-2xl shadow-black/30 lg:h-[calc(100vh-9rem)] lg:min-h-0 lg:grid-cols-[minmax(15rem,20rem)_minmax(0,1fr)] xl:rounded-[2rem]">
+      <div className="grid min-h-[78vh] overflow-hidden rounded-[1.4rem] border border-amber-100/10 shadow-2xl shadow-black/30 lg:h-[calc(100vh-9rem)] lg:min-h-0 lg:grid-cols-[minmax(15rem,20rem)_minmax(0,1fr)] xl:rounded-[2rem]">
 
         {/* ── LEFT: Avatar panel ── */}
-        <div className="order-1 flex flex-col gap-4 border-b border-amber-100/10 bg-stone-950/60 px-4 py-5 backdrop-blur sm:px-5 md:px-6 lg:order-1 lg:min-h-0 lg:gap-4 lg:overflow-y-auto lg:border-r lg:border-b-0 lg:px-6 lg:py-4 xl:px-8 xl:py-5">
+        <div className="order-1 flex flex-col gap-4 border-b border-amber-100/10 bg-stone-950/60 px-4 py-4 backdrop-blur sm:px-5 sm:py-5 md:px-6 lg:order-1 lg:min-h-0 lg:gap-4 lg:overflow-y-auto lg:border-r lg:border-b-0 lg:px-6 lg:py-4 xl:px-8 xl:py-5">
           <div className="flex flex-col items-center gap-4 text-center sm:gap-5 lg:gap-4">
             <div className="relative">
               <div className="amber-glow absolute -inset-3 rounded-full bg-amber-400/10 blur-2xl" />
               <img
                 src={mingLogo}
                 alt="Ming — AI Insights"
-                className="soft-float relative h-18 w-18 rounded-full object-cover ring-2 ring-amber-300/25 shadow-xl shadow-amber-900/30 sm:h-20 sm:w-20 lg:h-40 lg:w-40 xl:h-52 xl:w-52"
+                className="soft-float relative h-16 w-16 rounded-full object-cover ring-2 ring-amber-300/25 shadow-xl shadow-amber-900/30 sm:h-20 sm:w-20 lg:h-40 lg:w-40 xl:h-52 xl:w-52"
               />
             </div>
             <div className="min-w-0 max-w-sm space-y-1.5 lg:space-y-2">
@@ -372,7 +372,7 @@ export default function AIGuru() {
 
           {/* Scope selector (only when insights tab active) */}
           {activeTab === "insights" && (
-            <div className="flex w-full gap-1.5 rounded-xl border border-amber-100/10 bg-white/[0.03] p-1">
+            <div className="grid w-full grid-cols-3 gap-1.5 rounded-xl border border-amber-100/10 bg-white/[0.03] p-1">
               {SCOPES.map((s) => (
                 <button
                   key={s.key}
@@ -403,11 +403,11 @@ export default function AIGuru() {
         </div>
 
         {/* ── RIGHT: Insights / Chat ── */}
-        <div className="order-2 flex min-h-[32rem] flex-col bg-white/[0.025] backdrop-blur lg:order-2 lg:min-h-0">
+        <div className="order-2 flex min-h-[30rem] flex-col bg-white/[0.025] backdrop-blur sm:min-h-[32rem] lg:order-2 lg:min-h-0">
 
           {/* Header */}
           <div className="shrink-0 border-b border-amber-100/10 px-4 py-4 sm:px-5 md:px-6">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.625rem] uppercase tracking-[0.3em] text-amber-200/50">AI Insights</p>
                 <h3 className="text-base font-bold text-amber-50 sm:text-lg">
@@ -437,7 +437,7 @@ export default function AIGuru() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="journal-scroll flex-1 overflow-y-auto px-4 py-5 sm:px-5 md:px-6 lg:min-h-0"
+                className="journal-scroll flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 md:px-6 lg:min-h-0"
               >
                 {loading && (
                   <div className="flex h-40 items-center justify-center">
@@ -462,7 +462,7 @@ export default function AIGuru() {
                   transition={{ duration: 0.35, ease: "easeOut" }}
                   whileHover={{ scale: 1.003 }}
                   style={{ willChange: "transform, box-shadow" }}
-                  className="relative mb-6 flex items-center gap-4 overflow-hidden rounded-2xl border border-amber-400/25 bg-gradient-to-r from-amber-500/10 via-orange-500/8 to-amber-500/10 px-5 py-4 sm:px-6 sm:py-4"
+                  className="relative mb-6 flex flex-col items-start gap-4 overflow-hidden rounded-[1.4rem] border border-amber-400/25 bg-gradient-to-r from-amber-500/10 via-orange-500/8 to-amber-500/10 px-4 py-4 sm:flex-row sm:items-center sm:px-6 sm:py-4"
                 >
                   <Motion.span
                     className="pointer-events-none absolute inset-y-0 left-[-45%] w-[28%] -skew-x-12 bg-white/20 blur-sm"
@@ -492,7 +492,7 @@ export default function AIGuru() {
                     <p className="mt-0.5 text-[0.72rem] leading-5 text-stone-500 sm:text-[0.76rem]">AI-powered deep analysis, trend forecasting &amp; personalised action plans</p>
                   </div>
                   <Motion.span
-                    className="ml-auto shrink-0 rounded-full border border-amber-400/30 bg-amber-500/15 px-3 py-1 text-[0.62rem] font-bold uppercase tracking-widest text-amber-300"
+                    className="shrink-0 rounded-full border border-amber-400/30 bg-amber-500/15 px-3 py-1 text-[0.62rem] font-bold uppercase tracking-widest text-amber-300 sm:ml-auto"
                     animate={{
                       opacity: [0.7, 1, 0.7],
                       boxShadow: [
@@ -523,7 +523,7 @@ export default function AIGuru() {
                     )}
 
                     {/* Stat cards */}
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                       {cards.map((card, i) => (
                         <StatCard key={card.label} card={card} index={i} />
                       ))}
@@ -651,13 +651,13 @@ export default function AIGuru() {
 
                 {/* Messages */}
                 <div className="relative flex-1 overflow-hidden lg:min-h-0">
-                  <div className="journal-scroll scrollbar-none flex min-h-[12rem] flex-col gap-3 overflow-y-auto px-4 py-4 sm:px-5 md:px-6 lg:h-full lg:min-h-0">
+                  <div className="journal-scroll scrollbar-none flex min-h-[12rem] flex-col gap-2.5 overflow-y-auto px-4 py-4 sm:gap-3 sm:px-5 md:px-6 lg:h-full lg:min-h-0">
                     {messages.map((msg) => (
                       <ChatBubble key={msg.id} role={msg.role} text={msg.text} />
                     ))}
                     {chatLoading && (
-                      <div className="flex items-start gap-3">
-                        <img src={mingAvatar} alt="Ming" className="h-14 w-auto shrink-0 self-end" />
+                      <div className="flex items-start gap-2.5 sm:gap-3">
+                        <img src={mingAvatar} alt="Ming" className="h-10 w-auto shrink-0 self-end sm:h-14" />
                         <div className="rounded-2xl border border-sky-200/15 bg-stone-950/65 px-4 py-3 shadow-none drop-shadow-none backdrop-blur-0">
                           <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-amber-300/60">Ming</p>
                           <div className="flex items-center gap-1.5">

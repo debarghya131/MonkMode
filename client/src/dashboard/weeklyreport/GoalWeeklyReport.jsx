@@ -73,7 +73,7 @@ function ReportCard({ children, className = "", style }) {
       whileHover={{ y: -3, boxShadow: "0 18px 36px rgba(0,0,0,0.34)" }}
       transition={{ duration: 0.22 }}
       style={style}
-      className={`rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur ${className}`}
+      className={`rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5 ${className}`}
     >
       {children}
     </Motion.section>
@@ -119,33 +119,51 @@ export default function GoalWeeklyReport() {
   );
 
   useEffect(() => {
+    let active = true;
+
     setLoadingSummaries(true);
     setSummaries([]);
     setWeekData(null);
 
     if (isDemoMode) {
-      setSummaries(WEEKLY_GOAL_DATA);
-      setSelectedWeekId(WEEKLY_GOAL_DATA[0]?.id ?? null);
-      setLoadingSummaries(false);
-      return;
+      if (active) {
+        setSummaries(WEEKLY_GOAL_DATA);
+        setSelectedWeekId(WEEKLY_GOAL_DATA[0]?.id ?? null);
+        setLoadingSummaries(false);
+      }
+      return () => {
+        active = false;
+      };
     }
 
     api.get("/weekly-report/goals/summaries")
       .then((res) => {
+        if (!active) return;
         const nextSummaries = Array.isArray(res.data) ? res.data : [];
         setSummaries(nextSummaries);
         setSelectedWeekId(nextSummaries[0]?.id ?? "current");
       })
       .catch((err) => {
         console.error("Goal weekly summaries error:", err);
-        setSelectedWeekId("current");
+        if (active) setSelectedWeekId("current");
       })
-      .finally(() => setLoadingSummaries(false));
+      .finally(() => {
+        if (active) setLoadingSummaries(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [isDemoMode]);
 
   useEffect(() => {
+    let active = true;
+
     if (!selectedWeekId) {
       setWeekData(null);
+      setAiSummary(null);
+      setLoadingWeekData(false);
+      setLoadingAi(false);
       return;
     }
 
@@ -165,15 +183,29 @@ export default function GoalWeeklyReport() {
     setAiSummary(null);
     const query = selectedWeekId === "current" ? "" : `?week=${selectedWeekId}`;
     api.get(`/weekly-report/goals${query}`)
-      .then((res) => setWeekData(res.data))
+      .then((res) => {
+        if (active) setWeekData(res.data);
+      })
       .catch((err) => console.error("Goal weekly report error:", err))
-      .finally(() => setLoadingWeekData(false));
+      .finally(() => {
+        if (active) setLoadingWeekData(false);
+      });
 
     setLoadingAi(true);
     api.get(`/weekly-report/goals/ai-summary${query}`)
-      .then((res) => setAiSummary(res.data?.aiSummary ?? null))
-      .catch(() => setAiSummary(null))
-      .finally(() => setLoadingAi(false));
+      .then((res) => {
+        if (active) setAiSummary(res.data?.aiSummary ?? null);
+      })
+      .catch(() => {
+        if (active) setAiSummary(null);
+      })
+      .finally(() => {
+        if (active) setLoadingAi(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [selectedWeekId, isDemoMode]);
 
   useEffect(() => {
@@ -219,7 +251,7 @@ export default function GoalWeeklyReport() {
   }, [selectedWeekId, selectedWeek?.summary]);
 
   return (
-    <div className="flex flex-col gap-5 xl:flex-row xl:items-start">
+    <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
       <div className="journal-scroll min-w-0 flex-1 overflow-y-auto xl:max-h-[calc(100vh-170px)]">
         <AnimatePresence mode="wait">
           {loadingSummaries || loadingWeekData ? (
@@ -251,9 +283,9 @@ export default function GoalWeeklyReport() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.22 }}
-            className="space-y-6"
+            className="space-y-4 sm:space-y-6"
           >
-            <ReportCard className="px-5 py-4">
+            <ReportCard className="px-4 py-4 sm:px-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-label-md">Goal Weekly Summary</p>
@@ -368,10 +400,10 @@ export default function GoalWeeklyReport() {
               </div>
             </ReportCard>
 
-            <ReportCard className="flex min-h-[24rem] flex-col overflow-hidden xl:h-[47vh]">
-              <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3 bg-[#1d0f0c]/95 pb-2 backdrop-blur">
+            <ReportCard className="flex min-h-[22rem] flex-col overflow-hidden xl:h-[47vh]">
+              <div className="mb-3 flex shrink-0 flex-col gap-3 bg-[#1d0f0c]/95 pb-2 backdrop-blur sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Goal Progress</p>
-                <div className="flex flex-wrap items-center gap-1 rounded-full border border-amber-100/10 bg-stone-900/60 p-0.5">
+                <div className="flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:rounded-full">
                   {GOAL_FILTERS.map((filter) => (
                     <button
                       key={filter}
@@ -478,7 +510,7 @@ export default function GoalWeeklyReport() {
                     <button
                       type="button"
                       onClick={() => setSelectedWeekId(isSelected ? null : week.id)}
-                      className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                      className={`w-full rounded-full border px-3 py-1 text-xs font-semibold transition-colors sm:w-fit ${
                         isSelected
                           ? "border-amber-400/40 bg-amber-400/15 text-amber-200"
                           : "border-amber-400/20 text-amber-300 hover:border-amber-300/45 hover:bg-amber-400/10"
@@ -503,7 +535,7 @@ export default function GoalWeeklyReport() {
             <p className="text-label-md">Risk Indicator</p>
             <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">Progress vs deadline</p>
           </div>
-          <div className="flex shrink-0 items-center justify-center gap-2 text-center">
+          <div className="grid shrink-0 grid-cols-1 gap-2 text-center sm:grid-cols-3">
             {Object.entries(riskCounts).map(([label, count]) => {
               const status =
                 label === "On Track"
@@ -517,7 +549,7 @@ export default function GoalWeeklyReport() {
                   key={label}
                   type="button"
                   onClick={() => setRiskFilter(label)}
-                  className={`flex h-[72px] w-[98px] flex-col items-center justify-center gap-1 rounded-xl border px-2 py-1.5 transition ${
+                  className={`flex h-[72px] w-full flex-col items-center justify-center gap-1 rounded-xl border px-2 py-1.5 transition sm:w-auto ${
                     active
                       ? `${status.border} ${status.bg} shadow-[0_0_18px_rgba(251,191,36,0.14)]`
                       : "border-amber-100/10 bg-stone-950/35 hover:border-amber-400/20"

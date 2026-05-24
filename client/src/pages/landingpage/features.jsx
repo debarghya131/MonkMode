@@ -718,7 +718,7 @@ function OverviewSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.25rem] border border-amber-100/10 bg-black/25 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)]">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={overviewSlides[activeSlide].image}
@@ -729,7 +729,7 @@ function OverviewSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToPrevious}
           aria-label="Show previous overview image"
-          className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:left-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ‹
         </button>
@@ -737,13 +737,13 @@ function OverviewSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToNext}
           aria-label="Show next overview image"
-          className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:right-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ›
         </button>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
+      <div className="mt-2.5 flex flex-col gap-2 sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <p className="text-xs font-semibold text-amber-100/70">
           {String(activeSlide + 1).padStart(2, "0")} / {overviewSlides.length}
         </p>
@@ -775,18 +775,18 @@ function OverviewFeature({ feature }) {
     <>
       <OverviewSlider activeSlide={activeSlide} setActiveSlide={setActiveSlide} />
       <div>
-        <div className="flex items-baseline gap-5">
-          <p className="font-heading text-3xl font-black text-amber-200/70 sm:text-4xl">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
+          <p className="font-heading text-2xl font-black text-amber-200/70 sm:text-4xl">
             {feature.label}
           </p>
-          <h2 className="font-heading text-3xl font-black text-amber-50">
+          <h2 className="font-heading text-[1.7rem] font-black text-amber-50 sm:text-3xl">
             {feature.title}
           </h2>
         </div>
-        <p className="mt-5 text-[0.68rem] font-bold uppercase tracking-[0.24em] text-amber-200/60">
+        <p className="mt-4 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-amber-200/60 sm:mt-5 sm:text-[0.68rem] sm:tracking-[0.24em]">
           {String(activeSlide + 1).padStart(2, "0")} · {slide.title}
         </p>
-        <p className="mt-3 text-sm leading-8 text-stone-300 sm:text-base">
+        <p className="mt-3 text-sm leading-6 text-stone-300 sm:text-base sm:leading-8">
           {slide.text}
         </p>
       </div>
@@ -804,7 +804,7 @@ function JournalSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.25rem] border border-amber-100/10 bg-black/25 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)]">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={journalSlides[activeSlide].image}
@@ -815,7 +815,7 @@ function JournalSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToPrevious}
           aria-label="Show previous journal image"
-          className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:left-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ‹
         </button>
@@ -823,13 +823,13 @@ function JournalSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToNext}
           aria-label="Show next journal image"
-          className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:right-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ›
         </button>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
+      <div className="mt-2.5 flex flex-col gap-2 sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <p className="text-xs font-semibold text-amber-100/70">
           {String(activeSlide + 1).padStart(2, "0")} / {journalSlides.length}
         </p>
@@ -860,18 +860,18 @@ function JournalFeature({ feature }) {
   return (
     <>
       <div>
-        <div className="flex items-baseline gap-5">
-          <p className="font-heading text-3xl font-black text-amber-200/70 sm:text-4xl">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
+          <p className="font-heading text-2xl font-black text-amber-200/70 sm:text-4xl">
             {feature.label}
           </p>
-          <h2 className="font-heading text-3xl font-black text-amber-50">
+          <h2 className="font-heading text-[1.7rem] font-black text-amber-50 sm:text-3xl">
             {feature.title}
           </h2>
         </div>
-        <p className="mt-5 text-[0.68rem] font-bold uppercase tracking-[0.24em] text-amber-200/60">
+        <p className="mt-4 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-amber-200/60 sm:mt-5 sm:text-[0.68rem] sm:tracking-[0.24em]">
           {String(activeSlide + 1).padStart(2, "0")} · {slide.title}
         </p>
-        <p className="mt-3 text-sm leading-8 text-stone-300 sm:text-base">
+        <p className="mt-3 text-sm leading-6 text-stone-300 sm:text-base sm:leading-8">
           {slide.text}
         </p>
       </div>
@@ -890,7 +890,7 @@ function TodoSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.25rem] border border-amber-100/10 bg-black/25 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)]">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={todoSlides[activeSlide].image}
@@ -901,7 +901,7 @@ function TodoSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToPrevious}
           aria-label="Show previous todo image"
-          className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:left-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ‹
         </button>
@@ -909,13 +909,13 @@ function TodoSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToNext}
           aria-label="Show next todo image"
-          className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:right-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ›
         </button>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
+      <div className="mt-2.5 flex flex-col gap-2 sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <p className="text-xs font-semibold text-amber-100/70">
           {String(activeSlide + 1).padStart(2, "0")} / {todoSlides.length}
         </p>
@@ -947,18 +947,18 @@ function TodoFeature({ feature }) {
     <>
       <TodoSlider activeSlide={activeSlide} setActiveSlide={setActiveSlide} />
       <div>
-        <div className="flex items-baseline gap-5">
-          <p className="font-heading text-3xl font-black text-amber-200/70 sm:text-4xl">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
+          <p className="font-heading text-2xl font-black text-amber-200/70 sm:text-4xl">
             {feature.label}
           </p>
-          <h2 className="font-heading text-3xl font-black text-amber-50">
+          <h2 className="font-heading text-[1.7rem] font-black text-amber-50 sm:text-3xl">
             {feature.title}
           </h2>
         </div>
-        <p className="mt-5 text-[0.68rem] font-bold uppercase tracking-[0.24em] text-amber-200/60">
+        <p className="mt-4 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-amber-200/60 sm:mt-5 sm:text-[0.68rem] sm:tracking-[0.24em]">
           {String(activeSlide + 1).padStart(2, "0")} · {slide.title}
         </p>
-        <p className="mt-3 text-sm leading-8 text-stone-300 sm:text-base">
+        <p className="mt-3 text-sm leading-6 text-stone-300 sm:text-base sm:leading-8">
           {slide.text}
         </p>
       </div>
@@ -976,7 +976,7 @@ function HabitSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.25rem] border border-amber-100/10 bg-black/25 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)]">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={habitSlides[activeSlide].image}
@@ -987,7 +987,7 @@ function HabitSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToPrevious}
           aria-label="Show previous habit image"
-          className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:left-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ‹
         </button>
@@ -995,13 +995,13 @@ function HabitSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToNext}
           aria-label="Show next habit image"
-          className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:right-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ›
         </button>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
+      <div className="mt-2.5 flex flex-col gap-2 sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <p className="text-xs font-semibold text-amber-100/70">
           {String(activeSlide + 1).padStart(2, "0")} / {habitSlides.length}
         </p>
@@ -1032,18 +1032,18 @@ function HabitFeature({ feature }) {
   return (
     <>
       <div>
-        <div className="flex items-baseline gap-5">
-          <p className="font-heading text-3xl font-black text-amber-200/70 sm:text-4xl">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
+          <p className="font-heading text-2xl font-black text-amber-200/70 sm:text-4xl">
             {feature.label}
           </p>
-          <h2 className="font-heading text-3xl font-black text-amber-50">
+          <h2 className="font-heading text-[1.7rem] font-black text-amber-50 sm:text-3xl">
             {feature.title}
           </h2>
         </div>
-        <p className="mt-5 text-[0.68rem] font-bold uppercase tracking-[0.24em] text-amber-200/60">
+        <p className="mt-4 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-amber-200/60 sm:mt-5 sm:text-[0.68rem] sm:tracking-[0.24em]">
           {String(activeSlide + 1).padStart(2, "0")} · {slide.title}
         </p>
-        <p className="mt-3 text-sm leading-8 text-stone-300 sm:text-base">
+        <p className="mt-3 text-sm leading-6 text-stone-300 sm:text-base sm:leading-8">
           {slide.text}
         </p>
       </div>
@@ -1062,7 +1062,7 @@ function GoalSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.25rem] border border-amber-100/10 bg-black/25 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)]">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={goalSlides[activeSlide].image}
@@ -1073,7 +1073,7 @@ function GoalSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToPrevious}
           aria-label="Show previous goal image"
-          className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:left-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ‹
         </button>
@@ -1081,13 +1081,13 @@ function GoalSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToNext}
           aria-label="Show next goal image"
-          className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:right-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ›
         </button>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
+      <div className="mt-2.5 flex flex-col gap-2 sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <p className="text-xs font-semibold text-amber-100/70">
           {String(activeSlide + 1).padStart(2, "0")} / {goalSlides.length}
         </p>
@@ -1119,18 +1119,18 @@ function GoalFeature({ feature }) {
     <>
       <GoalSlider activeSlide={activeSlide} setActiveSlide={setActiveSlide} />
       <div>
-        <div className="flex items-baseline gap-5">
-          <p className="font-heading text-3xl font-black text-amber-200/70 sm:text-4xl">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
+          <p className="font-heading text-2xl font-black text-amber-200/70 sm:text-4xl">
             {feature.label}
           </p>
-          <h2 className="font-heading text-3xl font-black text-amber-50">
+          <h2 className="font-heading text-[1.7rem] font-black text-amber-50 sm:text-3xl">
             {feature.title}
           </h2>
         </div>
-        <p className="mt-5 text-[0.68rem] font-bold uppercase tracking-[0.24em] text-amber-200/60">
+        <p className="mt-4 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-amber-200/60 sm:mt-5 sm:text-[0.68rem] sm:tracking-[0.24em]">
           {String(activeSlide + 1).padStart(2, "0")} · {slide.title}
         </p>
-        <p className="mt-3 text-sm leading-8 text-stone-300 sm:text-base">
+        <p className="mt-3 text-sm leading-6 text-stone-300 sm:text-base sm:leading-8">
           {slide.text}
         </p>
       </div>
@@ -1148,7 +1148,7 @@ function GymSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.25rem] border border-amber-100/10 bg-black/25 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)]">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={gymSlides[activeSlide].image}
@@ -1159,7 +1159,7 @@ function GymSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToPrevious}
           aria-label="Show previous gym image"
-          className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:left-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ‹
         </button>
@@ -1167,13 +1167,13 @@ function GymSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToNext}
           aria-label="Show next gym image"
-          className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:right-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ›
         </button>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
+      <div className="mt-2.5 flex flex-col gap-2 sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <p className="text-xs font-semibold text-amber-100/70">
           {String(activeSlide + 1).padStart(2, "0")} / {gymSlides.length}
         </p>
@@ -1204,18 +1204,18 @@ function GymFeature({ feature }) {
   return (
     <>
       <div>
-        <div className="flex items-baseline gap-5">
-          <p className="font-heading text-3xl font-black text-amber-200/70 sm:text-4xl">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
+          <p className="font-heading text-2xl font-black text-amber-200/70 sm:text-4xl">
             {feature.label}
           </p>
-          <h2 className="font-heading text-3xl font-black text-amber-50">
+          <h2 className="font-heading text-[1.7rem] font-black text-amber-50 sm:text-3xl">
             {feature.title}
           </h2>
         </div>
-        <p className="mt-5 text-[0.68rem] font-bold uppercase tracking-[0.24em] text-amber-200/60">
+        <p className="mt-4 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-amber-200/60 sm:mt-5 sm:text-[0.68rem] sm:tracking-[0.24em]">
           {String(activeSlide + 1).padStart(2, "0")} · {slide.title}
         </p>
-        <p className="mt-3 text-sm leading-8 text-stone-300 sm:text-base">
+        <p className="mt-3 text-sm leading-6 text-stone-300 sm:text-base sm:leading-8">
           {slide.text}
         </p>
       </div>
@@ -1238,7 +1238,7 @@ function WeeklyReportSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.25rem] border border-amber-100/10 bg-black/25 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)]">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={weeklyReportSlides[activeSlide].image}
@@ -1249,7 +1249,7 @@ function WeeklyReportSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToPrevious}
           aria-label="Show previous weekly report image"
-          className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:left-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ‹
         </button>
@@ -1257,13 +1257,13 @@ function WeeklyReportSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToNext}
           aria-label="Show next weekly report image"
-          className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:right-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ›
         </button>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
+      <div className="mt-2.5 flex flex-col gap-2 sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <p className="text-xs font-semibold text-amber-100/70">
           {String(activeSlide + 1).padStart(2, "0")} / {weeklyReportSlides.length}
         </p>
@@ -1295,18 +1295,18 @@ function WeeklyReportFeature({ feature }) {
     <>
       <WeeklyReportSlider activeSlide={activeSlide} setActiveSlide={setActiveSlide} />
       <div>
-        <div className="flex items-baseline gap-5">
-          <p className="font-heading text-3xl font-black text-amber-200/70 sm:text-4xl">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
+          <p className="font-heading text-2xl font-black text-amber-200/70 sm:text-4xl">
             {feature.label}
           </p>
-          <h2 className="font-heading text-3xl font-black text-amber-50">
+          <h2 className="font-heading text-[1.7rem] font-black text-amber-50 sm:text-3xl">
             {feature.title}
           </h2>
         </div>
-        <p className="mt-5 text-[0.68rem] font-bold uppercase tracking-[0.24em] text-amber-200/60">
+        <p className="mt-4 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-amber-200/60 sm:mt-5 sm:text-[0.68rem] sm:tracking-[0.24em]">
           {String(activeSlide + 1).padStart(2, "0")} · {slide.title}
         </p>
-        <p className="mt-3 text-sm leading-8 text-stone-300 sm:text-base">
+        <p className="mt-3 text-sm leading-6 text-stone-300 sm:text-base sm:leading-8">
           {slide.text}
         </p>
       </div>
@@ -1328,7 +1328,7 @@ function AnalysisSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.25rem] border border-amber-100/10 bg-black/25 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)]">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={analysisSlides[activeSlide].image}
@@ -1339,7 +1339,7 @@ function AnalysisSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToPrevious}
           aria-label="Show previous analysis image"
-          className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:left-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ‹
         </button>
@@ -1347,13 +1347,13 @@ function AnalysisSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToNext}
           aria-label="Show next analysis image"
-          className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:right-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ›
         </button>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
+      <div className="mt-2.5 flex flex-col gap-2 sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <p className="text-xs font-semibold text-amber-100/70">
           {String(activeSlide + 1).padStart(2, "0")} / {analysisSlides.length}
         </p>
@@ -1384,18 +1384,18 @@ function AnalysisFeature({ feature }) {
   return (
     <>
       <div>
-        <div className="flex items-baseline gap-5">
-          <p className="font-heading text-3xl font-black text-amber-200/70 sm:text-4xl">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
+          <p className="font-heading text-2xl font-black text-amber-200/70 sm:text-4xl">
             {feature.label}
           </p>
-          <h2 className="font-heading text-3xl font-black text-amber-50">
+          <h2 className="font-heading text-[1.7rem] font-black text-amber-50 sm:text-3xl">
             {feature.title}
           </h2>
         </div>
-        <p className="mt-5 text-[0.68rem] font-bold uppercase tracking-[0.24em] text-amber-200/60">
+        <p className="mt-4 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-amber-200/60 sm:mt-5 sm:text-[0.68rem] sm:tracking-[0.24em]">
           {String(activeSlide + 1).padStart(2, "0")} · {slide.title}
         </p>
-        <p className="mt-3 text-sm leading-8 text-stone-300 sm:text-base">
+        <p className="mt-3 text-sm leading-6 text-stone-300 sm:text-base sm:leading-8">
           {slide.text}
         </p>
       </div>
@@ -1418,7 +1418,7 @@ function AiGuruSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.25rem] border border-amber-100/10 bg-black/25 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)]">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={aiGuruSlides[activeSlide].image}
@@ -1429,7 +1429,7 @@ function AiGuruSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToPrevious}
           aria-label="Show previous AI Guru image"
-          className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:left-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ‹
         </button>
@@ -1437,13 +1437,13 @@ function AiGuruSlider({ activeSlide, setActiveSlide }) {
           type="button"
           onClick={goToNext}
           aria-label="Show next AI Guru image"
-          className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-lg font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20"
+          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-amber-100/20 bg-stone-950/70 text-base font-bold text-amber-100 shadow-lg shadow-black/30 transition hover:border-amber-200/45 hover:bg-amber-400/20 sm:right-3 sm:h-9 sm:w-9 sm:text-lg"
         >
           ›
         </button>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
+      <div className="mt-2.5 flex flex-col gap-2 sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <p className="text-xs font-semibold text-amber-100/70">
           {String(activeSlide + 1).padStart(2, "0")} / {aiGuruSlides.length}
         </p>
@@ -1475,18 +1475,18 @@ function AiGuruFeature({ feature }) {
     <>
       <AiGuruSlider activeSlide={activeSlide} setActiveSlide={setActiveSlide} />
       <div>
-        <div className="flex items-baseline gap-5">
-          <p className="font-heading text-3xl font-black text-amber-200/70 sm:text-4xl">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
+          <p className="font-heading text-2xl font-black text-amber-200/70 sm:text-4xl">
             {feature.label}
           </p>
-          <h2 className="font-heading text-3xl font-black text-amber-50">
+          <h2 className="font-heading text-[1.7rem] font-black text-amber-50 sm:text-3xl">
             {feature.title}
           </h2>
         </div>
-        <p className="mt-5 text-[0.68rem] font-bold uppercase tracking-[0.24em] text-amber-200/60">
+        <p className="mt-4 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-amber-200/60 sm:mt-5 sm:text-[0.68rem] sm:tracking-[0.24em]">
           {String(activeSlide + 1).padStart(2, "0")} · {slide.title}
         </p>
-        <p className="mt-3 text-sm leading-8 text-stone-300 sm:text-base">
+        <p className="mt-3 text-sm leading-6 text-stone-300 sm:text-base sm:leading-8">
           {slide.text}
         </p>
       </div>
@@ -1496,7 +1496,7 @@ function AiGuruFeature({ feature }) {
 
 export default function Features() {
   return (
-    <main className="auth-page relative min-h-screen overflow-x-hidden text-white">
+    <main className="auth-page relative min-h-dvh overflow-x-hidden text-white sm:min-h-screen">
       <div className="fixed inset-0">
         <AuthBackground />
       </div>
@@ -1504,8 +1504,8 @@ export default function Features() {
       <div className="relative z-10">
         <LandingNavbar />
 
-        <section className="mx-auto w-full max-w-7xl px-4 pb-20 pt-8 sm:px-6 sm:pb-24 md:px-8">
-          <div className="flex flex-col gap-4">
+        <section className="mx-auto w-full max-w-7xl px-3 pb-14 pt-5 sm:px-6 sm:pb-24 sm:pt-8 md:px-8">
+          <div className="flex flex-col gap-3.5 sm:gap-4">
             {features.map((feature, index) => (
               <Motion.article
                 key={feature.title}
@@ -1513,7 +1513,7 @@ export default function Features() {
                 animate={{ opacity: 1, y: 0 }}
                 whileHover={{ y: -6, scale: 1.006 }}
                 transition={{ duration: 0.42, delay: index * 0.04, ease: "easeOut" }}
-                className={`relative overflow-hidden rounded-[1.5rem] border border-amber-100/10 bg-stone-950/42 p-5 shadow-[0_16px_46px_rgba(0,0,0,0.24)] backdrop-blur-xl transition hover:border-amber-200/25 hover:bg-stone-950/55 hover:shadow-[0_24px_70px_rgba(0,0,0,0.34)] sm:p-6 ${
+                className={`relative overflow-hidden rounded-[1.35rem] border border-amber-100/10 bg-stone-950/42 p-4 shadow-[0_16px_46px_rgba(0,0,0,0.24)] backdrop-blur-xl transition hover:border-amber-200/25 hover:bg-stone-950/55 hover:shadow-[0_24px_70px_rgba(0,0,0,0.34)] sm:rounded-[1.5rem] sm:p-6 ${
                   index === 0 ||
                   index === 1 ||
                   index === 2 ||
@@ -1523,8 +1523,8 @@ export default function Features() {
                   index === 6 ||
                   index === 7 ||
                   index === 8
-                    ? "grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center"
-                    : "grid gap-4 sm:grid-cols-[5rem_minmax(0,12rem)_minmax(0,1fr)] sm:items-center"
+                    ? "grid gap-5 sm:gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center"
+                    : "grid gap-3 sm:grid-cols-[5rem_minmax(0,12rem)_minmax(0,1fr)] sm:items-center sm:gap-4"
                 }`}
               >
                 <Motion.div
@@ -1575,13 +1575,13 @@ export default function Features() {
                   <AiGuruFeature feature={feature} />
                 ) : (
                   <>
-                    <p className="font-heading text-3xl font-black text-amber-200/70 sm:text-4xl">
+                    <p className="font-heading text-2xl font-black text-amber-200/70 sm:text-4xl">
                       {feature.label}
                     </p>
-                    <h2 className="font-heading text-2xl font-black text-amber-50">
+                    <h2 className="font-heading text-[1.7rem] font-black text-amber-50 sm:text-2xl">
                       {feature.title}
                     </h2>
-                    <p className="text-sm leading-7 text-stone-300">
+                    <p className="text-sm leading-6 text-stone-300 sm:leading-7">
                       {feature.text}
                     </p>
                   </>

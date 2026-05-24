@@ -53,22 +53,22 @@ export default function DemoLogin() {
   const progressPercent = Math.round(safeProgress * 100);
 
   return (
-    <div className="auth-page relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-6 text-white sm:px-6 sm:py-8">
+    <div className="auth-page relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-4 text-white sm:min-h-screen sm:px-6 sm:py-8">
       <AuthBackground />
 
-      <div className="relative z-10 flex w-full max-w-lg -translate-y-4 flex-col items-center sm:-translate-y-6">
+      <div className="relative z-10 flex w-full max-w-lg flex-col items-center sm:-translate-y-6">
         <AuthFloatingMonk />
 
         <Motion.div
-          className="-mt-8 w-full overflow-hidden rounded-[2rem] border border-amber-100/10 bg-white/6 shadow-2xl shadow-black/25 backdrop-blur sm:-mt-10"
+          className="-mt-4 w-full overflow-hidden rounded-[1.75rem] border border-amber-100/10 bg-white/6 shadow-2xl shadow-black/25 backdrop-blur sm:-mt-10 sm:rounded-[2rem]"
           initial={{ opacity: 0, y: 28 }}
           animate={isEntering ? { opacity: 0.18, y: -12, scale: 0.97, filter: "blur(8px)" } : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          <div className="p-5 sm:p-8 md:p-10">
+          <div className="p-4 sm:p-8 md:p-10">
             <div className="mx-auto w-full max-w-md">
               <Motion.p
-                className="auth-overline text-[0.72rem] uppercase tracking-[0.35em] text-amber-200/70"
+                className="auth-overline text-[0.66rem] uppercase tracking-[0.28em] text-amber-200/70 sm:text-[0.72rem] sm:tracking-[0.35em]"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.3 }}
@@ -76,7 +76,7 @@ export default function DemoLogin() {
                 Demo Mode
               </Motion.p>
               <Motion.h2
-                className="mt-3 text-3xl font-bold text-amber-50 font-heading"
+                className="mt-2.5 font-heading text-[1.8rem] font-bold text-amber-50 sm:mt-3 sm:text-3xl"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, duration: 0.3 }}
@@ -84,7 +84,7 @@ export default function DemoLogin() {
                 Explore MonkMode
               </Motion.h2>
               <Motion.p
-                className="mt-3 text-sm leading-7 text-stone-300"
+                className="mt-2.5 text-sm leading-6 text-stone-300 sm:mt-3 sm:leading-7"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.3 }}
@@ -93,7 +93,7 @@ export default function DemoLogin() {
               </Motion.p>
 
               <Motion.div
-                className="mt-6 rounded-2xl border border-amber-100/10 bg-white/5 p-4 text-sm leading-6 text-stone-300"
+                className="mt-5 rounded-2xl border border-amber-100/10 bg-white/5 p-4 text-sm leading-5 text-stone-300 sm:mt-6 sm:leading-6"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.27, duration: 0.3 }}
@@ -106,13 +106,13 @@ export default function DemoLogin() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.34, duration: 0.3 }}
-                className="mt-8"
+                className="mt-6 sm:mt-8"
               >
                 <Motion.button
                   type="button"
                   onClick={handleExploreDemo}
                   disabled={isEntering}
-                  className="relative w-full overflow-hidden rounded-full border border-amber-100/45 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] px-6 py-3 text-sm font-black uppercase tracking-[0.18em] text-stone-950 shadow-[0_0_0_1px_rgba(255,236,178,0.24),0_0_30px_rgba(251,191,36,0.28),0_18px_42px_rgba(120,52,8,0.3)] transition disabled:cursor-not-allowed disabled:opacity-80"
+                  className="relative w-full overflow-hidden rounded-full border border-amber-100/45 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] px-5 py-3 text-[0.78rem] font-black uppercase tracking-[0.16em] text-stone-950 shadow-[0_0_0_1px_rgba(255,236,178,0.24),0_0_30px_rgba(251,191,36,0.28),0_18px_42px_rgba(120,52,8,0.3)] transition disabled:cursor-not-allowed disabled:opacity-80 sm:px-6 sm:text-sm sm:tracking-[0.18em]"
                   animate={
                     isEntering
                       ? {
@@ -153,7 +153,7 @@ export default function DemoLogin() {
               </Motion.div>
 
               <Motion.div
-                className="mt-6 flex items-center gap-3 text-sm text-stone-300"
+                className="mt-5 flex flex-col items-center gap-2 text-center text-sm text-stone-300 sm:mt-6 sm:flex-row sm:justify-center sm:gap-3"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.41, duration: 0.3 }}
@@ -171,7 +171,7 @@ export default function DemoLogin() {
               >
                 <Motion.button
                   type="button"
-                  className="mt-8 rounded-full border border-amber-100/15 bg-white/8 px-6 py-3 text-sm font-semibold text-amber-50 transition duration-300 hover:border-amber-200/50 hover:bg-gradient-to-r hover:from-amber-200 hover:via-yellow-300 hover:to-orange-300 hover:text-stone-950"
+                  className="mt-6 rounded-full border border-amber-100/15 bg-white/8 px-6 py-3 text-sm font-semibold text-amber-50 transition duration-300 hover:border-amber-200/50 hover:bg-gradient-to-r hover:from-amber-200 hover:via-yellow-300 hover:to-orange-300 hover:text-stone-950 sm:mt-8"
                   onClick={() => navigate("/")}
                   whileHover={{ scale: 1.03, boxShadow: "0 0 28px rgba(251,191,36,0.45)", y: -2 }}
                   whileTap={{ scale: 0.97 }}

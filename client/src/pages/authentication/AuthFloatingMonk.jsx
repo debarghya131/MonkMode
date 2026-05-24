@@ -12,7 +12,7 @@ const sparkles = [
 
 export default function AuthFloatingMonk() {
   return (
-    <div className="pointer-events-none relative z-20 flex h-[180px] w-full items-end justify-center sm:h-[210px]">
+    <div className="pointer-events-none relative z-20 flex h-[150px] w-full items-end justify-center sm:h-[210px]">
       {sparkles.map((sparkle) => (
         <Motion.span
           key={sparkle.id}
@@ -37,7 +37,7 @@ export default function AuthFloatingMonk() {
       ))}
 
       <Motion.div
-        className="absolute bottom-10 h-44 w-44 rounded-full bg-[radial-gradient(circle,rgba(255,227,138,0.66),rgba(255,191,73,0.22),transparent_72%)] blur-2xl sm:h-56 sm:w-56"
+        className="absolute bottom-8 h-36 w-36 rounded-full bg-[radial-gradient(circle,rgba(255,227,138,0.66),rgba(255,191,73,0.22),transparent_72%)] blur-2xl sm:bottom-10 sm:h-56 sm:w-56"
         animate={{
           scale: [0.94, 1.06, 0.94],
           opacity: [0.7, 0.95, 0.7]
@@ -50,7 +50,7 @@ export default function AuthFloatingMonk() {
       />
 
       <Motion.div
-        className="absolute bottom-1 h-7 w-36 rounded-full bg-black/35 blur-xl sm:w-44"
+        className="absolute bottom-1 h-6 w-28 rounded-full bg-black/35 blur-xl sm:h-7 sm:w-44"
         animate={{
           opacity: [0.34, 0.16, 0.34],
           scaleX: [1, 0.9, 1],
@@ -77,7 +77,7 @@ export default function AuthFloatingMonk() {
         <Motion.img
           src={monkIllustration}
           alt="Floating monk"
-          className="w-[190px] drop-shadow-[0_22px_42px_rgba(0,0,0,0.42)] sm:w-[240px]"
+          className="w-[150px] drop-shadow-[0_22px_42px_rgba(0,0,0,0.42)] sm:w-[240px]"
           animate={{
             scale: [1, 1.04, 1]
           }}

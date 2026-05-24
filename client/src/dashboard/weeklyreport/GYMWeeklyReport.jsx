@@ -214,7 +214,7 @@ function ReportCard({ children, className = "" }) {
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -3, boxShadow: "0 18px 36px rgba(0,0,0,0.34)" }}
       transition={{ duration: 0.22 }}
-      className={`rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur ${className}`}
+      className={`rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5 ${className}`}
     >
       {children}
     </Motion.section>
@@ -252,32 +252,52 @@ export default function GYMWeeklyReport() {
 
   // Mount: fetch summaries
   useEffect(() => {
+    let active = true;
+
     setLoadingSummaries(true);
     setSummaries([]);
     setWeekData(null);
 
     if (isDemoMode) {
       const demoSummaries = DEMO_GYM_DATA.map(w => ({ id: w.id, date: w.date, workoutDays: w.workoutDays }));
-      setSummaries(demoSummaries);
-      setSelectedWeekId(DEMO_GYM_DATA[0]?.id ?? null);
-      setLoadingSummaries(false);
-      return;
+      if (active) {
+        setSummaries(demoSummaries);
+        setSelectedWeekId(DEMO_GYM_DATA[0]?.id ?? null);
+        setLoadingSummaries(false);
+      }
+      return () => {
+        active = false;
+      };
     }
 
     api.get("/weekly-report/gym/summaries")
       .then(res => {
+        if (!active) return;
         const list = Array.isArray(res.data) ? res.data : [];
         setSummaries(list);
         setSelectedWeekId(list[0]?.id ?? null);
       })
-      .catch(() => setSelectedWeekId(null))
-      .finally(() => setLoadingSummaries(false));
+      .catch(() => {
+        if (active) setSelectedWeekId(null);
+      })
+      .finally(() => {
+        if (active) setLoadingSummaries(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [isDemoMode]);
 
   // Week change: fetch week data + AI
   useEffect(() => {
+    let active = true;
+
     if (!selectedWeekId) {
       setWeekData(null);
+      setAiSummary(null);
+      setLoadingWeekData(false);
+      setLoadingAi(false);
       return;
     }
 
@@ -298,15 +318,29 @@ export default function GYMWeeklyReport() {
 
     const query = `?week=${selectedWeekId}`;
     api.get(`/weekly-report/gym${query}`)
-      .then(res => setWeekData(res.data))
+      .then(res => {
+        if (active) setWeekData(res.data);
+      })
       .catch(err => console.error("Gym weekly report error:", err))
-      .finally(() => setLoadingWeekData(false));
+      .finally(() => {
+        if (active) setLoadingWeekData(false);
+      });
 
     setLoadingAi(true);
     api.get(`/weekly-report/gym/ai-summary${query}`)
-      .then(res => setAiSummary(res.data?.aiSummary ?? null))
-      .catch(() => setAiSummary(null))
-      .finally(() => setLoadingAi(false));
+      .then(res => {
+        if (active) setAiSummary(res.data?.aiSummary ?? null);
+      })
+      .catch(() => {
+        if (active) setAiSummary(null);
+      })
+      .finally(() => {
+        if (active) setLoadingAi(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [selectedWeekId, isDemoMode]);
 
   useEffect(() => {
@@ -517,7 +551,7 @@ export default function GYMWeeklyReport() {
         document.body
       )}
 
-    <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
 
       {/* ── LEFT: Main content ─────────────────────────────────── */}
       <div className="journal-scroll min-w-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-170px)]">
@@ -551,11 +585,11 @@ export default function GYMWeeklyReport() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.22 }}
-            className="space-y-5"
+              className="space-y-4 sm:space-y-5"
           >
             {/* Weekly Summary header */}
-            <ReportCard className="px-5 py-3.5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+            <ReportCard className="px-4 py-3.5 sm:px-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-base">
                     💪
@@ -563,7 +597,7 @@ export default function GYMWeeklyReport() {
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300/80">GYM Weekly Summary</p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   <span className="rounded-full border border-stone-700/60 bg-stone-900/50 px-3 py-1 text-[11px] font-semibold text-stone-400">
                     📅 {selectedWeek.date}
                   </span>
@@ -643,8 +677,8 @@ export default function GYMWeeklyReport() {
                     </div>
 
                     {topMuscles.length > 0 && (
-                      <div className="ml-auto flex items-center gap-2">
-                        <div className="h-4 w-px bg-amber-100/15" />
+                      <div className="flex w-full flex-wrap items-center gap-2 xl:ml-auto xl:w-auto">
+                        <div className="hidden h-4 w-px bg-amber-100/15 xl:block" />
                         <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
                           Most Trained {topMuscles.length > 1 ? "Muscles" : "Muscle"}
                         </p>
@@ -674,7 +708,7 @@ export default function GYMWeeklyReport() {
             </ReportCard>
 
             {/* Little Monk AI Summary */}
-            <ReportCard className="flex h-[22vh] flex-col overflow-hidden">
+            <ReportCard className="flex min-h-[14rem] flex-col overflow-hidden lg:h-[22vh]">
               <div className="mb-3 flex shrink-0 items-center gap-2">
                 <Motion.img
                   src={littleMonkLogo}
@@ -706,13 +740,13 @@ export default function GYMWeeklyReport() {
             </ReportCard>
 
             {/* Strength Progress + Body Progress side by side */}
-            <div className="flex flex-col items-start gap-5 2xl:flex-row">
+            <div className="flex flex-col items-start gap-4 2xl:flex-row">
 
               {/* Strength Progress */}
-              <ReportCard className="flex h-[44vh] min-h-[22rem] min-w-0 flex-1 flex-col overflow-hidden 2xl:basis-0">
-                <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3 bg-[#1d0f0c]/95 pb-2 backdrop-blur">
+              <ReportCard className="flex min-h-[20rem] min-w-0 flex-1 flex-col overflow-hidden lg:h-[44vh] 2xl:basis-0">
+                <div className="mb-3 flex shrink-0 flex-col gap-3 bg-[#1d0f0c]/95 pb-2 backdrop-blur sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Strength Progress</p>
-                  <div className="flex flex-wrap items-center gap-1 rounded-full border border-amber-100/10 bg-stone-900/60 p-0.5">
+                  <div className="flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:rounded-full">
                     {BODY_GROUP_FILTERS.map((filter) => (
                       <button
                         key={filter}
@@ -764,10 +798,10 @@ export default function GYMWeeklyReport() {
               </ReportCard>
 
               {/* Body Progress */}
-              <ReportCard className="flex h-[44vh] min-h-[22rem] min-w-0 flex-1 flex-col overflow-hidden 2xl:basis-0">
-                <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2 bg-[#1d0f0c]/95 pb-2 backdrop-blur">
+              <ReportCard className="flex min-h-[20rem] min-w-0 flex-1 flex-col overflow-hidden lg:h-[44vh] 2xl:basis-0">
+                <div className="mb-3 flex shrink-0 flex-col gap-2 bg-[#1d0f0c]/95 pb-2 backdrop-blur sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Body Progress</p>
-                  <div className="flex flex-wrap items-center gap-1 rounded-full border border-amber-100/10 bg-stone-900/60 p-0.5">
+                  <div className="flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:rounded-full">
                     {BODY_PART_FILTERS.map((f) => (
                       <button
                         key={f}
@@ -819,10 +853,10 @@ export default function GYMWeeklyReport() {
       </div>
 
       {/* ── RIGHT: Week selector + Nutrition ──────────────────── */}
-      <div className="grid w-full items-start gap-4 lg:w-[360px] lg:shrink-0">
+      <div className="grid w-full items-start gap-4 lg:w-[360px] lg:shrink-0 xl:w-[380px]">
 
         {/* Week selector */}
-        <ReportCard className="flex h-[44vh] flex-col overflow-hidden">
+        <ReportCard className="flex min-h-[18rem] flex-col overflow-hidden lg:h-[44vh]">
           <div className="mb-4 flex shrink-0 items-center gap-3">
             <Motion.div
               className="relative grid h-16 w-17 place-items-center"
@@ -869,7 +903,7 @@ export default function GYMWeeklyReport() {
                     <button
                       type="button"
                       onClick={() => setSelectedWeekId(isSelected ? null : week.id)}
-                      className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                      className={`w-full rounded-full border px-3 py-1 text-xs font-semibold transition-colors sm:w-fit ${
                         isSelected
                           ? "border-amber-400/40 bg-amber-400/15 text-amber-200"
                           : "border-amber-400/20 text-amber-300 hover:border-amber-300/45 hover:bg-amber-400/10"

@@ -6,6 +6,7 @@ const journalCustomFieldTemplateSchema = new mongoose.Schema({
 }, { _id: false });
 
 const userSchema = new mongoose.Schema({
+  clerkId: { type: String, unique: true, sparse: true, index: true },
   name: String,
   email: { type: String, unique: true },
   password: String,

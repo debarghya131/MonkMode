@@ -252,27 +252,6 @@ const formatUndoCountdown = (remainingMs) => {
   return `${seconds}s`;
 };
 
-const readStoredEntries = () => {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (!stored) return sortEntries(createDemoEntries());
-
-    const parsed = JSON.parse(stored);
-    if (!Array.isArray(parsed)) return sortEntries(createDemoEntries());
-
-    const validEntries = parsed.filter(
-      (entry) => entry && typeof entry === "object" && typeof entry.id === "string"
-    );
-    if (validEntries.length === 0) return sortEntries(createDemoEntries());
-
-    return sortEntries(validEntries);
-  } catch {
-    return sortEntries(createDemoEntries());
-  }
-};
-
 const formatDate = (value) => {
   if (!value) return "No date";
   return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
@@ -607,17 +586,14 @@ export default function Measurements() {
     }
   };
 
-  const visibleMeasurements = previewEntry
-    ? MEASUREMENT_FIELDS.filter(({ key }) => hasValue(previewEntry[key]))
-    : [];
   const visibleSavedMeasurements = previewEntry
     ? savedActiveGroup.fields.filter(({ key }) => hasValue(previewEntry[key]))
     : [];
 
   return (
     <>
-      <div className="mt-8 grid gap-6 lg:h-[calc(100vh-17rem)] lg:min-h-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.75rem] border border-amber-100/10 bg-[linear-gradient(180deg,rgba(251,191,36,0.06),rgba(255,255,255,0.02))] p-6 shadow-lg shadow-black/20">
+      <div className="mt-6 grid gap-4 sm:mt-8 sm:gap-6 lg:h-[calc(100vh-17rem)] lg:min-h-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[linear-gradient(180deg,rgba(251,191,36,0.06),rgba(255,255,255,0.02))] p-4 shadow-lg shadow-black/20 sm:rounded-[1.75rem] sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="mt-2 text-xl font-semibold text-stone-100">
@@ -630,7 +606,7 @@ export default function Measurements() {
           </div>
 
           <form
-            className="mt-4 flex-1 space-y-4 overflow-x-hidden overflow-y-auto pr-1"
+            className="mt-4 flex-1 space-y-3 overflow-x-hidden overflow-y-auto pr-1 sm:space-y-4"
             onSubmit={handleSubmit}
           >
             <label className="block">
@@ -673,7 +649,7 @@ export default function Measurements() {
               </div>
             </div>
 
-            <div className="rounded-[1.5rem] border border-amber-100/10 bg-black/15 p-5">
+            <div className="rounded-[1.4rem] border border-amber-100/10 bg-black/15 p-4 sm:rounded-[1.5rem] sm:p-5">
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-amber-100/10 pb-3">
                 <div className="min-w-0">
                   <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-200">
@@ -712,7 +688,7 @@ export default function Measurements() {
               </div>
             )}
 
-            <div className="ml-2 flex flex-wrap items-center gap-3">
+            <div className="flex flex-col items-stretch gap-3 sm:ml-2 sm:flex-row sm:flex-wrap sm:items-center">
               {(!todayEntry || editingId) && (
                 <Motion.button
                   type="submit"
@@ -727,7 +703,7 @@ export default function Measurements() {
                   transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                   whileHover={{ scale: 1.06, boxShadow: "0 0 20px rgba(251,191,36,0.65), 0 0 40px rgba(251,191,36,0.2)" }}
                   whileTap={{ scale: 0.95 }}
-                  className="relative rounded-2xl border border-amber-300/40 bg-amber-500/15 px-5 py-3 text-sm font-semibold text-amber-100 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950"
+                  className="relative w-full rounded-2xl border border-amber-300/40 bg-amber-500/15 px-5 py-3 text-sm font-semibold text-amber-100 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 sm:w-auto"
                 >
                   <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
                     <Motion.span
@@ -744,7 +720,7 @@ export default function Measurements() {
                 <button
                   type="button"
                   onClick={() => startEditing(todayEntry)}
-                  className="rounded-2xl border border-sky-300/25 bg-sky-500/10 px-4 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20"
+                  className="w-full rounded-2xl border border-sky-300/25 bg-sky-500/10 px-4 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20 sm:w-auto"
                 >
                   Update
                 </button>
@@ -754,7 +730,7 @@ export default function Measurements() {
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="rounded-2xl border border-stone-500/20 bg-white/5 px-5 py-3 text-sm font-semibold text-stone-300 transition hover:text-stone-100"
+                  className="w-full rounded-2xl border border-stone-500/20 bg-white/5 px-5 py-3 text-sm font-semibold text-stone-300 transition hover:text-stone-100 sm:w-auto"
                 >
                   Cancel update
                 </button>
@@ -763,7 +739,7 @@ export default function Measurements() {
           </form>
         </section>
 
-        <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.75rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_42%),linear-gradient(180deg,rgba(20,14,12,0.96),rgba(10,8,8,0.98))] p-6 shadow-lg shadow-black/25">
+        <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_42%),linear-gradient(180deg,rgba(20,14,12,0.96),rgba(10,8,8,0.98))] p-4 shadow-lg shadow-black/25 sm:rounded-[1.75rem] sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="mt-2 text-xl font-semibold text-stone-100">
@@ -787,8 +763,8 @@ export default function Measurements() {
               </p>
             </div>
           ) : (
-            <div className="mt-6 grid min-h-0 flex-1 gap-5 overflow-hidden xl:grid-cols-[minmax(0,1.3fr)_minmax(16rem,0.6fr)]">
-              <div className="flex min-h-0 flex-col overflow-hidden rounded-[1.5rem] border border-amber-100/10 bg-white/5 p-5">
+            <div className="mt-5 grid min-h-0 flex-1 gap-4 overflow-hidden sm:mt-6 sm:gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(16rem,0.6fr)]">
+              <div className="flex min-h-0 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-white/5 p-4 sm:rounded-[1.5rem] sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -832,7 +808,7 @@ export default function Measurements() {
                   </div>
                 </div>
 
-                <div className="mt-4 min-h-0 flex flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-amber-100/10 bg-black/15 p-5">
+                <div className="mt-4 min-h-0 flex flex-1 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-black/15 p-4 sm:rounded-[1.5rem] sm:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3 border-b border-amber-100/10 pb-3">
                     <div className="min-w-0">
                       <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-200">
@@ -876,8 +852,8 @@ export default function Measurements() {
                 </div>
               </div>
 
-              <div className="flex min-h-0 min-w-0 w-full flex-col overflow-hidden rounded-[1.5rem] border border-amber-100/10 bg-black/20 p-4 xl:max-w-[18rem] xl:justify-self-end">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-h-0 min-w-0 w-full flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-3 sm:rounded-[1.5rem] sm:p-4 xl:max-w-[18rem] xl:justify-self-end">
+                <div className="flex flex-col gap-2 sm:flex-wrap sm:items-center sm:justify-between">
                   <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-300">
                     Check-in History
                   </h4>
@@ -895,7 +871,7 @@ export default function Measurements() {
                     return (
                       <Motion.div
                         key={entry.id}
-                        className={`flex w-full items-start justify-between gap-2.5 rounded-xl border px-3 py-2.5 transition ${
+                        className={`flex w-full flex-col gap-2.5 rounded-xl border px-3 py-2.5 transition sm:flex-row sm:items-start sm:justify-between ${
                           isSelected
                             ? "border-amber-300/35 bg-amber-500/10"
                             : "border-amber-100/10 bg-white/5 hover:border-amber-200/20 hover:bg-white/10"
@@ -918,7 +894,7 @@ export default function Measurements() {
                             {hasValue(entry.bodyWeight) ? ` • ${entry.bodyWeight} kg` : ""}
                           </p>
                         </button>
-                        <div className="flex shrink-0 flex-col items-end gap-1 self-center">
+                        <div className="flex shrink-0 flex-row items-center gap-2 self-start sm:flex-col sm:items-end sm:gap-1 sm:self-center">
                           <span className="text-xs font-semibold text-stone-400">
                             {canUndoDelete ? "Deleted" : isSelected ? "Viewing" : "Open"}
                           </span>
@@ -955,7 +931,7 @@ export default function Measurements() {
 
       {updateSummary && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="flex max-h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-[1.75rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_40%),linear-gradient(180deg,rgba(27,18,14,0.96),rgba(10,8,8,0.98))] p-5 shadow-2xl shadow-black/50">
+          <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_40%),linear-gradient(180deg,rgba(27,18,14,0.96),rgba(10,8,8,0.98))] p-4 shadow-2xl shadow-black/50 sm:max-h-[80vh] sm:rounded-[1.75rem] sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-amber-100/10 pb-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/70">
@@ -977,8 +953,8 @@ export default function Measurements() {
               </button>
             </div>
 
-            <div className="mt-4 grid min-h-0 flex-1 gap-4 md:grid-cols-2">
-              <section className="flex min-h-0 flex-col rounded-2xl border border-emerald-400/20 bg-emerald-500/5 p-4">
+            <div className="mt-4 grid min-h-0 flex-1 gap-3 sm:gap-4 md:grid-cols-2">
+              <section className="flex min-h-0 flex-col rounded-2xl border border-emerald-400/20 bg-emerald-500/5 p-3 sm:p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-emerald-200">Updated</p>
                   <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-100">
@@ -1003,7 +979,7 @@ export default function Measurements() {
                 </div>
               </section>
 
-              <section className="flex min-h-0 flex-col rounded-2xl border border-amber-100/10 bg-white/5 p-4">
+              <section className="flex min-h-0 flex-col rounded-2xl border border-amber-100/10 bg-white/5 p-3 sm:p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-stone-200">Not Updated</p>
                   <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5 text-[11px] font-semibold text-stone-300">

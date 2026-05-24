@@ -99,45 +99,45 @@ function EntryModal({ entry, onClose }) {
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
       <div
-        className="relative z-10 flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-amber-100/15 bg-[linear-gradient(160deg,#1e1208,#120d0c)] shadow-2xl shadow-black/60"
+        className="relative z-10 flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-[1.35rem] border border-amber-100/15 bg-[linear-gradient(160deg,#1e1208,#120d0c)] shadow-2xl shadow-black/60 sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Sticky header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-amber-100/10 bg-[#1c1007] px-5 py-4 sm:px-6">
-          <div>
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-amber-100/10 bg-[#1c1007] px-4 py-3.5 sm:items-center sm:px-6 sm:py-4">
+          <div className="min-w-0">
             <p className="text-sm font-bold text-amber-200">📔 Journal Entry</p>
-            <p className="mt-0.5 text-xs text-stone-500">{formattedDate}</p>
+            <p className="mt-0.5 break-words pr-2 text-xs leading-5 text-stone-500">{formattedDate}</p>
           </div>
           <button type="button" onClick={onClose}
-            className="rounded-full border border-amber-100/10 bg-white/5 p-1.5 text-stone-400 transition hover:border-amber-400/30 hover:text-amber-300">
+            className="shrink-0 rounded-full border border-amber-100/10 bg-white/5 p-1.5 text-stone-400 transition hover:border-amber-400/30 hover:text-amber-300">
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <div className="journal-scroll min-h-0 flex-1 space-y-6 overflow-y-auto p-4 sm:p-6">
+        <div className="journal-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-3.5 sm:space-y-6 sm:p-6">
 
           {/* Mood + Wake-up + Energy */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">😊 Mood</p>
-            <div className="dashboard-glow-card flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3">
+            <div className="dashboard-glow-card flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-3 sm:px-4">
                 <span className="text-2xl">{entry.mood.emoji}</span>
                 <span className="text-sm font-semibold text-amber-200">{entry.mood.label}</span>
               </div>
             </div>
             <div>
               <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">🌅 Wake-up Time</p>
-              <div className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
-                <p className="text-2xl font-bold text-amber-200">{entry.wakeUpTime || "--:--"}</p>
+              <div className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-3 py-3 text-center sm:px-4">
+                <p className="text-[1.7rem] font-bold text-amber-200 sm:text-2xl">{entry.wakeUpTime || "--:--"}</p>
                 <p className="mt-1 text-xs text-stone-400">Morning start</p>
               </div>
             </div>
             <div>
               <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">⚡ Energy Level</p>
-              <div className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
-                <p className="text-3xl font-bold text-amber-200">{entry.energyLevel}</p>
+              <div className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-3 py-3 text-center sm:px-4">
+                <p className="text-[2rem] font-bold text-amber-200 sm:text-3xl">{entry.energyLevel}</p>
                 <p className="mt-1 text-xs text-stone-400">{energyLabel}</p>
               </div>
             </div>
@@ -148,7 +148,7 @@ function EntryModal({ entry, onClose }) {
           {/* Summary */}
           <div>
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">📝 Summary</p>
-            <p className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">{entry.summary}</p>
+            <p className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-7 text-stone-300">{entry.summary}</p>
           </div>
 
           {/* Wins */}
@@ -156,7 +156,7 @@ function EntryModal({ entry, onClose }) {
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">✅ Wins</p>
             <ul className="space-y-2">
               {entry.wins.map((w, i) => (
-                <li key={i} className="dashboard-glow-card flex items-start gap-2 rounded-xl border border-emerald-400/15 bg-emerald-500/8 px-4 py-2.5 text-sm text-stone-200">
+                <li key={i} className="dashboard-glow-card flex items-start gap-2 rounded-xl border border-emerald-400/15 bg-emerald-500/8 px-4 py-2.5 text-sm leading-7 text-stone-200">
                   <span className="mt-0.5 shrink-0 font-bold text-emerald-400">{i + 1}.</span>{w}
                 </li>
               ))}
@@ -168,7 +168,7 @@ function EntryModal({ entry, onClose }) {
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">❌ Mistakes</p>
             <ul className="space-y-2">
               {entry.mistakes.map((m, i) => (
-                <li key={i} className="dashboard-glow-card flex items-start gap-2 rounded-xl border border-red-400/15 bg-red-500/8 px-4 py-2.5 text-sm text-stone-200">
+                <li key={i} className="dashboard-glow-card flex items-start gap-2 rounded-xl border border-red-400/15 bg-red-500/8 px-4 py-2.5 text-sm leading-7 text-stone-200">
                   <span className="mt-0.5 shrink-0 font-bold text-red-400">{i + 1}.</span>{m}
                 </li>
               ))}
@@ -178,7 +178,7 @@ function EntryModal({ entry, onClose }) {
           {/* Insight */}
           <div>
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">💡 Lesson of the Day</p>
-            <p className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">{entry.insight}</p>
+            <p className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-7 text-stone-300">{entry.insight}</p>
           </div>
 
           {/* Distraction */}
@@ -186,7 +186,7 @@ function EntryModal({ entry, onClose }) {
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">🚫 Biggest Distraction</p>
             <ul className="space-y-2">
               {(entry.distractions || [entry.distraction]).filter(Boolean).map((item, i) => (
-                <li key={i} className="dashboard-glow-card flex items-start gap-2 rounded-xl border border-red-400/15 bg-red-500/8 px-4 py-2.5 text-sm text-stone-200">
+                <li key={i} className="dashboard-glow-card flex items-start gap-2 rounded-xl border border-red-400/15 bg-red-500/8 px-4 py-2.5 text-sm leading-7 text-stone-200">
                   <span className="mt-0.5 shrink-0 font-bold text-red-400">{i + 1}.</span>{item}
                 </li>
               ))}
@@ -224,14 +224,14 @@ function EntryModal({ entry, onClose }) {
           {/* Tomorrow Plan */}
           <div>
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">📅 Tomorrow&apos;s Plan</p>
-            <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">{entry.tomorrowPlan}</p>
+            <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-7 text-stone-300">{entry.tomorrowPlan}</p>
           </div>
 
           {/* Sleep Time */}
           <div>
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">😴 Sleep Time</p>
-            <div className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
-              <p className="text-3xl font-bold text-amber-200">{entry.sleepTime || "--:--"}</p>
+            <div className="rounded-xl border border-amber-100/10 bg-white/5 px-3 py-3 text-center sm:px-4">
+              <p className="text-[2rem] font-bold text-amber-200 sm:text-3xl">{entry.sleepTime || "--:--"}</p>
               <p className="mt-1 text-xs text-stone-400">Planned rest window</p>
             </div>
           </div>
@@ -239,8 +239,8 @@ function EntryModal({ entry, onClose }) {
           {/* Overall Rating */}
           <div>
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">⭐ Overall Day Rating</p>
-            <div className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-center">
-              <p className="text-4xl font-bold text-amber-200">{entry.overallRating}</p>
+            <div className="rounded-xl border border-amber-100/10 bg-white/5 px-3 py-3 text-center sm:px-4">
+              <p className="text-[2.2rem] font-bold text-amber-200 sm:text-4xl">{entry.overallRating}</p>
               <p className="mt-1 text-xs text-stone-400">{ratingLabel}</p>
               <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
                 <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400 transition-all duration-500"
@@ -262,7 +262,7 @@ function EntryModal({ entry, onClose }) {
                     {field.description ? (
                       <p className="mb-2 text-xs text-stone-500">{field.description}</p>
                     ) : null}
-                    <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-stone-300">
+                    <p className="rounded-xl border border-amber-100/10 bg-white/5 px-4 py-3 text-sm leading-7 text-stone-300">
                       {field.answer || <span className="text-stone-600">Not answered</span>}
                     </p>
                   </div>
@@ -345,11 +345,13 @@ export default function JournalRightSidebar({ refreshToken = 0 }) {
   }, [isDemoMode, refreshToken]);
 
   const handleStartEdit = (day) => {
+    if (isDemoMode) return;
     setEditingDay(day.date);
     setReasonDraft(day.reason || "");
   };
 
   const handleSaveReason = async (dayKey) => {
+    if (isDemoMode || saving || !reasonDraft.trim()) return;
     if (!reasonDraft.trim()) return;
     setSaving(true);
     try {
@@ -371,7 +373,7 @@ export default function JournalRightSidebar({ refreshToken = 0 }) {
       <div className="space-y-4">
 
         {/* Missed Days This Week */}
-        <section className="rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur">
+        <section className="rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl">
           <div className="mb-3 flex items-center gap-2">
             <span className="text-sm">📅</span>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-300/80">
@@ -442,13 +444,13 @@ export default function JournalRightSidebar({ refreshToken = 0 }) {
         </section>
 
         {/* Past Entries */}
-        <section className="rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur">
-          <div className="flex items-center gap-2 mb-4">
+        <section className="rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5">
+          <div className="mb-4 flex items-center gap-2">
             <span className="text-base">📖</span>
             <p className="text-label-md">Past Entries</p>
           </div>
 
-          <div className="h-[47vh] overflow-y-auto space-y-3 pr-1 journal-scroll xl:h-[47vh]">
+          <div className="max-h-[24rem] overflow-y-auto space-y-3 pr-1 journal-scroll sm:max-h-[28rem] xl:h-[47vh] xl:max-h-none">
             {loading ? (
               <p className="text-xs text-stone-500">Loading entries...</p>
             ) : entries.length === 0 ? (
@@ -469,7 +471,7 @@ export default function JournalRightSidebar({ refreshToken = 0 }) {
                 >
 
                   {/* Date + mood */}
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs text-stone-500">{formattedDate}</p>
                     <span className="flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300">
                       {item.mood.emoji} {item.mood.label}
@@ -477,7 +479,7 @@ export default function JournalRightSidebar({ refreshToken = 0 }) {
                   </div>
 
                   {/* Stats row */}
-                  <div className="mt-2 flex items-center gap-3 text-[11px] text-stone-500">
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-stone-500">
                     <span>🌅 {item.wakeUpTime}</span>
                     <span>⚡ {item.energyLevel}</span>
                     <span>⭐ {item.overallRating}</span>

@@ -1,5 +1,5 @@
 import { motion as Motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 
@@ -178,7 +178,7 @@ export default function CreateGoal({ onGoalChanged }) {
   const [archiveDeleteId, setArchiveDeleteId] = useState(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
-  const fetchGoalData = async () => {
+  const fetchGoalData = useCallback(async () => {
     if (isDemoMode) {
       setGoals(buildDemoGoals(today));
       setGoalLogs(buildDemoLogs(today));
@@ -204,11 +204,11 @@ export default function CreateGoal({ onGoalChanged }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isDemoMode, today]);
 
   useEffect(() => {
     fetchGoalData();
-  }, [isDemoMode, today]);
+  }, [fetchGoalData]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -342,18 +342,6 @@ export default function CreateGoal({ onGoalChanged }) {
     }
   };
 
-  const openArchiveEdit = (goal) => {
-    setArchiveEditGoal(goal);
-    setArchiveEditForm({
-      title: goal.title,
-      description: goal.description || "",
-      goalType: goal.goalType,
-      startDate: goal.startDate,
-      deadline: goal.deadline,
-      priority: goal.priority,
-    });
-  };
-
   const saveArchiveEdit = async () => {
     if (!archiveEditForm.title?.trim()) return;
     if (!archiveEditGoal?.id) return;
@@ -399,8 +387,6 @@ export default function CreateGoal({ onGoalChanged }) {
     setArchiveEditGoal(null);
     emitGoalsUpdated();
   };
-
-  const confirmArchiveDelete = (id) => setArchiveDeleteId(id);
 
   const doArchiveDelete = async () => {
     if (!archiveDeleteId) return;
@@ -494,8 +480,8 @@ export default function CreateGoal({ onGoalChanged }) {
 
       <div className="schedule-layout">
         <div
-          className="schedule-main journal-scroll rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20"
-          style={{ height: PANEL_H, overflowY: "auto" }}
+          className="schedule-main journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5 xl:h-[620px]"
+          style={{ overflowY: "auto" }}
         >
           <h3 className="mb-4 text-sm font-semibold text-amber-200">New Goal</h3>
           <form className="space-y-3" onSubmit={handleSubmit}>
@@ -535,7 +521,7 @@ export default function CreateGoal({ onGoalChanged }) {
                     key={type.value}
                     type="button"
                     onClick={() => setField("goalType", type.value)}
-                    className={`rounded-lg border px-3 py-2 text-left transition ${
+                    className={`rounded-lg border px-3 py-2 text-left transition sm:px-3.5 ${
                       form.goalType === type.value
                         ? "border-amber-300/45 bg-amber-500/15"
                         : "border-amber-100/15 bg-white/5 hover:border-amber-300/35"
@@ -591,13 +577,13 @@ export default function CreateGoal({ onGoalChanged }) {
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                 Priority Level *
               </label>
-              <div className="flex gap-1.5 rounded-lg p-0.5">
+              <div className="flex flex-wrap gap-1.5 rounded-lg p-0.5">
                 {PRIORITIES.map((priority) => (
                   <button
                     key={priority}
                     type="button"
                     onClick={() => setField("priority", priority)}
-                    className={`flex flex-1 items-center justify-center whitespace-nowrap rounded-lg border px-1.5 py-1.5 text-[10px] font-semibold transition ${
+                    className={`flex min-w-[88px] flex-1 items-center justify-center whitespace-nowrap rounded-lg border px-2 py-1.5 text-[10px] font-semibold transition ${
                       form.priority === priority
                         ? PRIORITY_STYLES[priority]
                         : "border-amber-100/15 bg-white/5 text-stone-300"
@@ -632,14 +618,13 @@ export default function CreateGoal({ onGoalChanged }) {
         </div>
 
         <section
-          className="schedule-all-tasks rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20"
-          style={{ height: PANEL_H }}
+          className="schedule-all-tasks rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5 xl:h-[650px]"
         >
           <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-amber-200">All Goals</p>
               <p className="mt-0.5 text-xs text-stone-400">Your created goals appear here.</p>
-              <div className="mt-2 flex items-center gap-1.5">
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 {["active", "archive"].map((view) => (
                   <button
                     key={view}
@@ -749,8 +734,7 @@ export default function CreateGoal({ onGoalChanged }) {
 
         <aside className="schedule-sidebar">
           <div
-            className="flex h-full flex-col rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20"
-            style={{ height: PANEL_H }}
+            className="flex h-full flex-col rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl xl:h-[650px]"
           >
             <div className="mb-3 shrink-0 border-b border-amber-100/10 pb-3">
               <p className="text-sm font-semibold tracking-wide text-amber-200">Goal Logs</p>
@@ -775,7 +759,7 @@ export default function CreateGoal({ onGoalChanged }) {
                     return (
                   <div
                     key={log.id}
-                    className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-[11px] ${
+                    className={`flex flex-col items-start gap-2 rounded-md border px-2 py-1.5 text-[11px] sm:flex-row sm:items-center sm:justify-between ${
                       log.action === "archived"
                         ? "border-blue-400/20 bg-blue-500/5 text-stone-300"
                         : log.action === "ended"

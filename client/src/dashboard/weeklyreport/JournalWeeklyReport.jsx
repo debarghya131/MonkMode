@@ -94,7 +94,7 @@ function ReportCard({ children, className = "" }) {
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -3, boxShadow: "0 18px 36px rgba(0,0,0,0.34)" }}
       transition={{ duration: 0.22 }}
-      className={`rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur ${className}`}
+      className={`rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5 ${className}`}
     >
       {children}
     </Motion.section>
@@ -129,7 +129,7 @@ function AnalysisStatCard({ icon, title, mainLabel, mainValue, mainAccent = "amb
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -4 }}
-      className="dashboard-glow-card rounded-2xl border border-amber-100/10 bg-stone-950/45 p-4"
+      className="dashboard-glow-card rounded-[1.4rem] border border-amber-100/10 bg-stone-950/45 p-4 sm:rounded-2xl"
     >
       <div className="mb-3 flex items-center gap-2">
         <span className="text-base leading-none">{icon}</span>
@@ -192,23 +192,39 @@ export default function JournalWeeklyReport() {
 
   // On mount: fetch summaries list
   useEffect(() => {
+    let active = true;
+
     if (isDemoMode) {
-      setSummaries(DEMO_SUMMARIES);
-      setSelectedWeekId(DEMO_SUMMARIES[0].id);
-      setLoadingSummaries(false);
-      return;
+      if (active) {
+        setSummaries(DEMO_SUMMARIES);
+        setSelectedWeekId(DEMO_SUMMARIES[0].id);
+        setLoadingSummaries(false);
+      }
+      return () => {
+        active = false;
+      };
     }
+
     api.get("/weekly-report/journal/summaries")
       .then((res) => {
+        if (!active) return;
         setSummaries(res.data);
         if (res.data.length > 0) setSelectedWeekId(res.data[0].id);
       })
       .catch((err) => console.error("Journal weekly report init error:", err))
-      .finally(() => setLoadingSummaries(false));
+      .finally(() => {
+        if (active) setLoadingSummaries(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [isDemoMode]);
 
   // When selected week changes: fetch detailed stats, AI summary, and missed days for that week
   useEffect(() => {
+    let active = true;
+
     setWeekData(null);
     setAiSummary(null);
     setMissedDays([]);
@@ -236,21 +252,37 @@ export default function JournalWeeklyReport() {
 
     api
       .get(`/weekly-report/journal?week=${selectedWeekId}`)
-      .then((res) => setWeekData(res.data))
+      .then((res) => {
+        if (active) setWeekData(res.data);
+      })
       .catch((err) => console.error("Failed to load week data:", err))
-      .finally(() => setLoadingWeekData(false));
+      .finally(() => {
+        if (active) setLoadingWeekData(false);
+      });
 
     api
       .get(`/weekly-report/journal/ai-summary?week=${selectedWeekId}`)
-      .then((res) => setAiSummary(res.data.aiSummary ?? null))
+      .then((res) => {
+        if (active) setAiSummary(res.data.aiSummary ?? null);
+      })
       .catch((err) => console.error("Failed to load AI summary:", err))
-      .finally(() => setLoadingAi(false));
+      .finally(() => {
+        if (active) setLoadingAi(false);
+      });
 
     api
       .get(`/weekly-report/journal/missed-days?week=${selectedWeekId}`)
-      .then((res) => setMissedDays(Array.isArray(res.data) ? res.data : []))
+      .then((res) => {
+        if (active) setMissedDays(Array.isArray(res.data) ? res.data : []);
+      })
       .catch((err) => console.error("Failed to load missed days:", err))
-      .finally(() => setLoadingMissedDays(false));
+      .finally(() => {
+        if (active) setLoadingMissedDays(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [selectedWeekId, isDemoMode]);
 
   const handleRegenerate = async () => {
@@ -268,7 +300,7 @@ export default function JournalWeeklyReport() {
   };
 
   return (
-    <div className="flex flex-col gap-5 lg:flex-row lg:items-stretch">
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
 
       {/* ── LEFT: Main analysis panel ─────────────────────────── */}
       <div className="min-w-0 flex-1">
@@ -279,7 +311,7 @@ export default function JournalWeeklyReport() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex h-64 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-amber-100/10 text-center"
+              className="flex h-56 flex-col items-center justify-center gap-3 rounded-[1.4rem] border border-dashed border-amber-100/10 px-4 text-center sm:h-64 sm:rounded-2xl"
             >
               <span className="text-3xl opacity-30">📊</span>
               <p className="text-sm font-semibold text-stone-500">Select a week to view detailed analysis</p>
@@ -293,11 +325,11 @@ export default function JournalWeeklyReport() {
               exit={{ opacity: 0 }}
               className="space-y-4"
             >
-              <div className="animate-pulse rounded-2xl border border-amber-100/10 bg-white/6 px-6 py-4 h-28" />
-              <div className="animate-pulse rounded-2xl border border-amber-100/10 bg-white/6 p-4 h-48" />
+              <div className="animate-pulse rounded-[1.4rem] border border-amber-100/10 bg-white/6 px-4 py-4 h-32 sm:rounded-2xl sm:px-6 sm:h-28" />
+              <div className="animate-pulse rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 h-56 sm:rounded-2xl sm:h-48" />
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="animate-pulse rounded-2xl border border-amber-100/10 bg-stone-950/45 h-40" />
+                  <div key={i} className="animate-pulse rounded-[1.4rem] border border-amber-100/10 bg-stone-950/45 h-40 sm:rounded-2xl" />
                 ))}
               </div>
             </Motion.div>
@@ -311,13 +343,13 @@ export default function JournalWeeklyReport() {
               className="space-y-4"
             >
               {/* Heading */}
-              <div className="dashboard-glow-card rounded-2xl border border-amber-100/10 bg-white/6 px-6 py-4 shadow-xl shadow-black/25 backdrop-blur">
-                <div className="flex items-center justify-between gap-4">
+              <div className="dashboard-glow-card rounded-[1.4rem] border border-amber-100/10 bg-white/6 px-4 py-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:px-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <div>
                     <p className="text-label-md">Weekly Summary</p>
                     <p className="mt-1 text-xs font-semibold text-stone-500">{weekData.date}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
                       {weekData.signal}
                     </span>
@@ -383,9 +415,9 @@ export default function JournalWeeklyReport() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="flex max-h-48 flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
+                className="flex flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:max-h-48 sm:rounded-2xl"
               >
-                <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
                   <div className="flex items-center gap-2">
                     <Motion.img
                       src={littleMonkLogo}
@@ -567,7 +599,7 @@ export default function JournalWeeklyReport() {
                         : "border-amber-100/10 bg-stone-950/45 hover:border-amber-400/20"
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
                         <p className="text-xs font-semibold text-stone-200 truncate">Weekly Summary</p>
                         <p className="text-[11px] text-stone-500">{week.date} · {week.signal}</p>
@@ -629,7 +661,7 @@ export default function JournalWeeklyReport() {
                     key={day.date}
                     className="rounded-lg border border-amber-100/10 bg-stone-950/45 px-3 py-1.5"
                   >
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-xs font-semibold text-stone-200">
                         {day.label || formatDate(day.date)}
                       </p>

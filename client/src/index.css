@@ -77,7 +77,7 @@
   display: block;
 }
 .overview-heatmap svg {
-  width: 103%;
+  width: 100%;
   height: auto;
   max-height: 100%;
   margin-left: 0;
@@ -94,6 +94,15 @@
 .overview-heatmap .react-calendar-heatmap rect {
   rx: 2px;
   ry: 2px;
+}
+@media (max-width: 640px) {
+  .overview-heatmap .react-calendar-heatmap text {
+    font-size: 8px;
+  }
+
+  .overview-heatmap .react-calendar-heatmap .react-calendar-heatmap-month-label {
+    font-size: 8px;
+  }
 }
 .heatmap-github-empty { fill: rgba(255, 255, 255, 0.07); }
 .heatmap-github-scale-1 { fill: #9be9a8; }
@@ -467,7 +476,7 @@ a {
   overflow-y: auto;
 }
 
-@media (min-width: 1500px) {
+@media (min-width: 1280px) {
   .schedule-layout {
     flex-direction: row;
     align-items: flex-start;
@@ -490,7 +499,9 @@ a {
     width: 260px;
     flex: 0 0 260px;
   }
+}
 
+@media (min-width: 1500px) {
   .today-layout {
     flex-direction: row;
     align-items: flex-start;
@@ -595,14 +606,16 @@ a {
   gap: 0.75rem;
   overflow-x: auto;
   overflow-y: hidden;
+  scroll-snap-type: x proximity;
 }
 
 .upcoming-day-col {
   flex: 1 1 0%;
-  min-width: 155px;
+  min-width: min(84vw, 16.5rem);
   min-height: 0;
   display: flex;
   flex-direction: column;
+  scroll-snap-align: start;
 }
 
 .upcoming-day-scroll {
@@ -636,6 +649,10 @@ a {
 
   .upcoming-card-next5 {
     flex: 1 1 0%;
+  }
+
+  .upcoming-day-col {
+    min-width: 155px;
   }
 
   .upcoming-scroll-card {

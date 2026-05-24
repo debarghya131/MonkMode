@@ -84,7 +84,7 @@ function StatusCard({ label, className = "", viewHref, actions = [], children })
       whileHover={{ y: -5, boxShadow: "0 20px 40px rgba(0,0,0,0.4)" }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 300, damping: 22 }}
-      className={`flex flex-col rounded-2xl border border-amber-100/10 bg-stone-950/45 p-5 ${className}`}
+      className={`flex flex-col rounded-[1.25rem] border border-amber-100/10 bg-stone-950/45 p-4 sm:rounded-2xl sm:p-5 ${className}`}
     >
       <div className="flex items-center justify-between">
         <p className="text-label-md">{label}</p>
@@ -130,10 +130,10 @@ function StatRow({ label, value, accent }) {
     : "text-stone-100";
 
   return (
-    <div className="flex items-baseline justify-between gap-3">
+    <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
       <dt className="text-body-sm text-stone-400">{label}</dt>
       <Motion.dd
-        className={`text-accent-sm whitespace-nowrap ${accentClass}`}
+        className={`text-accent-sm break-words text-left sm:text-right sm:whitespace-nowrap ${accentClass}`}
         animate={
           isPositive || isSuccess
             ? {
@@ -464,21 +464,21 @@ export default function Overview() {
   return (
     <DashboardLayout>
       <div className="w-full">
-        <div className="grid gap-6 xl:grid-cols-[5fr_7fr]">
+        <div className="grid gap-4 lg:gap-6 xl:grid-cols-[5fr_7fr]">
           {/* Main Content Area */}
           <Motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.16, ease: "easeOut" }}
           >
-            <section className="rounded-[2rem] border border-amber-100/10 bg-white/6 p-8 shadow-2xl shadow-black/25 backdrop-blur">
+            <section className="rounded-[1.5rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-[2rem] sm:p-8">
               <p className="text-label-lg">Overview</p>
-              <p className="text-body-md mt-4 text-stone-400">
+              <p className="text-body-md mt-3 max-w-3xl text-stone-400 sm:mt-4">
                 Here's a snapshot of today's discipline across journal, tasks, habits, goals, and gym.
               </p>
 
               <Motion.div
-                className="mt-8 grid grid-cols-2 gap-4"
+                className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:grid-cols-2"
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
@@ -526,7 +526,7 @@ export default function Overview() {
                 <StatusCard
                   label="Gym"
                   viewHref="/dashboard/gym"
-                  className="col-span-2"
+                  className="sm:col-span-2"
                   actions={[
                     { label: "View Measure Progress", href: "/dashboard/gym?tab=progress&progress=measurements" },
                     { label: "View Workout Progress", href: "/dashboard/gym?tab=progress&progress=workouts" },
@@ -549,7 +549,7 @@ export default function Overview() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.16, ease: "easeOut" }}
           >
-            <div className="rounded-[2rem] border border-amber-100/10 bg-white/6 px-3 py-4 shadow-2xl shadow-black/25 backdrop-blur h-[82vh] sticky top-2">
+            <div className="min-h-[32rem] rounded-[1.5rem] border border-amber-100/10 bg-white/6 px-2.5 py-3 shadow-2xl shadow-black/25 backdrop-blur sm:min-h-[38rem] sm:rounded-[2rem] sm:px-3 sm:py-4 xl:sticky xl:top-2 xl:h-[82vh] xl:min-h-0">
               <OverviewHeatmap />
             </div>
           </Motion.div>

@@ -180,6 +180,9 @@ export default function DashboardLayout({ children }) {
 
   const isOverviewRoute = location.pathname === "/dashboard";
   const isAiGuruRoute = location.pathname === "/dashboard/ai_guru";
+  const mobileNoticePositionClass = isAiGuruRoute
+    ? "bottom-[calc(env(safe-area-inset-bottom)+6.5rem)]"
+    : "bottom-[max(1rem,env(safe-area-inset-bottom))]";
   const pageTransition = isOverviewRoute
     ? {
         initial: { opacity: 0, y: 6 },
@@ -202,7 +205,7 @@ export default function DashboardLayout({ children }) {
       };
 
   return (
-    <div className="dashboard-shell h-screen flex flex-col bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_34%),linear-gradient(180deg,#17110f_0%,#241714_45%,#120d0c_100%)] text-white">
+    <div className="dashboard-shell flex h-screen flex-col overflow-x-hidden bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_34%),linear-gradient(180deg,#17110f_0%,#241714_45%,#120d0c_100%)] text-white">
 
       {/* Navbar */}
       <header className="shrink-0 z-30 border-b border-amber-100/10">
@@ -239,11 +242,11 @@ export default function DashboardLayout({ children }) {
               {/* Drawer */}
               <Motion.aside
                 key="drawer"
-                initial={{ x: -288 }}
+                initial={{ x: "-100%" }}
                 animate={{ x: 0 }}
-                exit={{ x: -288 }}
+                exit={{ x: "-100%" }}
                 transition={{ type: "spring", stiffness: 320, damping: 32 }}
-                className="fixed left-0 top-0 bottom-0 z-50 flex w-72 flex-col border-r border-amber-100/10 bg-[#17110f] overflow-y-auto overflow-x-hidden lg:hidden"
+                className="fixed inset-y-0 left-0 z-50 flex w-[min(19rem,calc(100vw-2.5rem))] max-w-full flex-col overflow-y-auto overflow-x-hidden border-r border-amber-100/10 bg-[#17110f] shadow-2xl shadow-black/45 lg:hidden"
               >
                 {/* Drawer header with close button */}
                 <div className="flex items-center justify-between border-b border-amber-100/10 px-5 py-4">
@@ -276,21 +279,6 @@ export default function DashboardLayout({ children }) {
           onKeyDownCapture={handleDemoKeyDownCapture}
           onSubmitCapture={handleDemoSubmitCapture}
         >
-          <AnimatePresence>
-            {demoNotice && (
-              <Motion.div
-                key="demo-readonly-notice-mobile"
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.18 }}
-                className="mb-4 rounded-2xl border border-amber-200/25 bg-stone-950/95 px-4 py-3 text-center text-xs font-semibold leading-snug text-amber-100 shadow-[0_14px_34px_rgba(0,0,0,0.35),0_0_24px_rgba(251,191,36,0.14)] backdrop-blur sm:hidden"
-              >
-                {demoNotice}
-              </Motion.div>
-            )}
-          </AnimatePresence>
-
           {isAiGuruRoute ? (
             <div>{children}</div>
           ) : (
@@ -309,6 +297,21 @@ export default function DashboardLayout({ children }) {
         </main>
 
       </div>
+
+      <AnimatePresence>
+        {demoNotice && (
+          <Motion.div
+            key="demo-readonly-notice-mobile"
+            initial={{ opacity: 0, y: 12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.96 }}
+            transition={{ duration: 0.18 }}
+            className={`pointer-events-none fixed inset-x-3 z-[1000] rounded-[1.25rem] border border-amber-200/25 bg-stone-950/95 px-4 py-3.5 text-center text-[0.78rem] font-semibold leading-5 text-amber-100 shadow-[0_18px_40px_rgba(0,0,0,0.38),0_0_24px_rgba(251,191,36,0.14)] backdrop-blur sm:hidden ${mobileNoticePositionClass}`}
+          >
+            {demoNotice}
+          </Motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {demoNotice && (

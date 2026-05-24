@@ -1,30 +1,76 @@
-import jwt from "jsonwebtoken";
+import { clerkClient, getAuth } from "@clerk/express";
 import User from "../models/User.js";
+
+const getPrimaryEmailAddress = (clerkUser) =>
+  clerkUser?.primaryEmailAddress?.emailAddress ||
+  clerkUser?.emailAddresses?.find?.((email) => email.id === clerkUser.primaryEmailAddressId)?.emailAddress ||
+  clerkUser?.emailAddresses?.[0]?.emailAddress ||
+  "";
+
+const getDisplayName = (clerkUser, fallbackEmail) => {
+  const fullName = clerkUser?.fullName || [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ").trim();
+  if (fullName) return fullName;
+  if (fallbackEmail) return fallbackEmail;
+  return "MonkMode User";
+};
 
 export const protect = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    const auth = getAuth(req);
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "Not authorized, token missing" });
+    if (!auth.userId) {
+      return res.status(401).json({ message: "Not authorized" });
     }
 
-    if (!process.env.JWT_SECRET) {
-      return res.status(500).json({ message: "JWT_SECRET is not configured" });
+    const clerkUser = await clerkClient.users.getUser(auth.userId);
+    const normalizedEmail = getPrimaryEmailAddress(clerkUser).toLowerCase().trim();
+
+    if (!normalizedEmail) {
+      return res.status(401).json({ message: "Authenticated Clerk user is missing a primary email address" });
     }
 
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select("-password");
+    const displayName = getDisplayName(clerkUser, normalizedEmail);
+    let user = await User.findOne({
+      $or: [
+        { clerkId: auth.userId },
+        { email: normalizedEmail }
+      ]
+    });
 
     if (!user) {
-      return res.status(401).json({ message: "User not found for this token" });
+      user = await User.create({
+        clerkId: auth.userId,
+        email: normalizedEmail,
+        name: displayName,
+        password: ""
+      });
+    } else {
+      let changed = false;
+
+      if (user.clerkId !== auth.userId) {
+        user.clerkId = auth.userId;
+        changed = true;
+      }
+      if (user.email !== normalizedEmail) {
+        user.email = normalizedEmail;
+        changed = true;
+      }
+      if (!user.name || user.name === "MonkMode User") {
+        user.name = displayName;
+        changed = true;
+      }
+
+      if (changed) {
+        await user.save();
+      }
     }
 
     req.user = {
+      _id: user._id,
       id: user._id.toString(),
       name: user.name,
-      email: user.email
+      email: user.email,
+      clerkId: user.clerkId
     };
 
     next();

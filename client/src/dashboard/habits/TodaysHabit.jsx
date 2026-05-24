@@ -110,12 +110,12 @@ function HabitRow({ habit, status, onUndo, index = 0 }) {
       transition={{ delay: index * 0.04, duration: 0.2 }}
       whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-stone-100">{habit.title}</p>
           <p className="mt-1 text-xs text-stone-400">{habit.note}</p>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:justify-end">
           {onUndo && (
             <button
               type="button"
@@ -257,11 +257,11 @@ export default function TodaysHabit() {
 
   const pendingHabits = useMemo(
     () => visibleHabits.filter((h) => getHabitStatus(h) === "pending"),
-    [visibleHabits, todayISO]
+    [visibleHabits]
   );
   const completedHabits = useMemo(
     () => visibleHabits.filter((h) => getHabitStatus(h) === "completed"),
-    [visibleHabits, todayISO]
+    [visibleHabits]
   );
   const sidebarHabits = useMemo(
     () => (sidebarPriorityFilter === "All" ? visibleHabits : visibleHabits.filter((h) => h.priority === sidebarPriorityFilter)),
@@ -328,25 +328,25 @@ export default function TodaysHabit() {
   return (
     <div className="habits-today-page space-y-5">
       <div className="today-layout">
-        <section className="today-main rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-6 shadow-xl shadow-black/20">
+        <section className="today-main rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-200/70">{todayLabel}</p>
               <h3 className="mt-2 text-2xl font-bold text-amber-100">Today&apos;s Habits</h3>
             </div>
-            <div className="shrink-0">
+            <div className="w-full sm:w-auto sm:shrink-0">
               <TimeSlotFilter selected={timeSlotFilter} onChange={setTimeSlotFilter} />
             </div>
           </div>
 
           <Motion.div
-            className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2 2xl:grid-cols-3"
+            className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5 2xl:grid-cols-3"
             initial="hidden"
             animate="visible"
             variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
           >
             <Motion.section
-              className="today-scroll-card min-w-0 rounded-2xl border border-amber-100/10 bg-black/10 p-5"
+              className="today-scroll-card min-w-0 rounded-[1.25rem] border border-amber-100/10 bg-black/10 p-4 sm:rounded-2xl sm:p-5"
               variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
               transition={{ duration: 0.3 }}
             >
@@ -366,8 +366,8 @@ export default function TodaysHabit() {
                   const filtered = allFilter === "All" ? categoryHabits : categoryHabits.filter((h) => h.priority === allFilter);
                   if (filtered.length === 0) return null;
                   return (
-                    <div key={category} className="rounded-2xl border border-amber-100/10 bg-white/[0.03] p-4">
-                      <div className="mb-3 flex items-center justify-between">
+                    <div key={category} className="rounded-[1.1rem] border border-amber-100/10 bg-white/[0.03] p-3 sm:rounded-2xl sm:p-4">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                         <h4 className="text-sm font-semibold text-stone-100">{category}</h4>
                         <span className="text-xs text-stone-400">{filtered.length} habits</span>
                       </div>
@@ -383,7 +383,7 @@ export default function TodaysHabit() {
             </Motion.section>
 
             <Motion.section
-              className="today-scroll-card min-w-0 rounded-2xl border border-amber-100/10 bg-black/10 p-5"
+              className="today-scroll-card min-w-0 rounded-[1.25rem] border border-amber-100/10 bg-black/10 p-4 sm:rounded-2xl sm:p-5"
               variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
               transition={{ duration: 0.3 }}
             >
@@ -415,12 +415,12 @@ export default function TodaysHabit() {
                         transition={{ delay: i * 0.04, duration: 0.2 }}
                         whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
                       >
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-stone-100">{habit.title}</p>
                             <p className="mt-1 text-xs text-stone-400">{habit.note}</p>
                           </div>
-                          <div className="flex shrink-0 items-center gap-1.5">
+                          <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:justify-end">
                             <Motion.button
                               type="button"
                               onClick={() => markDone(habit._id ?? habit.id)}
@@ -463,7 +463,7 @@ export default function TodaysHabit() {
             </Motion.section>
 
             <Motion.section
-              className="today-scroll-card min-w-0 rounded-2xl border border-amber-100/10 bg-black/10 p-5"
+              className="today-scroll-card min-w-0 rounded-[1.25rem] border border-amber-100/10 bg-black/10 p-4 sm:rounded-2xl sm:p-5"
               variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
               transition={{ duration: 0.3 }}
             >
@@ -500,7 +500,7 @@ export default function TodaysHabit() {
         </section>
 
         <aside className="today-sidebar">
-          <section className="today-scroll-card rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-5 shadow-xl shadow-black/20">
+          <section className="today-scroll-card rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-amber-200">Habit Streak Summary</p>
@@ -540,7 +540,7 @@ export default function TodaysHabit() {
                           );
                         })()}
                       </div>
-                      <div className="min-w-[140px] space-y-1 text-left sm:text-right">
+                      <div className="w-full space-y-1 text-left sm:min-w-[140px] sm:w-auto sm:text-right">
                         <p>Target Streak: <span className="font-semibold text-amber-100">{habit.targetStreak ?? "--"}</span></p>
                         <p>Current Streak: <span className="font-semibold text-emerald-200">{habit.currentStreak ?? 0}</span></p>
                         <p>Max Streak: <span className="font-semibold text-amber-100">{habit.maxStreak ?? "--"}</span></p>

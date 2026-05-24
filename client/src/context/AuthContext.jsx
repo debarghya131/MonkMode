@@ -1,11 +1,12 @@
-import { createContext, useState } from "react";
-import api from "../api/axios";
+import { useAuth as useClerkAuth, useUser } from "@clerk/react";
+import { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import { setApiTokenProvider } from "../api/axios";
 
 const AuthContext = createContext(null);
 
-const TOKEN_KEY = "monkmode_token";
-const USER_KEY = "monkmode_user";
 const DEMO_MODE_KEY = "monkmode_demo_mode";
+const LEGACY_TOKEN_KEY = "monkmode_token";
+const LEGACY_USER_KEY = "monkmode_user";
 
 const DEMO_USER = {
   id: "demo-user",
@@ -14,86 +15,89 @@ const DEMO_USER = {
   isDemo: true
 };
 
-const getStoredAuth = () => {
-  const storedToken = localStorage.getItem(TOKEN_KEY);
-  const storedUser = localStorage.getItem(USER_KEY);
+const readDemoModeFlag = () => {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(DEMO_MODE_KEY) === "true";
+};
 
-  if (!storedToken || !storedUser) {
-    return { token: "", user: null };
-  }
+const clearLegacyAuth = () => {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
+  localStorage.removeItem(LEGACY_USER_KEY);
+};
 
-  try {
-    return {
-      token: storedToken,
-      user: JSON.parse(storedUser)
-    };
-  } catch {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    return { token: "", user: null };
-  }
+const normalizeClerkUser = (clerkUser) => {
+  if (!clerkUser) return null;
+
+  const email =
+    clerkUser.primaryEmailAddress?.emailAddress ||
+    clerkUser.emailAddresses?.[0]?.emailAddress ||
+    "";
+  const fullName =
+    clerkUser.fullName ||
+    [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ").trim();
+
+  return {
+    id: clerkUser.id,
+    name: fullName || email || "Friend",
+    email
+  };
 };
 
 export function AuthProvider({ children }) {
-  const storedAuth = getStoredAuth();
-  const [user, setUser] = useState(storedAuth.user);
-  const [token, setToken] = useState(storedAuth.token);
-  const isBootstrapping = false;
-  const isDemoSession = Boolean(user?.isDemo) || String(token || "").startsWith("demo-mode-");
+  const { getToken, isLoaded, isSignedIn, signOut } = useClerkAuth();
+  const { user: clerkUser } = useUser();
+  const [demoModeRequested, setDemoModeRequested] = useState(readDemoModeFlag);
+  const isDemoSession = demoModeRequested && !isSignedIn;
 
-  const persistAuth = (nextToken, nextUser) => {
-    setToken(nextToken);
-    setUser(nextUser);
-    localStorage.setItem(TOKEN_KEY, nextToken);
-    localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+  useEffect(() => {
+    clearLegacyAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!isSignedIn || !demoModeRequested) return;
     localStorage.removeItem(DEMO_MODE_KEY);
-  };
+    setDemoModeRequested(false);
+  }, [demoModeRequested, isSignedIn]);
 
-  const clearAuth = () => {
-    setToken("");
-    setUser(null);
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    localStorage.removeItem(DEMO_MODE_KEY);
-  };
+  useEffect(() => {
+    setApiTokenProvider(async () => {
+      if (!isLoaded || !isSignedIn || isDemoSession) return "";
+      return (await getToken()) || "";
+    });
 
-  const startDemoMode = () => {
-    const demoToken = `demo-mode-${Date.now()}`;
-    setToken(demoToken);
-    setUser(DEMO_USER);
-    localStorage.setItem(TOKEN_KEY, demoToken);
-    localStorage.setItem(USER_KEY, JSON.stringify(DEMO_USER));
+    return () => {
+      setApiTokenProvider(async () => "");
+    };
+  }, [getToken, isDemoSession, isLoaded, isSignedIn]);
+
+  const startDemoMode = useCallback(() => {
+    clearLegacyAuth();
     localStorage.setItem(DEMO_MODE_KEY, "true");
+    setDemoModeRequested(true);
     return DEMO_USER;
-  };
+  }, []);
 
-  const register = async (payload) => {
-    const { data } = await api.post("/auth/register", payload);
-    persistAuth(data.token, data.user);
-    return data.user;
-  };
+  const logout = useCallback(() => {
+    localStorage.removeItem(DEMO_MODE_KEY);
+    clearLegacyAuth();
+    setDemoModeRequested(false);
+    if (isSignedIn) {
+      void signOut();
+    }
+  }, [isSignedIn, signOut]);
 
-  const login = async (payload) => {
-    const { data } = await api.post("/auth/login", payload);
-    persistAuth(data.token, data.user);
-    return data.user;
-  };
-
-  const logout = () => {
-    clearAuth();
-  };
-
-  const value = {
-    isAuthenticated: Boolean(token),
-    isBootstrapping,
+  const value = useMemo(() => ({
+    isAuthenticated: isDemoSession || Boolean(isSignedIn),
+    hasRealSession: Boolean(isSignedIn),
+    isBootstrapping: !isLoaded && !isDemoSession,
     isDemoMode: isDemoSession,
-    login,
+    authMode: isDemoSession ? "demo" : isSignedIn ? "clerk" : "guest",
     logout,
-    register,
     startDemoMode,
-    token,
-    user
-  };
+    token: isDemoSession ? "demo-mode" : "",
+    user: isDemoSession ? DEMO_USER : normalizeClerkUser(clerkUser)
+  }), [clerkUser, isDemoSession, isLoaded, isSignedIn, logout, startDemoMode]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

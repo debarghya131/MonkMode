@@ -36,8 +36,8 @@ const MACRO_COLORS = {
 function InsightRail({ insights }) {
   const [selected, setSelected] = useState(null);
   return (
-    <aside className="flex w-full flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur">
-      <div className="shrink-0 p-5 pb-4">
+    <aside className="flex w-full flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl">
+      <div className="shrink-0 p-4 pb-3 sm:p-5 sm:pb-4">
         <div className="flex items-center gap-3">
           <Motion.div
             className="relative grid h-16 w-16 place-items-center"
@@ -63,7 +63,7 @@ function InsightRail({ insights }) {
           </div>
         </div>
       </div>
-      <div className="journal-scroll space-y-3 px-5 pb-5 pr-4">
+      <div className="journal-scroll space-y-3 px-4 pb-4 pr-3 sm:px-5 sm:pb-5 sm:pr-4">
         {insights.map((insight) => {
           const isSelected = selected === insight.title;
           return (
@@ -74,7 +74,7 @@ function InsightRail({ insights }) {
                 isSelected ? "border-sky-400/30 bg-sky-500/8" : "border-sky-100/10 bg-stone-950/45 hover:border-sky-300/20"
               }`}
             >
-              <div className="grid grid-cols-[1fr_auto] items-start gap-3">
+              <div className="grid items-start gap-3 sm:grid-cols-[1fr_auto]">
                 <div className="min-w-0">
                   <span className="text-xs font-semibold text-sky-200">{insight.title}</span>
                   <p className="text-sm font-semibold text-stone-200">{insight.value}</p>
@@ -87,7 +87,7 @@ function InsightRail({ insights }) {
                 <button
                   type="button"
                   onClick={() => setSelected(isSelected ? null : insight.title)}
-                  className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                  className={`w-full rounded-full border px-3 py-1 text-xs font-semibold transition-colors sm:w-fit ${
                     isSelected ? "border-sky-400/40 bg-sky-400/15 text-sky-100" : "border-sky-400/20 text-sky-200 hover:border-sky-300/45 hover:bg-sky-400/10"
                   }`}
                 >
@@ -107,7 +107,7 @@ function MacroTargetsChart({ macros }) {
 
   if (!macros) {
     return (
-      <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+      <section className="rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Nutrition Targets</p>
           <h4 className="mt-2 text-xl font-semibold text-sky-50">Active Macro Plan</h4>
@@ -138,14 +138,14 @@ function MacroTargetsChart({ macros }) {
   let runningOffset = 0;
 
   return (
-    <section className="rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+    <section className="rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5">
       <div>
         <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Nutrition Targets</p>
         <h4 className="mt-2 text-xl font-semibold text-sky-50">Active Macro Plan</h4>
         <p className="mt-1 text-[11px] text-stone-400">Daily macro targets from your active diet plan</p>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(220px,0.75fr)_1fr] lg:items-center">
+      <div className="mt-6 grid gap-4 sm:gap-6 lg:grid-cols-[minmax(220px,0.75fr)_1fr] lg:items-center">
         <div className="relative mx-auto aspect-square w-full max-w-[280px]">
           <Motion.div
             className="absolute inset-5 rounded-full bg-sky-400/8 blur-2xl"
@@ -253,7 +253,7 @@ function DayWiseWorkoutFrequency({ sessions }) {
   const yTicks = [...new Set([0, Math.ceil(maxCount / 2), maxCount])];
 
   return (
-    <section className="journal-scroll max-h-[310px] overflow-y-auto rounded-[1.75rem] border border-sky-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+    <section className="journal-scroll overflow-y-auto rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5 lg:max-h-[310px]">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Workout Frequency</p>
@@ -330,7 +330,13 @@ export default function NutritionConsistencyAnalysis() {
       setLoading(false);
       return;
     }
-    if (!user) return;
+    if (!user) {
+      setSessions([]);
+      setWeeklyStats([]);
+      setMacros(null);
+      setLoading(false);
+      return;
+    }
 
     let cancelled = false;
 
@@ -361,6 +367,7 @@ export default function NutritionConsistencyAnalysis() {
     loadAnalysis();
     window.addEventListener("focus", refreshAnalysis);
     window.addEventListener("storage", refreshAnalysis);
+    window.addEventListener("monkmode:gym-diet-updated", refreshAnalysis);
     window.addEventListener("monkmode:exercise-progress-updated", refreshAnalysis);
     window.addEventListener("monkmode:gym-workouts-updated", refreshAnalysis);
 
@@ -368,6 +375,7 @@ export default function NutritionConsistencyAnalysis() {
       cancelled = true;
       window.removeEventListener("focus", refreshAnalysis);
       window.removeEventListener("storage", refreshAnalysis);
+      window.removeEventListener("monkmode:gym-diet-updated", refreshAnalysis);
       window.removeEventListener("monkmode:exercise-progress-updated", refreshAnalysis);
       window.removeEventListener("monkmode:gym-workouts-updated", refreshAnalysis);
     };
@@ -420,7 +428,7 @@ export default function NutritionConsistencyAnalysis() {
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
+        <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
           <span className="text-stone-400">Year</span>
           <select
             value={selectedYear}
@@ -438,7 +446,7 @@ export default function NutritionConsistencyAnalysis() {
             ))}
           </select>
         </label>
-        <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
+        <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
           <span className="text-stone-400">Month</span>
           <select
             value={selectedMonth}
@@ -454,21 +462,17 @@ export default function NutritionConsistencyAnalysis() {
         {loading && <span className="animate-pulse text-xs text-stone-500">Loading…</span>}
       </div>
 
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
         <div
-          className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
-          style={{ maxHeight: "calc(100vh - 350px)" }}
+          className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[1.6rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem] lg:max-h-[calc(100vh-350px)]"
         >
-          <div className="space-y-6 p-6">
+          <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
             <MacroTargetsChart macros={macros} />
             <DayWiseWorkoutFrequency sessions={sessions} />
           </div>
         </div>
 
-        <div
-          className="journal-scroll flex w-full lg:max-w-[360px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
-          style={{ maxHeight: "calc(100vh - 180px)" }}
-        >
+        <div className="journal-scroll self-start flex w-full flex-col gap-2 scroll-smooth overflow-y-auto lg:max-h-[calc(100vh-180px)] lg:max-w-[380px] lg:shrink-0">
           <InsightRail insights={insights} />
         </div>
       </div>

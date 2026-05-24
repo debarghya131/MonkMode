@@ -258,10 +258,10 @@ export default function HabitTracking() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <p className="text-label-lg">Track Your Habit</p>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-full border border-amber-100/10 bg-white/5 p-1">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <div className="flex flex-wrap items-center gap-1 rounded-full border border-amber-100/10 bg-white/5 p-1">
             {["active", "archived"].map((view) => (
               <button
                 key={view}
@@ -302,9 +302,9 @@ export default function HabitTracking() {
         </div>
       </div>
 
-      <section className="rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20">
+      <section className="rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-3 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-4">
         <div className="mb-2 overflow-x-auto">
-          <div className="min-w-[780px] rounded-lg border border-amber-100/10 bg-black/30 px-3 py-2 lg:min-w-[1120px]">
+          <div className="min-w-[680px] rounded-lg border border-amber-100/10 bg-black/30 px-3 py-2 sm:min-w-[780px] lg:min-w-[1120px]">
             <div className="flex items-center gap-3">
               <label className="flex shrink-0 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-400">
                 Year
@@ -340,8 +340,8 @@ export default function HabitTracking() {
           </div>
         </div>
 
-        <div className="journal-scroll h-[calc(100vh-390px)] min-h-[22rem] overflow-x-auto overflow-y-auto rounded-xl border border-amber-100/10 bg-black/10 p-3">
-          <div className="min-w-[900px] lg:min-w-[1120px]">
+        <div className="journal-scroll h-[26rem] min-h-[20rem] overflow-x-auto overflow-y-auto rounded-xl border border-amber-100/10 bg-black/10 p-2.5 sm:p-3 sm:h-[calc(100dvh-390px)] sm:min-h-[22rem]">
+          <div className="min-w-[780px] sm:min-w-[900px] lg:min-w-[1120px]">
             {loading ? (
               <div className="flex items-center justify-center py-16">
                 <p className="text-sm text-stone-400">Loading tracking data...</p>
@@ -390,10 +390,10 @@ export default function HabitTracking() {
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: rowIdx * 0.04, duration: 0.25 }}
                         >
-                          <td className="min-w-[300px] rounded-lg border border-amber-100/10 bg-black/45 px-3 py-2 lg:min-w-[380px]">
-                            <div className="flex items-center justify-between gap-2">
+                          <td className="min-w-[240px] rounded-lg border border-amber-100/10 bg-black/45 px-2.5 py-2 sm:min-w-[300px] sm:px-3 lg:min-w-[380px]">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                <p className="truncate text-sm font-semibold text-stone-100">{habit.title}</p>
+                                <p className="min-w-0 break-words text-sm font-semibold text-stone-100 sm:truncate">{habit.title}</p>
                                 <span className="shrink-0 rounded-full border border-orange-300/40 bg-orange-500/15 px-2 py-0.5 text-[10px] font-semibold text-orange-200">
                                   🔥 {currentStreak}
                                 </span>
@@ -425,13 +425,13 @@ export default function HabitTracking() {
                               <button
                                 type="button"
                                 onClick={() => toggleImportant(habit._id?.toString() ?? habit.id)}
-                                className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${
+                                className={`shrink-0 self-start rounded-full border px-2 py-0.5 text-[10px] font-semibold transition sm:self-auto ${
                                   habit.isImportant
                                     ? "border-amber-300/45 bg-amber-500/15 text-amber-200"
                                     : "border-amber-100/15 bg-white/5 text-stone-300 hover:border-amber-300/35 hover:text-amber-200"
                                 }`}
                               >
-                                {habit.isImportant ? "Important" : "Mark Important"}
+                                {habit.isImportant ? "Important" : "Mark"}
                               </button>
                             </div>
                           </td>

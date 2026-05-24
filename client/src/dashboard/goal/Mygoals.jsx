@@ -181,7 +181,7 @@ export default function Mygoals({
   };
 
   return (
-    <div className="h-[78vh] rounded-[2rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur flex flex-col sm:p-6">
+    <div className="flex min-h-[70dvh] flex-col rounded-[1.6rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:h-[78vh] sm:rounded-[2rem] sm:p-6">
       <p className="text-label-lg">My Goals</p>
       <h2 className="mt-2 text-2xl font-bold text-amber-100">All Goals</h2>
       <p className="text-body-md mt-3 text-stone-300/90">
@@ -194,7 +194,7 @@ export default function Mygoals({
           return (
             <Motion.article
               key={goal.id}
-              className="rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4"
+              className="rounded-[1.3rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-3.5 sm:rounded-2xl sm:p-4"
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06, duration: 0.25 }}
@@ -357,7 +357,7 @@ export default function Mygoals({
                     className="w-full rounded-lg border border-amber-100/15 bg-black/20 px-3 py-1.5 text-sm text-stone-100 outline-none transition focus:border-amber-300/35"
                   />
                 </div>
-                <div className="mt-2 flex items-center gap-2">
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end">
                   <div className="flex flex-1 flex-col gap-1">
                     <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">
                       Deadline <span className="text-rose-400">*</span>
@@ -376,7 +376,7 @@ export default function Mygoals({
                     type="button"
                     onClick={() => void addSubgoal()}
                     disabled={!newSubgoal.trim() || !newDeadline || isSubmittingSubgoal || isSubgoalDateRangeInvalid}
-                    className="self-end rounded border border-sky-300/25 bg-sky-400/10 px-4 py-1.5 text-xs font-semibold text-sky-200 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="self-stretch rounded border border-sky-300/25 bg-sky-400/10 px-4 py-2 text-xs font-semibold text-sky-200 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-40 sm:self-end sm:py-1.5"
                   >
                     {isSubmittingSubgoal ? "Saving..." : "Add"}
                   </button>
@@ -423,7 +423,7 @@ export default function Mygoals({
                 </p>
               ) : null}
               <div className="grid gap-4 md:grid-cols-2">
-              <section className="flex h-[47vh] flex-col rounded-xl border border-amber-100/10 bg-white/5 p-3">
+              <section className="flex min-h-[18rem] flex-col rounded-xl border border-amber-100/10 bg-white/5 p-3 sm:h-[47vh]">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-semibold text-amber-200">Pending</p>
                   <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5 text-[11px] text-stone-300">
@@ -435,12 +435,12 @@ export default function Mygoals({
                 ) : (
                   <div className="journal-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
                     {pendingMilestones.map((milestone) => (
-                      <div key={milestone.id} className="flex items-start justify-between gap-2 rounded-lg border border-amber-100/10 bg-black/20 px-2.5 py-2">
+                      <div key={milestone.id} className="flex flex-col items-start gap-2 rounded-lg border border-amber-100/10 bg-black/20 px-2.5 py-2 sm:flex-row sm:justify-between">
                         <div className="min-w-0 flex-1">
                           <p className="break-all text-sm leading-relaxed text-stone-100">{milestone.title}</p>
                           <DeadlineBadge deadline={milestone.deadline} />
                         </div>
-                        <div className="shrink-0 flex items-start gap-1.5">
+                        <div className="flex shrink-0 flex-wrap items-start gap-1.5 sm:justify-end">
                           <Motion.button
                             type="button"
                             onClick={() => void updateMilestoneStatus(popupGoal.id, milestone.id, true)}
@@ -487,7 +487,7 @@ export default function Mygoals({
                 )}
               </section>
 
-              <section className="flex h-[47vh] flex-col rounded-xl border border-amber-100/10 bg-white/5 p-3">
+              <section className="flex min-h-[18rem] flex-col rounded-xl border border-amber-100/10 bg-white/5 p-3 sm:h-[47vh]">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-semibold text-amber-200">Completed</p>
                   <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5 text-[11px] text-stone-300">
@@ -499,12 +499,12 @@ export default function Mygoals({
                 ) : (
                   <div className="journal-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
                     {completedMilestones.map((milestone) => (
-                      <div key={milestone.id} className="flex items-start justify-between gap-2 rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-2.5 py-2">
+                      <div key={milestone.id} className="flex flex-col items-start gap-2 rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-2.5 py-2 sm:flex-row sm:justify-between">
                         <div className="min-w-0 flex-1">
                           <p className="break-all text-sm leading-relaxed text-emerald-100">{milestone.title}</p>
                           <DeadlineBadge deadline={milestone.deadline} />
                         </div>
-                        <div className="shrink-0 flex items-start gap-1.5">
+                        <div className="flex shrink-0 flex-wrap items-start gap-1.5 sm:justify-end">
                           <button
                             type="button"
                             onClick={() => void updateMilestoneStatus(popupGoal.id, milestone.id, false)}

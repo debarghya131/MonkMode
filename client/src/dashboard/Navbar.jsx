@@ -113,7 +113,7 @@ function StreakStat({ label, value, days, suffix = "days", icon, labelClass, val
 
   return (
     <Motion.div
-      className="group relative flex flex-col gap-0.5 rounded-xl border-l border-amber-100/15 px-3 py-2 lg:px-4"
+      className="group relative flex min-w-0 flex-col gap-0.5 rounded-[1rem] border border-amber-100/10 bg-white/[0.035] px-3 py-2 sm:px-4 xl:w-auto xl:rounded-xl xl:border-y-0 xl:border-r-0 xl:border-t-0 xl:border-l xl:border-amber-100/15 xl:bg-transparent xl:px-3 2xl:px-4"
       whileHover={{ y: -3, scale: 1.03 }}
       transition={{ type: "spring", stiffness: 320, damping: 22 }}
     >
@@ -131,9 +131,9 @@ function StreakStat({ label, value, days, suffix = "days", icon, labelClass, val
         transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
         style={{ backgroundColor: glowColor }}
       />
-      <p className={`text-body-xs whitespace-nowrap ${labelClass}`}>{label}</p>
+      <p className={`text-body-xs truncate ${labelClass}`}>{label}</p>
       <Motion.p
-        className={`text-body-sm font-semibold whitespace-nowrap ${valueClass}`}
+        className={`text-body-sm break-words font-semibold xl:whitespace-nowrap ${valueClass}`}
         animate={{
           textShadow: [
             "0 0 0px rgba(255,255,255,0)",
@@ -245,7 +245,7 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
   }, []);
 
   return (
-    <div className="relative px-3 py-2 sm:px-5 sm:py-3 lg:px-6 lg:py-3">
+    <div className="relative px-2.5 py-2 sm:px-5 sm:py-3 lg:px-6 lg:py-3">
       {/* Animated backgrounds — clipped so they never bleed outside the navbar */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
@@ -288,15 +288,17 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
         </button>
 
         {/* Logo + Welcome — always visible */}
-        <div className="flex min-w-0 flex-1 items-center gap-0">
-          <img
-            src={monkLogo}
-            alt="MonkMode"
-            className="h-14 w-auto translate-x-8 scale-[1.8] object-contain shrink-0 sm:h-16 sm:translate-x-10 sm:scale-[2] lg:h-20 lg:translate-x-12 lg:scale-[2.2]"
-          />
-          <div className="min-w-0 pl-20 text-left sm:pl-24 lg:pl-36">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 lg:gap-4 xl:gap-3">
+          <div className="relative h-[42px] w-[108px] shrink-0 overflow-hidden sm:h-[48px] sm:w-[122px] lg:h-[54px] lg:w-[138px] xl:h-[58px] xl:w-[148px]">
+            <img
+              src={monkLogo}
+              alt="MonkMode"
+              className="pointer-events-none absolute h-[82px] w-[186px] max-w-none -translate-x-[34px] -translate-y-[18px] object-contain drop-shadow-[0_10px_24px_rgba(251,146,60,0.2)] sm:h-[96px] sm:w-[216px] sm:-translate-x-[40px] sm:-translate-y-[22px] lg:h-[108px] lg:w-[242px] lg:-translate-x-[45px] lg:-translate-y-[25px] xl:h-[116px] xl:w-[260px] xl:-translate-x-[49px] xl:-translate-y-[27px]"
+            />
+          </div>
+          <div className="min-w-0 text-left">
             <p className="hidden text-label-sm text-amber-300/70 sm:block">Welcome back</p>
-            <h1 className="truncate text-sm font-bold text-amber-50 sm:text-heading-md md:text-heading-lg">
+            <h1 className="truncate text-[0.92rem] font-bold leading-tight text-amber-50 sm:text-heading-md lg:text-[1.7rem] xl:text-heading-lg">
               {firstName}
             </h1>
           </div>
@@ -319,12 +321,12 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
         </div>
 
         {/* Right stats */}
-        <div className={`${showMobileStats ? "flex" : "hidden"} absolute left-3 right-3 top-[calc(100%+8px)] z-20 flex-wrap items-center gap-1 rounded-2xl border border-amber-100/12 bg-[#100a18]/95 p-2 shadow-xl shadow-black/40 backdrop-blur xl:static xl:left-auto xl:right-auto xl:top-auto xl:z-auto xl:flex xl:flex-nowrap xl:rounded-none xl:border-0 xl:bg-transparent xl:p-0 xl:shadow-none xl:backdrop-blur-0`}>
+        <div className={`${showMobileStats ? "grid" : "hidden"} absolute left-2.5 right-2.5 top-[calc(100%+8px)] z-20 grid-cols-1 gap-2 rounded-2xl border border-amber-100/12 bg-[#100a18]/95 p-2 shadow-xl shadow-black/40 backdrop-blur sm:left-3 sm:right-3 sm:grid-cols-2 xl:static xl:left-auto xl:right-auto xl:top-auto xl:z-auto xl:flex xl:flex-nowrap xl:items-center xl:gap-1 xl:rounded-none xl:border-0 xl:bg-transparent xl:p-0 xl:shadow-none xl:backdrop-blur-0`}>
 
           {/* Date */}
-          <div className="flex shrink-0 flex-col gap-0.5 border-l border-amber-100/15 px-3 py-2 lg:px-4">
-            <p className="text-body-xs text-stone-400 whitespace-nowrap">Today</p>
-            <p className="text-body-sm font-medium text-amber-50 whitespace-nowrap">{currentDate}</p>
+          <div className="flex min-w-0 flex-col gap-0.5 rounded-[1rem] border border-amber-100/10 bg-white/[0.035] px-3 py-2 sm:px-4 xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-t-0 xl:border-l xl:border-amber-100/15 xl:bg-transparent xl:px-3 2xl:px-4">
+            <p className="text-body-xs text-stone-400">Today</p>
+            <p className="text-body-sm truncate font-medium text-amber-50 xl:whitespace-nowrap">{currentDate}</p>
           </div>
 
           <StreakStat

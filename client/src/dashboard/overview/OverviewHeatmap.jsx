@@ -124,14 +124,14 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
     <Motion.div
       whileHover={{ y: -5, boxShadow: "0 20px 40px rgba(0,0,0,0.4)" }}
       transition={{ type: "spring", stiffness: 300, damping: 22 }}
-      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-stone-950/45 px-1.5 py-1.5"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-stone-950/45 px-1.5 py-1.5 sm:rounded-2xl"
     >
-      <div className="mb-1 flex shrink-0 items-center justify-between">
-        <p className="ml-1.5 mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">{label}</p>
+      <div className="mb-1 flex shrink-0 flex-col gap-1 px-1.5 pt-1 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 sm:tracking-[0.16em]">{label}</p>
         <span className="text-[10px] text-stone-500">{total} contributions</span>
       </div>
       <div className="overview-heatmap min-h-0 flex-1 w-full overflow-hidden">
-        <div className="w-full h-full">
+        <div className="h-full w-full">
           <CalendarHeatmap
             startDate={startDate}
             endDate={endDate}
@@ -545,13 +545,13 @@ export default function OverviewHeatmap() {
   );
 
   return (
-    <div className="flex h-full flex-col gap-2">
-      <div className="flex shrink-0 items-center justify-between">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">Activity Heatmaps</p>
+    <div className="flex h-full flex-col gap-2.5">
+      <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500 sm:tracking-[0.18em]">Activity Heatmaps</p>
         <select
           value={selectedYear}
           onChange={(event) => setSelectedYear(Number(event.target.value))}
-          className="rounded-xl border border-amber-100/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-stone-200 outline-none transition focus:border-amber-300/35"
+          className="w-full rounded-xl border border-amber-100/10 bg-white/5 px-3 py-2 text-[11px] font-semibold text-stone-200 outline-none transition focus:border-amber-300/35 sm:w-auto sm:py-1.5"
           aria-label="Select heatmap year"
         >
           {yearOptions.map((year) => (
@@ -562,7 +562,7 @@ export default function OverviewHeatmap() {
         </select>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col justify-between gap-1.5">
+      <div className="flex min-h-0 flex-1 flex-col justify-between gap-2">
         {sectionData.map((section) => (
           <HeatmapCard
             key={section.id}

@@ -24,8 +24,8 @@ function InsightRail({ insights }) {
   const [selected, setSelected] = useState(null);
 
   return (
-    <aside className="flex w-full flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur">
-      <div className="shrink-0 p-5 pb-4">
+    <aside className="flex w-full flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl">
+      <div className="shrink-0 p-4 pb-3 sm:p-5 sm:pb-4">
         <div className="flex items-center gap-3">
           <Motion.div
             className="relative grid h-16 w-16 place-items-center"
@@ -53,7 +53,7 @@ function InsightRail({ insights }) {
           </div>
         </div>
       </div>
-      <div className="journal-scroll space-y-3 px-5 pb-5 pr-4">
+      <div className="journal-scroll space-y-3 px-4 pb-4 pr-3 sm:px-5 sm:pb-5 sm:pr-4">
         {insights.map((insight) => {
           const isSelected = selected === insight.title;
           return (
@@ -66,7 +66,7 @@ function InsightRail({ insights }) {
                   : "border-sky-100/10 bg-stone-950/45 hover:border-sky-300/20"
               }`}
             >
-              <div className="grid grid-cols-[1fr_auto] items-start gap-3">
+              <div className="grid items-start gap-3 sm:grid-cols-[1fr_auto]">
                 <div className="min-w-0">
                   <span className="text-xs font-semibold text-sky-200">{insight.title}</span>
                   <p className="text-sm font-semibold text-stone-200">{insight.value}</p>
@@ -83,7 +83,7 @@ function InsightRail({ insights }) {
                 <button
                   type="button"
                   onClick={() => setSelected(isSelected ? null : insight.title)}
-                  className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                  className={`w-full rounded-full border px-3 py-1 text-xs font-semibold transition-colors sm:w-fit ${
                     isSelected
                       ? "border-sky-400/40 bg-sky-400/15 text-sky-100"
                       : "border-sky-400/20 text-sky-200 hover:border-sky-300/45 hover:bg-sky-400/10"
@@ -380,7 +380,11 @@ export default function MeasurementsAnalysis() {
       setLoading(false);
       return;
     }
-    if (!user) return;
+    if (!user) {
+      setCheckins([]);
+      setLoading(false);
+      return;
+    }
 
     let cancelled = false;
 
@@ -516,7 +520,7 @@ export default function MeasurementsAnalysis() {
         {loading && <span className="animate-pulse text-xs text-stone-500">Loading…</span>}
       </div>
 
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
         <div className="flex w-full shrink-0 flex-col gap-2 lg:w-48 lg:shrink-0">
           <div className="journal-scroll max-h-40 overflow-y-auto rounded-2xl border border-white/8 bg-white/[0.03] p-2 lg:max-h-[calc(100vh-280px)]">
             {filteredFields.map((field) => (
@@ -537,10 +541,7 @@ export default function MeasurementsAnalysis() {
           </div>
         </div>
 
-        <div
-          className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[2rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur"
-          style={{ maxHeight: "calc(100vh - 350px)" }}
-        >
+        <div className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[1.6rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem] lg:max-h-[calc(100vh-350px)]">
           <div className="space-y-4 p-4">
             <MeasurementTrendChart
               checkins={checkins}
@@ -552,10 +553,7 @@ export default function MeasurementsAnalysis() {
           </div>
         </div>
 
-        <div
-          className="journal-scroll flex w-full lg:max-w-[340px] lg:shrink-0 self-start flex-col gap-2 scroll-smooth overflow-y-auto"
-          style={{ maxHeight: "calc(100vh - 180px)" }}
-        >
+        <div className="journal-scroll self-start flex w-full flex-col gap-2 scroll-smooth overflow-y-auto lg:max-h-[calc(100vh-180px)] lg:max-w-[380px] lg:shrink-0">
           <InsightRail insights={insights} />
         </div>
       </div>

@@ -503,30 +503,42 @@ export default function Journal() {
   ];
 
   /* ── form helpers ── */
-  const set = (key, val) => setForm((p) => ({ ...p, [key]: val }));
+  const set = (key, val) => {
+    if (isDemoMode) return;
+    setForm((p) => ({ ...p, [key]: val }));
+  };
 
-  const setArr = (key, idx, val) =>
+  const setArr = (key, idx, val) => {
+    if (isDemoMode) return;
     setForm((p) => {
       const arr = [...p[key]];
       arr[idx] = val;
       return { ...p, [key]: arr };
     });
+  };
 
-  const addToArr = (key) =>
+  const addToArr = (key) => {
+    if (isDemoMode) return;
     setForm((p) => ({ ...p, [key]: [...p[key], ""] }));
+  };
 
-  const removeFromArr = (key, idx) =>
+  const removeFromArr = (key, idx) => {
+    if (isDemoMode) return;
     setForm((p) => ({ ...p, [key]: p[key].filter((_, i) => i !== idx) }));
+  };
 
-  const updateCustom = (idx, key, val) =>
+  const updateCustom = (idx, key, val) => {
+    if (isDemoMode) return;
     setCustomFields((prev) => {
       const next = [...prev];
       next[idx] = { ...next[idx], [key]: val };
       return next;
     });
+  };
 
   /* ── add / delete custom field ── */
   const addCustomField = () => {
+    if (isDemoMode) return;
     const nextFields = [...customFields, { title: "", description: "", answer: "" }];
     setCustomFields(nextFields);
     setStep(MANDATORY_STEP_COUNT + 1 + customFields.length); // jump to the new step
@@ -534,6 +546,7 @@ export default function Journal() {
   };
 
   const deleteCustomField = (idx) => {
+    if (isDemoMode) return;
     const nextFields = customFields.filter((_, i) => i !== idx);
     setCustomFields(nextFields);
     // if we were on or after the deleted step, move back one
@@ -567,6 +580,9 @@ export default function Journal() {
   };
 
   const isLastStep = step === totalSteps;
+  const allowStepAdvance = isDemoMode || stepValid();
+  const readOnlyFieldClass = isDemoMode ? "cursor-not-allowed opacity-60" : "";
+  const readOnlyButtonClass = isDemoMode ? "cursor-not-allowed opacity-60 hover:translate-y-0 hover:scale-100" : "";
 
   /* ── per-step completion (answer-based, not position-based) ── */
   const isStepComplete = (id) => {
@@ -597,28 +613,30 @@ export default function Journal() {
   const allComplete    = completedCount === totalSteps;
   const handleSubmitJournal = async () => {
     if (saving) return;
+    if (isDemoMode) {
+      setSubmitError("Demo mode is preview-only. Sign in to write and save a journal entry.");
+      return;
+    }
     const date = todayStr();
     const achievementCount = form.achievement.filter((item) => item.trim()).length;
     const winCount = form.wins.filter((item) => item.trim()).length;
     setSaving(true);
     setSubmitError("");
 
-    if (!isDemoMode) {
-      try {
-        await api.post("/journal", buildPayloadFromForm(form, customFields, date));
-        await syncCustomFieldTemplates(customFields);
-        const summaryRes = await api.get("/journal/summary");
-        setJournalConsistency({
-          lifetimeConsistency: Number(summaryRes?.data?.lifetimeConsistency || 0),
-          lifetimeLoggedDays: Number(summaryRes?.data?.lifetimeLoggedDays || 0),
-          lifetimeExpectedDays: Number(summaryRes?.data?.lifetimeExpectedDays || 0)
-        });
-      } catch (error) {
-        const backendMessage = error?.response?.data?.message;
-        setSubmitError(backendMessage || "Could not save journal entry. Please try again.");
-        setSaving(false);
-        return;
-      }
+    try {
+      await api.post("/journal", buildPayloadFromForm(form, customFields, date));
+      await syncCustomFieldTemplates(customFields);
+      const summaryRes = await api.get("/journal/summary");
+      setJournalConsistency({
+        lifetimeConsistency: Number(summaryRes?.data?.lifetimeConsistency || 0),
+        lifetimeLoggedDays: Number(summaryRes?.data?.lifetimeLoggedDays || 0),
+        lifetimeExpectedDays: Number(summaryRes?.data?.lifetimeExpectedDays || 0)
+      });
+    } catch (error) {
+      const backendMessage = error?.response?.data?.message;
+      setSubmitError(backendMessage || "Could not save journal entry. Please try again.");
+      setSaving(false);
+      return;
     }
 
     saveJournalProgress(date, achievementCount, winCount);
@@ -643,7 +661,7 @@ export default function Journal() {
     return (
       <div className="flex flex-col gap-6 lg:flex-row">
         <Motion.div
-          className="flex-1 min-w-0 flex flex-col items-center justify-center py-24 space-y-5"
+          className="flex-1 min-w-0 flex flex-col items-center justify-center space-y-5 py-16 sm:py-24"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
@@ -668,12 +686,12 @@ export default function Journal() {
             {canEditToday ? "Editable until midnight" : "Locked — entry moved to history"}
           </div>
 
-          <div className="flex items-center gap-3 mt-2">
+          <div className="mt-2 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
             {/* See Journal */}
             <button
               type="button"
               onClick={() => setShowJournalView(true)}
-              className="flex items-center gap-2 rounded-full border border-stone-600 bg-white/5 px-5 py-2.5 text-sm font-semibold text-stone-300 transition duration-200 hover:border-stone-400 hover:text-stone-100"
+              className="flex w-full items-center justify-center gap-2 rounded-full border border-stone-600 bg-white/5 px-5 py-2.5 text-sm font-semibold text-stone-300 transition duration-200 hover:border-stone-400 hover:text-stone-100 sm:w-auto"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" strokeLinecap="round" strokeLinejoin="round"/>
@@ -687,7 +705,7 @@ export default function Journal() {
               <button
                 type="button"
                 onClick={() => { setSubmitted(false); setStep(1); }}
-                className="flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-500/10 px-5 py-2.5 text-sm font-semibold text-amber-300 transition duration-200 hover:border-amber-400/60 hover:bg-amber-500/20 hover:text-amber-200"
+                className="flex w-full items-center justify-center gap-2 rounded-full border border-amber-400/30 bg-amber-500/10 px-5 py-2.5 text-sm font-semibold text-amber-300 transition duration-200 hover:border-amber-400/60 hover:bg-amber-500/20 hover:text-amber-200 sm:w-auto"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" strokeLinecap="round" strokeLinejoin="round"/>
@@ -700,7 +718,7 @@ export default function Journal() {
         </Motion.div>
 
         <div className="w-full lg:w-64 lg:shrink-0">
-          <div className="sticky top-0">
+          <div className="lg:sticky lg:top-0">
             <JournalRightSidebar refreshToken={refreshSidebarKey} />
           </div>
         </div>
@@ -724,12 +742,12 @@ export default function Journal() {
 
         {/* Consistency badge */}
         <Motion.div
-          className="flex items-center gap-3"
+          className="flex flex-col items-start gap-3 sm:flex-row sm:items-center"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
         >
-          <div className="flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-500/10 px-4 py-2">
+          <div className="flex w-full flex-wrap items-center gap-2 rounded-[1.1rem] border border-amber-400/30 bg-amber-500/10 px-3 py-2 sm:w-auto sm:rounded-full sm:px-4">
             <Motion.span
               className="text-lg"
               animate={{ scale: [1, 1.25, 1] }}
@@ -744,18 +762,24 @@ export default function Journal() {
               Lifetime {journalConsistency.lifetimeLoggedDays}/{journalConsistency.lifetimeExpectedDays}
             </span>
           </div>
-          <p className="text-sm text-stone-400">Keep it up — consistency builds clarity.</p>
+          <p className="text-sm leading-6 text-stone-400">Keep it up — consistency builds clarity.</p>
         </Motion.div>
 
+        {isDemoMode && (
+          <div className="rounded-[1.1rem] border border-amber-400/20 bg-amber-500/8 px-4 py-3 text-sm leading-6 text-amber-100/85">
+            Journal is preview-only in demo mode. You can move through the steps, but writing and saving entries requires a real account.
+          </div>
+        )}
+
         {/* ── Progress bar ── */}
-        <section className="rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur">
+        <section className="rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5">
 
           {/* Header row */}
-          <div className="flex items-center justify-between mb-3 gap-3">
+          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-label-md truncate">
               Step {step} of {totalSteps} &mdash; {allSteps[step - 1]?.label}
             </p>
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <span className="text-xs text-stone-500">
                 {completedCount}/{totalSteps} answered
               </span>
@@ -763,8 +787,9 @@ export default function Journal() {
               <button
                 type="button"
                 onClick={addCustomField}
+                disabled={isDemoMode}
                 title="Add a custom field"
-                className="flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300 transition hover:border-amber-400/50 hover:bg-amber-500/20 hover:text-amber-200"
+                className={`flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300 transition hover:border-amber-400/50 hover:bg-amber-500/20 hover:text-amber-200 ${readOnlyButtonClass}`}
               >
                 <span className="text-sm leading-none">+</span> Add Field
               </button>
@@ -811,7 +836,7 @@ export default function Journal() {
         </section>
 
         {/* ── Step content ── */}
-        <section className="journal-step-card rounded-2xl border border-amber-100/10 bg-white/6 p-6 shadow-2xl shadow-black/25 backdrop-blur">
+        <section className="journal-step-card rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-6">
 
           {/* ── Mandatory steps 1–14 ── */}
           <AnimatePresence mode="wait">
@@ -828,23 +853,24 @@ export default function Journal() {
           {step === 1 && (
             <div className="flex-1 flex flex-col">
               <p className="text-label-lg">Step 1 · Mood</p>
-              <h2 className="text-heading-xl mt-1 mb-5">How are you feeling?</h2>
-              <div className="grid grid-cols-4 gap-2">
+              <h2 className="text-heading-xl mt-1 mb-5 text-[2rem] sm:text-[2.5rem]">How are you feeling?</h2>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {MOODS.map((mood, i) => (
                   <Motion.button
                     key={mood.label}
                     type="button"
                     onClick={() => set("mood", mood.label)}
+                    disabled={isDemoMode}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.03, duration: 0.2 }}
                     whileHover={{ y: -3, scale: 1.04 }}
                     whileTap={{ scale: 0.96 }}
-                    className={`mx-auto w-[92%] flex flex-col items-center gap-1 rounded-xl border p-2.5 transition-colors duration-200 ${
+                    className={`flex min-h-[4.75rem] w-full flex-col items-center justify-center gap-1 rounded-xl border p-2.5 transition-colors duration-200 ${
                       form.mood === mood.label
                         ? "border-amber-400/60 bg-amber-500/20 shadow-[0_0_16px_rgba(251,191,36,0.2)]"
                         : "border-amber-100/10 bg-stone-950/45 hover:border-amber-400/30 hover:bg-amber-500/10"
-                    }`}
+                    } ${readOnlyButtonClass}`}
                   >
                     <span className="text-lg">{mood.emoji}</span>
                     <span className="text-[10px] font-medium text-amber-50/70">{mood.label}</span>
@@ -858,13 +884,14 @@ export default function Journal() {
           {step === 2 && (
             <div className="flex-1 flex flex-col justify-center gap-2">
               <p className="text-label-lg">Step 2 · Wake-up Time</p>
-              <h2 className="text-heading-xl mt-1 mb-2">When did you wake up?</h2>
+              <h2 className="text-heading-xl mt-1 mb-2 text-[2rem] sm:text-[2.5rem]">When did you wake up?</h2>
               <p className="text-stone-400 text-sm mb-8">Capture when the day started.</p>
               <input
                 type="time"
                 value={form.wakeUpTime}
                 onChange={(e) => set("wakeUpTime", e.target.value)}
-                className="w-full rounded-2xl border border-amber-400/25 bg-stone-950/45 px-6 py-5 text-center text-4xl font-bold text-amber-100 outline-none transition focus:border-amber-400/50 focus:shadow-[0_0_20px_rgba(251,191,36,0.12)]"
+                disabled={isDemoMode}
+                className={`w-full rounded-2xl border border-amber-400/25 bg-stone-950/45 px-4 py-4 text-center text-3xl font-bold text-amber-100 outline-none transition focus:border-amber-400/50 focus:shadow-[0_0_20px_rgba(251,191,36,0.12)] sm:px-6 sm:py-5 sm:text-4xl ${readOnlyFieldClass}`}
               />
             </div>
           )}
@@ -873,7 +900,7 @@ export default function Journal() {
           {step === 3 && (
             <div className="flex-1 flex flex-col justify-center gap-2">
               <p className="text-label-lg">Step 3 · Energy Level</p>
-              <h2 className="text-heading-xl mt-1">How charged are you?</h2>
+              <h2 className="text-heading-xl mt-1 text-[2rem] sm:text-[2.5rem]">How charged are you?</h2>
               <p className="text-stone-400 text-sm mb-8">
                 Rate your physical &amp; mental energy from 1 to 100.
               </p>
@@ -883,12 +910,13 @@ export default function Journal() {
                   type="range" min="1" max="100"
                   value={form.energyLevel}
                   onChange={(e) => { set("energyLevel", Number(e.target.value)); set("energyTouched", true); }}
-                  className="flex-1 h-2 cursor-pointer accent-amber-400"
+                  disabled={isDemoMode}
+                  className={`flex-1 h-2 cursor-pointer accent-amber-400 ${readOnlyFieldClass}`}
                 />
                 <span className="text-stone-500 text-xs w-8 text-right">100</span>
               </div>
               <div className="mt-6 text-center">
-                <span className="text-heading-xl text-7xl">{form.energyLevel}</span>
+                <span className="text-heading-xl text-5xl sm:text-7xl">{form.energyLevel}</span>
                 <p className="text-stone-400 text-sm mt-3">
                   {form.energyLevel >= 80 ? "Fully charged 🔋"
                     : form.energyLevel >= 50 ? "Decent energy ⚡"
@@ -910,7 +938,8 @@ export default function Journal() {
                 onChange={(e) => set("summary", e.target.value)}
                 placeholder="Today I woke up at 6am, completed my workout, had a productive deep-work session…"
                 rows={7}
-                className={textareaBase + " flex-1"}
+                disabled={isDemoMode}
+                className={`${textareaBase} flex-1 ${readOnlyFieldClass}`}
               />
               <p className="mt-2 text-xs text-stone-500 text-right">{form.summary.length} chars</p>
             </div>
@@ -930,11 +959,12 @@ export default function Journal() {
                       type="text" value={win}
                       onChange={(e) => setArr("wins", i, e.target.value)}
                       placeholder={`Win #${i + 1}…`}
-                      className={inputBase}
+                      disabled={isDemoMode}
+                      className={`${inputBase} ${readOnlyFieldClass}`}
                     />
                     {form.wins.length > 1 && (
-                      <button type="button" onClick={() => removeFromArr("wins", i)}
-                        className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full border border-amber-100/10 bg-white/5 text-stone-500 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400">
+                      <button type="button" onClick={() => removeFromArr("wins", i)} disabled={isDemoMode}
+                        className={`shrink-0 flex items-center justify-center h-8 w-8 rounded-full border border-amber-100/10 bg-white/5 text-stone-500 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400 ${readOnlyButtonClass}`}>
                         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
@@ -943,8 +973,8 @@ export default function Journal() {
                   </div>
                 ))}
               </div>
-              <button type="button" onClick={() => addToArr("wins")}
-                className="mt-4 self-start flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-500/8 px-4 py-1.5 text-xs font-semibold text-amber-400/80 transition hover:border-amber-400/40 hover:bg-amber-500/15 hover:text-amber-300">
+              <button type="button" onClick={() => addToArr("wins")} disabled={isDemoMode}
+                className={`mt-4 self-start flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-500/8 px-4 py-1.5 text-xs font-semibold text-amber-400/80 transition hover:border-amber-400/40 hover:bg-amber-500/15 hover:text-amber-300 ${readOnlyButtonClass}`}>
                 <span className="text-sm leading-none">+</span> Add Win
               </button>
             </div>
@@ -964,11 +994,12 @@ export default function Journal() {
                       type="text" value={m}
                       onChange={(e) => setArr("mistakes", i, e.target.value)}
                       placeholder={`Mistake #${i + 1}…`}
-                      className="w-full rounded-xl border border-red-400/15 bg-stone-950/45 px-4 py-3 text-sm text-amber-50/90 placeholder-stone-500 outline-none transition focus:border-red-400/30 focus:shadow-[0_0_12px_rgba(248,113,113,0.08)]"
+                      disabled={isDemoMode}
+                      className={`w-full rounded-xl border border-red-400/15 bg-stone-950/45 px-4 py-3 text-sm text-amber-50/90 placeholder-stone-500 outline-none transition focus:border-red-400/30 focus:shadow-[0_0_12px_rgba(248,113,113,0.08)] ${readOnlyFieldClass}`}
                     />
                     {form.mistakes.length > 1 && (
-                      <button type="button" onClick={() => removeFromArr("mistakes", i)}
-                        className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full border border-amber-100/10 bg-white/5 text-stone-500 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400">
+                      <button type="button" onClick={() => removeFromArr("mistakes", i)} disabled={isDemoMode}
+                        className={`shrink-0 flex items-center justify-center h-8 w-8 rounded-full border border-amber-100/10 bg-white/5 text-stone-500 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400 ${readOnlyButtonClass}`}>
                         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
@@ -977,8 +1008,8 @@ export default function Journal() {
                   </div>
                 ))}
               </div>
-              <button type="button" onClick={() => addToArr("mistakes")}
-                className="mt-4 self-start flex items-center gap-2 rounded-full border border-red-400/20 bg-red-500/8 px-4 py-1.5 text-xs font-semibold text-red-400/80 transition hover:border-red-400/40 hover:bg-red-500/15 hover:text-red-300">
+              <button type="button" onClick={() => addToArr("mistakes")} disabled={isDemoMode}
+                className={`mt-4 self-start flex items-center gap-2 rounded-full border border-red-400/20 bg-red-500/8 px-4 py-1.5 text-xs font-semibold text-red-400/80 transition hover:border-red-400/40 hover:bg-red-500/15 hover:text-red-300 ${readOnlyButtonClass}`}>
                 <span className="text-sm leading-none">+</span> Add Mistake
               </button>
             </div>
@@ -995,7 +1026,8 @@ export default function Journal() {
                 onChange={(e) => set("insight", e.target.value)}
                 placeholder="Today I learned that…"
                 rows={7}
-                className={textareaBase + " flex-1"}
+                disabled={isDemoMode}
+                className={`${textareaBase} flex-1 ${readOnlyFieldClass}`}
               />
             </div>
           )}
@@ -1014,11 +1046,12 @@ export default function Journal() {
                       value={item}
                       onChange={(e) => setArr("distractions", i, e.target.value)}
                       placeholder="My biggest distraction today was…"
-                      className={`${inputBase} flex-1`}
+                      disabled={isDemoMode}
+                      className={`${inputBase} ${readOnlyFieldClass} flex-1`}
                     />
                     {form.distractions.length > 1 && (
-                      <button type="button" onClick={() => removeFromArr("distractions", i)}
-                        className="shrink-0 flex h-10 w-10 items-center justify-center rounded-full border border-amber-100/10 bg-white/5 text-stone-500 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400">
+                      <button type="button" onClick={() => removeFromArr("distractions", i)} disabled={isDemoMode}
+                        className={`shrink-0 flex h-10 w-10 items-center justify-center rounded-full border border-amber-100/10 bg-white/5 text-stone-500 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400 ${readOnlyButtonClass}`}>
                         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
@@ -1027,8 +1060,8 @@ export default function Journal() {
                   </div>
                 ))}
               </div>
-              <button type="button" onClick={() => addToArr("distractions")}
-                className="mt-4 self-start rounded-full border border-amber-400/20 bg-amber-500/8 px-4 py-1.5 text-xs font-semibold text-amber-400/80 transition hover:border-amber-400/40 hover:bg-amber-500/15 hover:text-amber-300">
+              <button type="button" onClick={() => addToArr("distractions")} disabled={isDemoMode}
+                className={`mt-4 self-start rounded-full border border-amber-400/20 bg-amber-500/8 px-4 py-1.5 text-xs font-semibold text-amber-400/80 transition hover:border-amber-400/40 hover:bg-amber-500/15 hover:text-amber-300 ${readOnlyButtonClass}`}>
                 Add Distraction
               </button>
             </div>
@@ -1048,11 +1081,12 @@ export default function Journal() {
                       type="text" value={g}
                       onChange={(e) => setArr("gratitude", i, e.target.value)}
                       placeholder="I'm grateful for…"
-                      className={inputBase}
+                      disabled={isDemoMode}
+                      className={`${inputBase} ${readOnlyFieldClass}`}
                     />
                     {form.gratitude.length > 1 && (
-                      <button type="button" onClick={() => removeFromArr("gratitude", i)}
-                        className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full border border-amber-100/10 bg-white/5 text-stone-500 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400">
+                      <button type="button" onClick={() => removeFromArr("gratitude", i)} disabled={isDemoMode}
+                        className={`shrink-0 flex items-center justify-center h-8 w-8 rounded-full border border-amber-100/10 bg-white/5 text-stone-500 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400 ${readOnlyButtonClass}`}>
                         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
@@ -1061,8 +1095,8 @@ export default function Journal() {
                   </div>
                 ))}
               </div>
-              <button type="button" onClick={() => addToArr("gratitude")}
-                className="mt-4 self-start flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-500/8 px-4 py-1.5 text-xs font-semibold text-amber-400/80 transition hover:border-amber-400/40 hover:bg-amber-500/15 hover:text-amber-300">
+              <button type="button" onClick={() => addToArr("gratitude")} disabled={isDemoMode}
+                className={`mt-4 self-start flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-500/8 px-4 py-1.5 text-xs font-semibold text-amber-400/80 transition hover:border-amber-400/40 hover:bg-amber-500/15 hover:text-amber-300 ${readOnlyButtonClass}`}>
                 <span className="text-sm leading-none">+</span> Add Gratitude
               </button>
             </div>
@@ -1082,11 +1116,12 @@ export default function Journal() {
                       type="text" value={a}
                       onChange={(e) => setArr("achievement", i, e.target.value)}
                       placeholder="I accomplished…"
-                      className={inputBase}
+                      disabled={isDemoMode}
+                      className={`${inputBase} ${readOnlyFieldClass}`}
                     />
                     {form.achievement.length > 1 && (
-                      <button type="button" onClick={() => removeFromArr("achievement", i)}
-                        className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full border border-amber-100/10 bg-white/5 text-stone-500 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400">
+                      <button type="button" onClick={() => removeFromArr("achievement", i)} disabled={isDemoMode}
+                        className={`shrink-0 flex items-center justify-center h-8 w-8 rounded-full border border-amber-100/10 bg-white/5 text-stone-500 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400 ${readOnlyButtonClass}`}>
                         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
@@ -1095,8 +1130,8 @@ export default function Journal() {
                   </div>
                 ))}
               </div>
-              <button type="button" onClick={() => addToArr("achievement")}
-                className="mt-4 self-start flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-500/8 px-4 py-1.5 text-xs font-semibold text-amber-400/80 transition hover:border-amber-400/40 hover:bg-amber-500/15 hover:text-amber-300">
+              <button type="button" onClick={() => addToArr("achievement")} disabled={isDemoMode}
+                className={`mt-4 self-start flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-500/8 px-4 py-1.5 text-xs font-semibold text-amber-400/80 transition hover:border-amber-400/40 hover:bg-amber-500/15 hover:text-amber-300 ${readOnlyButtonClass}`}>
                 <span className="text-sm leading-none">+</span> Add Achievement
               </button>
             </div>
@@ -1115,7 +1150,8 @@ export default function Journal() {
                 value={form.affirmation}
                 onChange={(e) => set("affirmation", e.target.value)}
                 placeholder="I am capable of building the life I want…"
-                className="w-full rounded-2xl border border-amber-400/25 bg-stone-950/45 px-6 py-5 text-base italic text-center text-amber-50/90 placeholder-stone-500 outline-none transition focus:border-amber-400/50 focus:shadow-[0_0_20px_rgba(251,191,36,0.12)]"
+                disabled={isDemoMode}
+                className={`w-full rounded-2xl border border-amber-400/25 bg-stone-950/45 px-6 py-5 text-base italic text-center text-amber-50/90 placeholder-stone-500 outline-none transition focus:border-amber-400/50 focus:shadow-[0_0_20px_rgba(251,191,36,0.12)] ${readOnlyFieldClass}`}
               />
             </div>
           )}
@@ -1131,7 +1167,8 @@ export default function Journal() {
                 onChange={(e) => set("tomorrowPlan", e.target.value)}
                 placeholder="Tomorrow I will focus on…"
                 rows={7}
-                className={textareaBase + " flex-1"}
+                disabled={isDemoMode}
+                className={`${textareaBase} flex-1 ${readOnlyFieldClass}`}
               />
             </div>
           )}
@@ -1146,7 +1183,8 @@ export default function Journal() {
                 type="time"
                 value={form.sleepTime}
                 onChange={(e) => set("sleepTime", e.target.value)}
-                className="w-full rounded-2xl border border-amber-400/25 bg-stone-950/45 px-6 py-5 text-center text-4xl font-bold text-amber-100 outline-none transition focus:border-amber-400/50 focus:shadow-[0_0_20px_rgba(251,191,36,0.12)]"
+                disabled={isDemoMode}
+                className={`w-full rounded-2xl border border-amber-400/25 bg-stone-950/45 px-6 py-5 text-center text-4xl font-bold text-amber-100 outline-none transition focus:border-amber-400/50 focus:shadow-[0_0_20px_rgba(251,191,36,0.12)] ${readOnlyFieldClass}`}
               />
             </div>
           )}
@@ -1163,7 +1201,8 @@ export default function Journal() {
                   type="range" min="1" max="100"
                   value={form.overallRating}
                   onChange={(e) => { set("overallRating", Number(e.target.value)); set("ratingTouched", true); }}
-                  className="flex-1 h-2 cursor-pointer accent-amber-400"
+                  disabled={isDemoMode}
+                  className={`flex-1 h-2 cursor-pointer accent-amber-400 ${readOnlyFieldClass}`}
                 />
                 <span className="text-stone-500 text-xs w-8 text-right">100</span>
               </div>
@@ -1183,12 +1222,12 @@ export default function Journal() {
           {isCustom && customFields[customIdx] !== undefined && (
             <div className="flex-1 flex flex-col">
               {/* Header with delete button */}
-              <div className="flex items-start justify-between gap-3 mb-1">
+              <div className="mb-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-label-lg">
                     Custom Field {customIdx + 1}
                   </p>
-                  <h2 className="text-heading-xl mt-1">
+                  <h2 className="text-heading-xl mt-1 break-words text-[1.9rem] leading-[1.15] sm:text-[2.5rem]">
                     {customFields[customIdx].title.trim() || "Untitled Field"}
                   </h2>
                 </div>
@@ -1196,8 +1235,9 @@ export default function Journal() {
                 <button
                   type="button"
                   onClick={() => deleteCustomField(customIdx)}
+                  disabled={isDemoMode}
                   title="Delete this custom field"
-                  className="shrink-0 mt-1 flex items-center gap-1.5 rounded-full border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-400 transition hover:border-red-400/40 hover:bg-red-500/20 hover:text-red-300"
+                  className={`mt-1 flex w-full items-center justify-center gap-1.5 rounded-full border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-400 transition hover:border-red-400/40 hover:bg-red-500/20 hover:text-red-300 sm:w-auto sm:shrink-0 sm:justify-start sm:py-1.5 ${readOnlyButtonClass}`}
                 >
                   <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1215,7 +1255,8 @@ export default function Journal() {
                     value={customFields[customIdx].title}
                     onChange={(e) => updateCustom(customIdx, "title", e.target.value)}
                     placeholder="Name this field (e.g. Morning Reflection, Book Notes…)"
-                    className={inputBase}
+                    disabled={isDemoMode}
+                    className={`${inputBase} ${readOnlyFieldClass}`}
                   />
                 </div>
 
@@ -1227,7 +1268,8 @@ export default function Journal() {
                     value={customFields[customIdx].description}
                     onChange={(e) => updateCustom(customIdx, "description", e.target.value)}
                     placeholder="Add context or a prompt for this field…"
-                    className={inputBase}
+                    disabled={isDemoMode}
+                    className={`${inputBase} ${readOnlyFieldClass}`}
                   />
                 </div>
 
@@ -1239,7 +1281,8 @@ export default function Journal() {
                     onChange={(e) => updateCustom(customIdx, "answer", e.target.value)}
                     placeholder="Write your response here…"
                     rows={5}
-                    className={textareaBase + " flex-1"}
+                    disabled={isDemoMode}
+                    className={`${textareaBase} flex-1 ${readOnlyFieldClass}`}
                   />
                 </div>
               </div>
@@ -1255,18 +1298,18 @@ export default function Journal() {
               {submitError}
             </p>
           )}
-          <div className="journal-step-nav mt-8 flex items-center justify-between">
+          <div className="journal-step-nav mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
               onClick={() => setStep((s) => s - 1)}
               disabled={step === 1}
-              className="rounded-full border border-amber-100/15 bg-white/5 px-5 py-2.5 text-sm font-semibold text-amber-50/60 transition duration-200 hover:border-amber-200/30 hover:text-amber-50 disabled:cursor-not-allowed disabled:opacity-20"
+              className="w-full rounded-full border border-amber-100/15 bg-white/5 px-5 py-2.5 text-sm font-semibold text-amber-50/60 transition duration-200 hover:border-amber-200/30 hover:text-amber-50 disabled:cursor-not-allowed disabled:opacity-20 sm:w-auto"
             >
               ← Back
             </button>
 
             {step === 1 && form.mood ? (
-              <span className="text-sm text-stone-400">
+              <span className="text-center text-sm text-stone-400">
                 Selected: {MOODS.find((m) => m.label === form.mood)?.emoji} {form.mood}
               </span>
             ) : (
@@ -1277,20 +1320,32 @@ export default function Journal() {
               <button
                 type="button"
                 onClick={() => setStep((s) => s + 1)}
-                disabled={!stepValid()}
-                className={btnPrimary}
+                disabled={!allowStepAdvance}
+                className={`${btnPrimary} w-full sm:w-auto`}
               >
                 Next →
               </button>
             ) : (
               <button
                 type="button"
-                disabled={!allComplete || saving}
+                disabled={saving || (!isDemoMode && !allComplete)}
                 onClick={handleSubmitJournal}
-                title={!allComplete ? `${totalSteps - completedCount} field(s) still unanswered` : ""}
-                className="rounded-full border border-amber-400/50 bg-gradient-to-r from-amber-400 to-orange-400 px-8 py-2.5 text-sm font-bold text-stone-950 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_28px_rgba(251,191,36,0.55)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
+                title={
+                  isDemoMode
+                    ? "Sign in to save a real journal entry."
+                    : !allComplete
+                    ? `${totalSteps - completedCount} field(s) still unanswered`
+                    : ""
+                }
+                className="w-full rounded-full border border-amber-400/50 bg-gradient-to-r from-amber-400 to-orange-400 px-8 py-2.5 text-sm font-bold text-stone-950 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_28px_rgba(251,191,36,0.55)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none sm:w-auto"
               >
-                {saving ? "Saving..." : allComplete ? "Submit Journal ✓" : `${totalSteps - completedCount} left to answer`}
+                {saving
+                  ? "Saving..."
+                  : isDemoMode
+                  ? "Sign in to Save Journal"
+                  : allComplete
+                  ? "Submit Journal ✓"
+                  : `${totalSteps - completedCount} left to answer`}
               </button>
             )}
           </div>
@@ -1300,7 +1355,7 @@ export default function Journal() {
 
       {/* Right sidebar */}
       <div className="w-full lg:w-64 lg:shrink-0">
-        <div className="sticky top-0">
+        <div className="lg:sticky lg:top-0">
           <JournalRightSidebar refreshToken={refreshSidebarKey} />
         </div>
       </div>

@@ -280,7 +280,7 @@ function ReportCard({ children, className = "" }) {
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -3, boxShadow: "0 18px 36px rgba(0,0,0,0.34)" }}
       transition={{ duration: 0.22 }}
-      className={`rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur ${className}`}
+      className={`rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5 ${className}`}
     >
       {children}
     </Motion.section>
@@ -303,25 +303,47 @@ export default function ToDoWeeklyReport() {
 
   // Load weeks list on mount
   useEffect(() => {
+    let active = true;
+
     if (isDemoMode) {
       const demoSummaries = DEMO_TODO_DATA.map(w => ({ id: w.id, date: w.date, signal: w.signal }));
-      setSummaries(demoSummaries);
-      setSelectedWeekId(demoSummaries[0]?.id ?? null);
-      setLoadingSummaries(false);
-      return;
+      if (active) {
+        setSummaries(demoSummaries);
+        setSelectedWeekId(demoSummaries[0]?.id ?? null);
+        setLoadingSummaries(false);
+      }
+      return () => {
+        active = false;
+      };
     }
+
     api.get("/weekly-report/todos/summaries")
       .then(res => {
+        if (!active) return;
         setSummaries(res.data);
         if (res.data.length > 0) setSelectedWeekId(res.data[0].id);
       })
       .catch(err => console.error("Failed to load weeks:", err))
-      .finally(() => setLoadingSummaries(false));
+      .finally(() => {
+        if (active) setLoadingSummaries(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [isDemoMode]);
 
   // Load week data when selection changes
   useEffect(() => {
-    if (!selectedWeekId) { setWeekData(null); setAiSummary(null); return; }
+    let active = true;
+
+    if (!selectedWeekId) {
+      setWeekData(null);
+      setAiSummary(null);
+      setLoadingWeekData(false);
+      setLoadingAi(false);
+      return;
+    }
     if (isDemoMode) {
       const demo = DEMO_TODO_DATA.find(w => w.id === selectedWeekId) ?? null;
       setWeekData(demo);
@@ -332,17 +354,32 @@ export default function ToDoWeeklyReport() {
     setLoadingAi(true);
     setAiSummary(null);
     api.get(`/weekly-report/todos?week=${selectedWeekId}`)
-      .then(res => setWeekData(res.data))
-      .catch(err => { console.error("Failed to load week data:", err); setWeekData(null); })
-      .finally(() => setLoadingWeekData(false));
+      .then(res => {
+        if (active) setWeekData(res.data);
+      })
+      .catch(err => {
+        console.error("Failed to load week data:", err);
+        if (active) setWeekData(null);
+      })
+      .finally(() => {
+        if (active) setLoadingWeekData(false);
+      });
     api.get(`/weekly-report/todos/ai-summary?week=${selectedWeekId}`)
-      .then(res => setAiSummary(res.data.aiSummary ?? null))
+      .then(res => {
+        if (active) setAiSummary(res.data.aiSummary ?? null);
+      })
       .catch(err => console.error("Failed to load AI summary:", err))
-      .finally(() => setLoadingAi(false));
+      .finally(() => {
+        if (active) setLoadingAi(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [selectedWeekId, isDemoMode]);
 
   return (
-    <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
 
       {/* ── LEFT: Main analysis panel ─────────────────────────── */}
       <div className="journal-scroll min-w-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-170px)]">
@@ -368,13 +405,13 @@ export default function ToDoWeeklyReport() {
               className="space-y-4"
             >
               {/* Heading */}
-              <div className="dashboard-glow-card rounded-2xl border border-amber-100/10 bg-white/6 px-5 py-2.5 shadow-xl shadow-black/25 backdrop-blur">
-                <div className="flex items-center justify-between gap-4">
+              <div className="dashboard-glow-card rounded-[1.4rem] border border-amber-100/10 bg-white/6 px-4 py-3 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:px-5 sm:py-2.5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-baseline gap-2">
                     <p className="text-label-md">Weekly Summary</p>
                     <p className="text-[11px] font-semibold text-stone-500">{weekData.date}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                     <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
                       {weekData.signal}
                     </span>
@@ -493,7 +530,7 @@ export default function ToDoWeeklyReport() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="dashboard-glow-card rounded-2xl border border-amber-100/10 bg-white/6 p-5 shadow-xl shadow-black/25 backdrop-blur flex flex-col h-[24vh]"
+                className="dashboard-glow-card flex min-h-[15rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5 lg:h-[24vh]"
               >
                 <div className="mb-3 flex items-center gap-2">
                   <Motion.img
@@ -524,15 +561,15 @@ export default function ToDoWeeklyReport() {
               </Motion.div>
 
               {/* 2×2 card grid */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
 
                 {/* Card 1 — Priority Breakdown */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
-                  className="dashboard-glow-card flex h-[20vh] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
+                  className="dashboard-glow-card flex min-h-[12rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[20vh]"
                 >
-                  <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+                  <div className="mb-3 flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">By Priority</p>
-                    <div className="flex items-center gap-1 rounded-full border border-amber-100/10 bg-stone-900/60 p-0.5">
+                    <div className="flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
                       {["All", "High", "Medium", "Low"].map((p) => (
                         <button key={p} type="button" onClick={() => setPriorityFilter(p)}
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
@@ -604,12 +641,12 @@ export default function ToDoWeeklyReport() {
 
                 {/* Card 2 — Important Categories */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.21 }}
-                  className="dashboard-glow-card flex h-[20vh] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
+                  className="dashboard-glow-card flex min-h-[12rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[20vh]"
                 >
-                  <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+                  <div className="mb-3 flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Important Categories</p>
                     {(weekData.importantCategories || []).length > 0 && (
-                      <div className="flex items-center gap-1 rounded-full border border-amber-100/10 bg-stone-900/60 p-0.5">
+                      <div className="flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
                         {["All", ...(weekData.importantCategories || []).map((c) => c.name)].map((opt) => (
                           <button key={opt} type="button" onClick={() => setKeyCategoryFilter(opt)}
                             className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
@@ -691,7 +728,7 @@ export default function ToDoWeeklyReport() {
 
                 {/* Card 3 — Daily Breakdown */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}
-                  className="dashboard-glow-card flex h-[23vh] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
+                  className="dashboard-glow-card flex min-h-[13rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[23vh]"
                 >
                   <p className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Daily Breakdown</p>
                   <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
@@ -732,11 +769,11 @@ export default function ToDoWeeklyReport() {
                 </Motion.div>
                 {/* Card 4 — Task Timing Report */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                  className="dashboard-glow-card flex h-[23vh] flex-col rounded-2xl border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur"
+                  className="dashboard-glow-card flex min-h-[13rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[23vh]"
                 >
-                  <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+                  <div className="mb-3 flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Task Timing Report</p>
-                    <div className="flex items-center rounded-full border border-amber-100/10 bg-stone-900/60 p-0.5">
+                    <div className="flex w-full flex-wrap items-center rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
                       {["completed", "missed"].map((f) => (
                         <button key={f} type="button" onClick={() => setTimingFilter(f)}
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
@@ -801,10 +838,10 @@ export default function ToDoWeeklyReport() {
       </div>
 
       {/* ── RIGHT: Two cards ──────────────────────────────────── */}
-      <div className="grid w-full items-start gap-4 lg:w-[360px] lg:shrink-0">
+      <div className="grid w-full items-start gap-4 lg:w-[360px] lg:shrink-0 xl:w-[380px]">
 
         {/* Card 1 — Little Monk Analysis */}
-        <ReportCard className="flex h-[38vh] flex-col overflow-hidden">
+        <ReportCard className="flex min-h-[16rem] flex-col overflow-hidden lg:h-[38vh]">
           <div className="mb-4 flex shrink-0 items-center gap-3">
             <Motion.div
               className="relative grid h-16 w-17 place-items-center"
@@ -867,7 +904,7 @@ export default function ToDoWeeklyReport() {
                       <button
                         type="button"
                         onClick={() => setSelectedWeekId(isSelected ? null : week.id)}
-                        className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                        className={`w-full rounded-full border px-3 py-1 text-xs font-semibold transition-colors sm:w-fit ${
                           isSelected
                             ? "border-amber-400/40 bg-amber-400/15 text-amber-200"
                             : "border-amber-400/20 text-amber-300 hover:border-amber-300/45 hover:bg-amber-400/10"
@@ -884,7 +921,7 @@ export default function ToDoWeeklyReport() {
         </ReportCard>
 
         {/* Card 2 — Categorywise Performance */}
-        <ReportCard className="flex h-[42vh] flex-col overflow-hidden">
+        <ReportCard className="flex min-h-[18rem] flex-col overflow-hidden lg:h-[42vh]">
           <div className="mb-4 shrink-0 space-y-3">
             <div className="flex items-center gap-2">
               <span className="text-base">📊</span>
@@ -895,7 +932,7 @@ export default function ToDoWeeklyReport() {
                 </p>
               </div>
             </div>
-            <div className="flex w-full items-center rounded-full border border-amber-100/10 bg-stone-900/60 p-0.5">
+            <div className="flex w-full flex-wrap items-center rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:flex-nowrap sm:rounded-full">
               {["completion", "miss"].map((f) => (
                 <button
                   key={f}
@@ -935,7 +972,7 @@ export default function ToDoWeeklyReport() {
                       const isCompletion = categoryFilter === "completion";
                       return (
                         <div key={cat.name}>
-                          <div className="mb-1 flex items-center justify-between gap-2">
+                          <div className="mb-1 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
                             <span className="text-xs font-semibold text-stone-300">{cat.name}</span>
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] text-stone-500">

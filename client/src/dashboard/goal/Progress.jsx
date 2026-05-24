@@ -51,15 +51,15 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
   })();
 
   return (
-    <div className="h-[78vh] rounded-[2rem] border border-amber-100/10 bg-white/6 p-6 shadow-2xl shadow-black/25 backdrop-blur flex flex-col">
+    <div className="flex min-h-[70dvh] flex-col rounded-[1.6rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:h-[78vh] sm:rounded-[2rem] sm:p-6">
       <p className="text-label-lg">Progress</p>
       <h2 className="mt-2 text-2xl font-bold text-amber-100">Goal Progress</h2>
       <p className="text-body-md mt-1 text-stone-300/90">
         Milestone completion progress for each goal.
       </p>
 
-      <div className="mt-4 rounded-xl border border-amber-100/10 bg-black/20 px-4 py-3">
-        <div className="flex items-center justify-between mb-1.5">
+      <div className="mt-4 rounded-xl border border-amber-100/10 bg-black/20 px-3 py-3 sm:px-4">
+        <div className="mb-1.5 flex items-center justify-between gap-2">
           <p className="text-xs font-semibold text-stone-300">Overall Progress</p>
           <span className="text-xs font-bold text-amber-100">{overall}%</span>
         </div>
@@ -71,7 +71,7 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
             transition={{ duration: 1, ease: "easeOut" }}
           />
         </div>
-        <p className="mt-1.5 text-[11px] text-stone-400">
+        <p className="mt-1.5 text-[11px] leading-relaxed text-stone-400">
           {visibleGoals.reduce((s, g) => {
             const milestones = milestonesByGoal[g.id] || g.milestones || [];
             return s + milestones.filter((m) => m.completed).length;
@@ -80,8 +80,8 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
         </p>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-1.5">
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-1.5">
           {FILTER_OPTIONS.map((opt) => (
             <button
               key={opt}
@@ -97,7 +97,7 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
             </button>
           ))}
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {PRIORITY_FILTERS.map((opt) => (
             <button
               key={opt}
@@ -135,15 +135,15 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
             return (
               <Motion.article
                 key={goal.id}
-                className="rounded-2xl border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4"
+                className="rounded-[1.3rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-3.5 sm:rounded-2xl sm:p-4"
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.07, duration: 0.25 }}
                 whileHover={{ y: -3, boxShadow: "0 12px 32px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
               >
-                <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
-                  <div>
-                    <h3 className="text-base font-semibold text-amber-100">{goal.title}</h3>
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="break-words text-base font-semibold text-amber-100">{goal.title}</h3>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${TYPE_BADGE[goal.type]}`}>
                         {goal.type}
@@ -162,7 +162,7 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
                       </span>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
+                  <div className="w-full shrink-0 text-left sm:w-auto sm:text-right">
                     {total === 0 ? (
                       <p className="text-[11px] text-stone-500 italic">No sub-goals</p>
                     ) : (
@@ -189,7 +189,7 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
                   </div>
                 )}
 
-                <div className="mt-2 flex items-center justify-between">
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                   <p className="text-[11px] text-stone-400">Deadline: {goal.deadline}</p>
                   <p
                     className={`text-[11px] font-semibold ${

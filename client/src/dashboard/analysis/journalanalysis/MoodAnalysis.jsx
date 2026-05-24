@@ -126,10 +126,10 @@ function InsightRail({ insights }) {
 
   return (
     <aside
-      className="flex w-full flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur"
+      className="flex w-full flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl"
     >
       {/* Monk header — matches JournalWeeklyReport exactly */}
-      <div className="shrink-0 p-5 pb-4">
+      <div className="shrink-0 p-4 pb-3 sm:p-5 sm:pb-4">
         <div className="flex items-center gap-3">
           <Motion.div
             className="relative grid h-16 w-17 place-items-center"
@@ -159,7 +159,7 @@ function InsightRail({ insights }) {
       </div>
 
       {/* Scrollable insight cards */}
-      <div className="journal-scroll space-y-3 px-5 pb-5 pr-4">
+      <div className="journal-scroll space-y-3 px-4 pb-4 pr-3 sm:px-5 sm:pb-5 sm:pr-4">
         {insights.map((insight) => {
           const isSelected = selectedInsight === insight.title;
           return (
@@ -191,7 +191,7 @@ function InsightRail({ insights }) {
                 <button
                   type="button"
                   onClick={() => setSelectedInsight(isSelected ? null : insight.title)}
-                  className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                  className={`w-full rounded-full border px-3 py-1 text-xs font-semibold transition-colors sm:w-fit ${
                     isSelected
                       ? "border-amber-400/40 bg-amber-400/15 text-amber-200"
                       : "border-amber-400/20 text-amber-300 hover:border-amber-300/45 hover:bg-amber-400/10"
@@ -215,7 +215,7 @@ const LABEL_H = 56; // space below bars for emoji + mood name + log count
 function MoodVsGraph({ data, daysLogged }) {
   const [hovered, setHovered] = useState(null);
   return (
-    <section className="rounded-[1.75rem] border border-amber-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+    <section className="rounded-[1.4rem] border border-amber-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Comparison</p>
@@ -337,7 +337,7 @@ const DAY_LABEL_H  = 22;  // day name below the bar
 function DayWiseMoodGraph({ data }) {
   const [hovered, setHovered] = useState(null);
   return (
-    <section className="rounded-[1.75rem] border border-amber-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+    <section className="rounded-[1.4rem] border border-amber-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5">
       <div>
         <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Timeline</p>
         <h4 className="mt-2 text-xl font-semibold text-amber-50">Day-wise Mood Analysis</h4>
@@ -456,7 +456,7 @@ function MoodDistributionGraph({ data, moodTypesLogged }) {
   const hoveredItem = hovered !== null ? data[hovered] : null;
 
   return (
-    <section className="rounded-[1.75rem] border border-amber-100/10 bg-stone-950/30 p-5 shadow-xl shadow-black/20">
+    <section className="rounded-[1.4rem] border border-amber-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5">
       <div>
         <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Distribution</p>
         <h4 className="mt-2 text-xl font-semibold text-amber-50">Mood Distribution</h4>
@@ -583,6 +583,7 @@ export default function MoodAnalysis() {
       setEntries(DEMO_MOOD_ENTRIES.filter(
         e => e.date.startsWith(selectedYear) && e.date.slice(5, 7) === selectedMonth
       ));
+      setLoading(false);
       return;
     }
     let cancelled = false;
@@ -636,14 +637,14 @@ export default function MoodAnalysis() {
   return (
     <section className="space-y-4">
       {/* Filters — outside the container */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
         {String(NOW.getFullYear()) === selectedYear && String(NOW.getMonth() + 1).padStart(2, "0") === selectedMonth && (
           <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
             Live · updates daily
           </span>
         )}
-        <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
+        <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
           <span className="text-stone-400">Year</span>
           <select
             value={selectedYear}
@@ -664,7 +665,7 @@ export default function MoodAnalysis() {
           </select>
         </label>
 
-        <label className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300">
+        <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
           <span className="text-stone-400">Month</span>
           <select
             value={selectedMonth}
@@ -689,12 +690,12 @@ export default function MoodAnalysis() {
           <div className="h-36 animate-pulse rounded-2xl border border-amber-100/10 bg-white/[0.03]" />
         </div>
       ) : (
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         {/* LEFT — one big scrollable container */}
         <div
-          className="journal-scroll min-w-0 flex-1 rounded-[2rem] border border-amber-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur lg:max-h-[calc(100vh-360px)] lg:overflow-y-auto"
+          className="journal-scroll min-w-0 flex-1 rounded-[1.6rem] border border-amber-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur lg:max-h-[calc(100vh-360px)] lg:overflow-y-auto sm:rounded-[2rem]"
         >
-          <div className="space-y-6 p-6">
+          <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
             <MoodVsGraph data={moodVsSeries} daysLogged={daysLogged} />
             <DayWiseMoodGraph data={dayWiseSeries} />
           </div>
@@ -702,7 +703,7 @@ export default function MoodAnalysis() {
 
         {/* RIGHT — Little Monk panel + Mood Distribution */}
         <div
-          className="journal-scroll flex w-full self-start flex-col gap-2 lg:-mt-14 lg:max-h-[calc(100vh-180px)] lg:max-w-[360px] lg:shrink-0 lg:overflow-y-auto"
+          className="journal-scroll flex w-full self-start flex-col gap-3 lg:-mt-14 lg:max-h-[calc(100vh-180px)] lg:max-w-[360px] lg:shrink-0 lg:overflow-y-auto xl:max-w-[380px]"
         >
           <InsightRail insights={littleMonkInsights} />
           <MoodDistributionGraph data={distribution} moodTypesLogged={moodTypesLogged} />

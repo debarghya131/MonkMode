@@ -112,7 +112,7 @@ export default function Analytics() {
                   : { boxShadow: "0 0 0px rgba(251,191,36,0)" }
               }
               transition={{ duration: 0.2 }}
-              className={`flex min-w-[7rem] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors duration-200 ${
+              className={`flex min-w-[7rem] items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors duration-200 md:flex-1 ${
                 isActive
                   ? "border border-amber-400/30 bg-gradient-to-r from-amber-400/20 to-orange-400/15 text-amber-300"
                   : "border border-transparent text-stone-400 hover:text-amber-200"

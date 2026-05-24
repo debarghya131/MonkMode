@@ -1,5 +1,5 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import ToDoNavbar from "./ToDoNavbar";
 import Today from "./Today";
 import Upcomming from "./Upcomming";
@@ -128,7 +128,7 @@ export default function Todo() {
     return [...merged.values()];
   });
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     try {
       const { data } = await api.get("/todos");
       setTasks(data);
@@ -143,9 +143,9 @@ export default function Todo() {
     } catch (err) {
       console.error("Failed to fetch tasks:", err);
     }
-  };
+  }, [importantCategories]);
 
-  const fetchConsistency = async () => {
+  const fetchConsistency = useCallback(async () => {
     try {
       const { data } = await api.get("/todos/summary", {
         params: { importantCategories: importantCategories.join(",") }
@@ -160,13 +160,13 @@ export default function Todo() {
     } catch {
       // keep existing values
     }
-  };
+  }, [importantCategories]);
 
   useEffect(() => {
     if (isDemoMode) return;
     fetchTasks();
     fetchConsistency();
-  }, [isDemoMode, importantCategories]);
+  }, [fetchConsistency, fetchTasks, isDemoMode]);
 
   useEffect(() => {
     if (isDemoMode) return;
@@ -182,14 +182,14 @@ export default function Todo() {
       window.removeEventListener("focus", refreshTodoSummary);
       window.removeEventListener("monkmode:todos-updated", refreshTodoSummary);
     };
-  }, [isDemoMode]);
+  }, [fetchConsistency, isDemoMode]);
 
-  const refreshTasks = () => {
+  const refreshTasks = useCallback(() => {
     if (!isDemoMode) {
       fetchTasks();
       fetchConsistency();
     }
-  };
+  }, [fetchConsistency, fetchTasks, isDemoMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -248,8 +248,6 @@ export default function Todo() {
     important: (
       <Important
         tasks={tasks}
-        categoryOptions={categoryOptions}
-        setCategoryOptions={setCategoryOptions}
         importantCategories={importantCategories}
         setImportantCategories={setImportantCategories}
       />
@@ -260,9 +258,9 @@ export default function Todo() {
     <div className="w-full space-y-4">
 
       {/* TOP ROW — consistency + navbar side by side, left-aligned */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4 xl:gap-6">
         <Motion.div
-          className="flex w-full items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-950/50 px-4 py-2.5 shadow-lg md:w-auto md:min-w-[265px] md:shrink-0"
+          className="flex w-full items-start gap-2 rounded-[1.15rem] border border-amber-500/25 bg-amber-950/50 px-3.5 py-2.5 shadow-lg sm:items-center sm:rounded-xl sm:px-4 md:w-auto md:min-w-[255px] md:shrink-0"
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
@@ -273,7 +271,7 @@ export default function Todo() {
             animate={{ scale: [1, 1.25, 1] }}
             transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
           >📊</Motion.div>
-          <div className="flex flex-col">
+          <div className="flex min-w-0 flex-col">
             <span className="text-base font-bold text-amber-400 sm:text-lg">
               Consistency {isDemoMode ? "--" : `${consistency.lifetimeConsistency}%`}
             </span>

@@ -14,6 +14,45 @@ import GymMeasurement from "../models/GymMeasurement.js";
 import GymGalleryEntry from "../models/GymGalleryEntry.js";
 import GymDietPlan from "../models/GymDietPlan.js";
 
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
+const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 15_000);
+
+async function requestGroqSummary(apiKey, systemPrompt, userMessage) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+
+  try {
+    const groqResponse = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
+        ],
+        max_tokens: 200,
+        temperature: 0.72,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!groqResponse.ok) {
+      const errText = await groqResponse.text();
+      throw new Error(`Groq API error ${groqResponse.status}: ${errText}`);
+    }
+
+    const groqData = await groqResponse.json();
+    return groqData.choices?.[0]?.message?.content?.trim() ?? null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function toDayKey(date) {
@@ -611,28 +650,13 @@ Rules:
 
     const userMessage = `Here is this week's habit data:\n\n${contextLines.join("\n")}\n\nWrite the weekly analysis.`;
 
-    const groqResponse = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user",   content: userMessage },
-        ],
-        max_tokens: 200,
-        temperature: 0.72,
-      }),
-    });
-
-    if (!groqResponse.ok) {
-      const errText = await groqResponse.text();
-      console.error("Groq API error (habit):", groqResponse.status, errText);
+    let aiSummary;
+    try {
+      aiSummary = await requestGroqSummary(apiKey, systemPrompt, userMessage);
+    } catch (error) {
+      console.error("Groq API error (habit):", error.message);
       return res.status(502).json({ error: "AI generation failed" });
     }
-
-    const groqData  = await groqResponse.json();
-    const aiSummary = groqData.choices?.[0]?.message?.content?.trim() ?? null;
 
     if (aiSummary) {
       await HabitWeeklySummary.findOneAndUpdate(
@@ -1046,28 +1070,13 @@ Rules:
 
     const userMessage = `Here is this week's task data:\n\n${weekContext}\n\nWrite the weekly analysis.`;
 
-    const groqResponse = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user",   content: userMessage },
-        ],
-        max_tokens: 200,
-        temperature: 0.72,
-      }),
-    });
-
-    if (!groqResponse.ok) {
-      const errText = await groqResponse.text();
-      console.error("Groq API error (todo):", groqResponse.status, errText);
+    let aiSummary;
+    try {
+      aiSummary = await requestGroqSummary(apiKey, systemPrompt, userMessage);
+    } catch (error) {
+      console.error("Groq API error (todo):", error.message);
       return res.status(502).json({ error: "AI generation failed" });
     }
-
-    const groqData  = await groqResponse.json();
-    const aiSummary = groqData.choices?.[0]?.message?.content?.trim() ?? null;
 
     if (aiSummary) {
       await TodoWeeklySummary.findOneAndUpdate(
@@ -1296,9 +1305,6 @@ export const saveJournalMissedReason = async (req, res) => {
 
 // ─── Journal AI Summary (Little Monk's Analysis) ─────────────────────────────
 
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL   = "llama-3.3-70b-versatile";
-
 // Build a compact text snapshot of the week for the AI prompt
 function buildJournalWeekContext(weekLabel, stats, loggedDays, missedDays, topMood, longestStreak) {
   const lines = [
@@ -1388,31 +1394,13 @@ Rules:
 
     const userMessage = `Here is this week's journal data:\n\n${weekContext}\n\nWrite the weekly analysis.`;
 
-    const groqResponse = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user",   content: userMessage },
-        ],
-        max_tokens:  200,
-        temperature: 0.72,
-      }),
-    });
-
-    if (!groqResponse.ok) {
-      const errText = await groqResponse.text();
-      console.error("Groq API error:", groqResponse.status, errText);
+    let aiSummary;
+    try {
+      aiSummary = await requestGroqSummary(apiKey, systemPrompt, userMessage);
+    } catch (error) {
+      console.error("Groq API error (journal):", error.message);
       return res.status(502).json({ error: "AI generation failed" });
     }
-
-    const groqData  = await groqResponse.json();
-    const aiSummary = groqData.choices?.[0]?.message?.content?.trim() ?? null;
 
     // Persist to DB so subsequent loads are instant
     if (aiSummary) {
@@ -1662,28 +1650,13 @@ Rules:
 
     const userMessage = `Here is this week's goal data:\n\n${contextLines.join("\n")}\n\nWrite the weekly analysis.`;
 
-    const groqResponse = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user",   content: userMessage },
-        ],
-        max_tokens: 200,
-        temperature: 0.72,
-      }),
-    });
-
-    if (!groqResponse.ok) {
-      const errText = await groqResponse.text();
-      console.error("Groq API error (goal):", groqResponse.status, errText);
+    let aiSummary;
+    try {
+      aiSummary = await requestGroqSummary(apiKey, systemPrompt, userMessage);
+    } catch (error) {
+      console.error("Groq API error (goal):", error.message);
       return res.status(502).json({ error: "AI generation failed" });
     }
-
-    const groqData  = await groqResponse.json();
-    const aiSummary = groqData.choices?.[0]?.message?.content?.trim() ?? null;
 
     if (aiSummary) {
       await GoalWeeklySummary.findOneAndUpdate(
@@ -1817,28 +1790,13 @@ Rules:
 
     const userMessage = `Here is this week's gym data:\n\n${contextLines.join("\n")}\n\nWrite the weekly analysis.`;
 
-    const groqResponse = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user",   content: userMessage },
-        ],
-        max_tokens: 200,
-        temperature: 0.72,
-      }),
-    });
-
-    if (!groqResponse.ok) {
-      const errText = await groqResponse.text();
-      console.error("Groq API error (gym):", groqResponse.status, errText);
+    let aiSummary;
+    try {
+      aiSummary = await requestGroqSummary(apiKey, systemPrompt, userMessage);
+    } catch (error) {
+      console.error("Groq API error (gym):", error.message);
       return res.status(502).json({ error: "AI generation failed" });
     }
-
-    const groqData  = await groqResponse.json();
-    const aiSummary = groqData.choices?.[0]?.message?.content?.trim() ?? null;
 
     if (aiSummary) {
       await GymWeeklySummary.findOneAndUpdate(
