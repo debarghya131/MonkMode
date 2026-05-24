@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./pages/authentication/ProtectedRoute";
 import DashboardLayout from "./dashboard/DashboardLayout";
+import GlobalRateLimitToast from "./components/GlobalRateLimitToast";
 
 const LandingPage = lazy(() => import("./pages/landingpage/LandingPage"));
 const DemoLogin = lazy(() => import("./pages/landingpage/demologin"));
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="/dashboard/ai_coach" element={<ProtectedRoute><Navigate to="/dashboard/ai_guru" replace /></ProtectedRoute>} />
         <Route path="/dashboard/ai_guru" element={<ProtectedRoute><DashboardLayout>{withSuspense(<AIGuru />)}</DashboardLayout></ProtectedRoute>} />
       </Routes>
+      <GlobalRateLimitToast />
     </BrowserRouter>
   );
 }

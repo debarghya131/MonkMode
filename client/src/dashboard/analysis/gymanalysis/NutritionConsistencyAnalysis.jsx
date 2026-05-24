@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
-import littleMonkLogo from "../../../assets/littlemonklogo.png";
+import littleMonkLogo from "../../../assets/littlemonklogo.webp";
 import api from "../../../api/axios";
 import useAuth from "../../../hooks/useAuth";
 import { buildDemoGymMonthAnalysis } from "./demoGymAnalysis";

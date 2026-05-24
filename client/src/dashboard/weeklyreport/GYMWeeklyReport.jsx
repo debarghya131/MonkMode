@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion as Motion } from "framer-motion";
-import littleMonkLogo from "../../assets/littlemonklogo.png";
-import photo1 from "../../assets/transformatiom image 1.png";
-import photo2 from "../../assets/transformatiom image 2.png";
-import photo3 from "../../assets/transformatiom image 3.png";
-import photo4 from "../../assets/transformatiom image 4.png";
-import photo5 from "../../assets/transformatiom image 5.png";
-import photo6 from "../../assets/transformatiom image 6.png";
+import littleMonkLogo from "../../assets/littlemonklogo.webp";
+import photo1 from "../../assets/transformatiom image 1.webp";
+import photo2 from "../../assets/transformatiom image 2.webp";
+import photo3 from "../../assets/transformatiom image 3.webp";
+import photo4 from "../../assets/transformatiom image 4.webp";
+import photo5 from "../../assets/transformatiom image 5.webp";
+import photo6 from "../../assets/transformatiom image 6.webp";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 

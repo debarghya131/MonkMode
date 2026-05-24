@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion as Motion, AnimatePresence } from "framer-motion";
-import littleMonkLogo from "../../assets/littlemonklogo.png";
+import littleMonkLogo from "../../assets/littlemonklogo.webp";
 import useAuth from "../../hooks/useAuth";
 import api from "../../api/axios";
 

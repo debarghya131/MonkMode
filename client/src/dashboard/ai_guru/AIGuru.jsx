@@ -2,8 +2,8 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { motion as Motion, AnimatePresence } from "framer-motion";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
-import mingLogo from "../../assets/minglogo1.png";
-import mingAvatar from "../../assets/minglogo2.png";
+import mingLogo from "../../assets/minglogo1.webp";
+import mingAvatar from "../../assets/minglogo2.webp";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

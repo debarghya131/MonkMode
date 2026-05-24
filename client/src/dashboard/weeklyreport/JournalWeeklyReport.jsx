@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion as Motion, AnimatePresence } from "framer-motion";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
-import littleMonkLogo from "../../assets/littlemonklogo.png";
+import littleMonkLogo from "../../assets/littlemonklogo.webp";
 
 const DEMO_SUMMARIES = [
   { id: "2026-04-27", date: "Apr 27 - May 3",  signal: "6 logged days", loggedDays: 6, weeklyScore: 84, longestStreak: 5, topMood: { label: "Focused",   emoji: "😤", days: 3 } },

@@ -1,12 +1,12 @@
 import { motion as Motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api/axios";
-import transformatiomImage1 from "../../assets/transformatiom image 1.png";
-import transformatiomImage2 from "../../assets/transformatiom image 2.png";
-import transformatiomImage3 from "../../assets/transformatiom image 3.png";
-import transformatiomImage4 from "../../assets/transformatiom image 4.png";
-import transformatiomImage5 from "../../assets/transformatiom image 5.png";
-import transformatiomImage6 from "../../assets/transformatiom image 6.png";
+import transformatiomImage1 from "../../assets/transformatiom image 1.webp";
+import transformatiomImage2 from "../../assets/transformatiom image 2.webp";
+import transformatiomImage3 from "../../assets/transformatiom image 3.webp";
+import transformatiomImage4 from "../../assets/transformatiom image 4.webp";
+import transformatiomImage5 from "../../assets/transformatiom image 5.webp";
+import transformatiomImage6 from "../../assets/transformatiom image 6.webp";
 import useAuth from "../../hooks/useAuth";
 
 const todayISO = () => {

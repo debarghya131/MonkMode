@@ -6,7 +6,7 @@ import {
   useSpring,
   useTransform
 } from "framer-motion";
-import monkIllustration from "../../assets/monk.png";
+import monkIllustration from "../../assets/monk.webp";
 
 const createSeededRandom = (seedValue) => {
   let seed = seedValue;

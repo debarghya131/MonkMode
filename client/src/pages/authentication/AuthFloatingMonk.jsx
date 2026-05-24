@@ -1,5 +1,5 @@
 import { motion as Motion } from "framer-motion";
-import monkIllustration from "../../assets/monk.png";
+import monkIllustration from "../../assets/monk.webp";
 
 const sparkles = [
   { id: 1, left: "18%", top: "26%", size: 5, duration: 2.8, delay: 0.2, opacity: 0.55 },

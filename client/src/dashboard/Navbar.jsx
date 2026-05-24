@@ -1,7 +1,7 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import api from "../api/axios";
-import monkLogo from "../assets/monkmode-logo.png";
+import monkLogo from "../assets/monkmode-logo.webp";
 import { INITIAL_HABITS } from "../../data/HabitDummyData";
 import { INITIAL_TASKS } from "../../data/ToDoDummyData";
 import useAuth from "../hooks/useAuth";

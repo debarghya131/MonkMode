@@ -1,8 +1,8 @@
 import { motion as Motion } from "framer-motion";
 import AuthBackground from "../authentication/AuthBackground";
 import LandingNavbar from "./LandingNavbar";
-import creatorImage from "../../assets/creator.png";
-import monkIllustration from "../../assets/monk.png";
+import creatorImage from "../../assets/creator.webp";
+import monkIllustration from "../../assets/monk.webp";
 
 function XLogo() {
   return (
