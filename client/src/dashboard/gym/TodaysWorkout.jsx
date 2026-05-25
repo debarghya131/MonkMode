@@ -1034,14 +1034,14 @@ export default function TodaysWorkout() {
                             whileHover={{ y: -1, borderColor: "rgba(251,191,36,0.18)", boxShadow: "0 6px 16px rgba(0,0,0,0.3)" }}
                           >
                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-3 sm:min-w-0 sm:flex-1">
                               <span className="shrink-0 text-[10px] font-bold text-amber-400/50">{idx + 1}.</span>
                               <div className="min-w-0 flex-1">
                                 <p className="text-xs font-semibold text-stone-100">{ex.name}</p>
                                 <p className="mt-0.5 text-[10px] text-stone-500">{ex.bodyPart}</p>
                               </div>
                               </div>
-                              <div className="flex shrink-0 flex-wrap gap-1.5 sm:justify-end">
+                              <div className="flex shrink-0 flex-wrap gap-1.5 sm:ml-auto sm:justify-end">
                                 <Motion.button type="button" onClick={() => setViewProgressModal(ex)}
                                   whileHover={{ scale: 1.08, boxShadow: "0 0 16px rgba(251,191,36,0.5)" }}
                                   whileTap={{ scale: 0.93 }}
