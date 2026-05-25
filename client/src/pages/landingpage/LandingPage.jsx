@@ -111,7 +111,7 @@ export default function LandingPage() {
           className="mt-0.5 bg-gradient-to-r from-orange-300 via-amber-100 to-orange-200 bg-clip-text font-serif text-[0.78rem] font-semibold italic leading-snug tracking-[0.02em] text-transparent drop-shadow-[0_6px_14px_rgba(245,158,11,0.16)] sm:mt-1 sm:text-sm md:text-[1.1rem]"
           style={{ fontFamily: "Georgia, Times New Roman, serif" }}
         >
-          by Debarghya Bandyopadhyay 🧡
+          by Debarghya 🧡
         </p>
       </Motion.div>
 

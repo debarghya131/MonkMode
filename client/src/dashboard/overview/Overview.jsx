@@ -16,6 +16,10 @@ import {
 const GYM_MEASUREMENTS_KEY = "monkmode_gym_measurements";
 const GYM_GALLERY_KEY = "monkmode_gallery";
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const EMPTY_HABIT_SUMMARY = { completed: 0, pending: 0 };
+const EMPTY_TASK_SUMMARY = { completed: 0, pending: 0, missed: 0, importantToday: 0 };
+const EMPTY_GOAL_SUMMARY = { totalGoals: 0, completedGoals: 0, totalSubgoals: 0, completedSubgoals: 0 };
+const EMPTY_GYM_SUMMARY = { completedProgress: 0, totalProgress: 0, pendingUpdates: 0, progressUpdatesToday: 0 };
 
 const formatCheckInDate = (date) => {
   if (!ISO_DATE_REGEX.test(String(date || ""))) return "No check-in";
@@ -172,40 +176,52 @@ export default function Overview() {
     achievementsThisWeek: 0,
     winsThisWeek: 0,
   }));
-  const [lastMeasurementCheckInDate, setLastMeasurementCheckInDate] = useState(() => readLastMeasurementCheckInDate());
+  const [lastMeasurementCheckInDate, setLastMeasurementCheckInDate] = useState(() => (isDemoMode ? readLastMeasurementCheckInDate() : null));
   const [lastPicUploadedDate, setLastPicUploadedDate] = useState(() => (isDemoMode ? readLastPicUploadedDate() : null));
   const [habitSummary, setHabitSummary] = useState(() =>
-    TODAY_HABITS.reduce(
-      (summary, habit) => ({
-        completed: summary.completed + (habit.status === "completed" ? 1 : 0),
-        pending: summary.pending + (habit.status === "pending" ? 1 : 0),
-      }),
-      { completed: 0, pending: 0 }
-    )
+    isDemoMode
+      ? TODAY_HABITS.reduce(
+          (summary, habit) => ({
+            completed: summary.completed + (habit.status === "completed" ? 1 : 0),
+            pending: summary.pending + (habit.status === "pending" ? 1 : 0),
+          }),
+          EMPTY_HABIT_SUMMARY
+        )
+      : EMPTY_HABIT_SUMMARY
   );
   const [taskSummary, setTaskSummary] = useState(() =>
-    TODAY_TASKS.reduce(
-      (summary, task) => ({
-        completed: summary.completed + (task.status === "completed" ? 1 : 0),
-        pending: summary.pending + (task.status === "pending" ? 1 : 0),
-        missed: summary.missed + (task.status === "missed" ? 1 : 0),
-        importantToday: summary.importantToday + (task.priority === "High" ? 1 : 0),
-      }),
-      { completed: 0, pending: 0, missed: 0, importantToday: 0 }
-    )
+    isDemoMode
+      ? TODAY_TASKS.reduce(
+          (summary, task) => ({
+            completed: summary.completed + (task.status === "completed" ? 1 : 0),
+            pending: summary.pending + (task.status === "pending" ? 1 : 0),
+            missed: summary.missed + (task.status === "missed" ? 1 : 0),
+            importantToday: summary.importantToday + (task.priority === "High" ? 1 : 0),
+          }),
+          EMPTY_TASK_SUMMARY
+        )
+      : EMPTY_TASK_SUMMARY
   );
-  const [goalSummary, setGoalSummary] = useState(() => ({
-    totalGoals: DEMO_OVERVIEW_STATS.goals.total,
-    completedGoals: DEMO_OVERVIEW_STATS.goals.completed,
-    totalSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsTotal,
-    completedSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsCompleted,
-  }));
-  const [gymSummary, setGymSummary] = useState(() => ({
-    completedProgress: DEMO_OVERVIEW_STATS.gym.completedProgress,
-    totalProgress: DEMO_OVERVIEW_STATS.gym.totalProgress,
-    pendingUpdates: DEMO_OVERVIEW_STATS.gym.pendingUpdates,
-    progressUpdatesToday: DEMO_OVERVIEW_STATS.gym.progressUpdatesToday,
-  }));
+  const [goalSummary, setGoalSummary] = useState(() =>
+    isDemoMode
+      ? {
+          totalGoals: DEMO_OVERVIEW_STATS.goals.total,
+          completedGoals: DEMO_OVERVIEW_STATS.goals.completed,
+          totalSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsTotal,
+          completedSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsCompleted,
+        }
+      : EMPTY_GOAL_SUMMARY
+  );
+  const [gymSummary, setGymSummary] = useState(() =>
+    isDemoMode
+      ? {
+          completedProgress: DEMO_OVERVIEW_STATS.gym.completedProgress,
+          totalProgress: DEMO_OVERVIEW_STATS.gym.totalProgress,
+          pendingUpdates: DEMO_OVERVIEW_STATS.gym.pendingUpdates,
+          progressUpdatesToday: DEMO_OVERVIEW_STATS.gym.progressUpdatesToday,
+        }
+      : EMPTY_GYM_SUMMARY
+  );
 
   useEffect(() => {
     if (isDemoMode) {

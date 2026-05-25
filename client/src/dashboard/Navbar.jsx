@@ -171,10 +171,10 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
   const { isDemoMode } = useAuth();
   const firstName = user?.name || "Friend";
   const [monkStreak, setMonkStreak] = useState(0);
-  const [consistencyScore, setConsistencyScore] = useState(() => readNumber(CONSISTENCY_SCORE_KEY, 0));
-  const [journalStreak, setJournalStreak] = useState(DEMO_STREAKS.journal);
-  const [habitStreak, setHabitStreak] = useState(DEMO_STREAKS.habit);
-  const [todoStreak, setTodoStreak] = useState(DEMO_STREAKS.todo);
+  const [consistencyScore, setConsistencyScore] = useState(() => (isDemoMode ? readNumber(CONSISTENCY_SCORE_KEY, 0) : 0));
+  const [journalStreak, setJournalStreak] = useState(() => (isDemoMode ? DEMO_STREAKS.journal : 0));
+  const [habitStreak, setHabitStreak] = useState(() => (isDemoMode ? DEMO_STREAKS.habit : 0));
+  const [todoStreak, setTodoStreak] = useState(() => (isDemoMode ? DEMO_STREAKS.todo : 0));
   const [showMobileStats, setShowMobileStats] = useState(false);
   const currentDate = formatDate(new Date());
 

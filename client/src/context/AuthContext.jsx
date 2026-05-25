@@ -48,7 +48,7 @@ export function AuthProvider({ children }) {
   const { getToken, isLoaded, isSignedIn, signOut } = useClerkAuth();
   const { user: clerkUser } = useUser();
   const [demoModeRequested, setDemoModeRequested] = useState(readDemoModeFlag);
-  const isDemoSession = demoModeRequested && !isSignedIn;
+  const isDemoSession = isLoaded && demoModeRequested && !isSignedIn;
 
   useEffect(() => {
     clearLegacyAuth();
@@ -90,7 +90,7 @@ export function AuthProvider({ children }) {
   const value = useMemo(() => ({
     isAuthenticated: isDemoSession || Boolean(isSignedIn),
     hasRealSession: Boolean(isSignedIn),
-    isBootstrapping: !isLoaded && !isDemoSession,
+    isBootstrapping: !isLoaded,
     isDemoMode: isDemoSession,
     authMode: isDemoSession ? "demo" : isSignedIn ? "clerk" : "guest",
     logout,
