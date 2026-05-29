@@ -718,12 +718,12 @@ function OverviewSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={overviewSlides[activeSlide].image}
           alt={overviewSlides[activeSlide].title}
-          className="aspect-[16/10] w-full object-contain transition duration-500 group-hover/slider:scale-[1.015]"
+          className="aspect-[16/10] w-full object-contain"
         />
         <button
           type="button"
@@ -804,12 +804,12 @@ function JournalSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={journalSlides[activeSlide].image}
           alt={journalSlides[activeSlide].title}
-          className="aspect-[16/10] w-full object-contain transition duration-500 group-hover/slider:scale-[1.015]"
+          className="aspect-[16/10] w-full object-contain"
         />
         <button
           type="button"
@@ -890,12 +890,12 @@ function TodoSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={todoSlides[activeSlide].image}
           alt={todoSlides[activeSlide].title}
-          className="aspect-[16/10] w-full object-contain transition duration-500 group-hover/slider:scale-[1.015]"
+          className="aspect-[16/10] w-full object-contain"
         />
         <button
           type="button"
@@ -976,12 +976,12 @@ function HabitSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={habitSlides[activeSlide].image}
           alt={habitSlides[activeSlide].title}
-          className="aspect-[16/10] w-full object-contain transition duration-500 group-hover/slider:scale-[1.015]"
+          className="aspect-[16/10] w-full object-contain"
         />
         <button
           type="button"
@@ -1062,12 +1062,12 @@ function GoalSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={goalSlides[activeSlide].image}
           alt={goalSlides[activeSlide].title}
-          className="aspect-[16/10] w-full object-contain transition duration-500 group-hover/slider:scale-[1.015]"
+          className="aspect-[16/10] w-full object-contain"
         />
         <button
           type="button"
@@ -1148,12 +1148,12 @@ function GymSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={gymSlides[activeSlide].image}
           alt={gymSlides[activeSlide].title}
-          className="aspect-[16/10] w-full object-contain transition duration-500 group-hover/slider:scale-[1.015]"
+          className="aspect-[16/10] w-full object-contain"
         />
         <button
           type="button"
@@ -1238,12 +1238,12 @@ function WeeklyReportSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={weeklyReportSlides[activeSlide].image}
           alt={weeklyReportSlides[activeSlide].title}
-          className="aspect-[16/10] w-full object-contain transition duration-500 group-hover/slider:scale-[1.015]"
+          className="aspect-[16/10] w-full object-contain"
         />
         <button
           type="button"
@@ -1328,12 +1328,12 @@ function AnalysisSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={analysisSlides[activeSlide].image}
           alt={analysisSlides[activeSlide].title}
-          className="aspect-[16/10] w-full object-contain transition duration-500 group-hover/slider:scale-[1.015]"
+          className="aspect-[16/10] w-full object-contain"
         />
         <button
           type="button"
@@ -1418,12 +1418,12 @@ function AiGuruSlider({ activeSlide, setActiveSlide }) {
   };
 
   return (
-    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-300 hover:-translate-y-1 hover:border-amber-200/25 hover:shadow-[0_22px_60px_rgba(0,0,0,0.34)] sm:rounded-[1.25rem] sm:p-3">
+    <div className="group/slider relative overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-black/25 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-[1.25rem] sm:p-3">
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={aiGuruSlides[activeSlide].image}
           alt={aiGuruSlides[activeSlide].title}
-          className="aspect-[16/10] w-full object-contain transition duration-500 group-hover/slider:scale-[1.015]"
+          className="aspect-[16/10] w-full object-contain"
         />
         <button
           type="button"
@@ -1511,9 +1511,8 @@ export default function Features() {
                 key={feature.title}
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                whileHover={{ y: -6, scale: 1.006 }}
                 transition={{ duration: 0.42, delay: index * 0.04, ease: "easeOut" }}
-                className={`relative overflow-hidden rounded-[1.35rem] border border-amber-100/10 bg-stone-950/42 p-4 shadow-[0_16px_46px_rgba(0,0,0,0.24)] backdrop-blur-xl transition hover:border-amber-200/25 hover:bg-stone-950/55 hover:shadow-[0_24px_70px_rgba(0,0,0,0.34)] sm:rounded-[1.5rem] sm:p-6 ${
+                className={`relative overflow-hidden rounded-[1.35rem] border border-amber-100/10 bg-stone-950/42 p-4 shadow-[0_16px_46px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:rounded-[1.5rem] sm:p-6 ${
                   index === 0 ||
                   index === 1 ||
                   index === 2 ||

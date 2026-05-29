@@ -146,8 +146,11 @@ export default function Login() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.41, duration: 0.3 }}
               >
-                <Link to="/" className="font-semibold text-stone-300 transition hover:text-amber-100">
-                  Back to home
+                <Link
+                  to="/"
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/15 px-6 font-semibold text-stone-100 transition hover:border-amber-200/45 hover:bg-white/5 hover:text-amber-100"
+                >
+                  Back Home
                 </Link>
               </Motion.div>
 

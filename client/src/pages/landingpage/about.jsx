@@ -96,16 +96,10 @@ export default function About() {
                 </p>
                 <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-300 sm:text-base sm:leading-8">
                   🙏 Namo Buddhaya , I am Debarghya Bandyopadhyay, the creator of
-                  MonkMode. You can contact me at{" "}
-                  <a
-                    href="mailto:debarghyabandyopadhyay191@gmail.com"
-                    className="font-semibold text-amber-200 transition hover:text-amber-100"
-                  >
-                    debarghyabandyopadhyay191@gmail.com
-                  </a>
-                  . I am pursuing B.Tech from Netaji Subhas Engineering College,
-                  Kolkata, and completed my Diploma from Technique Polytechnique
-                  Institute, Hooghly. MonkMode is built from my interest in
+                  MonkMode. I love building modern web applications and SaaS
+                  products using AI-assisted workflows, rapid prototyping, and
+                  technologies like React.js, Next.js, Node.js, MongoDB,
+                  TypeScript, and Python. MonkMode is built from my interest in
                   discipline, productivity, self-improvement, and practical web
                   development.
                 </p>
@@ -176,9 +170,17 @@ export default function About() {
                     >
                       <GitHubLogo />
                     </Motion.a>
-                    <span className="inline-flex cursor-not-allowed items-center gap-2 rounded-full border border-amber-100/10 bg-white/[0.025] px-4 py-2 text-sm font-semibold text-stone-500">
+                    <Motion.a
+                      href="https://portfolio.debarghya.org"
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="View Debarghya's portfolio"
+                      whileHover={{ y: -4, scale: 1.08 }}
+                      whileTap={{ scale: 0.96 }}
+                      className="inline-flex items-center gap-2 rounded-full border border-amber-100/15 bg-white/[0.045] px-4 py-2 text-sm font-semibold text-amber-50 transition hover:border-amber-200/45 hover:bg-amber-300/15 hover:text-amber-100"
+                    >
                       Portfolio
-                    </span>
+                    </Motion.a>
                   </div>
                 </div>
               </div>
