@@ -1,4 +1,4 @@
-# 🧘 MonkMode: AI-Powered Self-Improvement Platform
+## 🧘 MonkMode: AI-Powered Self-Improvement Platform
 
 MonkMode is a full-stack discipline, productivity, and self-improvement dashboard. It helps users track journals, tasks, habits, goals, gym progress, analytics, weekly reports, and AI-powered discipline insights from one focused web app.
 
@@ -335,29 +335,23 @@ Screenshots are stored in `client/src/assets` and are used by the landing featur
 
 ## 🛠️ Tech Stack
 
-### Frontend
+| Layer | Technologies | Purpose |
+| --- | --- | --- |
+| Frontend | React, Vite, React Router | Single-page dashboard, routing, and client app build pipeline |
+| Styling & UI | Tailwind CSS, Framer Motion, Fontsource | Responsive layouts, motion, and custom typography |
+| Data & API Client | Axios, Clerk React | Authenticated API requests and frontend session handling |
+| Visualizations | React Calendar Heatmap, Three.js, Vanta | Activity heatmaps and interactive landing visuals |
+| Backend | Node.js, Express | REST API, feature routing, middleware, and server runtime |
+| Database | MongoDB, Mongoose | User-scoped persistence, schemas, relationships, and indexes |
+| Authentication | Clerk React, Clerk Express | Google login, protected routes, token verification, and user sync |
+| AI & Rate Limiting | Groq SDK, Arcjet | AI summaries, AI Guru responses, and write/AI action protection |
+| Backend Utilities | dotenv, CORS | Environment configuration and cross-origin API access |
 
-- React
-- Vite
-- Tailwind CSS
-- React Router
-- Axios
-- Framer Motion
-- Clerk React
-- React Calendar Heatmap
-- Three.js and Vanta
+### Development Tools
 
-### Backend
-
-- Node.js
-- Express
-- MongoDB
-- Mongoose
-- Clerk Express
-- Groq SDK
-- Arcjet
-- dotenv
-- CORS
+- ESLint for frontend linting.
+- Nodemon for backend development reloads.
+- Vercel SPA rewrite config for frontend deployment.
 
 ## ⚙️ Installation
 
