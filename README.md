@@ -6,6 +6,10 @@ MonkMode is a full-stack discipline, productivity, and self-improvement dashboar
 
 Live demo link: [https://monkmode.debarghya.org](https://monkmode.debarghya.org)
 
+Please click the **Try Demo** button first to explore the dashboard without creating an account.
+
+[![Try Demo](try-demo-button.svg)](https://monkmode.debarghya.org/demo-login)
+
 ## 🎯 Motivation
 
 I was also a less disciplined student. I was not consistent, and I could not focus on one work for a long time. Over time, I realized how important discipline is for a student, not only for study, but also for building a better life.
