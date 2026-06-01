@@ -7,7 +7,7 @@ MonkMode is a full-stack discipline, productivity, and self-improvement dashboar
 Please click the **Try Demo** button first to explore the dashboard without creating an account.
 
 <p>
-  <a href="https://monkmode.debarghya.org/demo-login"><img src="client/public/try-demo-button.svg" alt="Try Demo" align="middle" /></a> 👈
+  <a href="https://monkmode.debarghya.org/demo-login"><img src="client/public/try-demo-button.svg" alt="Try Demo" align="middle" /></a> 👈 Click Here
 </p>
 
 Live demo link: [https://monkmode.debarghya.org](https://monkmode.debarghya.org)
