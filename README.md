@@ -4,11 +4,13 @@ MonkMode is a full-stack discipline, productivity, and self-improvement dashboar
 
 ## 🚀 Live Demo
 
-Live demo link: [https://monkmode.debarghya.org](https://monkmode.debarghya.org)
 
 Please click the **Try Demo** button first to explore the dashboard without creating an account.
 
-[![Try Demo](try-demo-button.svg)](https://monkmode.debarghya.org/demo-login) 👈
+[![Try Demo](try-demo-button.svg)](https://monkmode.debarghya.org/demo-login) 
+<span style="vertical-align: middle;">👈</span>
+
+Live demo link: [https://monkmode.debarghya.org](https://monkmode.debarghya.org)
 
 ## 🎯 Motivation
 
