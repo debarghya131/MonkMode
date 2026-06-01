@@ -8,7 +8,7 @@ Live demo link: [https://monkmode.debarghya.org](https://monkmode.debarghya.org)
 
 Please click the **Try Demo** button first to explore the dashboard without creating an account.
 
-[![Try Demo](try-demo-button.svg)](https://monkmode.debarghya.org/demo-login)
+[![Try Demo](try-demo-button.svg)](https://monkmode.debarghya.org/demo-login) 👈
 
 ## 🎯 Motivation
 
