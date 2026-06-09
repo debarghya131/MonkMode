@@ -5,7 +5,12 @@ let cachedArcjetConfigSignature = "";
 let cachedArcjetClient = null;
 
 const getClientKey = (req) => req.user?.id || req.user?._id?.toString?.() || req.ip || "anonymous";
-const getArcjetUserId = (req) => req.user?.clerkId || req.user?.id || req.user?._id?.toString?.() || undefined;
+const getArcjetUserId = (req) =>
+  req.user?.clerkId ||
+  req.user?.id ||
+  req.user?._id?.toString?.() ||
+  req.ip ||
+  "anonymous";
 
 const normalizeArcjetMode = (value) => (String(value || "").trim().toUpperCase() === "DRY_RUN" ? "DRY_RUN" : "LIVE");
 
@@ -150,7 +155,7 @@ export const createRateLimiter = ({
 
     try {
       const userId = getArcjetUserId(req);
-      const decision = await routeArcjetClient.protect(req, userId ? { userId } : {});
+      const decision = await routeArcjetClient.protect(req, { userId });
 
       if (decision.isErrored()) {
         console.error(`Arcjet rate-limit error on ${keyPrefix}:`, decision.reason.message);

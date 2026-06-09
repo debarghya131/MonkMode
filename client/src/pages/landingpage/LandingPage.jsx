@@ -1,5 +1,6 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import api from "../../api/axios";
 import Hero from "./Hero";
 import LandingNavbar from "./LandingNavbar";
 
@@ -9,9 +10,61 @@ const animatedGradientStyle = {
   animation: "landingGradientMove 12s ease-in-out infinite"
 };
 
+const VISITOR_ID_KEY = "monkmode_visitor_id";
+let siteViewRequest;
+
+const getVisitorId = () => {
+  try {
+    const existingVisitorId = localStorage.getItem(VISITOR_ID_KEY);
+    if (existingVisitorId) return existingVisitorId;
+
+    const visitorId = crypto.randomUUID();
+    localStorage.setItem(VISITOR_ID_KEY, visitorId);
+    return visitorId;
+  } catch {
+    return "";
+  }
+};
+
+const recordSiteView = () => {
+  if (!siteViewRequest) {
+    const visitorId = getVisitorId();
+    siteViewRequest = visitorId
+      ? api.post("/site-views", { visitorId })
+      : api.get("/site-views");
+  }
+
+  return siteViewRequest;
+};
+
 export default function LandingPage() {
   const audioRef = useRef(null);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [viewCount, setViewCount] = useState(null);
+  const [viewCountFailed, setViewCountFailed] = useState(false);
+
+  useEffect(() => {
+    let isActive = true;
+
+    recordSiteView()
+      .then(({ data }) => {
+        const nextCount = Number(data?.count);
+
+        if (isActive && Number.isFinite(nextCount) && nextCount >= 0) {
+          setViewCount(nextCount);
+          setViewCountFailed(false);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setViewCountFailed(true);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -92,7 +145,7 @@ export default function LandingPage() {
       <div className="absolute inset-0 opacity-10" style={animatedGradientStyle} />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(255,160,59,0.14),transparent_25%),radial-gradient(circle_at_30%_70%,rgba(59,130,246,0.1),transparent_18%),linear-gradient(180deg,rgba(22,7,4,0.12)_0%,rgba(13,2,1,0.46)_56%,rgba(13,2,1,0.8)_100%)]" />
       <div className="relative z-10">
-        <LandingNavbar />
+        <LandingNavbar viewCount={viewCount} viewCountFailed={viewCountFailed} />
         <Hero />
       </div>
       {/* Crafted with focus — bottom-right */}

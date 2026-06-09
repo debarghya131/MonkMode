@@ -24,6 +24,16 @@ let server;
 let isShuttingDown = false;
 
 const allowedOrigins = new Set(IS_PRODUCTION ? CONFIGURED_CORS_ORIGINS : [...DEV_CORS_ORIGINS, ...CONFIGURED_CORS_ORIGINS]);
+const isLocalDevelopmentOrigin = (origin) => {
+  if (IS_PRODUCTION) return false;
+
+  try {
+    const { hostname, protocol } = new URL(origin);
+    return protocol === "http:" && (hostname === "localhost" || hostname === "127.0.0.1");
+  } catch {
+    return false;
+  }
+};
 const corsOptions = {
   origin(origin, callback) {
     if (!origin) {
@@ -31,7 +41,7 @@ const corsOptions = {
       return;
     }
 
-    if (allowedOrigins.has(origin)) {
+    if (allowedOrigins.has(origin) || isLocalDevelopmentOrigin(origin)) {
       callback(null, true);
       return;
     }
@@ -66,6 +76,8 @@ import GymMeasurement from "./models/GymMeasurement.js";
 import Workout from "./models/Workout.js";
 import WorkoutPlan from "./models/WorkoutPlan.js";
 import WorkoutPlanLog from "./models/WorkoutPlanLog.js";
+import SiteMetric from "./models/SiteMetric.js";
+import SiteVisitor from "./models/SiteVisitor.js";
 import authRoutes from "./routes/authRoutes.js";
 import habitRoutes from "./routes/habitRoutes.js";
 import todoRoutes from "./routes/todoRoutes.js";
@@ -74,6 +86,7 @@ import journalRoutes from "./routes/journalRoutes.js";
 import gymRoutes from "./routes/gymRoutes.js";
 import insightsRoutes from "./routes/insightsRoutes.js";
 import weeklyReportRoutes from "./routes/weeklyReportRoutes.js";
+import siteViewRoutes from "./routes/siteViewRoutes.js";
 
 app.get("/", (_req, res) => {
   res.json({
@@ -113,6 +126,7 @@ app.get("/test-db", async (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/site-views", siteViewRoutes);
 app.use("/api/habits", habitRoutes);
 app.use("/api/todos", todoRoutes);
 app.use("/api/goals", goalRoutes);

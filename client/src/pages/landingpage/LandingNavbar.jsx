@@ -15,7 +15,12 @@ const navButtonClass = (isHighlighted, isPrimary) =>
       : `border border-transparent text-amber-50 ${goldenHoverClass}`
   }`;
 
-export default function LandingNavbar() {
+const viewCountFormatter = new Intl.NumberFormat("en", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
   const MotionHeader = motion.header;
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -59,18 +64,56 @@ export default function LandingNavbar() {
     >
       <div className="flex items-center justify-between gap-2 rounded-[1.5rem] border border-amber-200/10 bg-stone-950/45 px-2.5 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:gap-3 sm:px-4 sm:py-3 md:rounded-[1.75rem] md:px-6">
 
-        {/* Logo */}
-        <button
-          type="button"
-          onClick={handleHomeNavigation}
-          className="h-[50px] w-[122px] overflow-hidden rounded-[1.15rem] border border-amber-300/15 bg-gradient-to-br from-[#2a120b] via-[#1d0d08] to-[#170907] shadow-[0_0_30px_rgba(251,191,36,0.12),inset_0_1px_0_rgba(255,240,200,0.06)] transition duration-300 hover:-translate-y-0.5 hover:border-amber-200/25 hover:shadow-[0_0_42px_rgba(251,191,36,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 sm:h-[72px] sm:w-[180px] md:h-[88px] md:w-[220px]"
-        >
-          <img
-            src={monkModeLogo}
-            alt="MonkMode logo"
-            className="pointer-events-none mt-[1px] h-[90px] w-[204px] max-w-none -translate-x-[37px] -translate-y-[23px] object-contain drop-shadow-[0_10px_24px_rgba(251,146,60,0.3)] sm:h-[126px] sm:w-[288px] sm:-translate-x-[52px] sm:-translate-y-[32px] md:h-[162px] md:w-[368px] md:-translate-x-[66px] md:-translate-y-[42px]"
-          />
-        </button>
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          {/* Logo */}
+          <button
+            type="button"
+            onClick={handleHomeNavigation}
+            className="h-[50px] w-[122px] shrink-0 overflow-hidden rounded-[1.15rem] border border-amber-300/15 bg-gradient-to-br from-[#2a120b] via-[#1d0d08] to-[#170907] shadow-[0_0_30px_rgba(251,191,36,0.12),inset_0_1px_0_rgba(255,240,200,0.06)] transition duration-300 hover:-translate-y-0.5 hover:border-amber-200/25 hover:shadow-[0_0_42px_rgba(251,191,36,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 sm:h-[72px] sm:w-[180px] md:h-[88px] md:w-[220px]"
+          >
+            <img
+              src={monkModeLogo}
+              alt="MonkMode logo"
+              className="pointer-events-none mt-[1px] h-[90px] w-[204px] max-w-none -translate-x-[37px] -translate-y-[23px] object-contain drop-shadow-[0_10px_24px_rgba(251,146,60,0.3)] sm:h-[126px] sm:w-[288px] sm:-translate-x-[52px] sm:-translate-y-[32px] md:h-[162px] md:w-[368px] md:-translate-x-[66px] md:-translate-y-[42px]"
+            />
+          </button>
+
+          {viewCount === undefined ? null : (
+            <div
+              className="flex h-9 min-w-9 shrink-0 items-center justify-center gap-2 border-l border-amber-200/15 pl-2 text-amber-100/70 sm:h-11 sm:min-w-[5.5rem] sm:pl-3"
+              aria-live="polite"
+              aria-label={
+                viewCountFailed
+                  ? "Website views unavailable"
+                  : viewCount === null
+                    ? "Loading website views"
+                    : `${viewCount.toLocaleString("en")} website views`
+              }
+            >
+              {viewCountFailed ? (
+                <span className="text-[0.58rem] font-bold uppercase tracking-[0.1em] text-stone-400 sm:text-[0.64rem]">
+                  Views unavailable
+                </span>
+              ) : viewCount === null ? (
+                <span
+                  className="h-4 w-4 animate-spin rounded-full border-2 border-amber-200/20 border-t-amber-300"
+                  aria-hidden="true"
+                />
+              ) : (
+                <>
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-300 opacity-50" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-300" />
+                  </span>
+                  <span className="whitespace-nowrap text-[0.62rem] font-bold uppercase tracking-[0.12em] sm:text-[0.68rem]">
+                    {viewCountFormatter.format(viewCount)}
+                    <span className="hidden sm:inline"> views</span>
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Desktop nav links */}
         <nav className="hidden items-center gap-2 rounded-full border border-amber-200/20 bg-gradient-to-r from-amber-500/10 via-orange-400/10 to-yellow-300/10 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] lg:flex">
