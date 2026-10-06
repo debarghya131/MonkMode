@@ -88,9 +88,9 @@ function StatusCard({ label, className = "", viewHref, actions = [], children })
       whileHover={{ y: -5, boxShadow: "0 20px 40px rgba(0,0,0,0.4)" }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 300, damping: 22 }}
-      className={`flex flex-col rounded-[1.25rem] border border-amber-100/10 bg-stone-950/45 p-4 sm:rounded-2xl sm:p-5 ${className}`}
+      className={`overview-status-card flex flex-col rounded-[1.25rem] border border-amber-100/10 bg-stone-950/45 p-4 sm:rounded-2xl sm:p-5 ${className}`}
     >
-      <div className="flex items-center justify-between">
+      <div className="overview-card-header flex items-center justify-between">
         <p className="text-label-md">{label}</p>
         {viewHref && (
           <Link
@@ -102,9 +102,9 @@ function StatusCard({ label, className = "", viewHref, actions = [], children })
           </Link>
         )}
       </div>
-      <dl className="mt-4 flex flex-1 flex-col gap-2">{children}</dl>
+      <dl className="overview-status-list mt-4 flex flex-1 flex-col gap-2">{children}</dl>
       {actions.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="overview-card-actions mt-4 flex flex-wrap gap-2">
           {actions.map(({ label: actionLabel, href, state }) => (
             <Link
               key={`${href}-${actionLabel}`}
@@ -136,7 +136,7 @@ function StatRow({ label, value, accent }) {
     : "text-stone-100";
 
   return (
-    <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+    <div className="overview-stat-row flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
       <dt className="text-body-sm text-stone-400">{label}</dt>
       <dd
         className={`text-accent-sm break-words text-left sm:text-right sm:whitespace-nowrap ${accentClass}`}
@@ -466,7 +466,7 @@ export default function Overview() {
   return (
     <DashboardLayout>
       <div className="h-full w-full">
-        <div className="grid gap-4 lg:gap-5 min-[1800px]:h-full min-[1800px]:grid-cols-[minmax(30rem,5fr)_minmax(0,7fr)] min-[1800px]:items-stretch">
+        <div className="overview-page-layout grid gap-4 lg:gap-5 min-[1800px]:h-full min-[1800px]:grid-cols-[minmax(30rem,5fr)_minmax(0,7fr)] min-[1800px]:items-stretch">
           {/* Main Content Area */}
           <Motion.div
             className="order-2 h-full min-w-0 md:order-1 min-[1800px]:min-h-0"
@@ -474,11 +474,11 @@ export default function Overview() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.16, ease: "easeOut" }}
           >
-            <section className="journal-scroll h-full rounded-[1.5rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 md:backdrop-blur sm:rounded-[2rem] sm:p-6 xl:p-7 min-[1800px]:overflow-y-auto min-[1800px]:p-8">
+            <section className="overview-summary-panel journal-scroll h-full rounded-[1.5rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 md:backdrop-blur sm:rounded-[2rem] sm:p-6 xl:p-7 min-[1800px]:overflow-y-auto min-[1800px]:p-8">
               <p className="text-label-lg">Overview</p>
 
               <Motion.div
-                className="mt-6 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:gap-4 min-[1800px]:mt-8"
+                className="overview-status-grid mt-6 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:gap-4 min-[1800px]:mt-8"
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
@@ -550,7 +550,7 @@ export default function Overview() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.16, ease: "easeOut" }}
           >
-            <div className="h-[calc(100dvh-5.5rem)] min-h-0 rounded-[1.5rem] border border-amber-100/10 bg-white/6 px-2.5 py-3 shadow-2xl shadow-black/25 md:backdrop-blur sm:h-[calc(100dvh-7rem)] sm:rounded-[2rem] sm:px-3 sm:py-4 min-[1800px]:h-full">
+            <div className="overview-heatmap-panel h-[calc(100dvh-5.5rem)] min-h-0 rounded-[1.5rem] border border-amber-100/10 bg-white/6 px-2.5 py-3 shadow-2xl shadow-black/25 md:backdrop-blur sm:h-[calc(100dvh-7rem)] sm:rounded-[2rem] sm:px-3 sm:py-4 min-[1800px]:h-full">
               <OverviewHeatmap />
             </div>
           </Motion.div>
