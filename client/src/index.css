@@ -3796,6 +3796,467 @@ a {
   }
 }
 
+/* Phone-wide completion pass: every dashboard module falls back to the main
+   page scroller. Dense tables and charts keep their intentional horizontal
+   scrollers, but no content list is capped or clipped vertically. */
+@media (max-width: 639px) {
+  .journal-past-entries,
+  .journal-history-list {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+    scrollbar-gutter: auto;
+  }
+
+  /* Todo: Schedule and Upcoming use the same page-flow model as Today. */
+  .todo-page[data-active="schedule"] :is(
+    .schedule-all-tasks,
+    .schedule-sidebar-card
+  ),
+  .todo-page[data-active="upcoming"] :is(
+    .upcoming-card-tomorrow,
+    .upcoming-card-next5
+  ) {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .todo-page[data-active="schedule"] :is(
+    .schedule-all-tasks > .journal-scroll,
+    .schedule-logs > .journal-scroll
+  ),
+  .todo-page[data-active="upcoming"] :is(
+    .upcoming-scroll-body,
+    .upcoming-day-scroll
+  ) {
+    max-height: none;
+    overflow-y: visible;
+    overscroll-behavior: auto;
+    padding-right: 0;
+  }
+
+  .todo-page[data-active="schedule"] .schedule-task-actions {
+    flex-wrap: wrap;
+  }
+
+  /* Habit creation expands normally; the tracker remains a deliberate
+     compact/paginated data view. */
+  .habits-page[data-active="create"] :is(
+    .habits-create-list,
+    .habits-create-sidebar-card
+  ) {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .habits-page[data-active="create"] :is(
+    .habit-list-body,
+    .habits-create-logs > .journal-scroll
+  ) {
+    max-height: none;
+    overflow-y: visible;
+    overscroll-behavior: auto;
+    padding-right: 0;
+  }
+
+  .habits-page[data-active="create"] .habit-item-header,
+  .habits-page[data-active="create"] .habit-item-controls,
+  .habits-page[data-active="create"] .habit-item-actions {
+    flex-wrap: wrap;
+  }
+
+  /* Goals: avoid a second vertical scroll region in every sub-section. */
+  .goal-main,
+  .goal-route,
+  .goals-page,
+  .goals-page .goals-content {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+
+  .goals-page[data-active="my-goals"] .goals-my-view,
+  .goals-page[data-active="progress"] .goal-progress-view {
+    height: auto;
+  }
+
+  .goals-page[data-active="my-goals"] .goals-list,
+  .goals-page[data-active="progress"] .goal-progress-list,
+  .goals-page[data-active="create-goals"] :is(
+    .goal-create-list,
+    .goal-create-log-panel,
+    .goal-create-list-body,
+    .goal-create-log-list
+  ) {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+    padding-right: 0;
+  }
+
+  /* Gym: list-heavy pages never create a hidden, viewport-height inner pane. */
+  .gym-main,
+  .gym-route,
+  .gym-page,
+  .gym-page .gym-content {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+
+  .gym-page[data-active="add-workout"] :is(
+    .gym-add-list,
+    .gym-add-log-panel,
+    .gym-add-list-body,
+    .gym-add-log-list
+  ) {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+    padding-right: 0;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-card-actions {
+    justify-content: stretch;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-card-actions > .dashboard-card-action {
+    flex: 1 1 calc(33.333% - 0.375rem);
+    min-width: 3.5rem;
+  }
+
+  /* Weekly report already stacks its modules; make its parent explicitly
+     height-free so every report uses the dashboard's single scroll path. */
+  .weekly-report-route,
+  .weekly-report-page,
+  .weekly-report-content,
+  .weekly-report-active-panel {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+
+  /* Analysis charts preserve horizontal scrolling, while long insight lists
+     are allowed to grow into the page instead of hiding their final rows. */
+  .analytics-page {
+    min-width: 0;
+  }
+
+  .analytics-page .journal-scroll {
+    height: auto;
+    max-height: none;
+    overflow-y: visible;
+    overscroll-behavior: auto;
+    padding-right: 0;
+  }
+
+  .analytics-page :is(aside, section) {
+    min-width: 0;
+  }
+
+  .analytics-page :is(.overflow-x-auto, [class*="overflow-x-auto"]) {
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Keep phone dashboards in one natural document flow. This avoids nested
+   scrollers, clipped actions, and desktop-sized chart canvases on touch screens. */
+@media (max-width: 639px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .dashboard-shell {
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  .dashboard-main {
+    overflow-x: hidden;
+    padding: 0.75rem 0.625rem;
+  }
+
+  .dashboard-main > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Mobile navigation: prioritize links and logout over decorative content. */
+  #dashboard-navigation-drawer {
+    width: min(19rem, calc(100vw - 1rem));
+    max-height: 100dvh;
+  }
+
+  #dashboard-navigation-drawer .dashboard-sidebar {
+    padding: 0.75rem;
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  #dashboard-navigation-drawer .sidebar-credit {
+    display: none;
+  }
+
+  #dashboard-navigation-drawer .dashboard-sidebar-scroll {
+    overscroll-behavior: contain;
+    padding-right: 0.125rem;
+  }
+
+  #dashboard-navigation-drawer .dashboard-sidebar-sections {
+    gap: 0.625rem;
+  }
+
+  #dashboard-navigation-drawer .dashboard-sidebar-section > h3 {
+    margin-bottom: 0.25rem;
+    padding-block: 0.25rem;
+    font-size: 0.6875rem;
+  }
+
+  #dashboard-navigation-drawer .dashboard-sidebar-items {
+    gap: 0.125rem;
+  }
+
+  #dashboard-navigation-drawer .dashboard-sidebar-items > * {
+    margin-top: 0 !important;
+  }
+
+  #dashboard-navigation-drawer .dashboard-sidebar-link {
+    min-height: 2.75rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* Overview cards keep their labels and values on one compact row. */
+  .overview-page-layout {
+    gap: 0.75rem;
+  }
+
+  .overview-summary-panel {
+    overflow: visible;
+    border-radius: 1.25rem;
+    padding: 0.875rem;
+  }
+
+  .overview-status-grid {
+    margin-top: 1rem;
+    gap: 0.75rem;
+  }
+
+  .overview-status-card {
+    border-radius: 1rem;
+    padding: 0.875rem;
+  }
+
+  .overview-status-list {
+    margin-top: 0.75rem;
+    gap: 0.4rem;
+  }
+
+  .overview-stat-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+
+  .overview-stat-row > dt {
+    min-width: 0;
+    font-size: 0.8125rem;
+  }
+
+  .overview-stat-row > dd {
+    min-width: 0;
+    text-align: right;
+    white-space: normal;
+  }
+
+  .overview-card-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .overview-card-actions > .overview-card-action {
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    min-height: 2rem;
+    padding: 0.4rem 0.5rem;
+    text-align: center;
+    white-space: normal;
+  }
+
+  .overview-card-actions > .overview-card-action:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  /* Heatmaps scale to the card instead of preserving a desktop minimum width. */
+  .overview-heatmap-panel {
+    height: clamp(34rem, calc(100dvh - 4.75rem), 42rem);
+    min-height: 34rem;
+    border-radius: 1.25rem;
+    padding: 0.75rem;
+  }
+
+  .overview-heatmap-stack {
+    gap: 0.5rem;
+  }
+
+  .overview-heatmap-card {
+    min-height: 0;
+    border-radius: 0.875rem;
+  }
+
+  .overview-heatmap {
+    overflow: hidden;
+  }
+
+  .overview-heatmap-canvas {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .overview-heatmap svg {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Todo uses the page scrollbar on phones so cards and action buttons cannot
+     disappear behind an inner scroll viewport. */
+  .todo-page,
+  .todo-content,
+  .todo-today-view,
+  .important-page {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .todo-page .todo-top-row {
+    gap: 0.75rem;
+  }
+
+  .todo-page .todo-content {
+    margin-top: 0.75rem;
+    overflow: visible;
+  }
+
+  .todo-page[data-active="today"] .today-layout,
+  .todo-page[data-active="today"] .today-main > .today-columns {
+    gap: 0.75rem;
+  }
+
+  .todo-page[data-active="today"] .today-main {
+    overflow: visible;
+    border-radius: 1.25rem;
+    padding: 0.875rem;
+  }
+
+  .todo-page[data-active="today"] .today-main > .today-columns {
+    margin-top: 1rem;
+  }
+
+  .todo-page[data-active="today"] .today-scroll-card,
+  .todo-page[data-active="today"] .today-sidebar .today-scroll-card {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0.875rem;
+  }
+
+  .todo-page[data-active="today"] .today-scroll-body,
+  .todo-page[data-active="today"] .today-missed-card .today-scroll-body {
+    max-height: none !important;
+    overflow: visible !important;
+    overscroll-behavior: auto;
+    padding-right: 0;
+  }
+
+  .todo-page[data-active="today"] .today-overview-card {
+    padding: 0.875rem;
+  }
+
+  .today-task-footer,
+  .today-missed-action-row {
+    min-width: 0;
+  }
+
+  .today-task-footer .dashboard-card-action,
+  .today-missed-action-row .dashboard-card-action {
+    max-width: 100%;
+    height: auto;
+    min-height: 2.25rem;
+    padding-block: 0.5rem;
+    text-align: center;
+    white-space: normal;
+  }
+
+  .todo-page[data-active="important"] .important-page,
+  .todo-page[data-active="important"] .important-layout {
+    gap: 0.75rem;
+  }
+
+  .todo-page[data-active="important"] .important-main,
+  .todo-page[data-active="important"] .important-side {
+    width: 100%;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 1.25rem;
+    padding: 0.875rem;
+  }
+
+  .todo-page[data-active="important"] .important-task-list {
+    max-height: none !important;
+    overflow: visible !important;
+    overscroll-behavior: auto;
+    padding-right: 0;
+  }
+
+  /* Habits shares the task-card primitives with Todo. */
+  .habits-page[data-active="today"] .today-scroll-card,
+  .habits-page[data-active="today"] .today-sidebar .today-scroll-card {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .habits-page[data-active="today"] .today-scroll-body {
+    max-height: none !important;
+    overflow: visible !important;
+    overscroll-behavior: auto;
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 359px) {
+  .today-task-footer,
+  .today-missed-action-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .today-task-footer .dashboard-card-action,
+  .today-missed-action-row .dashboard-card-action {
+    width: 100%;
+  }
+}
+
 /* Gym Measurements: use panel width for layout and available dashboard height on wide screens. */
 .gym-page[data-active="measurements"] .gym-content {
   container: gym-measurements / inline-size;

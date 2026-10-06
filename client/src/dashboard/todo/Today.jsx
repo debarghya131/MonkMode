@@ -81,7 +81,7 @@ function TaskRow({ task, onUndo, index = 0, lowMotion = false }) {
         <TaskStatusBadge status={task.status} />
       </div>
 
-      <div className="mt-3 flex items-end justify-between gap-2">
+      <div className="today-task-footer mt-3 flex items-end justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-stone-300">
           <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{task.category}</span>
           <span className={`dashboard-card-priority ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
@@ -572,7 +572,7 @@ export default function Today({ lowMotion = false }) {
                           </div>
                         </Block>
                       ) : (
-                        <div className="mt-2 flex items-end justify-between gap-2 text-xs text-stone-300">
+                        <div className="today-missed-action-row mt-2 flex items-end justify-between gap-2 text-xs text-stone-300">
                           <span>{formatTime(task.time)}</span>
                           <button
                             type="button"

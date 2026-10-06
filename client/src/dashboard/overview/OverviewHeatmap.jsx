@@ -124,14 +124,14 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
     <Motion.div
       whileHover={{ y: -5, boxShadow: "0 20px 40px rgba(0,0,0,0.4)" }}
       transition={{ type: "spring", stiffness: 300, damping: 22 }}
-      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-stone-950/45 px-1.5 py-1.5 sm:rounded-2xl"
+      className="overview-heatmap-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-stone-950/45 px-1.5 py-1.5 sm:rounded-2xl"
     >
       <div className="mb-1 flex shrink-0 flex-col gap-1 px-1.5 pt-1 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 sm:tracking-[0.16em]">{label}</p>
         <span className="text-[10px] text-stone-500">{total} contributions</span>
       </div>
       <div className="overview-heatmap journal-scroll min-h-0 w-full flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="h-full min-w-[38rem] sm:min-w-[44rem] lg:min-w-0 lg:w-full">
+        <div className="overview-heatmap-canvas h-full min-w-[38rem] sm:min-w-[44rem] lg:min-w-0 lg:w-full">
           <CalendarHeatmap
             startDate={startDate}
             endDate={endDate}
@@ -613,7 +613,7 @@ export default function OverviewHeatmap() {
   );
 
   return (
-    <div className="flex h-full flex-col gap-2.5">
+    <div className="overview-heatmap-stack flex h-full flex-col gap-2.5">
       <div className="relative z-20 flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500 sm:tracking-[0.18em]">Activity Heatmaps</p>
         <YearPicker

@@ -55,7 +55,7 @@ export default function Analytics() {
   };
 
   return (
-    <div className="w-full space-y-3">
+    <div className="analytics-page w-full space-y-3">
       {/* Mobile: hamburger dropdown */}
       <div className="relative sm:hidden" data-demo-allow="true">
         <button
