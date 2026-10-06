@@ -1,7 +1,10 @@
+import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
+import DashboardSelect from "../../components/DashboardSelect";
 import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
+import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 
 /* ─── Constants ─────────────────────────────────────── */
 const PRIORITIES = ["High", "Medium", "Low"];
@@ -246,6 +249,8 @@ const loadStoredCategories = () => {
 export default function CreateHabit({ entity = "habit" }) {
   const today = useMemo(() => toISO(new Date()), []);
   const { isDemoMode } = useAuth();
+  const lowMotion = useMobileLowMotion();
+  const HabitCard = lowMotion ? "article" : Motion.article;
   const isGoal = entity === "goal";
   const singular = isGoal ? "Goal" : "Habit";
   const plural = isGoal ? "Goals" : "Habits";
@@ -1040,18 +1045,17 @@ export default function CreateHabit({ entity = "habit" }) {
 
   /* ─── Render ─────────────────────────────────────── */
   return (
-    <div className="space-y-5">
-      <div className="mb-5">
+    <div className="habits-create-view space-y-5">
+      <div className="habits-create-heading mb-5">
         <p className="text-label-lg">{`Create ${singular}`}</p>
         <h2 className="mt-2 text-2xl font-bold text-amber-100">{`Build Your ${plural}`}</h2>
       </div>
 
-      <div className="schedule-layout">
+      <div className="schedule-layout habits-create-layout">
 
         {/* ── Column 1 : Create Habit Form ── */}
         <div
-          className="schedule-main journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5 xl:h-[650px]"
-          style={{ overflowY: "auto" }}
+          className="schedule-main habits-create-form journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5"
         >
           <h3 className="mb-4 text-sm font-semibold text-amber-200">{editingId ? `Edit ${singular}` : `New ${singular}`}</h3>
           <form className="space-y-3" onSubmit={handleSubmit}>
@@ -1081,7 +1085,7 @@ export default function CreateHabit({ entity = "habit" }) {
             </div>
 
             {/* Target Streak + Time of Day */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="habit-form-row grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Target Streak (Days)</label>
                 <input
@@ -1097,7 +1101,7 @@ export default function CreateHabit({ entity = "habit" }) {
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Time of Day <span className="text-red-400">*</span>
                 </label>
-                <select
+                <DashboardSelect
                   value={form.timeOfDay}
                   onChange={(e) => setField("timeOfDay", e.target.value)}
                   className={`w-full rounded-lg border bg-stone-900 px-2 py-1.5 text-xs text-stone-100 outline-none transition focus:border-amber-300/35 ${fieldErr("timeOfDay") ? "border-red-400/60" : "border-amber-100/15"}`}
@@ -1106,18 +1110,18 @@ export default function CreateHabit({ entity = "habit" }) {
                   {TIME_OF_DAY_OPTIONS.map((tod) => (
                     <option key={tod} value={tod} style={{ backgroundColor:"#1c1917", color:"#e7e5e4" }}>{tod}</option>
                   ))}
-                </select>
+                </DashboardSelect>
               </div>
             </div>
 
             {/* Category + Priority */}
-            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+            <div className="habit-form-row grid grid-cols-1 items-start gap-4 md:grid-cols-2">
               {/* Category */}
               <div className="space-y-2">
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Category <span className="text-red-400">*</span>
                 </label>
-                <div className="flex flex-col gap-2 sm:flex-row sm:gap-1">
+                <div className="habit-category-controls flex flex-col gap-2 sm:flex-row sm:gap-1">
                   <div ref={catDropRef} className="relative min-w-0 flex-1">
                     <button
                       type="button"
@@ -1199,7 +1203,7 @@ export default function CreateHabit({ entity = "habit" }) {
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Priority <span className="text-red-400">*</span>
                 </label>
-                <div className={`flex flex-wrap gap-1.5 rounded-lg p-0.5 transition ${fieldErr("priority") ? "ring-1 ring-red-400/50" : ""}`}>
+                <div className={`habit-priority-options flex flex-wrap gap-1.5 rounded-lg p-0.5 transition ${fieldErr("priority") ? "ring-1 ring-red-400/50" : ""}`}>
                   {PRIORITIES.map((p) => (
                     <button key={p} type="button" onClick={() => setField("priority", p)}
                       className={`flex min-w-[84px] flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-2 py-1.5 text-[10px] font-semibold transition ${form.priority===p ? PRIORITY_STYLES[p] : "border-amber-100/15 bg-white/5 text-stone-300"}`}>
@@ -1212,12 +1216,12 @@ export default function CreateHabit({ entity = "habit" }) {
             </div>
 
             {/* Repeat + Time */}
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="habit-form-row grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Repeat <span className="text-red-400">*</span>
                 </label>
-                <select
+                <DashboardSelect
                   value={form.repeatType}
                   onChange={(e) => setField("repeatType", e.target.value)}
                   disabled={Boolean(editingId)}
@@ -1227,14 +1231,14 @@ export default function CreateHabit({ entity = "habit" }) {
                   {REPEAT_TYPES.map((r) => (
                     <option key={r.value} value={r.value} style={{ backgroundColor:"#1c1917", color:"#e7e5e4" }}>{r.label}</option>
                   ))}
-                </select>
+                </DashboardSelect>
                 {editingId && <p className="mt-1 text-[10px] text-stone-500">Repeat type cannot be changed in edit mode.</p>}
               </div>
               <div>
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Time <span className="text-red-400">*</span>
                 </label>
-                <input
+<DashboardDateTimeInput
                   type="time"
                   value={form.time}
                   onChange={(e) => setField("time", e.target.value)}
@@ -1252,7 +1256,7 @@ export default function CreateHabit({ entity = "habit" }) {
                       Start Date {!startDateLocked && <span className="text-red-400">*</span>}
                       {startDateLocked && <span className="ml-1 text-stone-500">🔒 Locked</span>}
                     </label>
-                    <input type="date" value={form.startDate}
+<DashboardDateTimeInput type="date" value={form.startDate}
                       readOnly={startDateLocked}
                       onChange={startDateLocked ? undefined : (e) => setField("startDate", e.target.value)}
                       className={`w-full rounded-lg border px-2 py-1 text-xs outline-none transition ${startDateLocked ? "cursor-not-allowed border-amber-100/10 bg-white/[0.03] text-stone-400" : "border-amber-100/15 bg-white/5 text-stone-100 focus:border-amber-300/35"}`}
@@ -1260,7 +1264,7 @@ export default function CreateHabit({ entity = "habit" }) {
                   </div>
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">End Date (Auto)</label>
-                    <input type="date" value={fixedEndDate(FIXED_DURATION[form.repeatType], form.startDate)} readOnly
+<DashboardDateTimeInput type="date" value={fixedEndDate(FIXED_DURATION[form.repeatType], form.startDate)} readOnly
                       className="w-full cursor-not-allowed rounded-lg border border-amber-100/10 bg-white/[0.03] px-2 py-1 text-xs text-stone-400 outline-none" />
                   </div>
                 </div>
@@ -1277,7 +1281,7 @@ export default function CreateHabit({ entity = "habit" }) {
                       Start
                       {startDateLocked && <span className="ml-1 text-stone-500">🔒 Locked</span>}
                     </label>
-                    <input type="date" value={form.startDate}
+<DashboardDateTimeInput type="date" value={form.startDate}
                       readOnly={startDateLocked}
                       onChange={startDateLocked ? undefined : (e) => setField("startDate", e.target.value)}
                       className={`w-full rounded-lg border px-2 py-1 text-xs outline-none transition ${startDateLocked ? "cursor-not-allowed border-amber-100/10 bg-white/[0.03] text-stone-400" : "border-amber-100/15 bg-white/5 text-stone-100 focus:border-amber-300/35"}`}
@@ -1287,7 +1291,7 @@ export default function CreateHabit({ entity = "habit" }) {
                   {!form.neverEnds && (
                     <div>
                       <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">End</label>
-                      <input type="date" value={form.endDate} min={minEndDate} onChange={(e) => setField("endDate", e.target.value)}
+<DashboardDateTimeInput type="date" value={form.endDate} min={minEndDate} onChange={(e) => setField("endDate", e.target.value)}
                         className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
                     </div>
                   )}
@@ -1327,7 +1331,7 @@ export default function CreateHabit({ entity = "habit" }) {
         </div>
 
         {/* ── Column 2 : All Habits ── */}
-        <section className="schedule-all-tasks rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5 xl:h-[650px]">
+        <section className="schedule-all-tasks habits-create-list rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-amber-200">{`All ${plural}`}</p>
@@ -1354,7 +1358,7 @@ export default function CreateHabit({ entity = "habit" }) {
             </span>
           </div>
 
-          <div className="journal-scroll flex-1 space-y-2 overflow-y-auto pr-1">
+          <div className="journal-scroll habit-list-body flex-1 space-y-2 overflow-y-auto pr-1">
             {displayedHabits.length === 0 ? (
               <p className="mt-6 text-center text-xs text-stone-500">
                 {habitsView === "active"
@@ -1370,51 +1374,49 @@ export default function CreateHabit({ entity = "habit" }) {
                 );
 
                 return (
-                <Motion.article
+                <HabitCard
                   key={h.id}
                   className={`rounded-xl border bg-white/5 p-3 ${editingId === h.id ? "border-amber-300/40 ring-1 ring-amber-300/20" : "border-amber-100/10"}`}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05, duration: 0.22 }}
-                  whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
+                  {...(lowMotion ? {} : {
+                    initial: { opacity: 0, y: 8 },
+                    animate: { opacity: 1, y: 0 },
+                    transition: { delay: i * 0.05, duration: 0.22 },
+                    whileHover: { y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }
+                  })}
                 >
                     <>
-                      <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="habit-item-header flex flex-wrap items-start justify-between gap-2">
                         <div className="flex min-w-0 flex-1 items-center gap-2">
                           <p className="min-w-0 flex-1 truncate text-sm font-semibold text-stone-100">{h.title}</p>
                           {editingId === h.id && (
-                            <span className="shrink-0 rounded-full border border-amber-300/50 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
+                            <span className="dashboard-card-status" data-tone="warning">
                               Editing
                             </span>
                           )}
                         </div>
-                        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-                          {isArchiveView && (
-                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                              isDeletedHabit
-                                ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
-                                : isEndedHabit
-                                  ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
-                                  : "border-stone-500/20 bg-white/5 text-stone-400"
-                            }`}>
-                              {isDeletedHabit ? "Deleted" : isEndedHabit ? "Ended" : "Archived"}
+                        <div className="habit-item-controls flex flex-col items-start gap-2 sm:items-end">
+                          <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+                            {isArchiveView && (
+                              <span className="dashboard-card-status" data-tone={isDeletedHabit || isEndedHabit ? "danger" : undefined}>
+                                {isDeletedHabit ? "Deleted" : isEndedHabit ? "Ended" : "Archived"}
+                              </span>
+                            )}
+                            <span className={`dashboard-card-priority ${PRIORITY_STYLES[h.priority]}`}>
+                              {h.priority}
                             </span>
-                          )}
-                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${PRIORITY_STYLES[h.priority]}`}>
-                            {h.priority}
-                          </span>
+                          </div>
                           {!isArchiveView && (
-                            <button type="button" onClick={() => startEdit(h)}
-                              className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
-                              Edit
-                            </button>
-                          )}
-                          {!isArchiveView && (
-                            <button type="button" onClick={() => handleDelete(h.id)}
-                              disabled={deletingHabitId === h.id || restoringLogId != null}
-                              className="rounded border border-rose-400/25 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-300 transition hover:bg-rose-500/20">
-                              {deletingHabitId === h.id ? "Deleting..." : "Delete"}
-                            </button>
+                            <div className="habit-item-actions flex flex-wrap items-center gap-1.5 sm:justify-end">
+                              <button type="button" onClick={() => startEdit(h)}
+                                className="dashboard-card-action" data-tone="warning">
+                                Edit
+                              </button>
+                              <button type="button" onClick={() => handleDelete(h.id)}
+                                disabled={deletingHabitId === h.id || restoringLogId != null}
+                                className="dashboard-card-action" data-tone="danger">
+                                {deletingHabitId === h.id ? "Deleting..." : "Delete"}
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1453,7 +1455,7 @@ export default function CreateHabit({ entity = "habit" }) {
                         ))}
                       </div>
                     </>
-                </Motion.article>
+                </HabitCard>
                 );
               })
             )}
@@ -1461,11 +1463,11 @@ export default function CreateHabit({ entity = "habit" }) {
         </section>
 
         {/* ── Column 3 : Calendar + Habit Log ── */}
-        <aside className="schedule-sidebar">
-          <div className="flex flex-col gap-0 rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl xl:h-[650px]">
+        <aside className="schedule-sidebar habits-create-sidebar">
+          <div className="habits-create-sidebar-card flex flex-col gap-0 rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl">
 
             {/* Calendar */}
-            <section className="shrink-0">
+            <section className="habits-create-calendar shrink-0">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold tracking-wide text-amber-200">Calendar</h3>
                 <div className="flex items-center gap-1">
@@ -1504,10 +1506,10 @@ export default function CreateHabit({ entity = "habit" }) {
               </div>
             </section>
 
-            <div className="my-3 shrink-0 border-t border-amber-100/10" />
+            <div className="habits-create-divider my-3 shrink-0 border-t border-amber-100/10" />
 
             {/* Habit Logs */}
-            <section className="flex min-h-0 flex-1 flex-col">
+            <section className="habits-create-logs flex min-h-0 flex-1 flex-col">
               <p className="mb-2 shrink-0 text-sm font-semibold tracking-wide text-amber-200">{`${singular} Logs`}</p>
               {undoError && (
                 <p className="mb-2 shrink-0 rounded-md border border-rose-400/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-300">{undoError}</p>
@@ -1520,7 +1522,7 @@ export default function CreateHabit({ entity = "habit" }) {
                     const runtimeUndoMeta = getDeleteUndoMeta(log.deletedAt || log.deletedItem?.deletedAt);
                     const canShowUndo = undoEligibleLogIds.has(log.id);
                     return (
-                    <div key={log.id} className={`flex flex-col items-start gap-2 rounded-md border px-2 py-1.5 text-[11px] sm:flex-row sm:items-center sm:justify-between ${
+                    <div key={log.id} className={`habit-log-row flex flex-col items-start gap-2 rounded-md border px-2 py-1.5 text-[11px] sm:flex-row sm:items-center sm:justify-between ${
                       log.action==="deleted" ? "border-rose-400/20 bg-rose-500/5 text-stone-300"
                       : log.action==="edited" ? "border-amber-300/20 bg-amber-500/5 text-stone-300"
                       : log.action==="ended" ? "border-blue-400/20 bg-blue-500/5 text-stone-300"

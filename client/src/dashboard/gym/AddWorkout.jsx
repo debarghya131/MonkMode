@@ -1,12 +1,12 @@
+import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
+import DashboardSelect from "../../components/DashboardSelect";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import { BODY_PART_GROUPS, EXERCISE_LIBRARY, WORKOUT_SPLITS } from "./workoutLibraryData";
 import { createDummyWorkouts, RETIRED_DEMO_WORKOUT_IDS, createDummyLogs } from "../../../data/GymDummyData";
-
-const PANEL_H = "min(720px, 78vh)";
 
 const GOAL_TYPES = [
   { value: "muscle-gain",  label: "💪 Muscle Gain"  },
@@ -306,8 +306,10 @@ const persistDemoWorkouts = (workouts) => {
 };
 
 
-export default function AddWorkout() {
+export default function AddWorkout({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
+  const WorkoutCard = lowMotion ? "article" : Motion.article;
+  const LogRow = lowMotion ? "div" : Motion.div;
   const today = useMemo(() => toISO(new Date()), []);
   const searchRef = useRef(null);
   const splitDropRef = useRef(null);
@@ -358,11 +360,21 @@ export default function AddWorkout() {
   }, []);
 
   useEffect(() => {
+    const hasActiveUndo = logs.some((log) => (
+      log.action === "deleted" && log.deletedItem && getDeleteUndoMeta(log, Date.now()).canUndo
+    ));
+    if (!hasActiveUndo) return undefined;
+
     const intervalId = window.setInterval(() => {
-      setUndoClockMs(Date.now());
+      const nextNow = Date.now();
+      setUndoClockMs(nextNow);
+      const stillActive = logs.some((log) => (
+        log.action === "deleted" && log.deletedItem && getDeleteUndoMeta(log, nextNow).canUndo
+      ));
+      if (!stillActive) window.clearInterval(intervalId);
     }, 30000);
     return () => window.clearInterval(intervalId);
-  }, []);
+  }, [logs]);
 
   useEffect(() => {
     if (!isDemoMode) return;
@@ -1030,12 +1042,12 @@ export default function AddWorkout() {
   }, [workoutsView, workoutDayFilter]);
 
   return (
-    <div className="space-y-5">
-      <div className="flex min-w-0 flex-col gap-5 lg:flex-row lg:items-start">
+    <div className="gym-add-view">
+      <div className="gym-add-layout flex min-w-0 flex-col gap-5 lg:flex-row lg:items-start">
 
         {/* ── FORM ── */}
         <div
-          className="journal-scroll min-w-0 rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5 lg:w-80 lg:shrink-0 lg:overflow-y-auto lg:[height:min(720px,78vh)] xl:w-[32rem]"
+          className="gym-add-form journal-scroll min-w-0 rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5"
         >
           <h3 className="mb-4 text-sm font-semibold text-amber-200">
             {editingId ? "Edit Workout" : "New Workout"}
@@ -1299,7 +1311,7 @@ export default function AddWorkout() {
                     <div>
                       <label className="mb-0.5 block text-[10px] text-stone-400">Muscle Group *</label>
                       {currentEx.id?.startsWith("custom-") ? (
-                        <select
+                        <DashboardSelect
                           value={currentEx.bodyPartGroup}
                           onChange={(e) => setCurrentEx((p) => ({ ...p, bodyPartGroup: e.target.value, bodyPartSection: "" }))}
                           className="w-full rounded-lg border border-amber-100/15 bg-black/30 px-2 py-1 text-xs text-stone-100 outline-none focus:border-amber-300/35"
@@ -1308,7 +1320,7 @@ export default function AddWorkout() {
                           {BODY_PART_GROUPS.map((bp) => (
                             <option key={bp.group} value={bp.group}>{bp.group}</option>
                           ))}
-                        </select>
+                        </DashboardSelect>
                       ) : (
                         <input
                           type="text"
@@ -1322,7 +1334,7 @@ export default function AddWorkout() {
                     <div>
                       <label className="mb-0.5 block text-[10px] text-stone-400">Section {selectedBodyPartSections.length > 0 ? "*" : ""}</label>
                       {currentEx.id?.startsWith("custom-") ? (
-                        <select
+                        <DashboardSelect
                           value={currentEx.bodyPartSection}
                           onChange={(e) => setCurrentEx((p) => ({ ...p, bodyPartSection: e.target.value }))}
                           disabled={selectedBodyPartSections.length === 0}
@@ -1332,7 +1344,7 @@ export default function AddWorkout() {
                           {selectedBodyPartSections.map((sec) => (
                             <option key={sec} value={sec}>{sec}</option>
                           ))}
-                        </select>
+                        </DashboardSelect>
                       ) : (
                         <input
                           type="text"
@@ -1390,7 +1402,7 @@ export default function AddWorkout() {
             {/* Days */}
             <div>
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Days *</label>
-              <div className="grid grid-cols-4 gap-1 sm:grid-cols-7">
+              <div className="gym-add-days grid grid-cols-4 gap-1 sm:grid-cols-7">
                 {WEEK_DAYS.map((day) => (
                   <button
                     key={day}
@@ -1410,10 +1422,10 @@ export default function AddWorkout() {
 
             {/* Dates */}
             <div className="space-y-2 rounded-lg border border-amber-100/10 bg-white/5 p-2.5">
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="gym-add-dates grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Start *</label>
-                  <input
+<DashboardDateTimeInput
                     type="date"
                     value={form.startDate}
                     disabled={!!(editingId && form.startDate && form.startDate <= today)}
@@ -1427,7 +1439,7 @@ export default function AddWorkout() {
                 {!form.neverEnds && (
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">End</label>
-                    <input type="date" value={form.endDate} min={toISO(new Date(new Date(form.startDate > today ? form.startDate : today).getTime() + 86400000))}
+<DashboardDateTimeInput type="date" value={form.endDate} min={toISO(new Date(new Date(form.startDate > today ? form.startDate : today).getTime() + 86400000))}
                       onChange={(e) => setField("endDate", e.target.value)}
                       className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none focus:border-amber-300/35" />
                   </div>
@@ -1444,7 +1456,7 @@ export default function AddWorkout() {
             {/* Difficulty */}
             <div>
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Difficulty Level *</label>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="gym-add-difficulty flex flex-wrap gap-1.5">
                 {DIFFICULTY_LEVELS.map((lvl) => (
                   <button
                     key={lvl}
@@ -1481,12 +1493,13 @@ export default function AddWorkout() {
 
         {/* ── ALL WORKOUTS ── */}
         <section
-          className="flex min-h-0 min-w-0 flex-col rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5 lg:flex-1 lg:[height:min(720px,78vh)]"
+          className="gym-add-list flex min-h-0 min-w-0 flex-col rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5"
         >
-          <div className="mb-4 shrink-0 flex flex-wrap items-start justify-between gap-2">
+          <div className="gym-add-list-header mb-4 shrink-0 flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-amber-200">All Workouts</p>
               <p className="mt-0.5 text-xs text-stone-400">Your saved workout plans.</p>
+            </div>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 {["active", "archive"].map((view) => (
                   <button
@@ -1503,7 +1516,7 @@ export default function AddWorkout() {
                   </button>
                 ))}
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-1">
+              <div className="gym-add-day-filters mt-2 flex flex-wrap items-center gap-1">
                 <button
                   type="button"
                   onClick={() => setWorkoutDayFilter("all")}
@@ -1530,13 +1543,12 @@ export default function AddWorkout() {
                   </button>
                 ))}
               </div>
-            </div>
             <span className="shrink-0 rounded-full border border-amber-100/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
               {displayedWorkouts.length} total
             </span>
           </div>
 
-          <div ref={workoutListRef} className="journal-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+          <div ref={workoutListRef} className="gym-add-list-body journal-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             {loading ? (
               <p className="mt-6 text-center text-xs text-stone-500">Loading workouts...</p>
             ) : displayedWorkouts.length === 0 ? (
@@ -1554,71 +1566,43 @@ export default function AddWorkout() {
                 const isEnded = !w._archiveSource && !w.neverEnds && w.endDate && w.endDate < today;
 
                 return (
-                  <Motion.article
+                  <WorkoutCard
                     key={w.id}
-                    className="min-w-0 overflow-hidden rounded-xl border border-amber-100/10 bg-white/5 p-3"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: wi * 0.06, duration: 0.22 }}
-                    whileHover={{ y: -2, boxShadow: "0 10px 28px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
+                    className="gym-add-card min-w-0 overflow-hidden rounded-xl border border-amber-100/10 bg-white/5 p-3"
+                    {...(lowMotion ? {} : {
+                      initial: { opacity: 0, y: 10 },
+                      animate: { opacity: 1, y: 0 },
+                      transition: { delay: wi * 0.06, duration: 0.22 },
+                      whileHover: { y: -2, boxShadow: "0 10px 28px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" },
+                    })}
                   >
-                  <div className="min-w-0 space-y-2">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="gym-add-card-top flex flex-wrap items-start justify-between gap-2">
                       <p className="min-w-0 flex-1 break-words pr-1 text-sm font-semibold leading-tight text-stone-100">{w.title}</p>
-                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                      <div className="gym-add-card-status flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                         {w._archiveSource === "deleted" ? (
-                          <span className="rounded-full border border-rose-400/30 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-200">
+                          <span className="dashboard-card-status" data-tone="danger">
                             Deleted
                           </span>
                         ) : (
-                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                            isEnded
-                              ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
-                              : w.isActive
-                              ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
-                              : "border-stone-500/20 bg-white/5 text-stone-400"
-                          }`}>
+                          <span className="dashboard-card-status" data-tone={isEnded ? "danger" : w.isActive ? "success" : undefined}>
                             {isEnded ? "Ended" : w.isActive ? "Active" : "Inactive"}
                           </span>
                         )}
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${DIFFICULTY_STYLES[w.difficulty] || "border-amber-100/10 text-stone-300"}`}>
+                        <span className={`dashboard-card-priority ${DIFFICULTY_STYLES[w.difficulty] || "border-amber-100/10 text-stone-300"}`}>
                           {w.difficulty}
                         </span>
+                        <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${w.neverEnds ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200" : "border-rose-400/25 bg-rose-500/10 text-rose-200"}`}>
+                          {w.neverEnds ? "Never Ends" : `Ends ${w.endDate}`}
+                        </span>
+                        {w.days?.map((d) => (
+                          <span key={d} className="rounded-full border border-amber-300/25 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-amber-200">
+                            {d}
+                          </span>
+                        ))}
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <button type="button" onClick={() => setViewWorkout(w)}
-                        className="rounded border border-amber-100/20 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-300 transition hover:text-stone-100">
-                        View
-                      </button>
-                      {workoutsView !== "archive" && (
-                        <>
-                          <button type="button" onClick={() => handleToggleWorkoutActive(w.id)}
-                            className={`rounded border px-2 py-0.5 text-[10px] font-semibold transition ${
-                              w.isActive
-                                ? "border-stone-400/25 bg-white/5 text-stone-300 hover:text-stone-100"
-                                : "border-emerald-400/25 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20"
-                            }`}>
-                            {w.isActive ? "Deactivate" : "Activate"}
-                          </button>
-                          <button type="button" onClick={() => openCopyWorkout(w.id)}
-                            className="rounded border border-sky-300/25 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-200 transition hover:bg-sky-500/20">
-                            Copy
-                          </button>
-                          <button type="button" onClick={() => startEdit(w)}
-                            className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
-                            Edit
-                          </button>
-                          <button type="button" onClick={() => handleDelete(w.id)}
-                            className="rounded border border-rose-400/25 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-300 transition hover:bg-rose-500/20">
-                            Delete
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
 
-                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <div className="gym-add-card-meta mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px]">
                     {w.goalType && (
                       <span className="rounded-full border border-amber-300/35 bg-amber-500/15 px-2 py-0.5 font-semibold text-amber-200">
                         {GOAL_TYPES.find((g) => g.value === w.goalType)?.label ?? w.goalType}
@@ -1642,17 +1626,35 @@ export default function AddWorkout() {
                         Starts {w.startDate}
                       </span>
                     )}
-                    <span className={`rounded-full border px-2 py-0.5 font-semibold ${w.neverEnds ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200" : "border-rose-400/25 bg-rose-500/10 text-rose-200"}`}>
-                      {w.neverEnds ? "Never Ends" : `Ends ${w.endDate}`}
-                    </span>
-                    {w.days?.length > 0 && w.days.map((d) => (
-                      <span key={d} className="rounded-full border border-amber-300/25 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-amber-200">
-                        {d}
-                      </span>
-                    ))}
                   </div>
 
-                  </Motion.article>
+                  <div className="gym-add-card-actions flex flex-wrap items-center gap-1.5">
+                    <button type="button" onClick={() => setViewWorkout(w)}
+                      className="dashboard-card-action" data-tone="neutral">
+                      View
+                    </button>
+                    {workoutsView !== "archive" && (
+                      <>
+                        <button type="button" onClick={() => handleToggleWorkoutActive(w.id)}
+                          className="dashboard-card-action" data-tone={w.isActive ? "neutral" : "success"}>
+                          {w.isActive ? "Deactivate" : "Activate"}
+                        </button>
+                        <button type="button" onClick={() => openCopyWorkout(w.id)}
+                          className="dashboard-card-action" data-tone="info">
+                          Copy
+                        </button>
+                        <button type="button" onClick={() => startEdit(w)}
+                          className="dashboard-card-action" data-tone="warning">
+                          Edit
+                        </button>
+                        <button type="button" onClick={() => handleDelete(w.id)}
+                          className="dashboard-card-action" data-tone="danger">
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  </WorkoutCard>
                 );
               })
             )}
@@ -1660,9 +1662,9 @@ export default function AddWorkout() {
         </section>
 
         {/* ── SIDEBAR: Logs ── */}
-        <aside className="min-w-0 lg:w-52 xl:w-[22rem] lg:shrink-0">
+        <aside className="gym-add-logs min-w-0">
           <div
-            className="flex flex-col rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl lg:[height:min(720px,78vh)]"
+            className="gym-add-log-panel flex flex-col rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl"
           >
             <div className="mb-3 shrink-0 border-b border-amber-100/10 pb-3">
               <p className="text-sm font-semibold tracking-wide text-amber-200">Workout Logs</p>
@@ -1672,19 +1674,21 @@ export default function AddWorkout() {
             {logs.length === 0 ? (
               <p className="text-sm text-stone-400">No logs yet.</p>
             ) : (
-              <div className="journal-scroll min-h-0 flex-1 space-y-1.5 overflow-x-hidden overflow-y-auto pr-1">
+              <div className="gym-add-log-list journal-scroll min-h-0 flex-1 space-y-1.5 overflow-x-hidden overflow-y-auto pr-1">
                 {logs.map((log, li) => (
                   (() => {
                     const undoMeta = log.action === "deleted" ? getDeleteUndoMeta(log, undoClockMs) : null;
                     const isDeletedButAlreadyRestored = restoredFromDeleteLogIds.has(String(log.id));
                     const canUndoDelete = Boolean(log.deletedItem && undoMeta?.canUndo && !isDeletedButAlreadyRestored);
                     return (
-                  <Motion.div
+                  <LogRow
                     key={log.id}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: li * 0.04, duration: 0.18 }}
-                    className={`flex flex-col items-start justify-between gap-2 rounded-md border px-2 py-1.5 text-[11px] sm:flex-row sm:items-center ${
+                    {...(lowMotion ? {} : {
+                      initial: { opacity: 0, x: -8 },
+                      animate: { opacity: 1, x: 0 },
+                      transition: { delay: li * 0.04, duration: 0.18 },
+                    })}
+                    className={`gym-add-log-row flex flex-col items-start justify-between gap-2 rounded-md border px-2 py-1.5 text-[11px] sm:flex-row sm:items-center ${
                       log.action === "deleted"
                         ? "border-rose-400/20 bg-rose-500/5 text-stone-300"
                         : log.action === "updated"
@@ -1735,7 +1739,7 @@ export default function AddWorkout() {
                         )}
                       </div>
                     )}
-                  </Motion.div>
+                  </LogRow>
                     );
                   })()
                 ))}
@@ -1748,8 +1752,8 @@ export default function AddWorkout() {
 
       {/* Exercise View Modal */}
       {viewWorkout && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
-          <div className="flex w-full max-w-md max-h-[80vh] flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.95),rgba(12,8,8,0.97))] p-5 shadow-2xl shadow-black/50 backdrop-blur">
+        <div className="gym-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
+          <div className="gym-modal-panel flex w-full max-w-md flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.95),rgba(12,8,8,0.97))] p-5 shadow-2xl shadow-black/50 backdrop-blur">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-amber-200/60">{viewWorkout.title}</p>
@@ -1826,8 +1830,8 @@ export default function AddWorkout() {
       )}
 
       {copyWorkout && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
-          <div className="flex w-full max-w-md flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.95),rgba(12,8,8,0.97))] p-5 shadow-2xl shadow-black/50 backdrop-blur">
+        <div className="gym-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
+          <div className="gym-modal-panel flex w-full max-w-md flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.95),rgba(12,8,8,0.97))] p-5 shadow-2xl shadow-black/50 backdrop-blur">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-sky-200/60">{copyWorkout.title}</p>

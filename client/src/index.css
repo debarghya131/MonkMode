@@ -7,6 +7,219 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(180, 130, 40, 0.35) transparent;
 }
+
+/* To-Do Today: size against the usable dashboard width, not the device width. */
+.todo-page[data-active="today"] .todo-today-view {
+  container: todo-today / inline-size;
+  width: 100%;
+  min-width: 0;
+}
+
+.todo-page[data-active="today"] .today-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+}
+
+.todo-page[data-active="today"] .today-main {
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+}
+
+.todo-page[data-active="today"] .today-main > .today-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+}
+
+.todo-page[data-active="today"] .today-panel-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.5rem;
+}
+
+.todo-page[data-active="today"] .today-panel-header > :last-child {
+  justify-self: end;
+}
+
+.todo-page[data-active="today"] .today-scroll-card {
+  width: 100%;
+  height: auto;
+  max-height: clamp(18rem, 62dvh, 34rem);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.todo-page[data-active="today"] .today-scroll-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.todo-page[data-active="today"] .today-sidebar {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+.todo-page[data-active="today"] .today-overview-side { display: none; }
+.todo-page[data-active="today"] .today-overview-inline { display: block; }
+
+@container todo-today (max-width: 41.999rem) {
+  .todo-page[data-active="today"] .today-overview-inline .today-overview-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .todo-page[data-active="today"] .today-overview-inline .today-overview-stats > div {
+    padding-inline: 0.25rem;
+  }
+
+  .todo-page[data-active="today"] .today-overview-inline .today-overview-stats p:first-child {
+    font-size: 0.5rem;
+    letter-spacing: 0.03em;
+  }
+}
+
+@media (min-width: 640px) and (min-height: 600px) {
+  .todo-page[data-active="today"] .today-scroll-card {
+    max-height: min(70dvh, 36rem);
+    overflow: hidden;
+  }
+
+  .todo-page[data-active="today"] .today-scroll-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 600px) {
+  .todo-page[data-active="today"] .todo-content {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .todo-page[data-active="today"] .todo-today-view { height: 100%; }
+}
+
+@container todo-today (min-width: 42rem) {
+  .todo-page[data-active="today"] .today-main > .today-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .todo-page[data-active="today"] .today-columns > .today-scroll-card:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .todo-page[data-active="today"] .today-columns > .today-scroll-card:last-child > .today-scroll-body {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    gap: 0.5rem;
+  }
+
+  .todo-page[data-active="today"] .today-columns > .today-scroll-card:last-child > .today-scroll-body > * {
+    margin-top: 0;
+  }
+
+  .todo-page[data-active="today"] .today-overview-inline .today-overview-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@container todo-today (min-width: 65rem) {
+  .todo-page[data-active="today"] .today-main > .today-columns {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .todo-page[data-active="today"] .today-columns > .today-scroll-card:last-child {
+    grid-column: auto;
+  }
+
+  .todo-page[data-active="today"] .today-columns > .today-scroll-card:last-child > .today-scroll-body {
+    display: block;
+  }
+
+  .todo-page[data-active="today"] .today-columns > .today-scroll-card:last-child > .today-scroll-body > * + * {
+    margin-top: 0.5rem;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 800px) {
+  @container todo-today (min-width: 82rem) {
+    .todo-page[data-active="today"] .today-layout {
+      height: 100%;
+      grid-template-columns: minmax(0, 1fr) clamp(18rem, 24%, 24rem);
+      align-items: stretch;
+    }
+
+    .todo-page[data-active="today"] .today-main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .todo-page[data-active="today"] .today-main > .today-columns {
+      flex: 1 1 auto;
+      align-items: stretch;
+      grid-template-rows: minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .todo-page[data-active="today"] .today-columns > .today-scroll-card {
+      height: 100%;
+      max-height: none;
+      overflow: hidden;
+    }
+
+    .todo-page[data-active="today"] .today-columns .today-scroll-body {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable;
+    }
+
+    .todo-page[data-active="today"] .today-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .todo-page[data-active="today"] .today-overview-inline { display: none; }
+    .todo-page[data-active="today"] .today-overview-side { display: block; flex: 0 0 auto; }
+    .todo-page[data-active="today"] .today-overview-side .today-overview-stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .todo-page[data-active="today"] .today-sidebar .today-missed-card {
+      flex: 1 1 auto;
+      max-height: none;
+      overflow: hidden;
+    }
+
+    .todo-page[data-active="today"] .today-missed-card .today-scroll-body {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable;
+    }
+  }
+}
 *::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -184,8 +397,97 @@ a {
   min-height: 100vh;
 }
 
+@supports (min-height: 100dvh) {
+  #root {
+    min-height: 100dvh;
+  }
+}
+
+/* On short laptop displays the navigation stays usable while optional
+   attribution yields space to the actual navigation and logout action. */
+@media (max-height: 700px) {
+  .sidebar-credit {
+    display: none;
+  }
+}
+
+@media (min-width: 1280px) and (max-height: 900px) {
+  .dashboard-sidebar-link {
+    min-height: 2.375rem;
+  }
+}
+
+@media (max-width: 1279px) and (max-height: 600px) and (orientation: landscape) {
+  .dashboard-sidebar {
+    padding: 0.625rem;
+    padding-bottom: max(0.625rem, env(safe-area-inset-bottom));
+  }
+
+  .dashboard-sidebar-sections {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+    align-items: start;
+    gap: 0.5rem;
+  }
+
+  .dashboard-sidebar-divider {
+    display: none;
+  }
+
+  .dashboard-sidebar-section > h3 {
+    margin-bottom: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+  }
+
+  .dashboard-sidebar-items {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem;
+  }
+
+  .dashboard-sidebar-items > * {
+    margin-top: 0 !important;
+  }
+
+  .dashboard-sidebar-link {
+    min-height: 2.5rem;
+    gap: 0.375rem;
+    padding: 0.375rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .dashboard-sidebar-link .sidebar-item-icon {
+    width: 1rem;
+    height: 1rem;
+    font-size: 0.875rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .dashboard-navbar-gradient {
+    animation: none !important;
+    background-size: 100% 100% !important;
+  }
+
+  .dashboard-navbar-sweep {
+    display: none;
+  }
+}
+
 .auth-page {
   font-family: Baskerville, "Palatino Linotype", "Book Antiqua", Georgia, "Times New Roman", serif;
+  background: linear-gradient(120deg, #07192f, #111126 52%, #190b12);
+}
+
+/* Moving scenery beneath large blur surfaces is costly on mobile GPUs. */
+@media (max-width: 767px) {
+  .auth-page .backdrop-blur,
+  .auth-page .backdrop-blur-md,
+  .auth-page .backdrop-blur-xl {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 .auth-page input,
@@ -193,6 +495,21 @@ a {
 .auth-page textarea,
 .auth-page select {
   font-family: inherit;
+}
+
+@media (max-width: 1023px) {
+  .public-feature-card > .group\/slider {
+    order: 2;
+  }
+}
+
+.public-feature-card > .group\/slider {
+  min-width: 0;
+}
+
+.public-feature-card > .group\/slider > div > button {
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .auth-overline {
@@ -350,6 +667,321 @@ a {
   animation: dashboardPulseGlow 3.8s ease-in-out infinite;
 }
 
+/* A single selected state for the sidebar and all dashboard section tabs. */
+.dashboard-section-tab {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #a8a29e;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.dashboard-section-tab:hover:not([aria-pressed="true"]) {
+  background: rgba(251, 191, 36, 0.09);
+  color: #fef3c7;
+}
+
+.dashboard-section-selected,
+.dashboard-section-tab[aria-pressed="true"],
+.dashboard-section-trigger {
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  background: linear-gradient(110deg, rgba(251, 191, 36, 0.26), rgba(245, 158, 11, 0.15));
+  color: #fde68a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.dashboard-shell .dashboard-section-selected:hover,
+.dashboard-shell .dashboard-section-tab[aria-pressed="true"]:hover,
+.dashboard-shell .dashboard-section-trigger:hover {
+  transform: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Interactive card actions are filled; read-only states are unboxed labels. */
+.dashboard-card-action {
+  display: inline-flex;
+  min-width: 3rem;
+  height: 2.25rem;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  padding: 0 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.dashboard-card-action[data-tone="success"] { background: #34d399; color: #052e26; }
+.dashboard-card-action[data-tone="warning"] { background: #fbbf24; color: #29200c; }
+.dashboard-card-action[data-tone="danger"] { background: #fb7185; color: #3b0a16; }
+.dashboard-card-action[data-tone="info"] { background: #7dd3fc; color: #082f49; }
+.dashboard-card-action[data-tone="neutral"] { background: #d6d3d1; color: #292524; }
+.dashboard-card-action:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Overview links are small navigation controls, not full-size task actions. */
+.dashboard-card-action.overview-card-action {
+  min-width: 0;
+  height: 1.625rem;
+  min-height: 1.625rem;
+  padding-inline: 0.55rem;
+  border-radius: 0.4rem;
+  font-size: 0.625rem;
+}
+
+/* Compact, consistent priority labels on cards (separate from action buttons). */
+.dashboard-card-priority {
+  display: inline-flex;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 9999px;
+  padding: 0 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.dashboard-card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+  color: #d6d3d1;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dashboard-card-status::before {
+  content: "";
+  width: 0.375rem;
+  height: 0.375rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--status-dot, currentColor);
+}
+
+.dashboard-card-status[data-tone="success"] { color: #a7f3d0; --status-dot: #34d399; }
+.dashboard-card-status[data-tone="warning"] { color: #fde68a; --status-dot: #fbbf24; }
+.dashboard-card-status[data-tone="danger"] { color: #fecdd3; --status-dot: #fb7185; }
+.dashboard-card-status[data-tone="info"] { color: #bae6fd; --status-dot: #7dd3fc; }
+
+/* In-page select menus stay anchored inside mobile and emulated viewports. */
+.dashboard-select-root {
+  display: inline-block;
+  min-width: 0;
+  vertical-align: middle;
+}
+
+.dashboard-select-block {
+  display: block;
+  width: 100%;
+}
+
+.dashboard-select-trigger {
+  display: flex;
+  min-width: 0;
+  min-height: 1.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dashboard-select-trigger:not(.border) { border: 0; }
+.dashboard-select-trigger:disabled { cursor: not-allowed; }
+
+.dashboard-select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-select-chevron {
+  flex: 0 0 auto;
+  opacity: 0.7;
+  font-size: 0.625rem;
+}
+
+.dashboard-select-menu {
+  position: fixed;
+  z-index: 9999;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 0.65rem;
+  background: #211814;
+  padding: 0.25rem;
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.55);
+}
+
+.dashboard-select-option {
+  display: flex;
+  width: 100%;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  padding: 0.4rem 0.6rem;
+  color: #e7e5e4;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dashboard-select-option[data-active="true"],
+.dashboard-select-option[aria-selected="true"] {
+  background: rgba(251, 191, 36, 0.16);
+  color: #fde68a;
+}
+
+.dashboard-select-option:disabled {
+  color: #78716c;
+  cursor: not-allowed;
+}
+
+/* Date and time controls use anchored in-page panels instead of browser popups. */
+.dashboard-datetime-root {
+  display: inline-block;
+  min-width: 0;
+  vertical-align: middle;
+}
+
+.dashboard-datetime-block { display: block; width: 100%; }
+
+@media (min-width: 640px) {
+  .dashboard-datetime-narrow { width: 6rem; }
+}
+
+.dashboard-datetime-trigger {
+  display: flex;
+  min-width: 0;
+  min-height: 1.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.dashboard-datetime-trigger:disabled { cursor: not-allowed; }
+.dashboard-datetime-placeholder { color: #a8a29e; }
+.dashboard-datetime-icon { flex: 0 0 auto; font-size: 0.9em; opacity: 0.7; }
+
+.dashboard-datetime-panel {
+  position: fixed;
+  z-index: 9999;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 0.75rem;
+  background: #211814;
+  padding: 0.75rem;
+  color: #e7e5e4;
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.55);
+}
+
+.dashboard-datetime-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.dashboard-datetime-header > button {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid rgba(251, 191, 36, 0.18);
+  border-radius: 0.4rem;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dashboard-datetime-header > input {
+  width: 3.6rem;
+  border: 1px solid rgba(251, 191, 36, 0.18);
+  border-radius: 0.4rem;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.3rem;
+  color: inherit;
+  font-size: 0.7rem;
+  text-align: center;
+}
+
+.dashboard-datetime-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.15rem;
+  text-align: center;
+}
+
+.dashboard-datetime-calendar > button,
+.dashboard-datetime-weekday {
+  display: grid;
+  min-width: 0;
+  height: 1.75rem;
+  place-items: center;
+  border-radius: 0.4rem;
+  font-size: 0.6875rem;
+}
+
+.dashboard-datetime-weekday { color: #a8a29e; font-weight: 700; }
+.dashboard-datetime-calendar > button:hover:not(:disabled) { background: rgba(251, 191, 36, 0.18); }
+.dashboard-datetime-calendar > button[aria-pressed="true"] { background: #fbbf24; color: #29200c; font-weight: 700; }
+.dashboard-datetime-calendar > button[data-today="true"]:not([aria-pressed="true"]) { outline: 1px solid #fbbf24; }
+.dashboard-datetime-calendar > button:disabled { color: #78716c; cursor: not-allowed; }
+
+.dashboard-datetime-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+  border-top: 1px solid rgba(251, 191, 36, 0.12);
+  padding-top: 0.65rem;
+}
+
+.dashboard-datetime-footer > button {
+  min-height: 1.8rem;
+  border-radius: 0.45rem;
+  padding: 0 0.75rem;
+  color: #fde68a;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.dashboard-datetime-footer > button:last-child { background: #fbbf24; color: #29200c; }
+.dashboard-datetime-footer > button:disabled { opacity: 0.4; cursor: not-allowed; }
+.dashboard-datetime-time-title { margin-bottom: 0.75rem; color: #fde68a; font-size: 0.75rem; font-weight: 700; }
+.dashboard-datetime-time-fields { display: flex; align-items: end; justify-content: center; gap: 0.35rem; }
+.dashboard-datetime-time-fields > label { display: grid; gap: 0.25rem; color: #a8a29e; font-size: 0.625rem; text-align: center; }
+.dashboard-datetime-time-fields input { width: 4rem; border: 1px solid rgba(251, 191, 36, 0.22); border-radius: 0.45rem; background: rgba(255, 255, 255, 0.06); padding: 0.5rem; color: #fff7ed; font-size: 1rem; text-align: center; }
+.dashboard-datetime-time-fields > span { padding-bottom: 0.5rem; font-size: 1rem; }
+.dashboard-datetime-period { display: flex; justify-content: center; gap: 0.4rem; margin-top: 0.75rem; }
+.dashboard-datetime-period > button { min-width: 3.5rem; border: 1px solid rgba(251, 191, 36, 0.22); border-radius: 0.45rem; padding: 0.35rem; font-size: 0.6875rem; }
+.dashboard-datetime-period > button[aria-pressed="true"] { background: rgba(251, 191, 36, 0.22); color: #fde68a; }
+
 .progress-sheen {
   position: relative;
   overflow: hidden;
@@ -396,26 +1028,108 @@ a {
   background: rgba(251, 191, 36, 0.4);
 }
 
+.journal-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.journal-editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1rem;
+}
+
+.journal-history, .journal-history-inner { min-width: 0; }
+
 .journal-step-card {
   display: flex;
   flex-direction: column;
-  height: 600px;
   min-height: 0;
-  max-height: calc(100vh - 160px);
-  overflow: hidden;
 }
 
 .journal-step-body {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: scroll;
+  overflow-y: visible;
   overscroll-behavior: contain;
-  scroll-behavior: smooth;
-  scrollbar-gutter: stable;
 }
 
 .journal-step-nav {
   flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgb(254 243 199 / 0.1);
+}
+
+.journal-step-nav > button { min-height: 44px; padding-inline: 0.75rem; width: 100%; }
+.journal-step-nav > span { max-width: 6rem; text-align: center; }
+.journal-step-body h2 { font-size: clamp(1.5rem, 2.5vw, 2.5rem); overflow-wrap: anywhere; }
+.journal-step-body input, .journal-step-body textarea { min-width: 0; max-width: 100%; }
+.journal-past-entries {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 70vh;
+  max-height: 70dvh;
+  overflow: hidden;
+}
+
+.journal-past-entries > :first-child { flex-shrink: 0; }
+
+.journal-history-list {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  scrollbar-gutter: stable;
+}
+
+@media (max-width: 1023px) {
+  .journal-layout .backdrop-blur, .journal-modal-backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .journal-history-list {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scrollbar-gutter: auto;
+  }
+  .journal-layout .journal-scroll { scroll-behavior: auto; }
+  .journal-step-body input:not([type="range"]), .journal-step-body textarea { font-size: 16px; }
+}
+
+/* The dashboard flex shell supplies the actual space below the navbar. */
+@media (min-width: 1024px) and (min-height: 600px) {
+  .journal-main { overflow: hidden; padding-block: 1rem; }
+  .journal-route, .journal-layout { height: 100%; min-height: 0; }
+  .journal-layout { display: grid; grid-template-columns: minmax(0, 1fr) clamp(15rem, 22vw, 20rem); }
+  .journal-editor { min-height: 0; gap: 0.75rem; }
+  .journal-editor > :not(.journal-step-card) { flex-shrink: 0; }
+  .journal-step-card { flex: 1; overflow: hidden; padding: 1rem; }
+  .journal-step-body { overflow-y: auto; scrollbar-gutter: stable; }
+  .journal-progress { padding: 0.75rem 1rem; }
+  .journal-history, .journal-history-inner, .journal-history-panels { height: 100%; min-height: 0; }
+  .journal-history-panels { display: flex; flex-direction: column; overflow-y: auto; }
+  .journal-history-panels > section:first-child { flex-shrink: 0; max-height: 40%; overflow-y: auto; }
+  .journal-past-entries { min-height: 10rem; max-height: none; flex: 1; }
+  .journal-history-list { min-height: 0; overflow-y: auto; flex: 1; }
+  .journal-submitted > :first-child { overflow-y: auto; padding-block: 2rem; }
+}
+
+@keyframes navbarEmojiBounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-2px) scale(1.16); }
+}
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .navbar-stat-emoji { animation: navbarEmojiBounce 1.4s ease-in-out infinite; }
 }
 
 .schedule-layout {
@@ -624,16 +1338,54 @@ a {
   overflow-y: auto;
 }
 
-.important-layout {
+.todo-page[data-active="important"] .todo-content {
+  container-type: inline-size;
+  margin-top: 0.75rem;
+}
+
+.important-page {
   display: flex;
-  flex-direction: column;
+  min-width: 0;
   width: 100%;
-  gap: 1.25rem;
+  flex-direction: column;
+  gap: clamp(0.75rem, 1.8dvh, 1.25rem);
+}
+
+.important-heading { flex: 0 0 auto; min-width: 0; }
+
+.important-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  gap: clamp(0.75rem, 1.8dvh, 1.25rem);
 }
 
 .important-main,
 .important-side {
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.important-main { max-height: clamp(20rem, 52dvh, 34rem); }
+.important-side { max-height: clamp(18rem, 76dvh, 44rem); }
+.important-task-list { min-height: 0; overscroll-behavior: contain; }
+
+@container (min-width: 46rem) {
+  .important-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 31%);
+    align-items: stretch;
+  }
+
+  .important-main,
+  .important-side {
+    width: auto;
+    height: 100%;
+    max-height: clamp(20rem, calc(100dvh - 13rem), 50rem);
+  }
 }
 
 @media (min-width: 1180px) {
@@ -663,21 +1415,6 @@ a {
     height: 45rem;
   }
 
-  .important-layout {
-    flex-direction: row;
-    align-items: stretch;
-  }
-
-  .important-main {
-    flex: 1 1 0%;
-    height: 39rem;
-  }
-
-  .important-side {
-    width: 360px;
-    flex: 0 0 360px;
-    height: 39rem;
-  }
 }
 
 @media (min-width: 1440px) {
@@ -691,10 +1428,6 @@ a {
     flex: 0 0 360px;
   }
 
-  .important-side {
-    width: 400px;
-    flex: 0 0 400px;
-  }
 }
 
 @media (min-width: 1920px) {
@@ -708,10 +1441,76 @@ a {
     flex: 0 0 400px;
   }
 
-  .important-side {
-    width: 440px;
-    flex: 0 0 440px;
+}
+
+/* To-Do: compact screens scroll the page, while long task lists stay bounded. */
+@media (max-width: 1023px), (max-height: 599px) {
+  .todo-page .today-scroll-card,
+  .todo-page .upcoming-scroll-card,
+  .todo-page .upcoming-next5-card,
+  .todo-page .schedule-all-tasks,
+  .todo-page .schedule-sidebar > div {
+    max-height: 70dvh;
+    overflow: hidden;
   }
+
+  .todo-page .schedule-main { max-height: 80dvh; }
+  .todo-page .schedule-all-tasks,
+  .todo-page .schedule-sidebar > div { display: flex; flex-direction: column; }
+  .todo-page .schedule-sidebar > div { overflow-y: auto; }
+  .todo-page .schedule-all-tasks > .journal-scroll,
+  .todo-page .upcoming-day-scroll { min-height: 0; overflow-y: auto; }
+  .todo-page .upcoming-next5-body { min-height: 0; }
+  .todo-page .upcoming-day-col { min-width: min(82vw, 16.5rem); }
+  .todo-page .journal-scroll { scroll-behavior: auto; -webkit-overflow-scrolling: touch; }
+  .todo-page .backdrop-blur { backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+
+/* Fill the remaining dashboard viewport on laptop and desktop screens. */
+@media (min-width: 1024px) and (min-height: 600px) {
+  .todo-main { overflow: hidden; padding-block: 1rem; }
+  .todo-route, .todo-page, .todo-content { height: 100%; min-height: 0; }
+  .todo-page { display: flex; flex-direction: column; gap: 0.875rem; }
+  .todo-top-row { flex: 0 0 auto; }
+  .todo-content { flex: 1 1 auto; overflow: hidden; }
+  .todo-content > .todo-today-view,
+  .todo-content > .todo-schedule-view,
+  .todo-content > .upcoming-layout,
+  .todo-content > .schedule-layout { height: 100%; min-height: 0; }
+  .todo-page .todo-today-view > .today-layout,
+  .todo-page .todo-schedule-view > .schedule-layout { height: 100%; min-height: 0; }
+
+  .todo-page .today-layout { flex-direction: row; align-items: stretch; gap: 1rem; }
+  .todo-page .today-main { flex: 1 1 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .todo-page .today-main > .grid { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  .todo-page .today-scroll-card,
+  .todo-page .today-sidebar .today-scroll-card { height: auto; min-height: 0; }
+  .todo-page .today-scroll-body { min-height: 0; }
+  .todo-page .today-sidebar { width: clamp(17rem, 24vw, 25rem); flex: 0 0 clamp(17rem, 24vw, 25rem); min-height: 0; display: flex; flex-direction: column; }
+  .todo-page .today-sidebar > section:first-child { flex: 0 0 auto; }
+  .todo-page .today-sidebar > .today-scroll-card { flex: 1 1 auto; overflow: hidden; }
+
+  .todo-page .upcoming-layout { display: grid; grid-template-columns: minmax(16rem, 0.34fr) minmax(0, 1fr); align-items: stretch; gap: 1rem; }
+  .todo-page .upcoming-card-tomorrow,
+  .todo-page .upcoming-card-next5 { width: auto; height: 100%; min-height: 0; }
+  .todo-page .upcoming-next5-body { min-height: 0; }
+  .todo-page .upcoming-day-col { min-width: min(16rem, 28vw); }
+
+  .todo-page .schedule-layout { display: grid; grid-template-columns: minmax(15rem, 0.9fr) minmax(19rem, 1.3fr) minmax(15rem, 0.9fr); align-items: stretch; gap: 1rem; }
+  .todo-page .schedule-main,
+  .todo-page .schedule-all-tasks,
+  .todo-page .schedule-sidebar,
+  .todo-page .schedule-sidebar > div { width: auto; height: 100%; min-height: 0; min-width: 0; }
+  .todo-page .schedule-main,
+  .todo-page .schedule-sidebar { flex: auto; }
+  .todo-page .schedule-all-tasks { display: flex; flex-direction: column; }
+  .todo-page .schedule-sidebar > div { overflow-y: auto; }
+
+  .todo-page[data-active="important"] .todo-content { margin-top: 0; }
+  .todo-content > .important-page { height: 100%; min-height: 0; }
+  .todo-page .important-layout { flex: 1 1 auto; min-height: 0; }
+  .todo-page .important-main,
+  .todo-page .important-side { height: 100%; max-height: none; }
 }
 
 @keyframes landingGradientMove {
@@ -874,5 +1673,3964 @@ a {
     font-family: "Segoe UI", "Helvetica Neue", "Arial", sans-serif;
     font-size: 0.875rem;
     line-height: 1.5;
+  }
+}
+
+/* To-Do Schedule: respond to the usable panel width and viewport height. */
+.todo-page[data-active="schedule"] .todo-content {
+  container: todo-schedule / inline-size;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.todo-page[data-active="schedule"] .todo-schedule-view,
+.todo-page[data-active="schedule"] .schedule-layout {
+  width: 100%;
+  min-width: 0;
+}
+
+.todo-page[data-active="schedule"] .schedule-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+  height: auto;
+}
+
+.todo-page[data-active="schedule"] .schedule-main,
+.todo-page[data-active="schedule"] .schedule-all-tasks,
+.todo-page[data-active="schedule"] .schedule-sidebar,
+.todo-page[data-active="schedule"] .schedule-sidebar-card {
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.todo-page[data-active="schedule"] .schedule-main {
+  container: schedule-form / inline-size;
+  position: relative;
+  z-index: 1;
+  max-height: none;
+  overflow: visible;
+}
+
+.todo-page[data-active="schedule"] .schedule-category-controls > div {
+  flex: 1 1 10rem;
+}
+
+.todo-page[data-active="schedule"] .schedule-category-controls > button {
+  flex: 0 0 auto;
+}
+
+.todo-page[data-active="schedule"] .schedule-form-row,
+.todo-page[data-active="schedule"] .schedule-date-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container schedule-form (min-width: 25rem) {
+  .todo-page[data-active="schedule"] .schedule-form-row-time,
+  .todo-page[data-active="schedule"] .schedule-date-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container schedule-form (min-width: 34rem) {
+  .todo-page[data-active="schedule"] .schedule-form-row-category {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.todo-page[data-active="schedule"] .schedule-all-tasks {
+  display: flex;
+  flex-direction: column;
+  max-height: clamp(24rem, 65dvh, 38rem);
+  overflow: hidden;
+}
+
+.todo-page[data-active="schedule"] .schedule-all-tasks > .journal-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.todo-page[data-active="schedule"] .schedule-task-details {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+}
+
+.todo-page[data-active="schedule"] .schedule-task-actions {
+  flex-wrap: nowrap;
+}
+
+.todo-page[data-active="schedule"] .schedule-task-actions .dashboard-card-action {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  border-radius: 9999px;
+  padding: 0 0.2rem;
+  font-size: 0.625rem;
+}
+
+.todo-page[data-active="schedule"] .schedule-sidebar-card {
+  overflow: visible;
+}
+
+.todo-page[data-active="schedule"] .schedule-logs > .journal-scroll {
+  max-height: clamp(9rem, 27dvh, 18rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@container todo-schedule (min-width: 42rem) {
+  .todo-page[data-active="schedule"] .schedule-layout {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+
+  .todo-page[data-active="schedule"] .schedule-sidebar {
+    grid-column: 1 / -1;
+  }
+
+  .todo-page[data-active="schedule"] .schedule-sidebar-card {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .todo-page[data-active="schedule"] .schedule-sidebar-divider {
+    display: none;
+  }
+
+  .todo-page[data-active="schedule"] .schedule-logs > .journal-scroll {
+    max-height: clamp(12rem, 36dvh, 20rem);
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 720px) {
+  @container todo-schedule (min-width: 75rem) {
+    .todo-page[data-active="schedule"] .schedule-layout {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(19rem, 0.9fr);
+      align-items: stretch;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .todo-page[data-active="schedule"] .schedule-main,
+    .todo-page[data-active="schedule"] .schedule-all-tasks,
+    .todo-page[data-active="schedule"] .schedule-sidebar,
+    .todo-page[data-active="schedule"] .schedule-sidebar-card {
+      height: 100%;
+      max-height: none;
+    }
+
+    .todo-page[data-active="schedule"] .schedule-main {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .todo-page[data-active="schedule"] .schedule-sidebar {
+      grid-column: auto;
+    }
+
+    .todo-page[data-active="schedule"] .schedule-sidebar-card {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .todo-page[data-active="schedule"] .schedule-sidebar-divider {
+      display: block;
+    }
+
+    .todo-page[data-active="schedule"] .schedule-logs > .journal-scroll {
+      max-height: none;
+    }
+  }
+}
+
+/* Keep touch scrolling responsive: skip decorative motion and offscreen card paint. */
+@media (max-width: 1023px), (hover: none), (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+
+  .dashboard-shell .dashboard-navbar-gradient,
+  .dashboard-shell .dashboard-navbar-sweep {
+    animation: none !important;
+  }
+
+  .dashboard-shell :where(button, a[href]),
+  .dashboard-shell .dashboard-glow-card {
+    transition: none;
+  }
+
+  .dashboard-shell :where(button, a[href]):where(:not(:disabled, [aria-disabled="true"])):hover,
+  .dashboard-shell .dashboard-glow-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .dashboard-shell .backdrop-blur,
+  .dashboard-shell .backdrop-blur-sm,
+  .dashboard-shell .md\:backdrop-blur {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .todo-page .journal-scroll { scroll-behavior: auto; }
+
+  .todo-page :is(.today-scroll-body, .upcoming-scroll-body, .upcoming-day-scroll, .important-task-list) article,
+  .todo-page .schedule-all-tasks .journal-scroll article {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 7rem;
+  }
+
+  .todo-page .upcoming-day-col {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 20rem;
+  }
+}
+
+/* To-Do Upcoming: let the available dashboard width decide how days are shown. */
+.todo-page[data-active="upcoming"] .todo-content {
+  container: todo-upcoming / inline-size;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.todo-page[data-active="upcoming"] .upcoming-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 1rem;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+}
+
+.todo-page[data-active="upcoming"] .upcoming-card-tomorrow,
+.todo-page[data-active="upcoming"] .upcoming-card-next5 {
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.todo-page[data-active="upcoming"] .upcoming-card-tomorrow {
+  max-height: clamp(18rem, 52dvh, 34rem);
+}
+
+.todo-page[data-active="upcoming"] .upcoming-card-next5 {
+  container: upcoming-schedule / inline-size;
+  max-height: clamp(24rem, 68dvh, 44rem);
+}
+
+.todo-page[data-active="upcoming"] .upcoming-scroll-body,
+.todo-page[data-active="upcoming"] .upcoming-day-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.todo-page[data-active="upcoming"] .upcoming-schedule-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.todo-page[data-active="upcoming"] .upcoming-day-controls {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.35rem;
+}
+
+.todo-page[data-active="upcoming"] .upcoming-day-controls button {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 0.6rem;
+  background: rgba(251, 191, 36, 0.09);
+  color: #fde68a;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.todo-page[data-active="upcoming"] .upcoming-day-controls button:hover,
+.todo-page[data-active="upcoming"] .upcoming-day-controls button:focus-visible {
+  border-color: rgba(251, 191, 36, 0.65);
+  background: rgba(251, 191, 36, 0.2);
+}
+
+.todo-page[data-active="upcoming"] .upcoming-next5-body {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 0.75rem;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 0.25rem;
+  padding-bottom: 0.3rem;
+}
+
+.todo-page[data-active="upcoming"] .upcoming-day-col {
+  flex: 0 0 clamp(14rem, 78cqi, 18rem);
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+@container upcoming-schedule (max-width: 35.999rem) {
+  .todo-page[data-active="upcoming"] .upcoming-next5-body {
+    scroll-snap-type: x mandatory;
+  }
+
+  .todo-page[data-active="upcoming"] .upcoming-day-col {
+    flex-basis: 100%;
+    scroll-snap-stop: always;
+  }
+}
+
+@container upcoming-schedule (min-width: 55rem) {
+  .todo-page[data-active="upcoming"] .upcoming-next5-body {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    overflow-x: hidden;
+  }
+
+  .todo-page[data-active="upcoming"] .upcoming-day-col {
+    width: auto;
+    min-width: 0;
+  }
+
+  .todo-page[data-active="upcoming"] .upcoming-day-controls {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 720px) {
+  @container todo-upcoming (min-width: 60rem) {
+    .todo-page[data-active="upcoming"] .upcoming-layout {
+      grid-template-columns: clamp(17rem, 23%, 20rem) minmax(0, 1fr);
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .todo-page[data-active="upcoming"] .upcoming-card-tomorrow,
+    .todo-page[data-active="upcoming"] .upcoming-card-next5 {
+      height: 100%;
+      max-height: none;
+    }
+  }
+}
+
+/* Habits Today follows the usable dashboard width, including when the sidebar is open. */
+.habits-page[data-active="today"] .habits-today-page {
+  container: habits-today / inline-size;
+  width: 100%;
+  min-width: 0;
+}
+
+.habits-page[data-active="today"] .today-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+}
+
+.habits-page[data-active="today"] .today-main,
+.habits-page[data-active="today"] .today-sidebar {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+.habits-page[data-active="today"] .habits-today-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  min-width: 0;
+  min-height: 0;
+}
+
+.habits-page[data-active="today"] .today-scroll-card {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  max-height: clamp(18rem, 62dvh, 34rem);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.habits-page[data-active="today"] .today-scroll-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.habits-page[data-active="today"] .today-sidebar .today-scroll-card {
+  height: auto;
+  max-height: clamp(20rem, 70dvh, 40rem);
+}
+
+@container habits-today (min-width: 42rem) {
+  .habits-page[data-active="today"] .habits-today-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .habits-page[data-active="today"] .habits-today-columns > .today-scroll-card:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .habits-page[data-active="today"] .habits-today-columns > .today-scroll-card:last-child > .today-scroll-body {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    gap: 0.5rem;
+  }
+
+  .habits-page[data-active="today"] .habits-today-columns > .today-scroll-card:last-child > .today-scroll-body > * {
+    margin-top: 0;
+  }
+}
+
+@container habits-today (min-width: 65rem) {
+  .habits-page[data-active="today"] .habits-today-columns {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .habits-page[data-active="today"] .habits-today-columns > .today-scroll-card:last-child {
+    grid-column: auto;
+  }
+
+  .habits-page[data-active="today"] .habits-today-columns > .today-scroll-card:last-child > .today-scroll-body {
+    display: block;
+  }
+
+  .habits-page[data-active="today"] .habits-today-columns > .today-scroll-card:last-child > .today-scroll-body > * + * {
+    margin-top: 0.5rem;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 720px) {
+  .habits-route,
+  .habits-page[data-active="today"],
+  .habits-page[data-active="today"] .habits-content,
+  .habits-page[data-active="today"] .habits-today-page {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .habits-page[data-active="today"] {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .habits-page[data-active="today"] .habits-top-row {
+    flex: 0 0 auto;
+  }
+
+  .habits-page[data-active="today"] .habits-content {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  @container habits-today (min-width: 68rem) {
+    .habits-page[data-active="today"] .today-layout {
+      grid-template-columns: minmax(0, 1fr) clamp(18rem, 25%, 24rem);
+      align-items: stretch;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .habits-page[data-active="today"] .today-main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .habits-page[data-active="today"] .habits-today-columns {
+      flex: 1 1 auto;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+      align-items: stretch;
+      overflow: hidden;
+    }
+
+    .habits-page[data-active="today"] .habits-today-columns > .today-scroll-card:last-child {
+      grid-column: 1 / -1;
+    }
+
+    .habits-page[data-active="today"] .habits-today-columns > .today-scroll-card:last-child > .today-scroll-body {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-content: start;
+      gap: 0.5rem;
+    }
+
+    .habits-page[data-active="today"] .habits-today-columns > .today-scroll-card,
+    .habits-page[data-active="today"] .today-sidebar .today-scroll-card {
+      height: 100%;
+      max-height: none;
+    }
+
+    .habits-page[data-active="today"] .today-sidebar {
+      height: 100%;
+      overflow: hidden;
+    }
+  }
+
+  @container habits-today (min-width: 82rem) {
+    .habits-page[data-active="today"] .habits-today-columns {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    .habits-page[data-active="today"] .habits-today-columns > .today-scroll-card:last-child {
+      grid-column: auto;
+    }
+
+    .habits-page[data-active="today"] .habits-today-columns > .today-scroll-card:last-child > .today-scroll-body {
+      display: block;
+    }
+  }
+}
+
+/* Create Habit: stack on phones, then use the available dashboard width and height. */
+.habits-page[data-active="create"] .habits-create-view {
+  container: habits-create / inline-size;
+  width: 100%;
+  min-width: 0;
+}
+
+.habits-page[data-active="create"] .habits-create-heading { margin-bottom: 0; }
+
+.habits-page[data-active="create"] .habits-create-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  margin-top: 1rem;
+}
+
+.habits-page[data-active="create"] :is(.habits-create-form, .habits-create-list, .habits-create-sidebar, .habits-create-sidebar-card) {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+}
+
+.habits-page[data-active="create"] .habits-create-form {
+  container: habit-create-form / inline-size;
+  position: relative;
+  z-index: 1;
+  overflow: visible;
+}
+
+.habits-page[data-active="create"] .habit-form-row { grid-template-columns: minmax(0, 1fr); }
+.habits-page[data-active="create"] .habit-category-controls { flex-direction: row; align-items: stretch; }
+.habits-page[data-active="create"] .habit-category-controls > button { flex: 0 0 auto; }
+
+.habits-page[data-active="create"] .habit-priority-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.habits-page[data-active="create"] .habit-priority-options > button {
+  width: 100%;
+  min-width: 0;
+  padding-inline: 0.15rem;
+}
+
+.habits-page[data-active="create"] .habits-create-list {
+  display: flex;
+  flex-direction: column;
+  max-height: clamp(22rem, 65dvh, 38rem);
+  overflow: hidden;
+}
+
+.habits-page[data-active="create"] .habit-list-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.habits-page[data-active="create"] .habit-item-header { flex-wrap: nowrap; align-items: flex-start; }
+
+.habits-page[data-active="create"] .habit-item-controls {
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 0.3rem;
+}
+
+.habits-page[data-active="create"] .habit-item-controls > div,
+.habits-page[data-active="create"] .habit-item-actions {
+  flex-wrap: nowrap;
+  gap: 0.3rem;
+}
+
+.habits-page[data-active="create"] .habit-item-actions .dashboard-card-action {
+  min-width: 2.75rem;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  border-radius: 9999px;
+  padding-inline: 0.3rem;
+  font-size: 0.625rem;
+}
+
+.habits-page[data-active="create"] .habits-create-sidebar-card {
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+
+.habits-page[data-active="create"] .habits-create-logs > .journal-scroll {
+  max-height: clamp(9rem, 27dvh, 18rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: auto;
+}
+
+@container habit-create-form (min-width: 25rem) {
+  .habits-page[data-active="create"] .habit-form-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container habits-create (min-width: 42rem) {
+  .habits-page[data-active="create"] .habits-create-layout {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+
+  .habits-page[data-active="create"] .habits-create-sidebar { grid-column: 1 / -1; }
+
+  .habits-page[data-active="create"] .habits-create-sidebar-card {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .habits-page[data-active="create"] .habits-create-divider { display: none; }
+
+  .habits-page[data-active="create"] .habits-create-logs > .journal-scroll {
+    max-height: clamp(12rem, 36dvh, 20rem);
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 720px) {
+  .habits-page[data-active="create"],
+  .habits-page[data-active="create"] .habits-content,
+  .habits-page[data-active="create"] .habits-create-view {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .habits-page[data-active="create"],
+  .habits-page[data-active="create"] .habits-create-view {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .habits-page[data-active="create"] .habits-top-row,
+  .habits-page[data-active="create"] .habits-create-heading { flex: 0 0 auto; }
+
+  .habits-page[data-active="create"] .habits-content {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  @container habits-create (min-width: 68rem) {
+    .habits-page[data-active="create"] .habits-create-layout {
+      flex: 1 1 auto;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr) minmax(18rem, 0.9fr);
+      align-items: stretch;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .habits-page[data-active="create"] :is(.habits-create-form, .habits-create-list, .habits-create-sidebar, .habits-create-sidebar-card) {
+      height: 100%;
+      max-height: none;
+    }
+
+    .habits-page[data-active="create"] .habits-create-form {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .habits-page[data-active="create"] .habits-create-sidebar { grid-column: auto; }
+
+    .habits-page[data-active="create"] .habits-create-sidebar-card {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .habits-page[data-active="create"] .habits-create-divider { display: block; }
+    .habits-page[data-active="create"] .habits-create-logs > .journal-scroll { max-height: none; }
+  }
+}
+
+/* Tracking needs one bounded two-axis scroller for the day matrix. */
+.habits-page[data-active="track"] .habits-track-view {
+  width: 100%;
+  min-width: 0;
+}
+
+.habits-page[data-active="track"] .habits-track-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.habits-page[data-active="track"] .habit-track-toolbar {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.habits-page[data-active="track"] .habit-track-months {
+  overscroll-behavior-x: contain;
+  scroll-behavior: auto;
+  scrollbar-width: thin;
+}
+
+.habits-page[data-active="track"] .habit-track-month {
+  flex: 1 0 2.75rem;
+  min-width: 2.75rem;
+  white-space: nowrap;
+}
+
+.habits-page[data-active="track"] .habits-track-grid {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: clamp(16rem, 58dvh, 36rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: auto;
+  scrollbar-gutter: stable;
+}
+
+.habits-page[data-active="track"] .habits-track-grid-inner { min-width: 0; }
+
+.habits-page[data-active="track"] .habits-track-table {
+  table-layout: fixed;
+  border-collapse: separate;
+}
+
+.habits-page[data-active="track"] .habit-track-name-heading,
+.habits-page[data-active="track"] .habit-track-name-cell {
+  width: clamp(10rem, 28vw, 24rem);
+  min-width: clamp(10rem, 28vw, 24rem);
+  max-width: clamp(10rem, 28vw, 24rem);
+  position: sticky;
+  left: 0;
+}
+
+.habits-page[data-active="track"] .habit-track-name-heading {
+  top: 0;
+  z-index: 4;
+}
+
+.habits-page[data-active="track"] .habit-track-day-heading {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.habits-page[data-active="track"] .habit-track-name-cell {
+  z-index: 1;
+  overflow-wrap: anywhere;
+}
+
+.habits-page[data-active="track"] .habit-track-name-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.habits-page[data-active="track"] .habit-track-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.habits-page[data-active="track"] .habit-track-title-row > p {
+  flex: 1 1 auto;
+}
+
+.habits-page[data-active="track"] .habit-track-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+@media (max-width: 639px) {
+  .habits-page[data-active="track"] .habit-track-months { display: none; }
+
+  .habits-page[data-active="track"] .habit-track-day-pager > div > button {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 0.5rem;
+    background: rgba(251, 191, 36, 0.12);
+    font-size: 1.2rem;
+    line-height: 1;
+  }
+
+  .habits-page[data-active="track"] .habit-track-day-pager > div > button:disabled {
+    opacity: 0.35;
+  }
+
+  .habits-page[data-active="track"] .habits-track-grid {
+    height: clamp(16rem, 52dvh, 30rem);
+    padding: 0.5rem;
+    overflow-x: hidden;
+    scrollbar-gutter: auto;
+  }
+
+  .habits-page[data-active="track"] .habits-track-table,
+  .habits-page[data-active="track"] .habits-track-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .habits-page[data-active="track"] .habits-track-table thead { display: none; }
+
+  .habits-page[data-active="track"] .habits-track-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.3rem;
+    width: 100%;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    border: 1px solid rgba(251, 191, 36, 0.12);
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.035);
+  }
+
+  .habits-page[data-active="track"] .habits-track-table tbody tr > td[colspan] {
+    grid-column: 1 / -1;
+  }
+
+  .habits-page[data-active="track"] .habit-track-name-cell {
+    grid-column: 1 / -1;
+    position: static;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .habits-page[data-active="track"] .habit-track-title-row > p {
+    font-size: 0.75rem;
+    line-height: 1.25;
+  }
+
+  .habits-page[data-active="track"] .habit-track-day-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    min-width: 0;
+    color: #a8a29e;
+    font-size: 0.625rem;
+  }
+
+  .habits-page[data-active="track"] .habit-track-day-cell::before {
+    content: attr(data-day);
+  }
+
+  .habits-page[data-active="track"] .habit-track-day-cell > div {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 720px) {
+  .habits-page[data-active="track"],
+  .habits-page[data-active="track"] .habits-content,
+  .habits-page[data-active="track"] .habits-track-view {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .habits-page[data-active="track"],
+  .habits-page[data-active="track"] .habits-track-view {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .habits-page[data-active="track"] .habits-top-row,
+  .habits-page[data-active="track"] .habits-track-heading {
+    flex: 0 0 auto;
+  }
+
+  .habits-page[data-active="track"] .habits-content,
+  .habits-page[data-active="track"] .habits-track-panel,
+  .habits-page[data-active="track"] .habits-track-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .habits-page[data-active="track"] .habits-track-grid {
+    height: auto;
+  }
+}
+
+/* Habits: keep touch scrolling on the compositor and avoid offscreen card paint. */
+@media (max-width: 1023px), (hover: none), (prefers-reduced-motion: reduce) {
+  .habits-page .journal-scroll { scroll-behavior: auto; }
+
+  .habits-page :is(.shadow-xl, .shadow-lg) {
+    box-shadow: none !important;
+  }
+
+  .habits-page[data-active="today"] .habit-category-card,
+  .habits-page[data-active="today"] .today-scroll-body > article,
+  .habits-page[data-active="today"] .habit-streak-row,
+  .habits-page[data-active="create"] .habit-list-body > article,
+  .habits-page[data-active="create"] .habit-log-row {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 7rem;
+  }
+
+  .habits-page[data-active="today"] .habit-category-card {
+    contain-intrinsic-size: auto 14rem;
+  }
+
+  .habits-page[data-active="create"] .habit-log-row {
+    contain-intrinsic-size: auto 3rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .habits-page[data-active="track"] .habits-track-table tbody tr {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 7rem;
+  }
+}
+
+/* Goals: My Goals adapts to the usable dashboard width rather than the device width. */
+.goal-main {
+  overflow: hidden;
+}
+
+.goal-route,
+.goals-page,
+.goals-page .goals-content {
+  height: 100%;
+  min-height: 0;
+}
+
+.goals-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.goals-page .goals-top-row {
+  flex: 0 0 auto;
+}
+
+.goals-page .goals-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.goals-page[data-active="my-goals"] .goals-content {
+  overflow: hidden;
+}
+
+.goals-page[data-active="my-goals"] .goals-my-view {
+  container: my-goals / inline-size;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.goals-page[data-active="my-goals"] .goals-list {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.goals-page[data-active="my-goals"] .goal-card {
+  container: goal-card / inline-size;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.goals-page[data-active="my-goals"] .goal-card-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.goals-page[data-active="my-goals"] .goal-card-side,
+.goals-page[data-active="my-goals"] .goal-card-state,
+.goals-page[data-active="my-goals"] .goal-card-actions {
+  width: 100%;
+}
+
+.goals-page[data-active="my-goals"] .goal-card-side {
+  align-items: flex-start;
+}
+
+.goals-page[data-active="my-goals"] .goal-card-state {
+  gap: 0.375rem;
+}
+
+.goals-page[data-active="my-goals"] .goal-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0.375rem;
+}
+
+.goals-page[data-active="my-goals"] .goal-card-actions .dashboard-card-action {
+  width: auto;
+  min-width: 0;
+  height: 1.75rem;
+  min-height: 1.75rem;
+  padding: 0 0.625rem;
+  white-space: nowrap;
+}
+
+.goals-page[data-active="my-goals"] .goal-important-action {
+  gap: 0.3rem;
+  width: auto;
+  min-width: 0;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  padding: 0 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.625rem;
+  line-height: 1;
+  white-space: nowrap;
+  border-color: rgba(251, 191, 36, 0.48);
+}
+
+.goals-page[data-active="my-goals"] .goal-important-action[data-tone="neutral"] {
+  background: rgba(251, 191, 36, 0.08);
+  color: #fde68a;
+}
+
+.goals-page[data-active="my-goals"] .goal-important-action[data-tone="neutral"]:hover {
+  border-color: rgba(251, 191, 36, 0.68);
+  background: rgba(251, 191, 36, 0.16);
+}
+
+.goals-page[data-active="my-goals"] .goal-important-action[data-tone="warning"] {
+  border-color: rgba(196, 181, 253, 0.7);
+  background: #a78bfa;
+  color: #1e1b4b;
+}
+
+.goals-page[data-active="my-goals"] .goal-important-action[data-tone="warning"]:hover {
+  background: #c4b5fd;
+}
+
+/* Phone cards: title, status, readable details, then a compact action row. */
+@container goal-card (max-width: 30rem) {
+  .goals-page[data-active="my-goals"] .goal-card-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.625rem;
+  }
+
+  .goals-page[data-active="my-goals"] :is(.goal-card-info, .goal-card-side) {
+    display: contents;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card-title {
+    grid-column: 1;
+    grid-row: 1;
+    align-items: flex-start;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card-state {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card-labels {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card-metadata {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    margin-top: 0;
+    gap: 0.375rem 0.5rem;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card-metadata > span {
+    width: auto;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    font-weight: 500;
+    line-height: 1.45;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card-metadata > span:nth-child(4) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card-metadata > span:nth-child(2) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card-actions {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card-actions .dashboard-card-action {
+    width: 100%;
+    padding-inline: 0.25rem;
+  }
+}
+
+@container goal-card (min-width: 52rem) {
+  .goals-page[data-active="my-goals"] .goal-card-layout {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card-side {
+    width: auto;
+    align-items: flex-end;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card-state {
+    width: auto;
+    justify-content: flex-end;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card-actions {
+    display: flex;
+    width: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card-actions .dashboard-card-action {
+    width: auto;
+    min-height: 1.75rem;
+    padding-inline: 0.625rem;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 639px) {
+  .goals-page[data-active="my-goals"] .goals-my-view {
+    padding: 1rem;
+  }
+
+  .goals-page[data-active="my-goals"] .goals-my-header h2 {
+    margin-top: 0.35rem;
+    font-size: 1.25rem;
+  }
+
+  .goals-page[data-active="my-goals"] .goals-my-header > p:last-child {
+    margin-top: 0.45rem;
+    font-size: 0.75rem;
+    line-height: 1.45;
+  }
+
+  .goals-page[data-active="my-goals"] .goals-list {
+    margin-top: 1rem;
+    padding-right: 0;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card {
+    padding: 0.875rem;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card h3 {
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card-actions .dashboard-card-action {
+    font-size: 0.625rem;
+  }
+}
+
+/* Fill the dashboard's remaining height on laptop and desktop screens. */
+@media (min-width: 1024px) and (min-height: 600px) {
+  .goal-main {
+    padding-block: 1rem;
+  }
+
+  .goals-page[data-active="my-goals"] .goals-list {
+    scrollbar-gutter: stable;
+  }
+}
+
+/* Create Goals follows the Schedule pattern without inheriting its fixed panel widths. */
+.goals-page[data-active="create-goals"] .goals-content {
+  container: goal-create / inline-size;
+}
+
+.goals-page[data-active="create-goals"] .goal-create-view {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: clamp(0.875rem, 2dvh, 1.25rem);
+}
+
+.goals-page[data-active="create-goals"] .goal-create-heading {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.goals-page[data-active="create-goals"] .goal-create-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  gap: 1rem;
+}
+
+.goals-page[data-active="create-goals"] :is(
+  .goal-create-form,
+  .goal-create-list,
+  .goal-create-logs,
+  .goal-create-log-panel
+) {
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  max-height: none;
+}
+
+.goals-page[data-active="create-goals"] .goal-create-form {
+  overflow: visible;
+}
+
+.goals-page[data-active="create-goals"] .goal-priority-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.goals-page[data-active="create-goals"] .goal-priority-options > button {
+  width: 100%;
+  min-width: 0;
+}
+
+.goals-page[data-active="create-goals"] .goal-create-list {
+  display: flex;
+  max-height: clamp(24rem, 66dvh, 40rem);
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.goals-page[data-active="create-goals"] .goal-create-list-body,
+.goals-page[data-active="create-goals"] .goal-create-log-list {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.goals-page[data-active="create-goals"] .goal-create-log-panel {
+  max-height: clamp(16rem, 48dvh, 28rem);
+  overflow: hidden;
+}
+
+.goals-page[data-active="create-goals"] .goal-created-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 0.5rem;
+}
+
+.goals-page[data-active="create-goals"] .goal-created-card {
+  container: created-goal / inline-size;
+}
+
+.goals-page[data-active="create-goals"] .goal-created-card-controls {
+  display: flex;
+  min-width: 0;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.goals-page[data-active="create-goals"] .goal-created-card-state {
+  flex-wrap: nowrap;
+}
+
+.goals-page[data-active="create-goals"] .goal-created-card-actions {
+  flex-wrap: nowrap;
+}
+
+.goals-page[data-active="create-goals"] .goal-created-card-actions .dashboard-card-action {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  border-radius: 9999px;
+  padding: 0 0.2rem;
+  font-size: 0.625rem;
+}
+
+@container created-goal (min-width: 30rem) {
+  .goals-page[data-active="create-goals"] .goal-created-card-head {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .goals-page[data-active="create-goals"] .goal-created-card-controls {
+    justify-content: flex-end;
+  }
+}
+
+@container goal-create (min-width: 24rem) {
+  .goals-page[data-active="create-goals"] .goal-type-options,
+  .goals-page[data-active="create-goals"] .goal-date-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container goal-create (min-width: 44rem) {
+  .goals-page[data-active="create-goals"] .goal-create-layout {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  }
+
+  .goals-page[data-active="create-goals"] .goal-create-logs {
+    grid-column: 1 / -1;
+  }
+
+  .goals-page[data-active="create-goals"] .goal-create-log-panel {
+    max-height: clamp(14rem, 38dvh, 22rem);
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 680px) {
+  @container goal-create (min-width: 64rem) {
+    .goals-page[data-active="create-goals"] .goal-create-view {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .goals-page[data-active="create-goals"] .goal-create-layout {
+      grid-template-columns: minmax(17rem, 0.95fr) minmax(20rem, 1.1fr) minmax(17rem, 0.7fr);
+      grid-template-rows: minmax(0, 1fr);
+      flex: 1 1 auto;
+      align-items: stretch;
+      overflow: hidden;
+    }
+
+    .goals-page[data-active="create-goals"] :is(
+      .goal-create-form,
+      .goal-create-list,
+      .goal-create-logs,
+      .goal-create-log-panel
+    ) {
+      width: auto;
+      height: 100%;
+      max-height: none;
+    }
+
+    .goals-page[data-active="create-goals"] .goal-create-form {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .goals-page[data-active="create-goals"] .goal-create-logs {
+      grid-column: auto;
+    }
+  }
+}
+
+/* Goal Progress keeps its summary visible and gives the remaining height to the list. */
+.goals-page[data-active="progress"] .goals-content {
+  overflow: hidden;
+}
+
+.goals-page[data-active="progress"] .goal-progress-view {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.goals-page[data-active="progress"] :is(
+  .goal-progress-heading,
+  .goal-progress-summary,
+  .goal-progress-filters
+) {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.goals-page[data-active="progress"] .goal-progress-list {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.goals-page[data-active="progress"] .goal-progress-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.goals-page[data-active="progress"] .goal-progress-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.goals-page[data-active="progress"] .goal-progress-card-info {
+  width: auto;
+}
+
+.goals-page[data-active="progress"] .goal-progress-card-stat {
+  width: auto;
+  min-width: 3.5rem;
+}
+
+.goals-page[data-active="progress"] .goal-progress-filter-group {
+  min-width: 0;
+  align-items: center;
+}
+
+.goals-page[data-active="progress"] .goal-progress-filter-label {
+  min-width: 3.25rem;
+  color: #a8a29e;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 639px) {
+  .goals-page[data-active="progress"] .goal-progress-view {
+    padding: 1rem;
+    border-radius: 1.5rem;
+  }
+
+  .goals-page[data-active="progress"] .goal-progress-heading h2 {
+    margin-top: 0.35rem;
+    font-size: 1.25rem;
+  }
+
+  .goals-page[data-active="progress"] .goal-progress-heading > p:last-child {
+    font-size: 0.75rem;
+    line-height: 1.45;
+  }
+
+  .goals-page[data-active="progress"] .goal-progress-summary,
+  .goals-page[data-active="progress"] .goal-progress-filters,
+  .goals-page[data-active="progress"] .goal-progress-list {
+    margin-top: 0.75rem;
+  }
+
+  .goals-page[data-active="progress"] .goal-progress-summary {
+    padding: 0.625rem 0.75rem;
+  }
+
+  .goals-page[data-active="progress"] .goal-progress-filters {
+    gap: 0.4rem;
+  }
+
+  .goals-page[data-active="progress"] .goal-progress-filter-group {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.1rem;
+    scrollbar-width: none;
+  }
+
+  .goals-page[data-active="progress"] .goal-progress-filter-group::-webkit-scrollbar {
+    display: none;
+  }
+
+  .goals-page[data-active="progress"] .goal-progress-filter-group > button {
+    flex: 0 0 auto;
+  }
+
+  .goals-page[data-active="progress"] .goal-progress-card {
+    padding: 0.875rem;
+  }
+
+  .goals-page[data-active="progress"] .goal-progress-card-head {
+    gap: 0.5rem;
+    margin-bottom: 0.625rem;
+  }
+
+  .goals-page[data-active="progress"] .goal-progress-card-stat > p:first-child {
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+
+  .goals-page[data-active="progress"] .goal-progress-card-bar {
+    height: 0.375rem;
+  }
+
+  .goals-page[data-active="progress"] .goal-progress-card-footer {
+    gap: 0.375rem;
+  }
+}
+
+/* Avoid expensive card animation and offscreen painting on touch-sized layouts. */
+@media (max-width: 1023px), (hover: none), (prefers-reduced-motion: reduce) {
+  .goals-page .journal-scroll {
+    scroll-behavior: auto;
+  }
+
+  .goals-page :is(.shadow-lg, .shadow-xl, .shadow-2xl) {
+    box-shadow: none !important;
+  }
+
+  .goals-page[data-active="my-goals"] .goals-my-view {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .goals-page[data-active="my-goals"] .goal-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 9rem;
+  }
+
+  .goals-page[data-active="create-goals"] :is(.goal-created-card, .goal-create-log-row) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 7rem;
+  }
+
+  .goals-page[data-active="progress"] .goal-progress-view {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .goals-page[data-active="progress"] .goal-progress-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 8rem;
+  }
+}
+
+/* One native page scroller is substantially smoother than stacked touch scrollers. */
+@media (max-width: 639px) {
+  .goals-page[data-active="create-goals"] :is(.goal-create-list, .goal-create-log-panel) {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .goals-page[data-active="create-goals"] :is(.goal-create-list-body, .goal-create-log-list) {
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+}
+
+/* Gym Today: one responsive shell, with viewport-height panels on laptops. */
+.gym-main {
+  overflow: hidden;
+}
+
+.gym-route,
+.gym-page,
+.gym-page .gym-content {
+  height: 100%;
+  min-height: 0;
+}
+
+.gym-page {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.gym-page .gym-top-row {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.gym-page .gym-content {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.gym-page[data-active="todays-workout"] .gym-today-view {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.gym-page[data-active="todays-workout"] .gym-today-layout,
+.gym-page[data-active="todays-workout"] :is(.gym-workout-panel, .gym-workout-scroll, .gym-diet-panel) {
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Exercise rows share the workout panel's scroller instead of creating another one. */
+.gym-page[data-active="todays-workout"] .gym-exercise-list {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+.gym-modal-panel {
+  max-height: min(90dvh, 50rem);
+}
+
+@media (min-width: 640px) {
+  .gym-page[data-active="todays-workout"] .gym-exercise-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "exercise-info exercise-actions"
+      "exercise-metrics exercise-actions";
+    column-gap: 1rem;
+    align-items: center;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-exercise-header {
+    grid-area: exercise-info;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-exercise-metrics {
+    grid-area: exercise-metrics;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-exercise-actions {
+    grid-area: exercise-actions;
+    margin-top: 0;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 639px) {
+  .gym-page {
+    gap: 0.75rem;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-today-view,
+  .gym-page[data-active="todays-workout"] .gym-today-layout {
+    gap: 0.75rem;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-day-selector {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-block: 0.625rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-day-selector::-webkit-scrollbar {
+    display: none;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-day-selector > * {
+    flex: 0 0 auto;
+  }
+
+  .gym-page[data-active="todays-workout"] :is(.gym-workout-scroll, .gym-diet-panel) {
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-workout-scroll {
+    padding: 0.75rem;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-workout-card {
+    padding: 0.75rem;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-exercise-card {
+    padding: 0.625rem 0.75rem;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-exercise-actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-exercise-actions > button {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.5rem;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-diet-panel > p {
+    margin-bottom: 0.5rem;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-diet-grid {
+    gap: 0.625rem;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-diet-card {
+    gap: 0.4rem;
+    padding: 0.75rem;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-diet-card > span:first-child {
+    font-size: 1.25rem;
+  }
+
+  .gym-modal-backdrop {
+    align-items: flex-end;
+    padding: 0.5rem;
+  }
+
+  .gym-modal-panel {
+    max-height: calc(100dvh - 1rem);
+    border-bottom-left-radius: 1rem;
+    border-bottom-right-radius: 1rem;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 600px) {
+  .gym-page[data-active="todays-workout"] .gym-content {
+    overflow: hidden;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-today-view {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-today-layout {
+    display: grid;
+    min-height: 0;
+    flex: 1 1 auto;
+    grid-template-columns: minmax(0, 1fr) 11rem;
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-workout-panel,
+  .gym-page[data-active="todays-workout"] .gym-diet-panel {
+    width: 100%;
+    height: 100%;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-workout-scroll,
+  .gym-page[data-active="todays-workout"] .gym-diet-panel {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-diet-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Touch layouts skip decorative motion and avoid painting offscreen workout rows. */
+@media (max-width: 1023px), (hover: none), (prefers-reduced-motion: reduce) {
+  .gym-page .journal-scroll {
+    scroll-behavior: auto;
+  }
+
+  .gym-page :is(.shadow-lg, .shadow-xl, .shadow-2xl),
+  .gym-modal-panel {
+    box-shadow: none !important;
+  }
+
+  .gym-page[data-active="todays-workout"] :is(.gym-workout-card, .gym-exercise-card, .gym-diet-card) {
+    content-visibility: auto;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-workout-card {
+    contain-intrinsic-size: auto 26rem;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-exercise-card {
+    contain-intrinsic-size: auto 8rem;
+  }
+
+  .gym-page[data-active="todays-workout"] .gym-diet-card {
+    contain-intrinsic-size: auto 7rem;
+  }
+}
+
+/* Keep Gym interactions light on phones: no composited motion, blur, or offscreen list painting. */
+@media (max-width: 639px), (hover: none) and (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .gym-page,
+  .gym-page *,
+  .gym-page *::before,
+  .gym-page *::after,
+  :is(.gym-modal-backdrop, .gym-diet-plan-modal, .gym-library-modal, .gym-gallery-lightbox),
+  :is(.gym-modal-backdrop, .gym-diet-plan-modal, .gym-library-modal, .gym-gallery-lightbox) *,
+  :is(.gym-modal-backdrop, .gym-diet-plan-modal, .gym-library-modal, .gym-gallery-lightbox) *::before,
+  :is(.gym-modal-backdrop, .gym-diet-plan-modal, .gym-library-modal, .gym-gallery-lightbox) *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .gym-page :is(.backdrop-blur, .backdrop-blur-sm, .backdrop-blur-md, .backdrop-blur-lg),
+  :is(.gym-modal-backdrop, .gym-diet-plan-modal, .gym-library-modal, .gym-gallery-lightbox),
+  :is(.gym-modal-panel, .gym-library-modal-panel) {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .gym-page *,
+  :is(.gym-modal-panel, .gym-library-modal-panel, .gym-gallery-lightbox-panel) {
+    box-shadow: none !important;
+    will-change: auto !important;
+  }
+
+  .gym-page :is([class*="blur-"], [class*="drop-shadow-"]) {
+    filter: none !important;
+  }
+
+  .gym-page :is(
+    .gym-exercise-card,
+    .gym-add-card,
+    .gym-add-log-row,
+    .gym-library-group,
+    .gym-library-card,
+    .gym-gallery-checkin,
+    .gym-gallery-photo,
+    .gym-progress-metric-option,
+    .gym-progress-workout-option,
+    .gym-progress-chart,
+    .gym-progress-workout-charts > *,
+    .gym-progress-history-list > *,
+    .gym-measurement-value-grid > *,
+    .gym-measurements-history-list > *
+  ) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 8rem;
+  }
+
+  .gym-page .gym-library-group {
+    contain-intrinsic-size: auto 20rem;
+  }
+
+  .gym-page :is(.gym-library-card, .gym-gallery-photo) {
+    contain-intrinsic-size: auto 6rem;
+  }
+
+  .gym-page :is(.gym-progress-chart, .gym-progress-workout-charts > *) {
+    contain-intrinsic-size: auto 14rem;
+  }
+}
+
+/* Gym Progress: compact selectors on narrow panels, viewport-height detail panes on wide screens. */
+.gym-page[data-active="progress"] .gym-content {
+  container: gym-progress / inline-size;
+}
+
+.gym-page[data-active="progress"] :is(
+  .gym-progress-view,
+  .gym-progress-tab-content,
+  .gym-progress-measurements,
+  .gym-progress-measurement-layout,
+  .gym-progress-metric-panel,
+  .gym-progress-measurement-detail,
+  .gym-progress-chart,
+  .gym-progress-history,
+  .gym-progress-workouts,
+  .gym-progress-workout-panel,
+  .gym-progress-workout-detail
+) {
+  min-width: 0;
+  min-height: 0;
+}
+
+.gym-page[data-active="progress"] .gym-progress-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.gym-page[data-active="progress"] .gym-progress-tabs > button {
+  min-width: 0;
+  padding-inline: 0.35rem;
+}
+
+.gym-page[data-active="progress"] .gym-progress-measurement-layout,
+.gym-page[data-active="progress"] .gym-progress-workouts {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.gym-page[data-active="progress"] .gym-progress-group-filters {
+  min-width: 0;
+  padding-bottom: 0.125rem;
+  scrollbar-width: none;
+}
+
+.gym-page[data-active="progress"] .gym-progress-group-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.gym-page[data-active="progress"] :is(
+  .gym-progress-metric-list,
+  .gym-progress-workout-list,
+  .gym-progress-history-list,
+  .gym-progress-workout-charts
+) {
+  max-height: none;
+  overflow: visible;
+}
+
+@container gym-progress (max-width: 51.999rem) {
+  .gym-page[data-active="progress"] :is(.gym-progress-metric-list, .gym-progress-workout-list) {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.375rem;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-inline: contain;
+  }
+
+  .gym-page[data-active="progress"] :is(.gym-progress-metric-list, .gym-progress-workout-list) > * {
+    flex: 0 0 9rem;
+    width: 9rem;
+    margin-top: 0;
+    scroll-snap-align: start;
+  }
+
+  .gym-page[data-active="progress"] .gym-progress-metric-option,
+  .gym-page[data-active="progress"] .gym-progress-workout-option > div {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .gym-page[data-active="progress"] .gym-progress-metric-option > div {
+    text-align: left;
+  }
+}
+
+@media (max-width: 639px) {
+  .gym-page[data-active="progress"] :is(.gym-progress-metric-list, .gym-progress-workout-list) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    width: 100%;
+    overflow: visible;
+    padding-right: 0;
+    padding-bottom: 0;
+    scroll-snap-type: none;
+  }
+
+  .gym-page[data-active="progress"] :is(.gym-progress-metric-list, .gym-progress-workout-list) > * {
+    width: auto;
+    min-width: 0;
+    height: 100%;
+    margin-top: 0;
+    scroll-snap-align: none;
+  }
+
+  .gym-page[data-active="progress"] .gym-progress-workout-option p {
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+  }
+}
+
+@container gym-progress (min-width: 52rem) {
+  .gym-page[data-active="progress"] .gym-progress-measurement-layout,
+  .gym-page[data-active="progress"] .gym-progress-workouts {
+    grid-template-columns: minmax(15rem, 0.95fr) minmax(0, 2.05fr);
+  }
+
+  .gym-page[data-active="progress"] :is(.gym-progress-metric-list, .gym-progress-workout-list) {
+    max-height: clamp(20rem, 52dvh, 38rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .gym-page[data-active="progress"] :is(.gym-progress-history-list, .gym-progress-workout-charts) {
+    max-height: clamp(20rem, 52dvh, 38rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 700px) {
+  @container gym-progress (min-width: 64rem) {
+    .gym-page[data-active="progress"] .gym-progress-view {
+      display: flex;
+      height: 100%;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .gym-page[data-active="progress"] .gym-progress-tabs {
+      flex: 0 0 auto;
+    }
+
+    .gym-page[data-active="progress"] .gym-progress-tab-content {
+      flex: 1 1 0%;
+      overflow: hidden;
+    }
+
+    .gym-page[data-active="progress"] .gym-progress-measurements {
+      display: flex;
+      height: 100%;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .gym-page[data-active="progress"] .gym-progress-group-filters {
+      flex: 0 0 auto;
+    }
+
+    .gym-page[data-active="progress"] .gym-progress-measurement-layout,
+    .gym-page[data-active="progress"] .gym-progress-workouts {
+      height: 100%;
+      grid-template-rows: minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .gym-page[data-active="progress"] .gym-progress-measurement-layout {
+      flex: 1 1 0%;
+    }
+
+    .gym-page[data-active="progress"] .gym-progress-metric-panel,
+    .gym-page[data-active="progress"] .gym-progress-workout-panel,
+    .gym-page[data-active="progress"] .gym-progress-history {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .gym-page[data-active="progress"] .gym-progress-measurement-detail,
+    .gym-page[data-active="progress"] .gym-progress-workout-detail {
+      display: flex;
+      height: 100%;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .gym-page[data-active="progress"] .gym-progress-history {
+      flex: 1 1 0%;
+    }
+
+    .gym-page[data-active="progress"] :is(
+      .gym-progress-metric-list,
+      .gym-progress-workout-list,
+      .gym-progress-history-list,
+      .gym-progress-workout-charts
+    ) {
+      flex: 1 1 0%;
+      min-height: 0;
+      max-height: none;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+  }
+}
+
+/* Gym Measurements: use panel width for layout and available dashboard height on wide screens. */
+.gym-page[data-active="measurements"] .gym-content {
+  container: gym-measurements / inline-size;
+}
+
+.gym-page[data-active="measurements"] .gym-measurements-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.gym-page[data-active="measurements"] :is(
+  .gym-measurements-form-panel,
+  .gym-measurements-saved-panel,
+  .gym-measurements-saved-content,
+  .gym-measurements-preview,
+  .gym-measurements-preview-group,
+  .gym-measurements-history
+) {
+  min-width: 0;
+  min-height: 0;
+}
+
+.gym-page[data-active="measurements"] .gym-measurements-form-panel {
+  container: gym-measurements-form / inline-size;
+}
+
+.gym-page[data-active="measurements"] .gym-measurements-saved-panel {
+  container: gym-measurements-saved / inline-size;
+}
+
+.gym-page[data-active="measurements"] .gym-measurements-saved-content {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.gym-page[data-active="measurements"] :is(
+  .gym-measurements-form,
+  .gym-measurements-saved-content,
+  .gym-measurements-preview-group,
+  .gym-measurements-values,
+  .gym-measurements-history-list
+) {
+  flex: none;
+  overflow: visible;
+}
+
+.gym-page[data-active="measurements"] .gym-measurement-fields,
+.gym-page[data-active="measurements"] .gym-measurement-value-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container gym-measurements (min-width: 64rem) {
+  .gym-page[data-active="measurements"] .gym-measurements-layout {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    align-items: stretch;
+  }
+}
+
+@container gym-measurements-form (min-width: 18rem) {
+  .gym-page[data-active="measurements"] .gym-measurement-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container gym-measurements-form (min-width: 32rem) {
+  .gym-page[data-active="measurements"] .gym-measurement-fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container gym-measurements-form (min-width: 48rem) {
+  .gym-page[data-active="measurements"] .gym-measurement-fields {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.gym-page[data-active="measurements"] .gym-measurement-fields[data-group="Body Weight"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container gym-measurements-saved (min-width: 20rem) {
+  .gym-page[data-active="measurements"] .gym-measurement-value-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container gym-measurements-saved (min-width: 38rem) {
+  .gym-page[data-active="measurements"] .gym-measurement-value-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container gym-measurements-saved (min-width: 40rem) {
+  .gym-page[data-active="measurements"] .gym-measurements-saved-content {
+    grid-template-columns: minmax(0, 1.35fr) minmax(13rem, 0.65fr);
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 700px) {
+  @container gym-measurements (min-width: 64rem) {
+    .gym-page[data-active="measurements"] .gym-measurements-layout {
+      height: 100%;
+      grid-template-rows: minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .gym-page[data-active="measurements"] :is(.gym-measurements-form-panel, .gym-measurements-saved-panel) {
+      height: 100%;
+    }
+
+    .gym-page[data-active="measurements"] .gym-measurements-form,
+    .gym-page[data-active="measurements"] .gym-measurements-saved-content {
+      flex: 1 1 0%;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    @container gym-measurements-saved (min-width: 40rem) {
+      .gym-page[data-active="measurements"] .gym-measurements-saved-content {
+        grid-template-rows: minmax(0, 1fr);
+        overflow: hidden;
+      }
+    }
+
+    @container gym-measurements-saved (max-width: 39.999rem) {
+      .gym-page[data-active="measurements"] .gym-measurements-saved-content {
+        grid-template-rows: minmax(0, 1.15fr) minmax(0, 0.85fr);
+        overflow: hidden;
+      }
+    }
+
+    .gym-page[data-active="measurements"] .gym-measurements-preview-group {
+      flex: 1 1 0%;
+      overflow: hidden;
+    }
+
+    .gym-page[data-active="measurements"] :is(.gym-measurements-values, .gym-measurements-history-list) {
+      flex: 1 1 0%;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+  }
+}
+
+/* Gym Diet Chart: the available panel width controls columns and form rows. */
+.gym-diet-plan-modal .gym-diet-plan-actions {
+  gap: 0.375rem;
+}
+
+.gym-diet-plan-modal .gym-diet-plan-actions > .dashboard-card-action {
+  width: auto;
+  min-width: 2.75rem;
+  height: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.625rem;
+}
+
+.gym-page[data-active="diet-chart"] .gym-content {
+  container: gym-diet / inline-size;
+}
+
+.gym-page[data-active="diet-chart"] :is(
+  .gym-diet-view,
+  .gym-diet-layout,
+  .gym-diet-primary,
+  .gym-diet-secondary,
+  .gym-diet-pair,
+  .gym-diet-panel
+) {
+  min-width: 0;
+  min-height: 0;
+}
+
+.gym-page[data-active="diet-chart"] .gym-diet-layout,
+.gym-page[data-active="diet-chart"] .gym-diet-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+}
+
+.gym-page[data-active="diet-chart"] .gym-diet-secondary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.gym-page[data-active="diet-chart"] .gym-diet-panel {
+  width: 100%;
+  height: auto;
+  container: gym-diet-card / inline-size;
+}
+
+.gym-page[data-active="diet-chart"] .gym-diet-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.gym-page[data-active="diet-chart"] .gym-diet-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
+}
+
+.gym-page[data-active="diet-chart"] .gym-diet-controls > :last-child {
+  width: auto;
+  min-width: 0;
+  justify-self: end;
+}
+
+.gym-page[data-active="diet-chart"] .gym-diet-entry-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.375rem;
+}
+
+.gym-page[data-active="diet-chart"] .gym-diet-entry-row > :first-child {
+  grid-column: 1 / -1;
+}
+
+.gym-page[data-active="diet-chart"] .gym-diet-entry-row > :nth-child(2) {
+  width: 100%;
+  min-width: 0;
+}
+
+.gym-page[data-active="diet-chart"] .gym-diet-macro-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@container gym-diet (min-width: 52rem) {
+  .gym-page[data-active="diet-chart"] .gym-diet-layout {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  }
+}
+
+@container gym-diet (min-width: 68rem) {
+  .gym-page[data-active="diet-chart"] .gym-diet-layout {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.45fr);
+  }
+
+  .gym-page[data-active="diet-chart"] .gym-diet-pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container gym-diet-card (min-width: 21rem) {
+  .gym-page[data-active="diet-chart"] .gym-diet-entry-row {
+    grid-template-columns: minmax(0, 1fr) 6rem auto;
+  }
+
+  .gym-page[data-active="diet-chart"] .gym-diet-entry-row > :first-child {
+    grid-column: auto;
+  }
+}
+
+@container gym-diet-card (max-width: 22rem) {
+  .gym-page[data-active="diet-chart"] .gym-diet-controls > .gym-diet-days {
+    grid-column: 1 / -1;
+  }
+
+  .gym-page[data-active="diet-chart"] .gym-diet-controls > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@container gym-diet-card (min-width: 32rem) {
+  .gym-page[data-active="diet-chart"] .gym-diet-macro-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@container gym-diet-card (min-width: 44rem) {
+  .gym-page[data-active="diet-chart"] .gym-diet-macros .gym-diet-controls {
+    width: auto;
+    flex: 1 1 auto;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 700px) {
+  @container gym-diet (min-width: 68rem) {
+    .gym-page[data-active="diet-chart"] .gym-content,
+    .gym-page[data-active="diet-chart"] .gym-diet-view,
+    .gym-page[data-active="diet-chart"] .gym-diet-layout {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .gym-page[data-active="diet-chart"] .gym-diet-layout {
+      grid-template-rows: minmax(0, 1fr);
+      align-items: stretch;
+    }
+
+    .gym-page[data-active="diet-chart"] .gym-diet-primary,
+    .gym-page[data-active="diet-chart"] .gym-diet-secondary {
+      height: 100%;
+    }
+
+    .gym-page[data-active="diet-chart"] .gym-diet-secondary {
+      display: block;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .gym-page[data-active="diet-chart"] .gym-diet-pair {
+      align-items: stretch;
+      margin-bottom: 1rem;
+    }
+
+    .gym-page[data-active="diet-chart"] .gym-diet-full-day {
+      height: 100%;
+    }
+
+    .gym-page[data-active="diet-chart"] .gym-diet-full-day > .journal-scroll {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .gym-page[data-active="diet-chart"] .gym-diet-secondary .gym-diet-panel {
+      height: auto;
+    }
+
+    .gym-page[data-active="diet-chart"] .gym-diet-secondary .journal-scroll {
+      overflow: visible;
+    }
+  }
+}
+
+/* Gym Add Workout: natural mobile flow and viewport-height desktop panels. */
+.gym-page[data-active="add-workout"] .gym-content {
+  container: gym-add / inline-size;
+}
+
+.gym-page[data-active="add-workout"] .gym-add-view,
+.gym-page[data-active="add-workout"] .gym-add-layout {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.gym-page[data-active="add-workout"] .gym-add-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+}
+
+.gym-page[data-active="add-workout"] :is(
+  .gym-add-form,
+  .gym-add-list,
+  .gym-add-logs,
+  .gym-add-log-panel
+) {
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.gym-page[data-active="add-workout"] .gym-add-form {
+  container: gym-add-form / inline-size;
+  position: relative;
+  z-index: 1;
+  max-height: none;
+  overflow: visible;
+}
+
+.gym-page[data-active="add-workout"] .gym-add-list {
+  container: gym-workout-list / inline-size;
+  max-height: clamp(24rem, 65dvh, 38rem);
+  overflow: hidden;
+}
+
+.gym-page[data-active="add-workout"] .gym-add-list-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.gym-page[data-active="add-workout"] .gym-add-list-header > div:not(:first-child) {
+  grid-column: 1 / -1;
+  margin-top: 0;
+  min-width: 0;
+}
+
+.gym-page[data-active="add-workout"] .gym-add-list-header > span {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  padding: 0.2rem 0.625rem;
+  font-size: 0.6875rem;
+}
+
+.gym-page[data-active="add-workout"] .gym-add-card-top > p {
+  flex-basis: 10rem;
+}
+
+.gym-page[data-active="add-workout"] .gym-add-card-status {
+  min-width: 0;
+  max-width: 100%;
+  margin-left: auto;
+}
+
+.gym-page[data-active="add-workout"] .gym-add-card-status > span {
+  white-space: nowrap;
+}
+
+/* Keep actions together after the workout details, aligned to the right. */
+.gym-page[data-active="add-workout"] .gym-add-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.375rem;
+  margin-top: 0.625rem;
+  padding-top: 0.625rem;
+  border-top: 1px solid rgb(254 243 199 / 0.08);
+}
+
+.gym-page[data-active="add-workout"] .gym-add-card-actions > .dashboard-card-action {
+  width: auto;
+  min-width: 2.75rem;
+  height: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.625rem;
+}
+
+@container gym-workout-list (max-width: 36rem) {
+  .gym-page[data-active="add-workout"] .gym-add-card-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-card-top > p {
+    flex-basis: auto;
+    width: 100%;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-card-status {
+    width: 100%;
+  }
+}
+
+.gym-page[data-active="add-workout"] .gym-add-list-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.gym-page[data-active="add-workout"] .gym-add-log-panel {
+  max-height: clamp(14rem, 42dvh, 24rem);
+  overflow: hidden;
+}
+
+.gym-page[data-active="add-workout"] .gym-add-log-list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.gym-page[data-active="add-workout"] .gym-add-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 639px) {
+  .gym-page[data-active="add-workout"] .gym-add-layout {
+    gap: 0.75rem;
+  }
+
+  .gym-page[data-active="add-workout"] :is(.gym-add-form, .gym-add-list, .gym-add-log-panel) {
+    padding: 0.875rem;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-day-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.125rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-day-filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-day-filters > button {
+    flex: 0 0 auto;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-card-meta {
+    gap: 0.35rem;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-difficulty {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-difficulty > button {
+    min-width: 0;
+    padding-inline: 0.25rem;
+  }
+}
+
+@container gym-add (min-width: 42rem) {
+  .gym-page[data-active="add-workout"] .gym-add-layout {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-logs {
+    grid-column: 1 / -1;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-log-panel {
+    max-height: clamp(14rem, 36dvh, 21rem);
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 720px) {
+  @container gym-add (min-width: 75rem) {
+    .gym-page[data-active="add-workout"] .gym-content,
+    .gym-page[data-active="add-workout"] .gym-add-view,
+    .gym-page[data-active="add-workout"] .gym-add-layout {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .gym-page[data-active="add-workout"] .gym-add-layout {
+      grid-template-columns: minmax(15rem, 0.95fr) minmax(19rem, 1.2fr) minmax(15rem, 0.72fr);
+      grid-template-rows: minmax(0, 1fr);
+      align-items: stretch;
+    }
+
+    .gym-page[data-active="add-workout"] :is(
+      .gym-add-form,
+      .gym-add-list,
+      .gym-add-logs,
+      .gym-add-log-panel
+    ) {
+      width: auto;
+      height: 100%;
+      max-height: none;
+    }
+
+    .gym-page[data-active="add-workout"] .gym-add-form,
+    .gym-page[data-active="add-workout"] :is(.gym-add-list-body, .gym-add-log-list) {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .gym-page[data-active="add-workout"] .gym-add-logs {
+      grid-column: auto;
+    }
+  }
+}
+
+@media (max-width: 1023px), (hover: none), (prefers-reduced-motion: reduce) {
+  .gym-page[data-active="add-workout"] :is(.gym-add-card, .gym-add-log-row) {
+    content-visibility: auto;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-card {
+    contain-intrinsic-size: auto 10rem;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-log-row {
+    contain-intrinsic-size: auto 4rem;
+  }
+}
+
+/* Gym Workout Library: one page scroller on small screens, a bounded library on wide screens. */
+.gym-page[data-active="library"] .gym-content {
+  container: gym-library / inline-size;
+}
+
+.gym-page[data-active="library"] .gym-library-view {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.gym-page[data-active="library"] .gym-library-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.gym-page[data-active="library"] .gym-library-toolbar {
+  min-width: 0;
+  padding: 0.75rem;
+}
+
+.gym-page[data-active="library"] .gym-library-toolbar-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.gym-page[data-active="library"] .gym-library-filters {
+  min-width: 0;
+  padding-bottom: 0.25rem;
+  scrollbar-width: none;
+}
+
+.gym-page[data-active="library"] .gym-library-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.gym-page[data-active="library"] .gym-library-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.gym-page[data-active="library"] .gym-library-actions > * {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.gym-page[data-active="library"] .gym-library-list {
+  min-height: 0;
+  max-height: none;
+  margin-top: 0.75rem;
+  overflow: visible;
+  scroll-behavior: auto;
+}
+
+.gym-page[data-active="library"] .gym-library-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+}
+
+.gym-library-modal-panel {
+  max-height: calc(100dvh - 1.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@container gym-library (min-width: 52rem) {
+  .gym-page[data-active="library"] .gym-library-toolbar-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+}
+
+@container gym-library (min-width: 72rem) {
+  .gym-page[data-active="library"] .gym-library-header {
+    grid-template-columns: 8rem minmax(0, 1fr);
+    align-items: center;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 700px) {
+  @container gym-library (min-width: 64rem) {
+    .gym-page[data-active="library"] .gym-library-view {
+      display: flex;
+      height: 100%;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .gym-page[data-active="library"] .gym-library-header {
+      flex: 0 0 auto;
+    }
+
+    .gym-page[data-active="library"] .gym-library-list {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+  }
+}
+
+@media (max-width: 1023px), (hover: none), (prefers-reduced-motion: reduce) {
+  .gym-page[data-active="library"] .gym-library-group {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 20rem;
+  }
+}
+
+/* Gym Gallery: compact check-ins and a viewport-sized desktop photo area. */
+.gym-page[data-active="gallery"] .gym-content {
+  container: gym-gallery / inline-size;
+}
+
+.gym-page[data-active="gallery"] .gym-gallery-view {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.gym-page[data-active="gallery"] .gym-gallery-toolbar-row {
+  min-width: 0;
+}
+
+.gym-page[data-active="gallery"] .gym-gallery-upload {
+  min-width: 0;
+  flex-direction: row;
+  align-items: center;
+}
+
+.gym-page[data-active="gallery"] .gym-gallery-summary {
+  min-width: 0;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gym-page[data-active="gallery"] .gym-gallery-summary > button {
+  width: auto;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.gym-page[data-active="gallery"] .gym-gallery-list {
+  min-width: 0;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+.gym-page[data-active="gallery"] .gym-gallery-checkins {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.gym-page[data-active="gallery"] .gym-gallery-photos {
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+}
+
+.gym-page[data-active="gallery"] .gym-gallery-photo {
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.gym-page[data-active="gallery"] .gym-gallery-photo img {
+  width: 100%;
+  height: 100%;
+}
+
+.gym-page[data-active="gallery"] .gym-gallery-delete {
+  display: flex;
+}
+
+.gym-gallery-lightbox-panel {
+  max-height: calc(100dvh - 1.5rem);
+  min-height: 0;
+}
+
+.gym-gallery-lightbox-image {
+  max-height: min(68dvh, calc(100dvh - 9rem));
+}
+
+.gym-gallery-lightbox-thumbs {
+  width: 100%;
+  scrollbar-width: thin;
+}
+
+@container gym-gallery (min-width: 38rem) {
+  .gym-page[data-active="gallery"] .gym-gallery-checkins {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container gym-gallery (min-width: 60rem) {
+  .gym-page[data-active="gallery"] .gym-gallery-checkins {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container gym-gallery (min-width: 78rem) {
+  .gym-page[data-active="gallery"] .gym-gallery-checkins {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 700px) {
+  @container gym-gallery (min-width: 46rem) {
+    .gym-page[data-active="gallery"] .gym-gallery-view {
+      display: flex;
+      height: 100%;
+      flex-direction: column;
+      gap: 1rem;
+      overflow: hidden;
+    }
+
+    .gym-page[data-active="gallery"] .gym-gallery-view > * + * {
+      margin-top: 0;
+    }
+
+    .gym-page[data-active="gallery"] .gym-gallery-toolbar {
+      flex: 0 0 auto;
+    }
+
+    .gym-page[data-active="gallery"] .gym-gallery-list {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+  }
+}
+
+/* Count/status pills should keep their content width in stacked mobile headers. */
+@media (max-width: 639px) {
+  .flex.flex-col > span.rounded-full[class*="px-"]:not(.w-full) {
+    width: max-content;
+    max-width: 100%;
+    align-self: flex-start;
+  }
+}
+
+/* Weekly reports use static, deferred rendering on phones and touch-only devices. */
+@media (max-width: 639px), (hover: none) and (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .weekly-report-page,
+  .weekly-report-page *,
+  .weekly-report-page *::before,
+  .weekly-report-page *::after,
+  :is(.weekly-gym-photos-backdrop, .weekly-gym-fullscreen),
+  :is(.weekly-gym-photos-backdrop, .weekly-gym-fullscreen) *,
+  :is(.weekly-gym-photos-backdrop, .weekly-gym-fullscreen) *::before,
+  :is(.weekly-gym-photos-backdrop, .weekly-gym-fullscreen) *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .weekly-report-page :is(.backdrop-blur, .backdrop-blur-sm, .backdrop-blur-md, .backdrop-blur-lg),
+  :is(.weekly-gym-photos-backdrop, .weekly-gym-photos-modal, .weekly-gym-fullscreen) {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .weekly-report-page *,
+  :is(.weekly-gym-photos-modal, .weekly-gym-fullscreen *) {
+    box-shadow: none !important;
+    will-change: auto !important;
+  }
+
+  .weekly-report-page :is([class*="blur-"], [class*="drop-shadow-"]) {
+    filter: none !important;
+  }
+
+  .weekly-report-page :is(
+    section,
+    .dashboard-glow-card,
+    .weekly-journal-week-row,
+    .weekly-journal-missed-row,
+    .weekly-todo-week-row,
+    .weekly-todo-category-row,
+    .weekly-habit-category-row,
+    .weekly-goal-list > *,
+    .weekly-gym-strength-card .journal-scroll > *,
+    .weekly-gym-body-card .journal-scroll > *,
+    .weekly-gym-nutrition-grid > *
+  ) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 12rem;
+  }
+
+  .weekly-report-page :is(
+    .weekly-goal-list > *,
+    .weekly-gym-strength-card .journal-scroll > *,
+    .weekly-gym-body-card .journal-scroll > *,
+    .weekly-gym-nutrition-grid > *
+  ) {
+    contain-intrinsic-size: auto 7rem;
+  }
+}
+
+/* Weekly Journal report: natural mobile flow and independent viewport panels on laptops. */
+.weekly-report-page[data-active="journal"] {
+  min-width: 0;
+}
+
+.weekly-report-page[data-active="journal"] .weekly-report-content {
+  min-width: 0;
+  margin-top: 1rem;
+}
+
+.weekly-report-page[data-active="journal"] .weekly-journal-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+}
+
+.weekly-report-page[data-active="journal"] :is(.weekly-journal-main, .weekly-journal-sidebar) {
+  min-width: 0;
+  min-height: 0;
+}
+
+.weekly-report-page[data-active="journal"] .weekly-journal-stats {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+}
+
+.weekly-report-page[data-active="journal"] .weekly-journal-quick-weeks {
+  display: none;
+  min-width: 0;
+}
+
+@media (max-width: 1023px) {
+  .weekly-report-page[data-active="journal"] .weekly-journal-quick-weeks {
+    display: block;
+  }
+
+  .weekly-report-page[data-active="journal"] .weekly-journal-quick-list {
+    scrollbar-width: none;
+  }
+
+  .weekly-report-page[data-active="journal"] .weekly-journal-quick-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .weekly-report-page[data-active="journal"] .weekly-journal-summary {
+    display: none;
+  }
+}
+
+.weekly-report-page[data-active="journal"] .weekly-journal-heading-actions,
+.weekly-report-page[data-active="journal"] .weekly-journal-week-row,
+.weekly-report-page[data-active="journal"] .weekly-journal-missed-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.weekly-report-page[data-active="journal"] .weekly-journal-sidebar {
+  width: 100%;
+  align-self: auto;
+}
+
+.weekly-report-page[data-active="journal"] .weekly-journal-sidebar > section {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.weekly-report-page[data-active="journal"] .weekly-journal-sidebar > section > .relative {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.weekly-report-page[data-active="journal"] .weekly-journal-sidebar .journal-scroll {
+  height: auto;
+  overflow: visible;
+}
+
+.weekly-report-page[data-active="journal"] .weekly-journal-sidebar .pointer-events-none.absolute {
+  display: none;
+}
+
+.weekly-report-page[data-active="journal"] .weekly-journal-main-body > .journal-scroll {
+  max-height: none;
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .weekly-report-page[data-active="journal"] .weekly-journal-sidebar {
+    display: block;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 700px) {
+  .weekly-report-main:has(.weekly-report-page[data-active="journal"]) {
+    overflow: hidden;
+  }
+
+  .weekly-report-route:has(.weekly-report-page[data-active="journal"]),
+  .weekly-report-page[data-active="journal"],
+  .weekly-report-page[data-active="journal"] :is(.weekly-report-content, .weekly-report-active-panel, .weekly-journal-view) {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .weekly-report-page[data-active="journal"] {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .weekly-report-page[data-active="journal"] > * + * {
+    margin-top: 0;
+  }
+
+  .weekly-report-page[data-active="journal"] :is(.weekly-report-nav, .weekly-report-mobile-nav) {
+    flex: 0 0 auto;
+  }
+
+  .weekly-report-page[data-active="journal"] .weekly-report-content {
+    flex: 1 1 auto;
+    margin-top: 0;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="journal"] .weekly-journal-view {
+    grid-template-columns: minmax(0, 1fr) clamp(17rem, 27%, 22.5rem);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="journal"] .weekly-journal-main {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .weekly-report-page[data-active="journal"] .weekly-journal-sidebar {
+    height: 100%;
+    align-self: stretch;
+  }
+
+  .weekly-report-page[data-active="journal"] .weekly-journal-sidebar > section {
+    flex: 1 1 0;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="journal"] .weekly-journal-sidebar > section > .relative {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="journal"] .weekly-journal-sidebar .journal-scroll {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .weekly-report-page[data-active="journal"] .weekly-journal-sidebar .pointer-events-none.absolute {
+    display: block;
+  }
+}
+
+/* Weekly ToDo report: compact week access and a single scroll path per screen size. */
+.weekly-report-page[data-active="todo"] .weekly-report-content,
+.weekly-report-page[data-active="todo"] :is(.weekly-todo-view, .weekly-todo-main, .weekly-todo-sidebar) {
+  min-width: 0;
+  min-height: 0;
+}
+
+.weekly-report-page[data-active="todo"] .weekly-report-content {
+  margin-top: 1rem;
+}
+
+.weekly-report-page[data-active="todo"] .weekly-todo-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.weekly-report-page[data-active="todo"] .weekly-todo-main {
+  max-height: none;
+  overflow: visible;
+  container: weekly-todo-main / inline-size;
+}
+
+.weekly-report-page[data-active="todo"] .weekly-todo-card-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.weekly-report-page[data-active="todo"] :is(.weekly-todo-ai, .weekly-todo-stat-card, .weekly-todo-weeks-card, .weekly-todo-category-card) {
+  height: auto;
+  min-height: 0;
+}
+
+.weekly-report-page[data-active="todo"] :is(.weekly-todo-ai, .weekly-todo-stat-card, .weekly-todo-category-card) .journal-scroll,
+.weekly-report-page[data-active="todo"] .weekly-todo-stat-card > .min-h-0.flex-1 {
+  overflow: visible;
+}
+
+.weekly-report-page[data-active="todo"] .weekly-todo-card-filter {
+  width: auto;
+  max-width: 100%;
+}
+
+.weekly-report-page[data-active="todo"] .weekly-todo-category-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.weekly-report-page[data-active="todo"] .weekly-todo-sidebar {
+  width: 100%;
+}
+
+.weekly-report-page[data-active="todo"] .weekly-todo-quick-weeks {
+  display: none;
+  min-width: 0;
+}
+
+@container weekly-todo-main (min-width: 40rem) {
+  .weekly-report-page[data-active="todo"] .weekly-todo-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1023px) {
+  .weekly-report-page[data-active="todo"] .weekly-todo-quick-weeks {
+    display: block;
+  }
+
+  .weekly-report-page[data-active="todo"] .weekly-todo-quick-list {
+    scrollbar-width: none;
+  }
+
+  .weekly-report-page[data-active="todo"] .weekly-todo-quick-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .weekly-report-page[data-active="todo"] .weekly-todo-weeks-card {
+    display: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .weekly-report-page[data-active="todo"] .weekly-todo-summary-pills {
+    gap: 0.375rem;
+  }
+
+  .weekly-report-page[data-active="todo"] .weekly-todo-summary-pills > * {
+    padding-inline: 0.5rem;
+  }
+
+  .weekly-report-page[data-active="todo"] .weekly-todo-summary-pills p {
+    letter-spacing: 0.06em;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 700px) {
+  .weekly-report-main:has(.weekly-report-page[data-active="todo"]) {
+    overflow: hidden;
+  }
+
+  .weekly-report-route:has(.weekly-report-page[data-active="todo"]),
+  .weekly-report-page[data-active="todo"],
+  .weekly-report-page[data-active="todo"] :is(.weekly-report-content, .weekly-report-active-panel, .weekly-todo-view) {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .weekly-report-page[data-active="todo"] {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .weekly-report-page[data-active="todo"] > * + * {
+    margin-top: 0;
+  }
+
+  .weekly-report-page[data-active="todo"] .weekly-report-nav {
+    flex: 0 0 auto;
+  }
+
+  .weekly-report-page[data-active="todo"] .weekly-report-content {
+    flex: 1 1 auto;
+    margin-top: 0;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="todo"] .weekly-todo-view {
+    grid-template-columns: minmax(0, 1fr) clamp(17rem, 27%, 23.75rem);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="todo"] .weekly-todo-main {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .weekly-report-page[data-active="todo"] .weekly-todo-sidebar {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .weekly-report-page[data-active="todo"] .weekly-todo-weeks-card {
+    flex: 0 0 42%;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="todo"] .weekly-todo-category-card {
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="todo"] .weekly-todo-sidebar .journal-scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* Weekly Habits report: natural touch scrolling and viewport-sized desktop panels. */
+.weekly-report-page[data-active="habits"] .weekly-report-content,
+.weekly-report-page[data-active="habits"] :is(.weekly-habit-view, .weekly-habit-main, .weekly-habit-sidebar) {
+  min-width: 0;
+  min-height: 0;
+}
+
+.weekly-report-page[data-active="habits"] .weekly-report-content {
+  margin-top: 1rem;
+}
+
+.weekly-report-page[data-active="habits"] .weekly-habit-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.weekly-report-page[data-active="habits"] .weekly-habit-main {
+  max-height: none;
+  overflow: visible;
+  container: weekly-habit-main / inline-size;
+}
+
+.weekly-report-page[data-active="habits"] .weekly-habit-card-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.weekly-report-page[data-active="habits"] :is(.weekly-habit-ai, .weekly-habit-stat-card, .weekly-habit-weeks-card, .weekly-habit-category-card) {
+  height: auto;
+  min-height: 0;
+}
+
+.weekly-report-page[data-active="habits"] .weekly-habit-performance {
+  grid-row: auto;
+  max-height: none;
+}
+
+.weekly-report-page[data-active="habits"] :is(.weekly-habit-ai, .weekly-habit-stat-card, .weekly-habit-category-card) .journal-scroll,
+.weekly-report-page[data-active="habits"] .weekly-habit-stat-card > .min-h-0.flex-1 {
+  overflow: visible;
+}
+
+.weekly-report-page[data-active="habits"] .weekly-habit-card-filter {
+  width: auto;
+  max-width: 100%;
+}
+
+.weekly-report-page[data-active="habits"] .weekly-habit-category-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.weekly-report-page[data-active="habits"] .weekly-habit-sidebar {
+  width: 100%;
+}
+
+.weekly-report-page[data-active="habits"] .weekly-habit-quick-weeks {
+  display: none;
+  min-width: 0;
+}
+
+@container weekly-habit-main (min-width: 40rem) {
+  .weekly-report-page[data-active="habits"] .weekly-habit-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1023px) {
+  @container weekly-habit-main (min-width: 40rem) {
+    .weekly-report-page[data-active="habits"] .weekly-habit-card-grid > :first-child {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .weekly-report-page[data-active="habits"] .weekly-habit-card-grid > :last-child {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .weekly-report-page[data-active="habits"] .weekly-habit-performance {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+  }
+}
+
+@media (max-width: 1023px) {
+  .weekly-report-page[data-active="habits"] .weekly-habit-quick-weeks {
+    display: block;
+  }
+
+  .weekly-report-page[data-active="habits"] .weekly-habit-quick-list {
+    scrollbar-width: none;
+  }
+
+  .weekly-report-page[data-active="habits"] .weekly-habit-quick-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .weekly-report-page[data-active="habits"] .weekly-habit-weeks-card {
+    display: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .weekly-report-page[data-active="habits"] .weekly-habit-summary-pills {
+    gap: 0.375rem;
+  }
+
+  .weekly-report-page[data-active="habits"] .weekly-habit-summary-pills > * {
+    padding-inline: 0.5rem;
+  }
+
+  .weekly-report-page[data-active="habits"] .weekly-habit-summary-pills p {
+    letter-spacing: 0.06em;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 700px) {
+  .weekly-report-main:has(.weekly-report-page[data-active="habits"]) {
+    overflow: hidden;
+  }
+
+  .weekly-report-route:has(.weekly-report-page[data-active="habits"]),
+  .weekly-report-page[data-active="habits"],
+  .weekly-report-page[data-active="habits"] :is(.weekly-report-content, .weekly-report-active-panel, .weekly-habit-view) {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .weekly-report-page[data-active="habits"] {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .weekly-report-page[data-active="habits"] > * + * {
+    margin-top: 0;
+  }
+
+  .weekly-report-page[data-active="habits"] .weekly-report-nav {
+    flex: 0 0 auto;
+  }
+
+  .weekly-report-page[data-active="habits"] .weekly-report-content {
+    flex: 1 1 auto;
+    margin-top: 0;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="habits"] .weekly-habit-view {
+    grid-template-columns: minmax(0, 1fr) clamp(17rem, 27%, 23.75rem);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="habits"] .weekly-habit-main {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .weekly-report-page[data-active="habits"] .weekly-habit-performance {
+    grid-row: span 2;
+    max-height: clamp(20rem, 52dvh, 34rem);
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="habits"] .weekly-habit-performance .journal-scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .weekly-report-page[data-active="habits"] .weekly-habit-sidebar {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .weekly-report-page[data-active="habits"] .weekly-habit-weeks-card {
+    flex: 0 0 42%;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="habits"] .weekly-habit-category-card {
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="habits"] .weekly-habit-sidebar .journal-scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* Weekly Goals report: readable mobile flow and bounded desktop analysis. */
+.weekly-report-page[data-active="goals"] .weekly-report-content,
+.weekly-report-page[data-active="goals"] :is(.weekly-goal-view, .weekly-goal-main, .weekly-goal-sidebar) {
+  min-width: 0;
+  min-height: 0;
+}
+
+.weekly-report-page[data-active="goals"] .weekly-report-content {
+  margin-top: 1rem;
+}
+
+.weekly-report-page[data-active="goals"] .weekly-goal-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.weekly-report-page[data-active="goals"] .weekly-goal-main {
+  max-height: none;
+  overflow: visible;
+}
+
+.weekly-report-page[data-active="goals"] :is(.weekly-goal-ai, .weekly-goal-progress-card, .weekly-goal-weeks-card, .weekly-goal-risk-card) {
+  height: auto;
+  min-height: 0;
+}
+
+.weekly-report-page[data-active="goals"] :is(.weekly-goal-ai, .weekly-goal-progress-card, .weekly-goal-risk-card) {
+  overflow: visible;
+}
+
+.weekly-report-page[data-active="goals"] :is(.weekly-goal-ai, .weekly-goal-progress-card) > .relative {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.weekly-report-page[data-active="goals"] :is(.weekly-goal-ai, .weekly-goal-progress-card, .weekly-goal-risk-card) .journal-scroll {
+  height: auto;
+  overflow: visible;
+  scroll-behavior: auto;
+}
+
+.weekly-report-page[data-active="goals"] .weekly-goal-sidebar {
+  width: 100%;
+}
+
+.weekly-report-page[data-active="goals"] .weekly-goal-quick-weeks {
+  display: none;
+  min-width: 0;
+}
+
+.weekly-report-page[data-active="goals"] .weekly-goal-risk-buttons {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.weekly-report-page[data-active="goals"] .weekly-goal-risk-buttons > button {
+  width: 100%;
+  min-width: 0;
+}
+
+.weekly-report-page[data-active="goals"] .weekly-goal-risk-buttons > button p:last-child {
+  line-height: 1.1;
+  white-space: normal;
+}
+
+@media (max-width: 1023px) {
+  .weekly-report-page[data-active="goals"] .weekly-goal-quick-weeks {
+    display: block;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-goal-quick-list {
+    scrollbar-width: none;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-goal-quick-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-goal-weeks-card {
+    display: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .weekly-report-page[data-active="goals"] .weekly-goal-summary-pills {
+    gap: 0.375rem;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-goal-summary-pills > * {
+    padding-inline: 0.5rem;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-goal-summary-pills p {
+    letter-spacing: 0.06em;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-goal-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-goal-filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-goal-filters > button {
+    flex: 0 0 auto;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 700px) {
+  .weekly-report-main:has(.weekly-report-page[data-active="goals"]) {
+    overflow: hidden;
+  }
+
+  .weekly-report-route:has(.weekly-report-page[data-active="goals"]),
+  .weekly-report-page[data-active="goals"],
+  .weekly-report-page[data-active="goals"] :is(.weekly-report-content, .weekly-report-active-panel, .weekly-goal-view) {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .weekly-report-page[data-active="goals"] {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .weekly-report-page[data-active="goals"] > * + * {
+    margin-top: 0;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-report-nav {
+    flex: 0 0 auto;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-report-content {
+    flex: 1 1 auto;
+    margin-top: 0;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-goal-view {
+    grid-template-columns: minmax(0, 1fr) clamp(17rem, 27%, 22.5rem);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-goal-main {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-goal-sidebar {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-goal-weeks-card {
+    flex: 0 0 42%;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-goal-risk-card {
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="goals"] .weekly-goal-sidebar .journal-scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* Weekly Gym report: one document flow on compact screens, viewport-sized panes on laptops. */
+.weekly-report-page[data-active="gym"] .weekly-report-content,
+.weekly-report-page[data-active="gym"] :is(.weekly-gym-view, .weekly-gym-main, .weekly-gym-sidebar) {
+  min-width: 0;
+  min-height: 0;
+}
+
+.weekly-report-page[data-active="gym"] .weekly-report-content {
+  margin-top: 1rem;
+}
+
+.weekly-report-page[data-active="gym"] .weekly-gym-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.weekly-report-page[data-active="gym"] .weekly-gym-main {
+  max-height: none;
+  overflow: visible;
+  container: weekly-gym-main / inline-size;
+}
+
+.weekly-report-page[data-active="gym"] .weekly-gym-progress-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.weekly-report-page[data-active="gym"] :is(.weekly-gym-ai, .weekly-gym-strength-card, .weekly-gym-body-card, .weekly-gym-weeks-card, .weekly-gym-nutrition-card) {
+  height: auto;
+  min-height: 0;
+}
+
+.weekly-report-page[data-active="gym"] :is(.weekly-gym-ai, .weekly-gym-strength-card, .weekly-gym-body-card) {
+  overflow: visible;
+}
+
+.weekly-report-page[data-active="gym"] :is(.weekly-gym-ai, .weekly-gym-strength-card, .weekly-gym-body-card) > .relative {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.weekly-report-page[data-active="gym"] :is(.weekly-gym-ai, .weekly-gym-strength-card, .weekly-gym-body-card) .journal-scroll {
+  height: auto;
+  overflow: visible;
+  scroll-behavior: auto;
+}
+
+.weekly-report-page[data-active="gym"] .weekly-gym-quick-weeks {
+  display: none;
+  min-width: 0;
+}
+
+.weekly-report-page[data-active="gym"] .weekly-gym-sidebar {
+  width: 100%;
+}
+
+.weekly-report-page[data-active="gym"] .weekly-gym-nutrition-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@container weekly-gym-main (min-width: 40rem) {
+  .weekly-report-page[data-active="gym"] .weekly-gym-progress-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .weekly-report-page[data-active="gym"] :is(.weekly-gym-strength-card, .weekly-gym-body-card) {
+    height: clamp(20rem, 48dvh, 34rem);
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="gym"] :is(.weekly-gym-strength-card, .weekly-gym-body-card) > .relative {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="gym"] :is(.weekly-gym-strength-card, .weekly-gym-body-card) .journal-scroll {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
+    padding-bottom: 0.5rem;
+  }
+}
+
+@media (max-width: 1023px) {
+  .weekly-report-page[data-active="gym"] .weekly-gym-quick-weeks {
+    display: block;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-gym-quick-list {
+    scrollbar-width: none;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-gym-quick-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-gym-weeks-card {
+    display: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .weekly-report-page :is(
+    .weekly-journal-heading-actions,
+    .weekly-todo-heading-actions,
+    .weekly-habit-heading-actions
+  ) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .weekly-report-page :is(
+    .weekly-journal-heading-actions,
+    .weekly-todo-heading-actions,
+    .weekly-habit-heading-actions
+  ) > :first-child {
+    min-width: 0;
+    justify-self: start;
+  }
+
+  .weekly-report-page :is(
+    .weekly-journal-heading-actions,
+    .weekly-todo-heading-actions,
+    .weekly-habit-heading-actions
+  ) > button:last-child {
+    justify-self: end;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-gym-summary-pills {
+    gap: 0.375rem;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-gym-summary-pills > * {
+    padding-inline: 0.5rem;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-gym-summary-pills p {
+    letter-spacing: 0.06em;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-gym-progress-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-gym-progress-filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-gym-progress-filters > button {
+    flex: 0 0 auto;
+  }
+}
+
+.weekly-gym-photos-modal {
+  max-height: calc(100dvh - 1rem);
+}
+
+@media (max-width: 639px) {
+  .weekly-gym-photo-strip {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 3.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    scrollbar-width: thin;
+  }
+
+  .weekly-gym-fullscreen-thumbs {
+    justify-content: flex-start;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 700px) {
+  .weekly-report-main:has(.weekly-report-page[data-active="gym"]) {
+    overflow: hidden;
+  }
+
+  .weekly-report-route:has(.weekly-report-page[data-active="gym"]),
+  .weekly-report-page[data-active="gym"],
+  .weekly-report-page[data-active="gym"] :is(.weekly-report-content, .weekly-report-active-panel, .weekly-gym-view) {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .weekly-report-page[data-active="gym"] {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .weekly-report-page[data-active="gym"] > * + * {
+    margin-top: 0;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-report-nav {
+    flex: 0 0 auto;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-report-content {
+    flex: 1 1 auto;
+    margin-top: 0;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-gym-view {
+    grid-template-columns: minmax(0, 1fr) clamp(17rem, 27%, 23.75rem);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-gym-main {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: 0.75rem;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-gym-sidebar {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-gym-weeks-card {
+    flex: 0 0 40%;
+    overflow: hidden;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-gym-nutrition-card {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .weekly-report-page[data-active="gym"] .weekly-gym-weeks-card .journal-scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 }

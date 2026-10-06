@@ -1,5 +1,5 @@
 import { motion as Motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useAuth from "../../hooks/useAuth";
 import api from "../../api/axios";
 
@@ -89,14 +89,17 @@ const NEXT5_TASKS = [
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function TaskCard({ task, index = 0 }) {
+function TaskCard({ task, index = 0, lowMotion = false }) {
+  const Article = lowMotion ? "article" : Motion.article;
   return (
-    <Motion.article
+    <Article
       className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04, duration: 0.2 }}
-      whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
+      {...(lowMotion ? {} : {
+        initial: { opacity: 0, y: 8 },
+        animate: { opacity: 1, y: 0 },
+        transition: { delay: index * 0.04, duration: 0.2 },
+        whileHover: { y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" },
+      })}
     >
       <p className="text-sm font-semibold leading-snug text-stone-100">{task.title}</p>
       <p className="mt-1 text-xs text-stone-400">{task.note ?? task.description}</p>
@@ -104,14 +107,14 @@ function TaskCard({ task, index = 0 }) {
         <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5 text-stone-300">
           {task.category}
         </span>
-        <span className={`rounded-full border px-2 py-0.5 font-semibold ${PRIORITY_STYLES[task.priority]}`}>
+        <span className={`dashboard-card-priority ${PRIORITY_STYLES[task.priority]}`}>
           {task.priority}
         </span>
         <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5 text-stone-300">
           {formatTime(task.time)}
         </span>
       </div>
-    </Motion.article>
+    </Article>
   );
 }
 
@@ -142,7 +145,7 @@ function PriorityFilterBar({ selected, onChange }) {
   );
 }
 
-function DayColumn({ date, tasks, selectedPriority }) {
+function DayColumn({ date, tasks, selectedPriority, lowMotion }) {
   const filtered =
     selectedPriority === "All" ? tasks : tasks.filter((t) => t.priority === selectedPriority);
 
@@ -160,7 +163,7 @@ function DayColumn({ date, tasks, selectedPriority }) {
         {filtered.length === 0 ? (
           <p className="px-1 text-xs text-stone-500">No tasks.</p>
         ) : (
-          filtered.map((task) => <TaskCard key={task.id} task={task} />)
+          filtered.map((task) => <TaskCard key={task.id} task={task} lowMotion={lowMotion} />)
         )}
       </div>
     </div>
@@ -169,8 +172,9 @@ function DayColumn({ date, tasks, selectedPriority }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function Upcoming() {
+export default function Upcoming({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
+  const daysRailRef = useRef(null);
   const [tomorrowPriority, setTomorrowPriority] = useState("All");
   const [next5Priority, setNext5Priority] = useState("All");
 
@@ -230,6 +234,28 @@ export default function Upcoming() {
     [next5Data]
   );
 
+  const scrollDays = (direction) => {
+    const rail = daysRailRef.current;
+    if (!rail) return;
+    const railLeft = rail.getBoundingClientRect().left;
+    const positions = Array.from(rail.querySelectorAll(".upcoming-day-col"), (day) =>
+      day.getBoundingClientRect().left - railLeft + rail.scrollLeft
+    );
+    if (!positions.length) return;
+    const closestIndex = positions.reduce(
+      (closest, position, index) =>
+        Math.abs(position - rail.scrollLeft) < Math.abs(positions[closest] - rail.scrollLeft)
+          ? index
+          : closest,
+      0
+    );
+    const nextIndex = Math.max(0, Math.min(positions.length - 1, closestIndex + direction));
+    rail.scrollTo({
+      left: positions[nextIndex],
+      behavior: "auto",
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -266,7 +292,7 @@ export default function Upcoming() {
               {tomorrowTasks.length === 0 ? "No tasks scheduled for tomorrow." : "No tasks for this priority."}
             </p>
           ) : (
-            tomorrowFiltered.map((task) => <TaskCard key={task.id} task={task} />)
+            tomorrowFiltered.map((task) => <TaskCard key={task.id} task={task} lowMotion={lowMotion} />)
           )}
         </div>
       </section>
@@ -289,17 +315,22 @@ export default function Upcoming() {
           </div>
         </div>
 
-        <div className="mt-4">
+        <div className="upcoming-schedule-toolbar mt-4">
           <PriorityFilterBar selected={next5Priority} onChange={setNext5Priority} />
+          <div className="upcoming-day-controls" aria-label="Browse upcoming days">
+            <button type="button" onClick={() => scrollDays(-1)} aria-label="Previous day">‹</button>
+            <button type="button" onClick={() => scrollDays(1)} aria-label="Next day">›</button>
+          </div>
         </div>
 
-        <div className="upcoming-next5-body mt-4">
+        <div ref={daysRailRef} className="upcoming-next5-body mt-4" aria-label="Tasks for the next five days">
           {next5Data.map(({ date, tasks }) => (
             <DayColumn
               key={date.toDateString()}
               date={date}
               tasks={tasks}
               selectedPriority={next5Priority}
+              lowMotion={lowMotion}
             />
           ))}
         </div>

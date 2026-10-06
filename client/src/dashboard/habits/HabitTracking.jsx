@@ -1,7 +1,9 @@
 import { motion as Motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import DashboardSelect from "../../components/DashboardSelect";
+import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
+import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -95,15 +97,44 @@ const INITIAL_HABITS = [
 
 export default function HabitTracking() {
   const { isDemoMode } = useAuth();
+  const lowMotion = useMobileLowMotion();
+  const TrackingRow = lowMotion ? "tr" : Motion.tr;
+  const monthStripRef = useRef(null);
   const [habits, setHabits] = useState(() => isDemoMode ? INITIAL_HABITS : []);
   const [loading, setLoading] = useState(!isDemoMode);
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
   const [yearOptions, setYearOptions] = useState(() => (isDemoMode ? DEMO_YEAR_OPTIONS : [CURRENT_YEAR]));
   const [selectedMonth, setSelectedMonth] = useState(CURRENT_MONTH);
+  const [dayPage, setDayPage] = useState(0);
+  const [isPhone, setIsPhone] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches);
   const [habitView, setHabitView] = useState("active");
   const [importantOnly, setImportantOnly] = useState(false);
   const [endingSoonOnly, setEndingSoonOnly] = useState(false);
   const [today, setToday] = useState(() => toISODate(new Date()));
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 639px)");
+    const update = () => setIsPhone(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    const strip = monthStripRef.current;
+    if (!strip) return undefined;
+    const centerSelected = () => {
+      const selected = strip.querySelector('[aria-pressed="true"]');
+      if (!selected || strip.scrollWidth <= strip.clientWidth) return;
+      const stripRect = strip.getBoundingClientRect();
+      const selectedRect = selected.getBoundingClientRect();
+      strip.scrollLeft += selectedRect.left - stripRect.left - (strip.clientWidth - selectedRect.width) / 2;
+    };
+    centerSelected();
+    const observer = new ResizeObserver(centerSelected);
+    observer.observe(strip);
+    return () => observer.disconnect();
+  }, [selectedMonth]);
 
   useEffect(() => {
     const refreshToday = () => setToday(toISODate(new Date()));
@@ -229,6 +260,13 @@ export default function HabitTracking() {
     const maxDay = new Date(selectedYear, selectedMonth + 1, 0).getDate();
     return DAYS.slice(0, maxDay);
   }, [selectedMonth, selectedYear]);
+  const daysPerPage = 5;
+  const pageCount = Math.ceil(visibleDays.length / daysPerPage);
+  const displayedDays = isPhone ? visibleDays.slice(dayPage * daysPerPage, (dayPage + 1) * daysPerPage) : visibleDays;
+  const changeMonth = (month) => {
+    setSelectedMonth(month);
+    setDayPage(0);
+  };
 
   const toggleImportant = async (id) => {
     // Optimistic update
@@ -257,8 +295,8 @@ export default function HabitTracking() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+    <div className="habits-track-view space-y-4">
+      <div className="habits-track-heading flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <p className="text-label-lg">Track Your Habit</p>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <div className="flex flex-wrap items-center gap-1 rounded-full border border-amber-100/10 bg-white/5 p-1">
@@ -302,13 +340,12 @@ export default function HabitTracking() {
         </div>
       </div>
 
-      <section className="rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-3 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-4">
-        <div className="mb-2 overflow-x-auto">
-          <div className="min-w-[680px] rounded-lg border border-amber-100/10 bg-black/30 px-3 py-2 sm:min-w-[780px] lg:min-w-[1120px]">
-            <div className="flex items-center gap-3">
+      <section className="habits-track-panel rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-3 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-4">
+        <div className="habit-track-toolbar mb-2 rounded-lg border border-amber-100/10 bg-black/30 px-3 py-2">
+            <div className="flex min-w-0 items-center gap-3">
               <label className="flex shrink-0 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-400">
                 Year
-                <select
+                <DashboardSelect
                   value={selectedYear}
                   onChange={(event) => setSelectedYear(Number(event.target.value))}
                   className="rounded-md border border-amber-200/20 bg-black/40 px-2 py-1 text-[11px] font-semibold text-stone-100 outline-none transition focus:border-amber-300/50"
@@ -318,15 +355,26 @@ export default function HabitTracking() {
                       {year}
                     </option>
                   ))}
-                </select>
+                </DashboardSelect>
               </label>
-              <div className="grid flex-1 grid-cols-12 gap-1 text-center text-[11px] font-semibold uppercase tracking-wide text-stone-300">
+              <div className="habit-track-mobile-month min-w-0 flex-1 sm:hidden">
+                <DashboardSelect
+                  value={selectedMonth}
+                  onChange={(event) => changeMonth(Number(event.target.value))}
+                  aria-label="Month"
+                  className="w-full rounded-md border border-amber-200/20 bg-black/40 px-2 py-1 text-[11px] font-semibold text-stone-100"
+                >
+                  {MONTHS.map((month, index) => <option key={month} value={index}>{month}</option>)}
+                </DashboardSelect>
+              </div>
+              <div ref={monthStripRef} className="habit-track-months journal-scroll flex min-w-0 flex-1 gap-1 overflow-x-auto text-center text-[11px] font-semibold uppercase tracking-wide text-stone-300">
                 {MONTHS.map((month, index) => (
                   <button
                     key={month}
                     type="button"
-                    onClick={() => setSelectedMonth(index)}
-                    className={`rounded px-1 py-0.5 transition ${
+                    onClick={() => changeMonth(index)}
+                    aria-pressed={selectedMonth === index}
+                    className={`habit-track-month rounded px-1 py-0.5 transition ${
                       selectedMonth === index
                         ? "bg-amber-500/20 text-amber-200"
                         : "text-stone-300 hover:bg-white/5 hover:text-stone-100"
@@ -337,26 +385,35 @@ export default function HabitTracking() {
                 ))}
               </div>
             </div>
-          </div>
         </div>
 
-        <div className="journal-scroll h-[26rem] min-h-[20rem] overflow-x-auto overflow-y-auto rounded-xl border border-amber-100/10 bg-black/10 p-2.5 sm:p-3 sm:h-[calc(100dvh-390px)] sm:min-h-[22rem]">
-          <div className="min-w-[780px] sm:min-w-[900px] lg:min-w-[1120px]">
+        {isPhone && (
+          <div className="habit-track-day-pager mb-2 flex items-center justify-between gap-2 text-xs text-amber-100">
+            <span aria-live="polite">Days {displayedDays[0]}–{displayedDays.at(-1)} of {visibleDays.length}</span>
+            <div className="flex items-center gap-1">
+              <button type="button" aria-label="Previous days" disabled={dayPage === 0} onClick={() => setDayPage((page) => Math.max(0, page - 1))}>‹</button>
+              <button type="button" aria-label="Next days" disabled={dayPage >= pageCount - 1} onClick={() => setDayPage((page) => Math.min(pageCount - 1, page + 1))}>›</button>
+            </div>
+          </div>
+        )}
+
+        <div className="habits-track-grid journal-scroll overflow-x-auto overflow-y-auto rounded-xl border border-amber-100/10 bg-black/10 p-2.5 sm:p-3">
+          <div className="habits-track-grid-inner">
             {loading ? (
               <div className="flex items-center justify-center py-16">
                 <p className="text-sm text-stone-400">Loading tracking data...</p>
               </div>
             ) : (
-              <table className="w-full border-separate border-spacing-x-1 border-spacing-y-1.5">
+              <table className="habits-track-table w-full border-separate border-spacing-x-1 border-spacing-y-1" style={isPhone ? undefined : { minWidth: `${160 + visibleDays.length * 32}px` }}>
                 <thead>
                   <tr>
-                    <th className="rounded-lg border border-amber-100/10 bg-black/40 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-stone-400">
+                    <th className="habit-track-name-heading rounded-lg border border-amber-100/10 bg-black/90 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-stone-400">
                       Day
                     </th>
-                    {visibleDays.map((day) => (
+                    {displayedDays.map((day) => (
                       <th
                         key={`day-${day}`}
-                        className="h-7 w-7 rounded border border-amber-100/10 bg-black/25 text-center text-[10px] font-semibold text-stone-400"
+                        className="habit-track-day-heading h-7 w-6 rounded border border-amber-100/10 bg-black/90 text-center text-[10px] font-semibold text-stone-400"
                       >
                         {day}
                       </th>
@@ -366,7 +423,7 @@ export default function HabitTracking() {
                 <tbody>
                   {filteredHabits.length === 0 ? (
                     <tr>
-                      <td colSpan={visibleDays.length + 1} className="py-12 text-center text-sm text-stone-500">
+                      <td colSpan={displayedDays.length + 1} className="py-12 text-center text-sm text-stone-500">
                         {habitView === "active" ? "No active habits to track." : "No archived habits."}
                       </td>
                     </tr>
@@ -384,16 +441,31 @@ export default function HabitTracking() {
                         : null;
 
                       return (
-                        <Motion.tr
+                        <TrackingRow
                           key={habit.id}
-                          initial={{ opacity: 0, x: -12 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: rowIdx * 0.04, duration: 0.25 }}
+                          {...(lowMotion ? {} : {
+                            initial: { opacity: 0, x: -12 },
+                            animate: { opacity: 1, x: 0 },
+                            transition: { delay: rowIdx * 0.04, duration: 0.25 }
+                          })}
                         >
-                          <td className="min-w-[240px] rounded-lg border border-amber-100/10 bg-black/45 px-2.5 py-2 sm:min-w-[300px] sm:px-3 lg:min-w-[380px]">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <td className="habit-track-name-cell rounded-lg border border-amber-100/10 bg-[#181110] px-2.5 py-2 sm:px-3 sm:py-1">
+                            <div className="habit-track-name-content">
+                              <div className="habit-track-title-row">
                                 <p className="min-w-0 break-words text-sm font-semibold text-stone-100 sm:truncate">{habit.title}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleImportant(habit._id?.toString() ?? habit.id)}
+                                  className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${
+                                    habit.isImportant
+                                      ? "border-amber-300/45 bg-amber-500/15 text-amber-200"
+                                      : "border-amber-100/15 bg-white/5 text-stone-300 hover:border-amber-300/35 hover:text-amber-200"
+                                  }`}
+                                >
+                                  {habit.isImportant ? "Important" : "Mark"}
+                                </button>
+                              </div>
+                              <div className="habit-track-meta">
                                 <span className="shrink-0 rounded-full border border-orange-300/40 bg-orange-500/15 px-2 py-0.5 text-[10px] font-semibold text-orange-200">
                                   🔥 {currentStreak}
                                 </span>
@@ -401,11 +473,7 @@ export default function HabitTracking() {
                                   Target {habit.targetStreak}
                                 </span>
                                 {archiveLabel ? (
-                                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                                    archiveLabel === "Deleted"
-                                      ? "border-rose-300/30 bg-rose-500/10 text-rose-200"
-                                      : "border-blue-300/30 bg-blue-500/10 text-blue-100"
-                                  }`}>
+                                  <span className="dashboard-card-status" data-tone={archiveLabel === "Deleted" ? "danger" : "info"}>
                                     {archiveLabel}
                                   </span>
                                 ) : endDateStr ? (
@@ -417,28 +485,17 @@ export default function HabitTracking() {
                                     {daysToEnd > 0 ? `${daysToEnd} days left` : "Ending today"}
                                   </span>
                                 ) : (
-                                  <span className="shrink-0 rounded-full border border-emerald-300/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
+                                  <span className="dashboard-card-status" data-tone="success">
                                     Never Ends
                                   </span>
                                 )}
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => toggleImportant(habit._id?.toString() ?? habit.id)}
-                                className={`shrink-0 self-start rounded-full border px-2 py-0.5 text-[10px] font-semibold transition sm:self-auto ${
-                                  habit.isImportant
-                                    ? "border-amber-300/45 bg-amber-500/15 text-amber-200"
-                                    : "border-amber-100/15 bg-white/5 text-stone-300 hover:border-amber-300/35 hover:text-amber-200"
-                                }`}
-                              >
-                                {habit.isImportant ? "Important" : "Mark"}
-                              </button>
                             </div>
                           </td>
-                          {visibleDays.map((day) => {
+                          {displayedDays.map((day) => {
                             const checked = habit.completedDays.includes(day);
                             return (
-                              <td key={`${habit.id}-${day}`} className="text-center">
+                              <td key={`${habit.id}-${day}`} data-day={day} className="habit-track-day-cell text-center">
                                 <div
                                   className={`mx-auto h-5 w-5 rounded border ${
                                     checked
@@ -449,7 +506,7 @@ export default function HabitTracking() {
                               </td>
                             );
                           })}
-                        </Motion.tr>
+                        </TrackingRow>
                       );
                     })
                   )}

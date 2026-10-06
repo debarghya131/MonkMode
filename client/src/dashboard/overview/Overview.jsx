@@ -95,7 +95,8 @@ function StatusCard({ label, className = "", viewHref, actions = [], children })
         {viewHref && (
           <Link
             to={viewHref}
-            className="text-body-xs rounded-full border border-amber-100/15 px-3 py-1 text-amber-400/70 transition duration-300 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)]"
+            className="dashboard-card-action overview-card-action"
+            data-tone="warning"
           >
             View
           </Link>
@@ -109,7 +110,8 @@ function StatusCard({ label, className = "", viewHref, actions = [], children })
               key={`${href}-${actionLabel}`}
               to={href}
               state={state}
-              className="text-body-xs rounded-full border border-amber-100/15 px-3 py-1 text-amber-400/70 transition duration-300 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)]"
+              className="dashboard-card-action overview-card-action"
+              data-tone="warning"
             >
               {actionLabel}
             </Link>
@@ -136,27 +138,11 @@ function StatRow({ label, value, accent }) {
   return (
     <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
       <dt className="text-body-sm text-stone-400">{label}</dt>
-      <Motion.dd
+      <dd
         className={`text-accent-sm break-words text-left sm:text-right sm:whitespace-nowrap ${accentClass}`}
-        animate={
-          isPositive || isSuccess
-            ? {
-                textShadow: [
-                  isSuccess ? "0 0 0px rgba(110,231,183,0)" : "0 0 0px rgba(251,191,36,0)",
-                  isSuccess ? "0 0 8px rgba(110,231,183,0.65)" : "0 0 8px rgba(251,191,36,0.6)",
-                  isSuccess ? "0 0 0px rgba(110,231,183,0)" : "0 0 0px rgba(251,191,36,0)",
-                ],
-              }
-            : {}
-        }
-        transition={
-          isPositive || isSuccess
-            ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" }
-            : {}
-        }
       >
         {value}
-      </Motion.dd>
+      </dd>
     </div>
   );
 }
@@ -479,22 +465,20 @@ export default function Overview() {
 
   return (
     <DashboardLayout>
-      <div className="w-full">
-        <div className="grid gap-4 lg:gap-6 xl:grid-cols-[5fr_7fr]">
+      <div className="h-full w-full">
+        <div className="grid gap-4 lg:gap-5 min-[1800px]:h-full min-[1800px]:grid-cols-[minmax(30rem,5fr)_minmax(0,7fr)] min-[1800px]:items-stretch">
           {/* Main Content Area */}
           <Motion.div
+            className="order-2 h-full min-w-0 md:order-1 min-[1800px]:min-h-0"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.16, ease: "easeOut" }}
           >
-            <section className="rounded-[1.5rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-[2rem] sm:p-8">
+            <section className="journal-scroll h-full rounded-[1.5rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 md:backdrop-blur sm:rounded-[2rem] sm:p-6 xl:p-7 min-[1800px]:overflow-y-auto min-[1800px]:p-8">
               <p className="text-label-lg">Overview</p>
-              <p className="text-body-md mt-3 max-w-3xl text-stone-400 sm:mt-4">
-                Here's a snapshot of today's discipline across journal, tasks, habits, goals, and gym.
-              </p>
 
               <Motion.div
-                className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:grid-cols-2"
+                className="mt-6 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:gap-4 min-[1800px]:mt-8"
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
@@ -561,11 +545,12 @@ export default function Overview() {
 
           {/* Heatmap Sidebar */}
           <Motion.div
+            className="order-1 h-full min-w-0 md:order-2 min-[1800px]:min-h-0"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.16, ease: "easeOut" }}
           >
-            <div className="min-h-[32rem] rounded-[1.5rem] border border-amber-100/10 bg-white/6 px-2.5 py-3 shadow-2xl shadow-black/25 backdrop-blur sm:min-h-[38rem] sm:rounded-[2rem] sm:px-3 sm:py-4 xl:sticky xl:top-2 xl:h-[82vh] xl:min-h-0">
+            <div className="h-[calc(100dvh-5.5rem)] min-h-0 rounded-[1.5rem] border border-amber-100/10 bg-white/6 px-2.5 py-3 shadow-2xl shadow-black/25 md:backdrop-blur sm:h-[calc(100dvh-7rem)] sm:rounded-[2rem] sm:px-3 sm:py-4 min-[1800px]:h-full">
               <OverviewHeatmap />
             </div>
           </Motion.div>

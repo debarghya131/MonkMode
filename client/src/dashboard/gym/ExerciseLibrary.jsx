@@ -1,5 +1,6 @@
-import { motion as Motion } from "framer-motion";
+import DashboardSelect from "../../components/DashboardSelect";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
@@ -48,9 +49,9 @@ function AddWorkoutModal({ onAdd, onClose }) {
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm sm:p-4">
-      <div className="w-full max-w-md rounded-[1.4rem] border border-amber-100/10 bg-[linear-gradient(180deg,rgba(30,18,14,0.98),rgba(12,8,8,0.99))] p-4 shadow-2xl shadow-black/60 sm:rounded-2xl sm:p-6">
+  return createPortal(
+    <div className="gym-library-modal fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm sm:p-4">
+      <div className="gym-library-modal-panel w-full max-w-md rounded-[1.4rem] border border-amber-100/10 bg-[linear-gradient(180deg,rgba(30,18,14,0.98),rgba(12,8,8,0.99))] p-4 shadow-2xl shadow-black/60 sm:rounded-2xl sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-base font-semibold text-amber-100">Add Workout</h3>
           <button type="button" onClick={onClose}
@@ -73,7 +74,7 @@ function AddWorkoutModal({ onAdd, onClose }) {
 
           <label className="block">
             <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">Body Group</span>
-            <select
+            <DashboardSelect
               value={group}
               onChange={(e) => handleGroupChange(e.target.value)}
               className="mt-1.5 w-full rounded-xl border border-amber-100/15 bg-[#1a100c] px-3 py-2 text-sm text-stone-100 outline-none transition focus:border-amber-300/35"
@@ -81,12 +82,12 @@ function AddWorkoutModal({ onAdd, onClose }) {
               {BODY_PART_GROUPS.map(({ group: g }) => (
                 <option key={g} value={g}>{g}</option>
               ))}
-            </select>
+            </DashboardSelect>
           </label>
 
           <label className="block">
             <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">Sub Group</span>
-            <select
+            <DashboardSelect
               value={section}
               onChange={(e) => setSection(e.target.value)}
               className="mt-1.5 w-full rounded-xl border border-amber-100/15 bg-[#1a100c] px-3 py-2 text-sm text-stone-100 outline-none transition focus:border-amber-300/35"
@@ -94,7 +95,7 @@ function AddWorkoutModal({ onAdd, onClose }) {
               {sections.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
-            </select>
+            </DashboardSelect>
           </label>
 
           {error && <p className="text-xs text-rose-300">{error}</p>}
@@ -111,7 +112,8 @@ function AddWorkoutModal({ onAdd, onClose }) {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -241,26 +243,23 @@ export default function ExerciseLibrary() {
 
   return (
     <>
-      <div className="rounded-[1.5rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_38%),linear-gradient(180deg,rgba(30,18,14,0.96),rgba(12,8,8,0.98))] p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-[2rem] sm:p-6 lg:p-8">
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+      <div className="gym-library-view rounded-[1.5rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_38%),linear-gradient(180deg,rgba(30,18,14,0.96),rgba(12,8,8,0.98))] p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-[2rem] sm:p-6 lg:p-8">
+        <div className="gym-library-header flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-3xl xl:max-w-sm">
             <h2 className="text-base font-semibold text-stone-100">All Workouts</h2>
             <p className="mt-1 text-xs text-stone-400">By Body Group</p>
           </div>
 
-          <div className="w-full rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-[1.5rem] lg:p-5 xl:min-w-0 xl:flex-1">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+          <div className="gym-library-toolbar w-full rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-[1.5rem] lg:p-5 xl:min-w-0 xl:flex-1">
+            <div className="gym-library-toolbar-row flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="gym-library-filters flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
                 {[{ group: "all", label: `All Groups (${allExercises.length})` }, ...groupCounts.map(({ group, count }) => ({ group, label: `${group} (${count})` }))].map(({ group, label }) => {
                   const isActive = selectedGroup === group;
                   return (
-                    <Motion.button
+                    <button
                       key={group}
                       type="button"
                       onClick={() => setSelectedGroup(group)}
-                      whileHover={!isActive ? { scale: 1.06, boxShadow: "0 0 14px rgba(251,191,36,0.4)" } : {}}
-                      whileTap={{ scale: 0.93 }}
-                      transition={{ duration: 0.18 }}
                       className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] font-semibold transition duration-200 ${
                         isActive
                           ? "border-amber-300/45 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] text-stone-950 shadow-[0_0_16px_rgba(251,191,36,0.4)]"
@@ -268,34 +267,18 @@ export default function ExerciseLibrary() {
                       }`}
                     >
                       {label}
-                    </Motion.button>
+                    </button>
                   );
                 })}
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <Motion.button
+              <div className="gym-library-actions flex flex-col gap-2 sm:flex-row sm:items-center">
+                <button
                   type="button"
                   onClick={() => setShowAddModal(true)}
-                  animate={{
-                    scale: [1, 1.06, 1],
-                    boxShadow: [
-                      "0 0 0px rgba(251,191,36,0)",
-                      "0 0 14px rgba(251,191,36,0.55)",
-                      "0 0 0px rgba(251,191,36,0)",
-                    ],
-                  }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  whileHover={{ scale: 1.1, boxShadow: "0 0 20px rgba(251,191,36,0.65), 0 0 40px rgba(251,191,36,0.2)" }}
-                  whileTap={{ scale: 0.93 }}
-                  className="relative w-full overflow-hidden whitespace-nowrap rounded-full border border-amber-300/40 bg-amber-500/15 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 sm:w-auto"
+                  className="w-full whitespace-nowrap rounded-full border border-amber-300/40 bg-amber-500/15 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 sm:w-auto"
                 >
-                  <Motion.span
-                    className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/30 blur-sm"
-                    animate={{ left: ["-40%", "130%"] }}
-                    transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.2, ease: "easeInOut" }}
-                  />
-                  <span className="relative z-10">+ Add Workout</span>
-                </Motion.button>
+                  + Add Workout
+                </button>
                 <div className="w-full whitespace-nowrap rounded-full border border-amber-100/10 bg-white/5 px-3 py-1.5 text-center text-[11px] font-semibold text-stone-300 sm:w-auto">
                   {selectedGroup === "all" ? `${totalVisibleExercises} workouts` : `${totalVisibleExercises} in ${selectedGroup}`}
                 </div>
@@ -304,7 +287,7 @@ export default function ExerciseLibrary() {
           </div>
         </div>
 
-        <div className="mt-5 max-h-[50vh] overflow-y-auto rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-3 pr-2 scroll-smooth sm:mt-6 sm:max-h-[56vh] sm:rounded-[1.5rem] sm:p-4 lg:p-5">
+        <div className="gym-library-list mt-5 max-h-[50vh] overflow-y-auto rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-3 pr-2 scroll-smooth sm:mt-6 sm:max-h-[56vh] sm:rounded-[1.5rem] sm:p-4 lg:p-5">
           {error ? (
             <div className="mb-4 rounded-2xl border border-rose-400/20 bg-rose-500/5 p-4 text-sm text-rose-200">
               {error}
@@ -320,13 +303,10 @@ export default function ExerciseLibrary() {
             </div>
           ) : (
             <div className="space-y-4">
-              {visibleGroups.map(({ group, exercises }, gi) => (
-                <Motion.section
+              {visibleGroups.map(({ group, exercises }) => (
+                <section
                   key={group}
-                  className="rounded-[1.4rem] border border-amber-100/10 bg-black/15 p-4 sm:rounded-2xl"
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: gi * 0.07, duration: 0.25 }}
+                  className="gym-library-group rounded-[1.4rem] border border-amber-100/10 bg-black/15 p-4 sm:rounded-2xl"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="text-base font-semibold text-amber-100">{group}</h3>
@@ -334,17 +314,13 @@ export default function ExerciseLibrary() {
                       {exercises.length} workout{exercises.length === 1 ? "" : "s"}
                     </span>
                   </div>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                    {exercises.map((exercise, exi) => (
-                      <Motion.div
+                  <div className="gym-library-card-grid mt-3 grid gap-2">
+                    {exercises.map((exercise) => (
+                      <div
                         key={exercise.id}
-                        className={`group relative min-w-0 rounded-xl border bg-white/5 px-3 py-2.5 ${
+                        className={`gym-library-card group relative min-w-0 rounded-xl border bg-white/5 px-3 py-2.5 transition hover:border-amber-300/20 ${
                           exercise.custom ? "border-amber-300/25" : "border-amber-100/10"
                         }`}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: gi * 0.07 + exi * 0.03, duration: 0.18 }}
-                        whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.3)", borderColor: "rgba(251,191,36,0.2)" }}
                       >
                         <p className="break-words text-sm font-semibold text-stone-100">{exercise.name}</p>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -371,10 +347,10 @@ export default function ExerciseLibrary() {
                             </>
                           )}
                         </div>
-                      </Motion.div>
+                      </div>
                     ))}
                   </div>
-                </Motion.section>
+                </section>
               ))}
             </div>
           )}

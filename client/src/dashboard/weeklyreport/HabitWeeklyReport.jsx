@@ -207,7 +207,7 @@ function ReportCard({ children, className = "" }) {
   );
 }
 
-export default function HabitWeeklyReport() {
+export default function HabitWeeklyReport({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
   const [selectedWeekId, setSelectedWeekId]     = useState(null);
   const [summaries, setSummaries]               = useState([]);
@@ -303,10 +303,38 @@ export default function HabitWeeklyReport() {
   const habitTotals = weekData ? getHabitSummary(weekData.habits ?? []) : null;
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+    <div className="weekly-habit-view flex flex-col gap-4 lg:flex-row lg:items-start">
+
+      <div className="weekly-habit-quick-weeks rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-3" data-demo-allow="true">
+        <p className="text-label-md">Little Monk's Analysis</p>
+        {loadingSummaries ? (
+          <p className="mt-2 text-xs text-stone-500">Loading weeks...</p>
+        ) : summaries.length === 0 ? (
+          <p className="mt-2 text-xs text-stone-500">No weekly summaries yet.</p>
+        ) : (
+          <div className="weekly-habit-quick-list mt-2 flex gap-2 overflow-x-auto pb-1">
+            {summaries.map((week) => (
+              <button
+                key={week.id}
+                type="button"
+                onClick={() => setSelectedWeekId(week.id)}
+                aria-pressed={selectedWeekId === week.id}
+                className={`min-w-[8.5rem] shrink-0 rounded-xl border px-3 py-2 text-left transition-colors ${
+                  selectedWeekId === week.id
+                    ? "border-amber-400/40 bg-amber-500/10 text-amber-100"
+                    : "border-amber-100/10 bg-black/20 text-stone-300 hover:border-amber-400/25"
+                }`}
+              >
+                <span className="block text-xs font-semibold">{week.date}</span>
+                <span className="mt-0.5 block text-[10px] text-stone-500">{week.signal}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── LEFT: Main analysis panel ─────────────────────────── */}
-      <div className="journal-scroll min-w-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-170px)]">
+      <div className="weekly-habit-main journal-scroll min-w-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-170px)]">
         <AnimatePresence mode="wait">
           {loadingWeekData ? (
             <Motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -321,7 +349,7 @@ export default function HabitWeeklyReport() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22 }}
-              className="space-y-4"
+              className="weekly-habit-main-body space-y-4"
             >
               {/* Summary header */}
               <div className="dashboard-glow-card rounded-[1.4rem] border border-amber-100/10 bg-white/6 px-4 py-3 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:px-5 sm:py-2.5">
@@ -330,7 +358,7 @@ export default function HabitWeeklyReport() {
                     <p className="text-label-md">Weekly Summary</p>
                     <p className="text-[11px] font-semibold text-stone-500">{weekData.date}</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                  <div className="weekly-habit-heading-actions flex flex-wrap items-center gap-2 sm:justify-end">
                     <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
                       {weekData.habits?.length ?? 0} Habits Scheduled
                     </span>
@@ -345,7 +373,7 @@ export default function HabitWeeklyReport() {
                 </div>
 
                 {/* Summary pills */}
-                <div className="mt-2 flex flex-wrap items-center gap-2">
+                <div className="weekly-habit-summary-pills mt-2 flex flex-wrap items-center gap-2">
                   {/* Streak Maintain */}
                   <div className="flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Streak Maintain</p>
@@ -358,12 +386,12 @@ export default function HabitWeeklyReport() {
                   <Motion.div
                     className="relative flex items-center gap-1.5 overflow-hidden rounded-full border border-rose-400/25 bg-rose-500/10 px-3 py-1"
                     animate={{ boxShadow: ["0 0 0px rgba(251,113,133,0)", "0 0 10px rgba(251,113,133,0.36)", "0 0 0px rgba(251,113,133,0)"] }}
-                    transition={{ boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
+                    transition={{ boxShadow: { duration: lowMotion ? 0 : 2.2, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" } }}
                   >
                     <Motion.span
                       className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
                       animate={{ left: ["-40%", "130%"] }}
-                      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                      transition={{ duration: lowMotion ? 0 : 1.8, repeat: lowMotion ? 0 : Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                     />
                     <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Streak Break</p>
                     <span className="relative z-10 text-xs font-bold text-rose-300">
@@ -392,12 +420,12 @@ export default function HabitWeeklyReport() {
                           "border-rose-400/20 bg-rose-500/10"
                         }`}
                         animate={{ boxShadow: ["0 0 0px rgba(167,139,250,0)", "0 0 10px rgba(167,139,250,0.36)", "0 0 0px rgba(167,139,250,0)"] }}
-                        transition={{ boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
+                        transition={{ boxShadow: { duration: lowMotion ? 0 : 2.2, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" } }}
                       >
                         <Motion.span
                           className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
                           animate={{ left: ["-40%", "130%"] }}
-                          transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                          transition={{ duration: lowMotion ? 0 : 1.8, repeat: lowMotion ? 0 : Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                         />
                         <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Consistency</p>
                         <span className={`relative z-10 text-xs font-bold ${
@@ -435,7 +463,7 @@ export default function HabitWeeklyReport() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="dashboard-glow-card flex min-h-[15rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5 lg:h-[24vh]"
+                className="weekly-habit-ai dashboard-glow-card flex min-h-[15rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5 lg:h-[24vh]"
               >
                 <div className="mb-3 flex items-center gap-2">
                   <Motion.img
@@ -443,7 +471,7 @@ export default function HabitWeeklyReport() {
                     alt="Little Monk"
                     className="h-14 w-17 object-contain"
                     animate={{ y: [0, -3, 0] }}
-                    transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+                    transition={{ duration: lowMotion ? 0 : 2.8, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" }}
                   />
                   <div>
                     <p className="text-label-md">Little Monk's Analysis</p>
@@ -466,15 +494,15 @@ export default function HabitWeeklyReport() {
               </Motion.div>
 
               {/* 2×2 card grid */}
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div className="weekly-habit-card-grid grid grid-cols-1 gap-4 xl:grid-cols-2">
 
                 {/* Card 1 — Habit Summary */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
-                  className="dashboard-glow-card flex min-h-[12rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[20vh]"
+                  className="weekly-habit-stat-card dashboard-glow-card flex min-h-[12rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[20vh]"
                 >
                   <div className="mb-3 flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Habit Summary</p>
-                    <div className="flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
+                    <div className="weekly-habit-card-filter flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
                       {["All", "High", "Medium", "Low"].map((p) => (
                         <button key={p} type="button" onClick={() => setPriorityFilter(p)}
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
@@ -548,11 +576,11 @@ export default function HabitWeeklyReport() {
 
                 {/* Card 2 — Habit Performance + Streak */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.21 }}
-                  className="dashboard-glow-card flex min-h-[17rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl xl:row-span-2 xl:h-[44vh]"
+                  className="weekly-habit-performance weekly-habit-stat-card dashboard-glow-card flex min-h-[17rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl xl:row-span-2 xl:h-[44vh]"
                 >
                   <div className="mb-3 flex shrink-0 flex-col gap-2">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Habit Performance</p>
-                    <div className="flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:flex-nowrap sm:rounded-full">
+                    <div className="weekly-habit-card-filter flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:flex-nowrap sm:rounded-full">
                       {TIME_FILTERS.map((f) => (
                         <button key={f} type="button" onClick={() => setHabitFilter(f)}
                           className={`flex-1 rounded-full py-0.5 text-[10px] font-semibold transition-colors ${
@@ -616,7 +644,7 @@ export default function HabitWeeklyReport() {
 
                 {/* Card 3 — Daily Breakdown */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}
-                  className="dashboard-glow-card flex min-h-[13rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[23vh]"
+                  className="weekly-habit-stat-card dashboard-glow-card flex min-h-[13rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[23vh]"
                 >
                   <p className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Daily Breakdown</p>
                   <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
@@ -678,20 +706,20 @@ export default function HabitWeeklyReport() {
       </div>
 
       {/* ── RIGHT: Two cards ──────────────────────────────────── */}
-      <div className="grid w-full items-start gap-4 lg:w-[360px] lg:shrink-0 xl:w-[380px]">
+      <div className="weekly-habit-sidebar grid w-full items-start gap-4 lg:w-[360px] lg:shrink-0 xl:w-[380px]">
 
         {/* Card 1 — Week Selector */}
-        <ReportCard className="flex min-h-[16rem] flex-col overflow-hidden lg:h-[38vh]">
+        <ReportCard className="weekly-habit-weeks-card flex min-h-[16rem] flex-col overflow-hidden lg:h-[38vh]">
           <div className="mb-4 flex shrink-0 items-center gap-3">
             <Motion.div
               className="relative grid h-16 w-17 place-items-center"
               animate={{ y: [0, -4, 0] }}
-              transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+              transition={{ duration: lowMotion ? 0 : 2.8, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" }}
             >
               <Motion.span
                 className="absolute inset-2 rounded-full bg-amber-400/15 blur-md"
                 animate={{ opacity: [0.35, 0.8, 0.35], scale: [0.9, 1.12, 0.9] }}
-                transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+                transition={{ duration: lowMotion ? 0 : 2.8, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" }}
               />
               <Motion.img
                 src={littleMonkLogo}
@@ -733,7 +761,7 @@ export default function HabitWeeklyReport() {
                         : "border-amber-100/10 bg-stone-950/45 hover:border-amber-400/20"
                     }`}
                   >
-                    <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                    <div className="weekly-habit-week-row grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
                       <div className="min-w-0">
                         {displaySignal && <span className="text-xs font-semibold text-amber-300/80">{displaySignal}</span>}
                         <p className="text-sm font-semibold text-stone-200">{week.date}</p>
@@ -758,7 +786,7 @@ export default function HabitWeeklyReport() {
         </ReportCard>
 
         {/* Card 2 — Category Performance */}
-        <ReportCard className="flex min-h-[18rem] flex-col overflow-hidden lg:h-[42vh]">
+        <ReportCard className="weekly-habit-category-card flex min-h-[18rem] flex-col overflow-hidden lg:h-[42vh]">
           <div className="mb-4 shrink-0 space-y-3">
             <div className="flex items-center gap-2">
               <span className="text-base">📊</span>
@@ -809,7 +837,7 @@ export default function HabitWeeklyReport() {
                       const isCompletion = categoryPerfFilter === "completion";
                       return (
                         <div key={cat.name}>
-                          <div className="mb-1 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="weekly-habit-category-row mb-1 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
                             <span className="text-xs font-semibold text-stone-300">{cat.name}</span>
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] text-stone-500">

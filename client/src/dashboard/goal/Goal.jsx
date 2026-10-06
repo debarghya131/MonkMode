@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
+import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import { GOALS } from "../../../data/GoalDummyData";
 import CreateGoal from "./CreateGoal";
 import GoalNav from "./GoalNav";
@@ -59,6 +60,7 @@ const emitGoalsUpdated = () => {
 export default function Goal() {
   const { isDemoMode } = useAuth();
   const location = useLocation();
+  const lowMotion = useMobileLowMotion();
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(location.search);
     const requestedTab = params.get("tab") || location.state?.tab;
@@ -267,21 +269,26 @@ export default function Goal() {
   };
 
   return (
-    <div className="w-full space-y-4">
-      <div className="min-w-0 flex-1">
+    <div className="goals-page w-full" data-active={activeTab}>
+      <div className="goals-top-row min-w-0 flex-1">
         <GoalNav activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
-      <AnimatePresence mode="wait">
-        <Motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.22, ease: "easeInOut" }}
-        >
-          {renderContent()}
-        </Motion.div>
-      </AnimatePresence>
+      {lowMotion ? (
+        <div key={activeTab} className="goals-content">{renderContent()}</div>
+      ) : (
+        <AnimatePresence mode="wait">
+          <Motion.div
+            key={activeTab}
+            className="goals-content"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22, ease: "easeInOut" }}
+          >
+            {renderContent()}
+          </Motion.div>
+        </AnimatePresence>
+      )}
     </div>
   );
 }

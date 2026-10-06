@@ -1,4 +1,6 @@
+import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import DashboardSelect from "../../components/DashboardSelect";
 import {
   DEFAULT_CATEGORIES,
   DEFAULT_IMPORTANT_CATEGORIES,
@@ -191,6 +193,7 @@ export default function Schedule({
     return toISODate(next);
   }, []);
   const calendarSectionRef = useRef(null);
+  const formPanelRef = useRef(null);
   const endedLogQueueRef = useRef(new Set());
 
   const refreshTaskLogs = useCallback(async () => {
@@ -761,12 +764,18 @@ export default function Schedule({
       neverEnds: task.endDate == null,
       days: getTaskDisplayDays(task),
     });
+    requestAnimationFrame(() => {
+      formPanelRef.current?.scrollIntoView({
+        block: "start",
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      });
+    });
   };
 
   return (
-    <div className="space-y-5">
+    <div className="todo-schedule-view">
       <div className="schedule-layout">
-        <div className="schedule-main journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5 xl:h-[650px]" style={{ overflowY: "auto" }}>
+        <div ref={formPanelRef} className="schedule-main journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
           <h3 className="mb-4 text-sm font-semibold text-amber-200">{editingId ? "Edit Task" : "Create Task"}</h3>
           <form className="space-y-3" onSubmit={handleSubmit}>
             {/* Row 1: Title */}
@@ -796,12 +805,12 @@ export default function Schedule({
             </div>
 
             {/* Row 3: Category + Priority side-by-side */}
-            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+            <div className="schedule-form-row schedule-form-row-category grid grid-cols-1 items-start gap-4">
               <div className="space-y-2">
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Category <span className="text-red-400">*</span>
                 </label>
-                <div className="flex flex-col gap-2 sm:flex-row sm:gap-1">
+                <div className="schedule-category-controls flex flex-wrap gap-2">
                   <div ref={catDropRef} className="relative min-w-0 flex-1">
                     <button
                       type="button"
@@ -837,7 +846,8 @@ export default function Schedule({
                   <button
                     type="button"
                     onClick={() => setShowCustomCategory((prev) => !prev)}
-                    className="rounded-lg border border-amber-300/25 px-2 py-1.5 text-[11px] font-semibold text-amber-200 transition hover:border-amber-300/45 sm:py-1"
+                    className="dashboard-card-action"
+                    data-tone="warning"
                   >
                     + Category
                   </button>
@@ -861,7 +871,7 @@ export default function Schedule({
                         placeholder="Custom category"
                         className="flex-1 rounded-lg border border-amber-100/15 bg-white/5 px-3 py-1.5 text-xs text-stone-100 outline-none transition focus:border-amber-300/35"
                       />
-                    <button type="button" onClick={handleAddCustomCategory} className="rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20 sm:py-1.5">Add</button>
+                    <button type="button" onClick={handleAddCustomCategory} className="dashboard-card-action" data-tone="warning">Add</button>
                     </div>
                     <label className="flex items-center gap-2 text-xs text-stone-300">
                       <input
@@ -941,12 +951,12 @@ export default function Schedule({
             </div>
 
             {/* Row 4: Repetition + Date/Time */}
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="schedule-form-row schedule-form-row-time grid grid-cols-1 gap-3">
               <div>
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Repeat <span className="text-red-400">*</span>
                 </label>
-                <select
+                <DashboardSelect
                   id="task-repeat"
                   value={form.repeatType}
                   onChange={(event) => handleInputChange("repeatType", event.target.value)}
@@ -959,14 +969,14 @@ export default function Schedule({
                   {REPEAT_TYPES.map((type) => (
                     <option key={type.value} value={type.value} style={{ backgroundColor: "#1c1917", color: "#e7e5e4" }}>{type.label}</option>
                   ))}
-                </select>
+                </DashboardSelect>
                 {editingId ? <p className="mt-1 text-[10px] text-stone-500">Repeat type cannot be changed in edit mode.</p> : null}
               </div>
               <div>
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Time <span className="text-red-400">*</span>
                 </label>
-                <input
+<DashboardDateTimeInput
                   id="task-time"
                   type="time"
                   value={form.time}
@@ -984,7 +994,7 @@ export default function Schedule({
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Date <span className="text-red-400">*</span>
                 </label>
-                <input
+<DashboardDateTimeInput
                   id="task-date"
                   type="date"
                   value={form.date}
@@ -1000,10 +1010,10 @@ export default function Schedule({
               </div>
             ) : (
               <div className="space-y-2 rounded-lg border border-amber-100/10 bg-white/5 p-2.5">
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="schedule-date-row grid grid-cols-1 gap-2">
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Start</label>
-                    <input
+<DashboardDateTimeInput
                       id="task-start"
                       type="date"
                       value={form.startDate}
@@ -1017,7 +1027,7 @@ export default function Schedule({
                   {!form.neverEnds && (
                     <div>
                       <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">End</label>
-                      <input id="task-end" type="date" value={form.endDate} min={maxISODate(form.startDate || "", editingId ? tomorrow : "") || undefined} onChange={(e) => handleInputChange("endDate", e.target.value)} className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
+<DashboardDateTimeInput id="task-end" type="date" value={form.endDate} min={maxISODate(form.startDate || "", editingId ? tomorrow : "") || undefined} onChange={(e) => handleInputChange("endDate", e.target.value)} className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
                     </div>
                   )}
                 </div>
@@ -1046,7 +1056,8 @@ export default function Schedule({
 
             <button
               type="submit"
-              className="w-full rounded-lg border border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 px-4 py-2 text-xs font-semibold text-amber-200 transition hover:from-amber-400/25 hover:to-orange-400/20"
+              className="dashboard-card-action w-full"
+              data-tone="warning"
             >
               {editingId ? "Update Task" : "Add Task"}
             </button>
@@ -1054,7 +1065,8 @@ export default function Schedule({
               <button
                 type="button"
                 onClick={() => { setEditingId(null); setError(""); setTouched({}); setForm((prev) => ({ ...prev, title: "", description: "", category: "", priority: "", repeatType: "", time: "", date: "" })); }}
-                className="mt-1.5 w-full rounded-lg border border-stone-600/40 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-400 transition hover:text-stone-200"
+                className="dashboard-card-action mt-1.5 w-full"
+                data-tone="neutral"
               >
                 Cancel Edit
               </button>
@@ -1107,72 +1119,54 @@ export default function Schedule({
                 );
 
                 return (
-                <article key={task.id} className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 p-3">
-                  <>
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <p className="text-sm font-semibold text-stone-100">{task.title}</p>
-                        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                  <article key={task.id} className="schedule-task-card dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="min-w-0 flex-1 text-sm font-semibold text-stone-100">{task.title}</p>
+                        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                           {isArchiveView && (
-                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                              isDeletedTask
-                                ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
-                                : isEndedTask
-                                  ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
-                                  : "border-stone-500/20 bg-white/5 text-stone-400"
-                            }`}>
+                            <span className="dashboard-card-status" data-tone={isDeletedTask || isEndedTask ? "danger" : undefined}>
                               {isDeletedTask ? "Deleted" : isEndedTask ? "Ended" : "Archived"}
                             </span>
                           )}
-                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${priorityStyles[task.priority]}`}>
+                          <span className={`dashboard-card-priority ${priorityStyles[task.priority]}`}>
                             {task.priority}
                           </span>
                           {!isArchiveView && (
-                            <button
-                              type="button"
-                              onClick={() => startEdit(task)}
-                              className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-400/20"
-                            >
-                              Edit
-                            </button>
-                          )}
-                          {!isArchiveView && (
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(task.id)}
-                              className="rounded border border-rose-400/25 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
-                            >
-                              Delete
-                            </button>
+                            <div className="schedule-task-actions flex items-center gap-1.5">
+                              <button type="button" onClick={() => startEdit(task)} className="dashboard-card-action" data-tone="warning">Edit</button>
+                              <button type="button" onClick={() => handleDelete(task.id)} className="dashboard-card-action" data-tone="danger">Delete</button>
+                            </div>
                           )}
                         </div>
                       </div>
                       {task.description ? (
                         <p className="mt-1 text-xs text-stone-400">{task.description}</p>
                       ) : null}
-                      <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] text-stone-300">
-                        <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">{task.category}</span>
-                        <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
-                          {REPEAT_TYPES.find((r) => r.value === task.repeatType)?.label ?? task.repeatType}
-                        </span>
-                        <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
-                          {formatDisplayTime(getTaskDisplayTime(task))}
-                        </span>
-                        <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
-                          {task.repeatType === "once" ? task.date : task.startDate}
-                        </span>
-                        {task.repeatType !== "once" && (
-                          <span className={`rounded-full border px-2 py-0.5 font-semibold ${task.endDate ? "border-rose-400/25 bg-rose-500/10 text-rose-200" : "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"}`}>
-                            {task.endDate ? `Ends ${task.endDate}` : "Never Ends"}
+                      <div className="schedule-task-details mt-2.5">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-stone-300">
+                          <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">{task.category}</span>
+                          <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
+                            {REPEAT_TYPES.find((r) => r.value === task.repeatType)?.label ?? task.repeatType}
                           </span>
-                        )}
-                        {task.repeatType === "weekdays" && getTaskDisplayDays(task).map((day) => (
-                          <span key={day} className="rounded-full border border-amber-300/25 bg-amber-500/10 px-2 py-0.5 font-semibold text-amber-200">
-                            {DAY_SHORT[day]}
+                          <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
+                            {formatDisplayTime(getTaskDisplayTime(task))}
                           </span>
-                        ))}
+                          <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
+                            {task.repeatType === "once" ? task.date : task.startDate}
+                          </span>
+                          {task.repeatType !== "once" && (
+                            <span className="dashboard-card-status" data-tone={task.endDate ? "danger" : "success"}>
+                              {task.endDate ? `Ends ${task.endDate}` : "Never Ends"}
+                            </span>
+                          )}
+                          {task.repeatType === "weekdays" && getTaskDisplayDays(task).map((day) => (
+                            <span key={day} className="rounded-full border border-amber-300/25 bg-amber-500/10 px-2 py-0.5 font-semibold text-amber-200">
+                              {DAY_SHORT[day]}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                  </>
-                </article>
+                  </article>
                 );
               })
             )}
@@ -1180,10 +1174,10 @@ export default function Schedule({
         </section>
 
         <aside className="schedule-sidebar">
-          <div className="flex flex-col gap-0 rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl xl:h-[650px]">
+          <div className="schedule-sidebar-card flex flex-col gap-0 rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl">
 
             {/* Calendar */}
-            <section ref={calendarSectionRef} className="relative shrink-0">
+            <section ref={calendarSectionRef} className="schedule-calendar relative shrink-0">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold tracking-wide text-amber-200">Calendar</h3>
                 <div className="flex items-center gap-1">
@@ -1305,10 +1299,10 @@ export default function Schedule({
             </section>
 
             {/* Divider */}
-            <div className="my-3 shrink-0 border-t border-amber-100/10" />
+            <div className="schedule-sidebar-divider my-3 shrink-0 border-t border-amber-100/10" />
 
             {/* Task Logs — fills remaining height */}
-            <section className="flex min-h-0 flex-1 flex-col">
+            <section className="schedule-logs flex min-h-0 flex-1 flex-col">
               <p className="mb-2 shrink-0 text-sm font-semibold tracking-wide text-amber-200">Task Logs</p>
               {undoError && (
                 <p className="mb-2 shrink-0 rounded-md border border-rose-400/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-300">{undoError}</p>
@@ -1355,14 +1349,11 @@ export default function Schedule({
                             type="button"
                             onClick={() => handleUndoDelete(log.id)}
                             disabled={restoringLogId === log.id}
-                            className={`shrink-0 rounded border px-1.5 py-0.5 text-[11px] font-semibold transition ${
-                              restoringLogId === log.id
-                                ? "cursor-not-allowed border-stone-600/40 bg-white/5 text-stone-500"
-                                : "border-rose-400/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20"
-                            }`}
+                            className="dashboard-card-action"
+                            data-tone="warning"
                             title="Undo delete (available for 48 hours)"
                           >
-                            {restoringLogId === log.id ? "..." : "↺"}
+                            {restoringLogId === log.id ? "..." : "↺ Undo"}
                           </button>
                           <span className="shrink-0 text-[10px] text-amber-200/80">
                             {formatRemainingUndo(runtimeUndoRemainingMs)} left

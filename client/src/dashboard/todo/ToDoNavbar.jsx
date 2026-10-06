@@ -1,4 +1,3 @@
-import { motion as Motion } from "framer-motion";
 import { useState } from "react";
 
 const TABS = [
@@ -21,7 +20,7 @@ export default function ToDoNavbar({ active, onChange }) {
         <button
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
-          className="flex w-full items-center justify-between gap-2 rounded-2xl border border-amber-100/10 bg-white/6 px-4 py-2.5 text-sm font-semibold text-amber-300 shadow-xl shadow-black/25 backdrop-blur"
+          className="dashboard-section-trigger flex w-full items-center justify-between gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-xl shadow-black/25"
         >
           <span className="flex items-center gap-2">
             <span className="text-base leading-none">{activeTab.icon}</span>
@@ -41,11 +40,8 @@ export default function ToDoNavbar({ active, onChange }) {
                   key={tab.id}
                   type="button"
                   onClick={() => { onChange(tab.id); setMenuOpen(false); }}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
-                    active === tab.id
-                      ? "bg-gradient-to-r from-amber-400/20 to-orange-400/15 text-amber-300"
-                      : "text-stone-400 hover:bg-white/5 hover:text-stone-200"
-                  }`}
+                  aria-pressed={active === tab.id}
+                  className="dashboard-section-tab flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold"
                 >
                   <span className="text-base leading-none">{tab.icon}</span>
                   {tab.label}
@@ -61,27 +57,16 @@ export default function ToDoNavbar({ active, onChange }) {
         {TABS.map((tab) => {
           const isActive = active === tab.id;
           return (
-            <Motion.button
+            <button
               key={tab.id}
               type="button"
               onClick={() => onChange(tab.id)}
-              whileHover={!isActive ? { scale: 1.03, backgroundColor: "rgba(255,255,255,0.06)" } : {}}
-              whileTap={{ scale: 0.97 }}
-              animate={
-                isActive
-                  ? { boxShadow: "0 0 18px rgba(251,191,36,0.22)" }
-                  : { boxShadow: "0 0 0px rgba(251,191,36,0)" }
-              }
-              transition={{ duration: 0.2 }}
-              className={`flex min-w-[5rem] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors duration-200 ${
-                isActive
-                  ? "bg-gradient-to-r from-amber-400/20 to-orange-400/15 border border-amber-400/30 text-amber-300"
-                  : "border border-transparent text-stone-400 hover:text-amber-200"
-              }`}
+              aria-pressed={isActive}
+              className="dashboard-section-tab flex min-w-[5rem] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold"
             >
               <span className="text-base leading-none">{tab.icon}</span>
               <span>{tab.label}</span>
-            </Motion.button>
+            </button>
           );
         })}
       </nav>

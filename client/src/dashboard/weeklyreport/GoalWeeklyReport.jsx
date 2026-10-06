@@ -80,7 +80,7 @@ function ReportCard({ children, className = "", style }) {
   );
 }
 
-export default function GoalWeeklyReport() {
+export default function GoalWeeklyReport({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
   const [summaries, setSummaries] = useState([]);
   const [selectedWeekId, setSelectedWeekId] = useState(null);
@@ -251,8 +251,37 @@ export default function GoalWeeklyReport() {
   }, [selectedWeekId, selectedWeek?.summary]);
 
   return (
-    <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
-      <div className="journal-scroll min-w-0 flex-1 overflow-y-auto xl:max-h-[calc(100vh-170px)]">
+    <div className="weekly-goal-view flex flex-col gap-4 xl:flex-row xl:items-start">
+      <div className="weekly-goal-quick-weeks rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-3" data-demo-allow="true">
+        <p className="text-label-md">Little Monk's Analysis</p>
+        {loadingSummaries ? (
+          <p className="mt-2 text-xs text-stone-500">Loading weeks...</p>
+        ) : summaries.length === 0 ? (
+          <p className="mt-2 text-xs text-stone-500">No weekly summaries yet.</p>
+        ) : (
+          <div className="weekly-goal-quick-list mt-2 flex gap-2 overflow-x-auto pb-1">
+            {summaries.map((week) => (
+              <button
+                key={week.id}
+                type="button"
+                onClick={() => setSelectedWeekId(week.id)}
+                aria-pressed={selectedWeekId === week.id}
+                className={`min-w-[8.5rem] shrink-0 rounded-xl border px-3 py-2 text-left transition-colors ${
+                  selectedWeekId === week.id
+                    ? "border-amber-400/40 bg-amber-500/10 text-amber-100"
+                    : "border-amber-100/10 bg-black/20 text-stone-300 hover:border-amber-400/25"
+                }`}
+              >
+                <span className="block text-xs font-semibold">{week.date}</span>
+                <span className="mt-0.5 block text-[10px] text-stone-500">
+                  {week.goals?.length ?? week.goalCount ?? 0} goals reviewed
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="weekly-goal-main journal-scroll min-w-0 flex-1 overflow-y-auto xl:max-h-[calc(100vh-170px)]">
         <AnimatePresence mode="wait">
           {loadingSummaries || loadingWeekData ? (
             <Motion.div
@@ -283,7 +312,7 @@ export default function GoalWeeklyReport() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.22 }}
-            className="space-y-4 sm:space-y-6"
+            className="weekly-goal-main-body space-y-4 sm:space-y-6"
           >
             <ReportCard className="px-4 py-4 sm:px-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
@@ -293,7 +322,7 @@ export default function GoalWeeklyReport() {
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="weekly-goal-summary-pills mt-3 flex flex-wrap items-center gap-2">
                 <Motion.div
                   className="relative flex items-center gap-1.5 overflow-hidden rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1"
                   animate={{
@@ -304,13 +333,13 @@ export default function GoalWeeklyReport() {
                     ],
                   }}
                   transition={{
-                    boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+                    boxShadow: { duration: lowMotion ? 0 : 2.2, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" },
                   }}
                 >
                   <Motion.span
                     className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
                     animate={{ left: ["-40%", "130%"] }}
-                    transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                    transition={{ duration: lowMotion ? 0 : 1.8, repeat: lowMotion ? 0 : Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                   />
                   <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Avg Progress</p>
                   <span className="relative z-10 text-xs font-bold text-sky-300">{avgProgress}%</span>
@@ -331,13 +360,13 @@ export default function GoalWeeklyReport() {
                     ],
                   }}
                   transition={{
-                    boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+                    boxShadow: { duration: lowMotion ? 0 : 2.2, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" },
                   }}
                 >
                   <Motion.span
                     className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
                     animate={{ left: ["-40%", "130%"] }}
-                    transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                    transition={{ duration: lowMotion ? 0 : 1.8, repeat: lowMotion ? 0 : Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                   />
                   <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Sub Goal Pending</p>
                   <span className="relative z-10 text-xs font-bold text-rose-300">
@@ -357,14 +386,14 @@ export default function GoalWeeklyReport() {
               </div>
             </ReportCard>
 
-            <ReportCard className="flex min-h-[11rem] flex-col overflow-hidden xl:h-[17vh]">
+            <ReportCard className="weekly-goal-ai flex min-h-[11rem] flex-col overflow-hidden xl:h-[17vh]">
               <div className="mb-3 flex shrink-0 items-center gap-2">
                 <Motion.img
                   src={littleMonkLogo}
                   alt="Little Monk"
                   className="h-14 w-17 object-contain"
                   animate={{ y: [0, -3, 0] }}
-                  transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+                  transition={{ duration: lowMotion ? 0 : 2.8, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" }}
                 />
                 <div>
                   <p className="text-label-md">Little Monk's Goal Summary</p>
@@ -400,10 +429,10 @@ export default function GoalWeeklyReport() {
               </div>
             </ReportCard>
 
-            <ReportCard className="flex min-h-[22rem] flex-col overflow-hidden xl:h-[47vh]">
+            <ReportCard className="weekly-goal-progress-card flex min-h-[22rem] flex-col overflow-hidden xl:h-[47vh]">
               <div className="mb-3 flex shrink-0 flex-col gap-3 bg-[#1d0f0c]/95 pb-2 backdrop-blur sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Goal Progress</p>
-                <div className="flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:rounded-full">
+                <div className="weekly-goal-filters flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:rounded-full">
                   {GOAL_FILTERS.map((filter) => (
                     <button
                       key={filter}
@@ -421,7 +450,7 @@ export default function GoalWeeklyReport() {
                 </div>
               </div>
               <div className="relative min-h-0 flex-1">
-                <div ref={goalListRef} className="journal-scroll min-h-0 h-full space-y-3 overflow-y-auto scroll-smooth pr-1">
+                <div ref={goalListRef} className="weekly-goal-list journal-scroll min-h-0 h-full space-y-3 overflow-y-auto scroll-smooth pr-1">
                   {filteredGoals.length === 0 ? (
                     <p className="rounded-xl border border-dashed border-amber-100/10 py-8 text-center text-xs text-stone-600">
                       No goals found for this filter.
@@ -475,15 +504,15 @@ export default function GoalWeeklyReport() {
         </AnimatePresence>
       </div>
 
-      <div className="grid w-full items-start gap-4 xl:w-[360px] xl:shrink-0">
-        <ReportCard className="flex min-h-[20rem] flex-col overflow-hidden xl:h-[38vh]">
+      <div className="weekly-goal-sidebar grid w-full items-start gap-4 xl:w-[360px] xl:shrink-0">
+        <ReportCard className="weekly-goal-weeks-card flex min-h-[20rem] flex-col overflow-hidden xl:h-[38vh]">
           <div className="mb-4 flex shrink-0 items-center gap-3">
             <Motion.img
               src={littleMonkLogo}
               alt="Little Monk AI Assistant"
               className="h-16 w-16 object-contain"
               animate={{ y: [0, -4, 0] }}
-              transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+              transition={{ duration: lowMotion ? 0 : 2.8, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" }}
             />
             <div>
               <h3 className="text-label-md">Little Monk's Analysis</h3>
@@ -530,12 +559,12 @@ export default function GoalWeeklyReport() {
           </div>
         </ReportCard>
 
-        <ReportCard className="flex min-h-[22rem] flex-col overflow-hidden xl:h-[42vh]">
+        <ReportCard className="weekly-goal-risk-card flex min-h-[22rem] flex-col overflow-hidden xl:h-[42vh]">
           <div className="mb-4 shrink-0">
             <p className="text-label-md">Risk Indicator</p>
             <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">Progress vs deadline</p>
           </div>
-          <div className="grid shrink-0 grid-cols-1 gap-2 text-center sm:grid-cols-3">
+          <div className="weekly-goal-risk-buttons grid shrink-0 grid-cols-1 gap-2 text-center sm:grid-cols-3">
             {Object.entries(riskCounts).map(([label, count]) => {
               const status =
                 label === "On Track"

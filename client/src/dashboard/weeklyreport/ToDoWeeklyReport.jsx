@@ -287,7 +287,7 @@ function ReportCard({ children, className = "" }) {
   );
 }
 
-export default function ToDoWeeklyReport() {
+export default function ToDoWeeklyReport({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
   const [selectedWeekId, setSelectedWeekId] = useState(null);
   const [summaries, setSummaries] = useState([]);
@@ -379,10 +379,38 @@ export default function ToDoWeeklyReport() {
   }, [selectedWeekId, isDemoMode]);
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+    <div className="weekly-todo-view flex flex-col gap-4 lg:flex-row lg:items-start">
+
+      <div className="weekly-todo-quick-weeks rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-3" data-demo-allow="true">
+        <p className="text-label-md">Little Monk's Analysis</p>
+        {loadingSummaries ? (
+          <p className="mt-2 text-xs text-stone-500">Loading weeks...</p>
+        ) : summaries.length === 0 ? (
+          <p className="mt-2 text-xs text-stone-500">No weekly summaries yet.</p>
+        ) : (
+          <div className="weekly-todo-quick-list mt-2 flex gap-2 overflow-x-auto pb-1">
+            {summaries.map((week) => (
+              <button
+                key={week.id}
+                type="button"
+                onClick={() => setSelectedWeekId(week.id)}
+                aria-pressed={selectedWeekId === week.id}
+                className={`min-w-[8.5rem] shrink-0 rounded-xl border px-3 py-2 text-left transition-colors ${
+                  selectedWeekId === week.id
+                    ? "border-amber-400/40 bg-amber-500/10 text-amber-100"
+                    : "border-amber-100/10 bg-black/20 text-stone-300 hover:border-amber-400/25"
+                }`}
+              >
+                <span className="block text-xs font-semibold">{week.date}</span>
+                <span className="mt-0.5 block text-[10px] text-stone-500">{week.signal}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── LEFT: Main analysis panel ─────────────────────────── */}
-      <div className="journal-scroll min-w-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-170px)]">
+      <div className="weekly-todo-main journal-scroll min-w-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-170px)]">
         <AnimatePresence mode="wait">
           {loadingWeekData ? (
             <Motion.div
@@ -402,7 +430,7 @@ export default function ToDoWeeklyReport() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22 }}
-              className="space-y-4"
+              className="weekly-todo-main-body space-y-4"
             >
               {/* Heading */}
               <div className="dashboard-glow-card rounded-[1.4rem] border border-amber-100/10 bg-white/6 px-4 py-3 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:px-5 sm:py-2.5">
@@ -411,7 +439,7 @@ export default function ToDoWeeklyReport() {
                     <p className="text-label-md">Weekly Summary</p>
                     <p className="text-[11px] font-semibold text-stone-500">{weekData.date}</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                  <div className="weekly-todo-heading-actions flex flex-wrap items-center gap-2 sm:justify-end">
                     <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
                       {weekData.signal}
                     </span>
@@ -426,7 +454,7 @@ export default function ToDoWeeklyReport() {
                 </div>
 
                 {/* Summary pills row */}
-                <div className="mt-2 flex flex-wrap items-center gap-2">
+                <div className="weekly-todo-summary-pills mt-2 flex flex-wrap items-center gap-2">
                   {/* Completion Rate */}
                   <div className="flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Completion</p>
@@ -445,13 +473,13 @@ export default function ToDoWeeklyReport() {
                       ],
                     }}
                     transition={{
-                      boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+                      boxShadow: { duration: lowMotion ? 0 : 2.2, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" },
                     }}
                   >
                     <Motion.span
                       className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
                       animate={{ left: ["-40%", "130%"] }}
-                      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                      transition={{ duration: lowMotion ? 0 : 1.8, repeat: lowMotion ? 0 : Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                     />
                     <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Miss Rate</p>
                     <span className="relative z-10 text-xs font-bold text-rose-300">
@@ -486,13 +514,13 @@ export default function ToDoWeeklyReport() {
                           ],
                         }}
                         transition={{
-                          boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+                          boxShadow: { duration: lowMotion ? 0 : 2.2, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" },
                         }}
                       >
                         <Motion.span
                           className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
                           animate={{ left: ["-40%", "130%"] }}
-                          transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                          transition={{ duration: lowMotion ? 0 : 1.8, repeat: lowMotion ? 0 : Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                         />
                         <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Consistency</p>
                         <span className={`relative z-10 text-xs font-bold ${
@@ -530,7 +558,7 @@ export default function ToDoWeeklyReport() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="dashboard-glow-card flex min-h-[15rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5 lg:h-[24vh]"
+                className="weekly-todo-ai dashboard-glow-card flex min-h-[15rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5 lg:h-[24vh]"
               >
                 <div className="mb-3 flex items-center gap-2">
                   <Motion.img
@@ -538,7 +566,7 @@ export default function ToDoWeeklyReport() {
                     alt="Little Monk"
                     className="h-14 w-17 object-contain"
                     animate={{ y: [0, -3, 0] }}
-                    transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+                    transition={{ duration: lowMotion ? 0 : 2.8, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" }}
                   />
                   <div>
                     <p className="text-label-md">Little Monk's Analysis</p>
@@ -561,15 +589,15 @@ export default function ToDoWeeklyReport() {
               </Motion.div>
 
               {/* 2×2 card grid */}
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div className="weekly-todo-card-grid grid grid-cols-1 gap-4 xl:grid-cols-2">
 
                 {/* Card 1 — Priority Breakdown */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
-                  className="dashboard-glow-card flex min-h-[12rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[20vh]"
+                  className="weekly-todo-stat-card dashboard-glow-card flex min-h-[12rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[20vh]"
                 >
                   <div className="mb-3 flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">By Priority</p>
-                    <div className="flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
+                    <div className="weekly-todo-card-filter flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
                       {["All", "High", "Medium", "Low"].map((p) => (
                         <button key={p} type="button" onClick={() => setPriorityFilter(p)}
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
@@ -641,12 +669,12 @@ export default function ToDoWeeklyReport() {
 
                 {/* Card 2 — Important Categories */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.21 }}
-                  className="dashboard-glow-card flex min-h-[12rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[20vh]"
+                  className="weekly-todo-stat-card dashboard-glow-card flex min-h-[12rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[20vh]"
                 >
                   <div className="mb-3 flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Important Categories</p>
                     {(weekData.importantCategories || []).length > 0 && (
-                      <div className="flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
+                      <div className="weekly-todo-card-filter flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
                         {["All", ...(weekData.importantCategories || []).map((c) => c.name)].map((opt) => (
                           <button key={opt} type="button" onClick={() => setKeyCategoryFilter(opt)}
                             className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
@@ -728,7 +756,7 @@ export default function ToDoWeeklyReport() {
 
                 {/* Card 3 — Daily Breakdown */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}
-                  className="dashboard-glow-card flex min-h-[13rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[23vh]"
+                  className="weekly-todo-stat-card dashboard-glow-card flex min-h-[13rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[23vh]"
                 >
                   <p className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Daily Breakdown</p>
                   <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
@@ -769,11 +797,11 @@ export default function ToDoWeeklyReport() {
                 </Motion.div>
                 {/* Card 4 — Task Timing Report */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                  className="dashboard-glow-card flex min-h-[13rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[23vh]"
+                  className="weekly-todo-stat-card dashboard-glow-card flex min-h-[13rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[23vh]"
                 >
                   <div className="mb-3 flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Task Timing Report</p>
-                    <div className="flex w-full flex-wrap items-center rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
+                    <div className="weekly-todo-card-filter flex w-full flex-wrap items-center rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
                       {["completed", "missed"].map((f) => (
                         <button key={f} type="button" onClick={() => setTimingFilter(f)}
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
@@ -838,20 +866,20 @@ export default function ToDoWeeklyReport() {
       </div>
 
       {/* ── RIGHT: Two cards ──────────────────────────────────── */}
-      <div className="grid w-full items-start gap-4 lg:w-[360px] lg:shrink-0 xl:w-[380px]">
+      <div className="weekly-todo-sidebar grid w-full items-start gap-4 lg:w-[360px] lg:shrink-0 xl:w-[380px]">
 
         {/* Card 1 — Little Monk Analysis */}
-        <ReportCard className="flex min-h-[16rem] flex-col overflow-hidden lg:h-[38vh]">
+        <ReportCard className="weekly-todo-weeks-card flex min-h-[16rem] flex-col overflow-hidden lg:h-[38vh]">
           <div className="mb-4 flex shrink-0 items-center gap-3">
             <Motion.div
               className="relative grid h-16 w-17 place-items-center"
               animate={{ y: [0, -4, 0] }}
-              transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+              transition={{ duration: lowMotion ? 0 : 2.8, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" }}
             >
               <Motion.span
                 className="absolute inset-2 rounded-full bg-amber-400/15 blur-md"
                 animate={{ opacity: [0.35, 0.8, 0.35], scale: [0.9, 1.12, 0.9] }}
-                transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+                transition={{ duration: lowMotion ? 0 : 2.8, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" }}
               />
               <Motion.img
                 src={littleMonkLogo}
@@ -893,7 +921,7 @@ export default function ToDoWeeklyReport() {
                         : "border-amber-100/10 bg-stone-950/45 hover:border-amber-400/20"
                     }`}
                   >
-                    <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                    <div className="weekly-todo-week-row grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
                       <div className="min-w-0">
                         {displaySignal && (
                           <span className="text-xs font-semibold text-amber-300/80">{displaySignal}</span>
@@ -921,7 +949,7 @@ export default function ToDoWeeklyReport() {
         </ReportCard>
 
         {/* Card 2 — Categorywise Performance */}
-        <ReportCard className="flex min-h-[18rem] flex-col overflow-hidden lg:h-[42vh]">
+        <ReportCard className="weekly-todo-category-card flex min-h-[18rem] flex-col overflow-hidden lg:h-[42vh]">
           <div className="mb-4 shrink-0 space-y-3">
             <div className="flex items-center gap-2">
               <span className="text-base">📊</span>
@@ -972,7 +1000,7 @@ export default function ToDoWeeklyReport() {
                       const isCompletion = categoryFilter === "completion";
                       return (
                         <div key={cat.name}>
-                          <div className="mb-1 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="weekly-todo-category-row mb-1 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
                             <span className="text-xs font-semibold text-stone-300">{cat.name}</span>
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] text-stone-500">

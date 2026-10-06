@@ -113,8 +113,8 @@ export default function Important({
   };
 
   return (
-    <div className="space-y-5">
-      <div>
+    <div className="important-page">
+      <div className="important-heading">
         <p className="text-label-lg">Important</p>
         <h2 className="mt-2 text-2xl font-bold text-amber-100">Important Tasks</h2>
         <p className="mt-2 text-sm text-stone-400">High-priority view + important categories with repeat schedule details.</p>
@@ -159,7 +159,7 @@ export default function Important({
             </span>
           </div>
 
-          <div className="journal-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+          <div className="important-task-list journal-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             {categoryTasks.length === 0 ? (
               <p className="mt-6 text-center text-xs text-stone-500">No tasks in this important category yet.</p>
             ) : (
@@ -199,15 +199,15 @@ export default function Important({
             ))}
           </div>
 
-          <div className="journal-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+          <div className="important-task-list journal-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             {filteredByPriority.length === 0 ? (
               <p className="mt-8 text-center text-xs text-stone-500">No tasks found for this priority filter.</p>
             ) : (
               filteredByPriority.map((task) => (
                 <article key={task.id} className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 p-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
-                    <p className="text-sm font-semibold text-stone-100">{task.title}</p>
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${priorityStyles[task.priority]}`}>
+                    <p className="min-w-0 flex-1 break-words text-sm font-semibold text-stone-100">{task.title}</p>
+                    <span className={`dashboard-card-priority ${priorityStyles[task.priority]}`}>
                       {task.priority}
                     </span>
                   </div>

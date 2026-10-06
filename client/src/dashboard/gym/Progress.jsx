@@ -234,6 +234,10 @@ function MiniChart({ points, unit, gradientId = "mcg" }) {
   const ys = vals.map((v) => P + ((max - v) / range) * (H - P * 2));
   const line = xs.map((x, i) => `${i === 0 ? "M" : "L"} ${x} ${ys[i]}`).join(" ");
   const area = `${line} L ${xs[xs.length - 1]} ${H} L ${xs[0]} ${H} Z`;
+  const lastIndex = points.length - 1;
+  const labelIndexes = points.length <= 4
+    ? points.map((_, index) => index)
+    : [...new Set([0, Math.floor(lastIndex / 3), Math.floor(lastIndex * 2 / 3), lastIndex])];
 
   return (
     <div className="overflow-hidden rounded-xl border border-amber-100/8 bg-black/20">
@@ -249,12 +253,15 @@ function MiniChart({ points, unit, gradientId = "mcg" }) {
         {xs.map((x, i) => <circle key={i} cx={x} cy={ys[i]} r="3" fill="rgb(251,191,36)" opacity="0.85" />)}
       </svg>
       <div className="flex justify-between px-3 pb-2">
-        {points.map((p, i) => (
-          <div key={i} className="text-center">
-            <p className="text-[9px] text-stone-500">{fmtShort(p.date)}</p>
-            <p className="text-[9px] font-semibold text-amber-200">{p.value}{unit ? ` ${unit}` : ""}</p>
-          </div>
-        ))}
+        {labelIndexes.map((index) => {
+          const point = points[index];
+          return (
+            <div key={index} className="min-w-0 text-center">
+              <p className="text-[9px] text-stone-500">{fmtShort(point.date)}</p>
+              <p className="text-[9px] font-semibold text-amber-200">{point.value}{unit ? ` ${unit}` : ""}</p>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -268,7 +275,7 @@ const WORKOUT_METRICS = [
   { key: "restBetweenSets", label: "Rest b/w Sets", unit: "sec" },
 ];
 
-function WorkoutProgress({ workouts }) {
+function WorkoutProgress({ workouts, lowMotion = false }) {
   const { isDemoMode } = useAuth();
   const [progressEntries, setProgressEntries] = useState(() => (isDemoMode ? loadWorkoutProgressEntries(workouts) : []));
   const [groupFilter, setGroupFilter] = useState("All");
@@ -348,8 +355,8 @@ function WorkoutProgress({ workouts }) {
   }
 
   return (
-    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-      <div className="min-w-0 rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
+    <div className="gym-progress-workouts grid min-w-0 gap-4">
+      <div className="gym-progress-workout-panel min-w-0 rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Exercises</p>
           <span className="shrink-0 rounded-full border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-300">
@@ -373,17 +380,17 @@ function WorkoutProgress({ workouts }) {
           ))}
         </div>
 
-        <div className="journal-scroll mt-3 max-h-[40vh] space-y-2 overflow-y-auto pr-1 sm:max-h-[54vh] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
+        <div className="gym-progress-workout-list journal-scroll mt-3 max-h-[40vh] space-y-2 overflow-y-auto pr-1 sm:max-h-[54vh] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
           {visibleExercises.map((exercise, ei) => (
             <Motion.button
               key={exercise.exerciseId}
               type="button"
               onClick={() => setSelectedExerciseId(exercise.exerciseId)}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: ei * 0.04, duration: 0.18 }}
-              whileHover={{ x: 2 }}
-              className={`w-full rounded-xl border px-3 py-2 text-left transition ${
+              initial={lowMotion ? false : { opacity: 0, x: -8 }}
+              animate={lowMotion ? undefined : { opacity: 1, x: 0 }}
+              transition={lowMotion ? { duration: 0 } : { delay: ei * 0.04, duration: 0.18 }}
+              whileHover={lowMotion ? undefined : { x: 2 }}
+              className={`gym-progress-workout-option w-full rounded-xl border px-3 py-2 text-left transition ${
                 selectedExerciseId === exercise.exerciseId
                   ? "border-amber-300/40 bg-amber-500/10"
                   : "border-amber-100/10 bg-white/5 hover:bg-white/10"
@@ -403,7 +410,7 @@ function WorkoutProgress({ workouts }) {
         </div>
       </div>
 
-      <div className="min-w-0 space-y-4">
+      <div className="gym-progress-workout-detail min-w-0 space-y-4">
         {selectedExercise && (
           <div className="rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
@@ -418,7 +425,7 @@ function WorkoutProgress({ workouts }) {
           </div>
         )}
 
-        <div className="journal-scroll max-h-[42vh] space-y-3 overflow-y-auto pr-1 sm:max-h-[58vh] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
+        <div className="gym-progress-workout-charts journal-scroll max-h-[42vh] space-y-3 overflow-y-auto pr-1 sm:max-h-[58vh] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
           {selectedExercise && WORKOUT_METRICS.map((metric, mi) => {
             const rawPoints = selectedExercise.logs
               .filter((log) => log[metric.key] != null)
@@ -431,9 +438,9 @@ function WorkoutProgress({ workouts }) {
               <Motion.div
                 key={metric.key}
                 className="rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: mi * 0.06, duration: 0.2 }}
+                initial={lowMotion ? false : { opacity: 0, y: 8 }}
+                animate={lowMotion ? undefined : { opacity: 1, y: 0 }}
+                transition={lowMotion ? { duration: 0 } : { delay: mi * 0.06, duration: 0.2 }}
               >
                 <div className="mb-2 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs font-semibold text-stone-200">{metric.label}</p>
@@ -458,7 +465,7 @@ function WorkoutProgress({ workouts }) {
 }
 
 /* ─── Measurements Progress tab ────────────────────────────── */
-function MeasurementsProgress() {
+function MeasurementsProgress({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
   const [entries, setEntries] = useState(() => (isDemoMode ? loadEntries() : []));
   const [groupFilter, setGroupFilter] = useState("All");
@@ -509,9 +516,9 @@ function MeasurementsProgress() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="gym-progress-measurements space-y-4">
       {/* Group filter */}
-      <div className="flex gap-1.5 overflow-x-auto">
+      <div className="gym-progress-group-filters flex gap-1.5 overflow-x-auto">
         {MEAS_GROUPS.map((g) => (
           <button key={g} type="button" onClick={() => setGroupFilter(g)}
             className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
@@ -524,19 +531,19 @@ function MeasurementsProgress() {
         ))}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+      <div className="gym-progress-measurement-layout grid gap-4">
 
         {/* Field list */}
-        <div className="rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
+        <div className="gym-progress-metric-panel rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
           <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Select Metric</p>
-          <div className="journal-scroll max-h-[42vh] space-y-1 overflow-y-auto pr-1 sm:max-h-[58.1vh] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
+          <div className="gym-progress-metric-list journal-scroll max-h-[42vh] space-y-1 overflow-y-auto pr-1 sm:max-h-[58.1vh] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
             {visibleFields.map((f) => {
               const vals = entries.map((e) => parseFloat(e[f.key])).filter((v) => !isNaN(v));
               const latest = vals.length ? vals[vals.length - 1] : null;
               const diff = vals.length > 1 ? vals[vals.length - 1] - vals[0] : null;
               return (
                 <button key={f.key} type="button" onClick={() => setSelectedField(f.key)}
-                  className={`flex w-full flex-col items-start gap-2 rounded-xl border px-3 py-2 text-left transition sm:flex-row sm:items-center sm:justify-between sm:gap-3 ${
+                  className={`gym-progress-metric-option flex w-full flex-col items-start gap-2 rounded-xl border px-3 py-2 text-left transition sm:flex-row sm:items-center sm:justify-between sm:gap-3 ${
                     selectedField === f.key
                       ? "border-amber-300/40 bg-amber-500/10"
                       : "border-amber-100/8 bg-white/3 hover:bg-white/6"
@@ -559,8 +566,8 @@ function MeasurementsProgress() {
         </div>
 
         {/* Chart + history */}
-        <div className="space-y-4">
-          <div className="rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
+        <div className="gym-progress-measurement-detail space-y-4">
+          <div className="gym-progress-chart rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
             <div className="mb-2 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs font-semibold text-stone-200">{activeField?.label} over time</p>
               {points.length > 1 && (
@@ -577,9 +584,9 @@ function MeasurementsProgress() {
           </div>
 
           {/* Check-in history */}
-          <div className="rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
+          <div className="gym-progress-history rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
             <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Check-in Updates</p>
-            <div className="journal-scroll max-h-[37vh] space-y-2 overflow-y-auto pr-1 sm:max-h-[42vh] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
+            <div className="gym-progress-history-list journal-scroll max-h-[37vh] space-y-2 overflow-y-auto pr-1 sm:max-h-[42vh] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
               {[...entries].reverse().map((entry, idx, arr) => {
                 const prev = arr[idx + 1];
                 const changed = visibleFields.filter((f) => {
@@ -591,10 +598,10 @@ function MeasurementsProgress() {
                   <Motion.div
                     key={entry.id}
                     className="rounded-xl border border-amber-100/10 bg-black/15 p-3"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.06, duration: 0.2 }}
-                    whileHover={{ y: -1, borderColor: "rgba(251,191,36,0.18)" }}
+                    initial={lowMotion ? false : { opacity: 0, y: 8 }}
+                    animate={lowMotion ? undefined : { opacity: 1, y: 0 }}
+                    transition={lowMotion ? { duration: 0 } : { delay: idx * 0.06, duration: 0.2 }}
+                    whileHover={lowMotion ? undefined : { y: -1, borderColor: "rgba(251,191,36,0.18)" }}
                   >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-xs font-semibold text-stone-100">{fmtDate(entry.checkInDate)}</span>
@@ -634,7 +641,7 @@ function MeasurementsProgress() {
 }
 
 /* ─── Main component ────────────────────────────────────────── */
-export default function Progress({ initialTab = "measurements" }) {
+export default function Progress({ initialTab = "measurements", lowMotion = false }) {
   const [tab, setTab] = useState(initialTab);
   const [workouts, setWorkouts] = useState(loadWorkouts);
 
@@ -653,10 +660,10 @@ export default function Progress({ initialTab = "measurements" }) {
   }, []);
 
   return (
-    <div className="space-y-4">
+    <div className="gym-progress-view space-y-4">
 
       {/* Tab bar */}
-      <div className="flex flex-col gap-2 rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-1.5 sm:flex-row sm:items-center sm:rounded-2xl">
+      <div className="gym-progress-tabs flex flex-col gap-2 rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-1.5 sm:flex-row sm:items-center sm:rounded-2xl">
         {[
           { id: "measurements", label: "📏 Measurements Progress" },
           { id: "workouts",     label: "🏋️ Workout Progress"        },
@@ -667,39 +674,17 @@ export default function Progress({ initialTab = "measurements" }) {
               key={id}
               type="button"
               onClick={() => setTab(id)}
-              animate={isActive
-                ? { scale: 1, boxShadow: "0 0 20px rgba(251,191,36,0.35)" }
-                : {
-                    scale: [1, 1.04, 1],
-                    boxShadow: [
-                      "0 0 0px rgba(251,191,36,0)",
-                      "0 0 12px rgba(251,191,36,0.4)",
-                      "0 0 0px rgba(251,191,36,0)",
-                    ],
-                  }
-              }
-              transition={isActive
-                ? { duration: 0.2 }
-                : { duration: 2, repeat: Infinity, ease: "easeInOut" }
-              }
-              whileHover={!isActive ? {
+              whileHover={!lowMotion && !isActive ? {
                 scale: 1.06,
                 boxShadow: "0 0 18px rgba(251,191,36,0.55), 0 0 36px rgba(251,191,36,0.2)",
-              } : {}}
-              whileTap={{ scale: 0.95 }}
+              } : undefined}
+              whileTap={lowMotion ? undefined : { scale: 0.95 }}
               className={`relative w-full overflow-hidden rounded-xl py-2.5 text-xs font-semibold transition duration-200 sm:flex-1 ${
                 isActive
                   ? "border border-amber-300/40 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] text-stone-950"
                   : "border border-amber-100/10 text-stone-400 hover:border-amber-300/25 hover:bg-amber-500/10 hover:text-amber-200"
               }`}
             >
-              {!isActive && (
-                <Motion.span
-                  className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/15 blur-sm"
-                  animate={{ left: ["-40%", "130%"] }}
-                  transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.4, ease: "easeInOut" }}
-                />
-              )}
               <span className="relative z-10">{label}</span>
             </Motion.button>
           );
@@ -707,16 +692,17 @@ export default function Progress({ initialTab = "measurements" }) {
       </div>
 
       {/* Tab content */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={!lowMotion}>
         <Motion.div
           key={tab}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.2, ease: "easeInOut" }}
+          className="gym-progress-tab-content"
+          initial={lowMotion ? false : { opacity: 0, y: 12 }}
+          animate={lowMotion ? undefined : { opacity: 1, y: 0 }}
+          exit={lowMotion ? undefined : { opacity: 0, y: -6 }}
+          transition={lowMotion ? { duration: 0 } : { duration: 0.2, ease: "easeInOut" }}
         >
-          {tab === "measurements" && <MeasurementsProgress />}
-          {tab === "workouts" && <WorkoutProgress workouts={workouts} />}
+          {tab === "measurements" && <MeasurementsProgress lowMotion={lowMotion} />}
+          {tab === "workouts" && <WorkoutProgress workouts={workouts} lowMotion={lowMotion} />}
         </Motion.div>
       </AnimatePresence>
     </div>

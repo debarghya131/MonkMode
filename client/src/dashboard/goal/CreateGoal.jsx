@@ -1,9 +1,9 @@
+import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
-
-const PANEL_H = "620px";
+import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 
 const GOAL_TYPES = [
   {
@@ -157,6 +157,8 @@ const emitGoalsUpdated = () => {
 
 export default function CreateGoal({ onGoalChanged }) {
   const { isDemoMode } = useAuth();
+  const lowMotion = useMobileLowMotion();
+  const GoalListCard = lowMotion ? "article" : Motion.article;
   const today = useMemo(() => toISO(new Date()), []);
   const [error, setError] = useState("");
   const [undoError, setUndoError] = useState("");
@@ -211,11 +213,22 @@ export default function CreateGoal({ onGoalChanged }) {
   }, [fetchGoalData]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setNowMs(Date.now());
+    const latestUndoExpiry = goalLogs.reduce((latest, log) => {
+      if (log.action !== "deleted" || !log.deleteUndoExpiresAt) return latest;
+      const expiry = new Date(log.deleteUndoExpiresAt).getTime();
+      return Number.isFinite(expiry) ? Math.max(latest, expiry) : latest;
+    }, 0);
+
+    if (latestUndoExpiry <= Date.now()) return undefined;
+
+    const timer = window.setInterval(() => {
+      const nextNow = Date.now();
+      setNowMs(nextNow);
+      if (nextNow >= latestUndoExpiry) window.clearInterval(timer);
     }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+
+    return () => window.clearInterval(timer);
+  }, [goalLogs]);
 
   const activeGoals = goals.filter((goal) => !goal.deletedAt && goal.deadline >= today);
   const archivedGoals = goals.filter((goal) => goal.deletedAt || goal.deadline < today);
@@ -472,17 +485,14 @@ export default function CreateGoal({ onGoalChanged }) {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="mb-5">
+    <div className="goal-create-view">
+      <div className="goal-create-heading">
         <p className="text-label-lg">Create Goal</p>
         <h2 className="mt-2 text-2xl font-bold text-amber-100">Build Your Goals</h2>
       </div>
 
-      <div className="schedule-layout">
-        <div
-          className="schedule-main journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5 xl:h-[620px]"
-          style={{ overflowY: "auto" }}
-        >
+      <div className="schedule-layout goal-create-layout">
+        <div className="schedule-main goal-create-form journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
           <h3 className="mb-4 text-sm font-semibold text-amber-200">New Goal</h3>
           <form className="space-y-3" onSubmit={handleSubmit}>
             <div>
@@ -515,7 +525,7 @@ export default function CreateGoal({ onGoalChanged }) {
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                 Goal Type *
               </label>
-              <div className="grid grid-cols-1 gap-2">
+              <div className="goal-type-options grid grid-cols-1 gap-2">
                 {GOAL_TYPES.map((type) => (
                   <button
                     key={type.value}
@@ -534,12 +544,12 @@ export default function CreateGoal({ onGoalChanged }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="goal-date-fields grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Start Date *
                 </label>
-                <input
+<DashboardDateTimeInput
                   type="date"
                   value={form.startDate}
                   disabled={Boolean(editingId && isEditingStartedGoal)}
@@ -556,7 +566,7 @@ export default function CreateGoal({ onGoalChanged }) {
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Deadline *
                 </label>
-                <input
+<DashboardDateTimeInput
                   type="date"
                   value={form.deadline}
                   min={minimumDeadline || form.startDate || undefined}
@@ -577,7 +587,7 @@ export default function CreateGoal({ onGoalChanged }) {
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                 Priority Level *
               </label>
-              <div className="flex flex-wrap gap-1.5 rounded-lg p-0.5">
+              <div className="goal-priority-options flex flex-wrap gap-1.5 rounded-lg p-0.5">
                 {PRIORITIES.map((priority) => (
                   <button
                     key={priority}
@@ -618,9 +628,9 @@ export default function CreateGoal({ onGoalChanged }) {
         </div>
 
         <section
-          className="schedule-all-tasks rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5 xl:h-[650px]"
+          className="schedule-all-tasks goal-create-list rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5"
         >
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+          <div className="goal-create-list-header mb-4 flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-amber-200">All Goals</p>
               <p className="mt-0.5 text-xs text-stone-400">Your created goals appear here.</p>
@@ -646,7 +656,7 @@ export default function CreateGoal({ onGoalChanged }) {
             </span>
           </div>
 
-          <div className="journal-scroll flex-1 space-y-2 overflow-y-auto pr-1">
+          <div className="goal-create-list-body journal-scroll flex-1 space-y-2 overflow-y-auto pr-1">
             {loading ? (
               <p className="mt-6 text-center text-xs text-stone-500">Loading goals...</p>
             ) : displayedGoals.length === 0 ? (
@@ -664,57 +674,55 @@ export default function CreateGoal({ onGoalChanged }) {
                 );
 
                 return (
-                <Motion.article
+                <GoalListCard
                   key={goal.id}
-                  className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.06, duration: 0.22 }}
-                  whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
+                  className="goal-created-card rounded-xl border border-amber-100/10 bg-white/5 p-3"
+                  {...(lowMotion ? {} : {
+                    initial: { opacity: 0, y: 8 },
+                    animate: { opacity: 1, y: 0 },
+                    transition: { delay: i * 0.06, duration: 0.22 },
+                    whileHover: { y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }
+                  })}
                 >
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="goal-created-card-head flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <p className="min-w-0 flex-1 break-words text-sm font-semibold leading-relaxed text-stone-100">
                       {goal.title}
                     </p>
-                    <div className="flex w-full flex-wrap items-center justify-start gap-1.5 sm:w-auto sm:shrink-0 sm:justify-end">
-                      {goalsView === "archive" && (
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                          isDeletedGoal
-                            ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
-                            : isEndedGoal
-                              ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
-                              : "border-stone-500/20 bg-white/5 text-stone-400"
-                        }`}>
-                          {isDeletedGoal ? "Deleted" : isEndedGoal ? "Ended" : "Archived"}
+                    <div className="goal-created-card-controls flex w-full flex-col items-start gap-2 sm:w-auto sm:shrink-0 sm:items-end">
+                      <div className="goal-created-card-state flex flex-wrap items-center gap-1.5 sm:justify-end">
+                        {goalsView === "archive" && (
+                          <span className="dashboard-card-status" data-tone={isDeletedGoal || isEndedGoal ? "danger" : undefined}>
+                            {isDeletedGoal ? "Deleted" : isEndedGoal ? "Ended" : "Archived"}
+                          </span>
+                        )}
+                        <span className={`dashboard-card-priority ${PRIORITY_STYLES[goal.priority]}`}>
+                          {goal.priority}
                         </span>
-                      )}
-                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${PRIORITY_STYLES[goal.priority]}`}>
-                        {goal.priority}
-                      </span>
+                      </div>
                       {goalsView !== "archive" && (
-                        <>
+                        <div className="goal-created-card-actions flex flex-wrap items-center gap-1.5 sm:justify-end">
                           <button
                             type="button"
                             onClick={() => startEdit(goal)}
-                            className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-400/20"
+                            className="dashboard-card-action" data-tone="warning"
                           >
                             Edit
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDelete(goal.id)}
-                            className="rounded border border-rose-400/25 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
+                            className="dashboard-card-action" data-tone="danger"
                           >
                             Delete
                           </button>
-                        </>
+                        </div>
                       )}
                     </div>
                   </div>
                   {goal.description && (
                     <p className="mt-1 break-words text-xs leading-relaxed text-stone-400">{goal.description}</p>
                   )}
-                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] text-stone-300">
+                  <div className="goal-created-card-meta mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] text-stone-300">
                     <span className="rounded-full border border-amber-300/35 bg-amber-500/15 px-2 py-0.5 font-semibold text-amber-200">
                       {goal.goalType === "short-term" ? "🎯 Short-term" : "🚀 Long-term"}
                     </span>
@@ -725,17 +733,15 @@ export default function CreateGoal({ onGoalChanged }) {
                       Deadline {goal.deadline}
                     </span>
                   </div>
-                </Motion.article>
+                </GoalListCard>
                 );
               })
             )}
           </div>
         </section>
 
-        <aside className="schedule-sidebar">
-          <div
-            className="flex h-full flex-col rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl xl:h-[650px]"
-          >
+        <aside className="schedule-sidebar goal-create-logs">
+          <div className="goal-create-log-panel flex h-full flex-col rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl">
             <div className="mb-3 shrink-0 border-b border-amber-100/10 pb-3">
               <p className="text-sm font-semibold tracking-wide text-amber-200">Goal Logs</p>
               <p className="mt-0.5 text-xs text-stone-400">Recent goal activity</p>
@@ -749,7 +755,7 @@ export default function CreateGoal({ onGoalChanged }) {
             ) : goalLogs.length === 0 ? (
               <p className="text-sm text-stone-400">No goal logs yet.</p>
             ) : (
-              <div className="journal-scroll min-h-0 flex-1 space-y-1.5 overflow-x-hidden overflow-y-auto pr-1">
+              <div className="goal-create-log-list journal-scroll min-h-0 flex-1 space-y-1.5 overflow-x-hidden overflow-y-auto pr-1">
                 {goalLogs.map((log) => (
                   (() => {
                     const deleteUndoExpiresAt = log?.deleteUndoExpiresAt ? new Date(log.deleteUndoExpiresAt).getTime() : 0;
@@ -759,7 +765,7 @@ export default function CreateGoal({ onGoalChanged }) {
                     return (
                   <div
                     key={log.id}
-                    className={`flex flex-col items-start gap-2 rounded-md border px-2 py-1.5 text-[11px] sm:flex-row sm:items-center sm:justify-between ${
+                    className={`goal-create-log-row flex flex-col items-start gap-2 rounded-md border px-2 py-1.5 text-[11px] sm:flex-row sm:items-center sm:justify-between ${
                       log.action === "archived"
                         ? "border-blue-400/20 bg-blue-500/5 text-stone-300"
                         : log.action === "ended"
@@ -897,7 +903,7 @@ export default function CreateGoal({ onGoalChanged }) {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Start Date</label>
-                  <input
+<DashboardDateTimeInput
                     type="date"
                     value={archiveEditForm.startDate || ""}
                     disabled={isArchiveEditStartedGoal}
@@ -911,7 +917,7 @@ export default function CreateGoal({ onGoalChanged }) {
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Deadline</label>
-                  <input type="date" value={archiveEditForm.deadline || ""} onChange={(e) => setArchiveEditForm((p) => ({ ...p, deadline: e.target.value }))}
+<DashboardDateTimeInput type="date" value={archiveEditForm.deadline || ""} onChange={(e) => setArchiveEditForm((p) => ({ ...p, deadline: e.target.value }))}
                     className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1.5 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
                 </div>
               </div>

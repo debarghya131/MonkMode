@@ -1,3 +1,4 @@
+import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
 
@@ -179,9 +180,6 @@ const hasValue = (value) => value !== "" && value !== null && value !== undefine
 const filledCount = (entry) =>
   MEASUREMENT_FIELDS.filter(({ key }) => hasValue(entry?.[key])).length;
 
-const getGroupGridClass = (title) =>
-  title === "Body Weight" ? "lg:grid-cols-1" : title === "Upper Body" ? "lg:grid-cols-5" : title === "Arms" ? "lg:grid-cols-3" : "lg:grid-cols-4";
-
 const buildUpdateSummary = (previousEntry, nextEntry) => {
   const changedFields = [];
   const unchangedFields = [];
@@ -289,7 +287,7 @@ function MeasurementInput({ field, value, onChange, readOnly = false, required =
   );
 }
 
-export default function Measurements() {
+export default function Measurements({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
   const currentDate = todayISO();
   const [form, setForm] = useState(createBlankForm);
@@ -592,8 +590,8 @@ export default function Measurements() {
 
   return (
     <>
-      <div className="mt-6 grid gap-4 sm:mt-8 sm:gap-6 lg:h-[calc(100vh-17rem)] lg:min-h-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[linear-gradient(180deg,rgba(251,191,36,0.06),rgba(255,255,255,0.02))] p-4 shadow-lg shadow-black/20 sm:rounded-[1.75rem] sm:p-6">
+      <div className="gym-measurements-layout grid gap-4 sm:gap-6">
+        <section className="gym-measurements-form-panel flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[linear-gradient(180deg,rgba(251,191,36,0.06),rgba(255,255,255,0.02))] p-4 shadow-lg shadow-black/20 sm:rounded-[1.75rem] sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="mt-2 text-xl font-semibold text-stone-100">
@@ -606,14 +604,14 @@ export default function Measurements() {
           </div>
 
           <form
-            className="mt-4 flex-1 space-y-3 overflow-x-hidden overflow-y-auto pr-1 sm:space-y-4"
+            className="gym-measurements-form mt-4 flex-1 space-y-3 overflow-x-hidden overflow-y-auto pr-1 sm:space-y-4"
             onSubmit={handleSubmit}
           >
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">
                 Check-in Date
               </span>
-              <input
+<DashboardDateTimeInput
                 type="date"
                 value={currentDate}
                 readOnly
@@ -630,12 +628,12 @@ export default function Measurements() {
                       key={group.title}
                       type="button"
                       onClick={() => setActiveGroupTitle(group.title)}
-                      whileHover={!isActive ? {
+                      whileHover={!lowMotion && !isActive ? {
                         scale: 1.05,
                         boxShadow: "0 0 14px rgba(251,191,36,0.4)",
-                      } : {}}
-                      whileTap={{ scale: 0.95 }}
-                      transition={{ duration: 0.18 }}
+                      } : undefined}
+                      whileTap={lowMotion ? undefined : { scale: 0.95 }}
+                      transition={{ duration: lowMotion ? 0 : 0.18 }}
                       className={`rounded-xl border px-3 py-2 text-xs font-semibold transition duration-200 ${
                         isActive
                           ? "border-amber-300/45 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] text-stone-950 shadow-[0_0_16px_rgba(251,191,36,0.4)]"
@@ -662,7 +660,7 @@ export default function Measurements() {
                 </div>
               </div>
 
-              <div className={`mt-4 grid gap-2.5 md:grid-cols-2 ${getGroupGridClass(activeGroup.title)}`}>
+              <div className="gym-measurement-fields mt-4 grid gap-2.5" data-group={activeGroup.title}>
                 {activeGroup.fields.map((field) => (
                   <MeasurementInput
                     key={field.key}
@@ -692,27 +690,11 @@ export default function Measurements() {
               {(!todayEntry || editingId) && (
                 <Motion.button
                   type="submit"
-                  animate={{
-                    scale: [1, 1.04, 1],
-                    boxShadow: [
-                      "0 0 0px rgba(251,191,36,0)",
-                      "0 0 14px rgba(251,191,36,0.55)",
-                      "0 0 0px rgba(251,191,36,0)",
-                    ],
-                  }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  whileHover={{ scale: 1.06, boxShadow: "0 0 20px rgba(251,191,36,0.65), 0 0 40px rgba(251,191,36,0.2)" }}
-                  whileTap={{ scale: 0.95 }}
-                  className="relative w-full rounded-2xl border border-amber-300/40 bg-amber-500/15 px-5 py-3 text-sm font-semibold text-amber-100 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 sm:w-auto"
+                  whileHover={lowMotion ? undefined : { scale: 1.06, boxShadow: "0 0 20px rgba(251,191,36,0.65), 0 0 40px rgba(251,191,36,0.2)" }}
+                  whileTap={lowMotion ? undefined : { scale: 0.95 }}
+                  className="w-full rounded-2xl border border-amber-300/40 bg-amber-500/15 px-5 py-3 text-sm font-semibold text-amber-100 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 sm:w-auto"
                 >
-                  <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-                    <Motion.span
-                      className="absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
-                      animate={{ left: ["-40%", "130%"] }}
-                      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.4, ease: "easeInOut" }}
-                    />
-                  </span>
-                  <span className="relative z-10">{editingId ? "Update measurements" : "Save measurements"}</span>
+                  {editingId ? "Update measurements" : "Save measurements"}
                 </Motion.button>
               )}
 
@@ -739,7 +721,7 @@ export default function Measurements() {
           </form>
         </section>
 
-        <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_42%),linear-gradient(180deg,rgba(20,14,12,0.96),rgba(10,8,8,0.98))] p-4 shadow-lg shadow-black/25 sm:rounded-[1.75rem] sm:p-6">
+        <section className="gym-measurements-saved-panel flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_42%),linear-gradient(180deg,rgba(20,14,12,0.96),rgba(10,8,8,0.98))] p-4 shadow-lg shadow-black/25 sm:rounded-[1.75rem] sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="mt-2 text-xl font-semibold text-stone-100">
@@ -763,8 +745,8 @@ export default function Measurements() {
               </p>
             </div>
           ) : (
-            <div className="mt-5 grid min-h-0 flex-1 gap-4 overflow-hidden sm:mt-6 sm:gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(16rem,0.6fr)]">
-              <div className="flex min-h-0 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-white/5 p-4 sm:rounded-[1.5rem] sm:p-5">
+            <div className="gym-measurements-saved-content mt-5 grid min-h-0 flex-1 gap-4 overflow-hidden sm:mt-6 sm:gap-5">
+              <div className="gym-measurements-preview flex min-h-0 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-white/5 p-4 sm:rounded-[1.5rem] sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -772,7 +754,7 @@ export default function Measurements() {
                         {formatDate(previewEntry?.checkInDate)}
                       </h4>
                       {previewEntry && activeEntries[0]?.id === previewEntry.id && (
-                        <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200">
+                        <span className="dashboard-card-status" data-tone="success">
                           Latest
                         </span>
                       )}
@@ -789,12 +771,12 @@ export default function Measurements() {
                           key={group.title}
                           type="button"
                           onClick={() => setSavedActiveGroupTitle(group.title)}
-                          whileHover={!isActive ? {
+                          whileHover={!lowMotion && !isActive ? {
                             scale: 1.05,
                             boxShadow: "0 0 14px rgba(251,191,36,0.4)",
-                          } : {}}
-                          whileTap={{ scale: 0.95 }}
-                          transition={{ duration: 0.18 }}
+                          } : undefined}
+                          whileTap={lowMotion ? undefined : { scale: 0.95 }}
+                          transition={{ duration: lowMotion ? 0 : 0.18 }}
                           className={`rounded-xl border px-3 py-2 text-xs font-semibold transition duration-200 ${
                             isActive
                               ? "border-amber-300/45 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] text-stone-950 shadow-[0_0_16px_rgba(251,191,36,0.4)]"
@@ -808,7 +790,7 @@ export default function Measurements() {
                   </div>
                 </div>
 
-                <div className="mt-4 min-h-0 flex flex-1 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-black/15 p-4 sm:rounded-[1.5rem] sm:p-5">
+                <div className="gym-measurements-preview-group mt-4 min-h-0 flex flex-1 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-black/15 p-4 sm:rounded-[1.5rem] sm:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3 border-b border-amber-100/10 pb-3">
                     <div className="min-w-0">
                       <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-200">
@@ -821,19 +803,19 @@ export default function Measurements() {
                     </div>
                   </div>
 
-                  <div className="mt-4 min-h-0 flex-1 overflow-y-auto scroll-smooth pr-1">
+                  <div className="gym-measurements-values mt-4 min-h-0 flex-1 overflow-y-auto scroll-smooth pr-1">
                     {visibleSavedMeasurements.length === 0 ? (
                       <p className="text-sm text-stone-500">No measurements logged in this section.</p>
                     ) : (
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <div className="gym-measurement-value-grid grid gap-3">
                         {visibleSavedMeasurements.map((field, fi) => (
                           <Motion.div
                             key={field.key}
                             className="min-w-0 rounded-2xl border border-amber-100/10 bg-black/20 px-4 py-3"
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: fi * 0.04, duration: 0.18 }}
-                            whileHover={{ y: -2, borderColor: "rgba(251,191,36,0.2)", boxShadow: "0 8px 20px rgba(0,0,0,0.3)" }}
+                            initial={lowMotion ? false : { opacity: 0, y: 8 }}
+                            animate={lowMotion ? undefined : { opacity: 1, y: 0 }}
+                            transition={lowMotion ? { duration: 0 } : { delay: fi * 0.04, duration: 0.18 }}
+                            whileHover={lowMotion ? undefined : { y: -2, borderColor: "rgba(251,191,36,0.2)", boxShadow: "0 8px 20px rgba(0,0,0,0.3)" }}
                           >
                             <p className="break-words text-[11px] font-semibold uppercase leading-relaxed tracking-[0.18em] text-stone-500">
                               {field.label}
@@ -852,7 +834,7 @@ export default function Measurements() {
                 </div>
               </div>
 
-              <div className="flex min-h-0 min-w-0 w-full flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-3 sm:rounded-[1.5rem] sm:p-4 xl:max-w-[18rem] xl:justify-self-end">
+              <div className="gym-measurements-history flex min-h-0 min-w-0 w-full flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-3 sm:rounded-[1.5rem] sm:p-4">
                 <div className="flex flex-col gap-2 sm:flex-wrap sm:items-center sm:justify-between">
                   <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-300">
                     Check-in History
@@ -862,7 +844,7 @@ export default function Measurements() {
                   </span>
                 </div>
 
-                <div className="mt-3 flex-1 space-y-2.5 overflow-x-hidden overflow-y-auto scroll-smooth pr-1">
+                <div className="gym-measurements-history-list mt-3 flex-1 space-y-2.5 overflow-x-hidden overflow-y-auto scroll-smooth pr-1">
                   {visibleEntries.map((entry, ei) => {
                     const isSelected = entry.id === selectedEntry?.id;
                     const undoMeta = getDeleteUndoMeta(entry, nowMs);
@@ -876,10 +858,10 @@ export default function Measurements() {
                             ? "border-amber-300/35 bg-amber-500/10"
                             : "border-amber-100/10 bg-white/5 hover:border-amber-200/20 hover:bg-white/10"
                         }`}
-                        initial={{ opacity: 0, x: 8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: ei * 0.05, duration: 0.2 }}
-                        whileHover={!isSelected ? { x: -2 } : {}}
+                        initial={lowMotion ? false : { opacity: 0, x: 8 }}
+                        animate={lowMotion ? undefined : { opacity: 1, x: 0 }}
+                        transition={lowMotion ? { duration: 0 } : { delay: ei * 0.05, duration: 0.2 }}
+                        whileHover={!lowMotion && !isSelected ? { x: -2 } : undefined}
                       >
                         <button
                           type="button"
@@ -895,14 +877,14 @@ export default function Measurements() {
                           </p>
                         </button>
                         <div className="flex shrink-0 flex-row items-center gap-2 self-start sm:flex-col sm:items-end sm:gap-1 sm:self-center">
-                          <span className="text-xs font-semibold text-stone-400">
+                          <span className="dashboard-card-status" data-tone={canUndoDelete ? "danger" : isSelected ? "info" : undefined}>
                             {canUndoDelete ? "Deleted" : isSelected ? "Viewing" : "Open"}
                           </span>
                           {canUndoDelete ? (
                             <button
                               type="button"
                               onClick={() => undoDeleteEntry(entry.id)}
-                              className="inline-flex items-center rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-500/20"
+                              className="dashboard-card-action" data-tone="warning"
                               title="Undo delete (available for 48 hours)"
                               aria-label="Undo delete check-in"
                             >

@@ -1,4 +1,5 @@
-import { AnimatePresence, motion as Motion } from "framer-motion";
+import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
+import { motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import api from "../../api/axios";
@@ -219,7 +220,7 @@ function JournalViewModal({ form, customFields, date, onClose }) {
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto p-2 sm:p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div className="journal-modal-backdrop absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
       <div
         className="relative z-10 flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-amber-100/15 bg-[linear-gradient(160deg,#1e1208,#120d0c)] shadow-2xl shadow-black/60"
@@ -659,7 +660,7 @@ export default function Journal() {
     const canEditToday = submittedDate === todayStr();
 
     return (
-      <div className="flex flex-col gap-6 lg:flex-row">
+      <div className="journal-layout journal-submitted">
         <Motion.div
           className="flex-1 min-w-0 flex flex-col items-center justify-center space-y-5 py-16 sm:py-24"
           initial={{ opacity: 0, scale: 0.95 }}
@@ -717,8 +718,8 @@ export default function Journal() {
           </div>
         </Motion.div>
 
-        <div className="w-full lg:w-64 lg:shrink-0">
-          <div className="lg:sticky lg:top-0">
+        <div className="journal-history">
+          <div className="journal-history-inner">
             <JournalRightSidebar refreshToken={refreshSidebarKey} />
           </div>
         </div>
@@ -737,24 +738,15 @@ export default function Journal() {
 
   /* ─────────── main wizard ─────────── */
   return (
-    <div className="flex flex-col gap-6 lg:flex-row">
-      <div className="flex-1 min-w-0 space-y-5">
+    <div className="journal-layout">
+      <div className="journal-editor">
 
         {/* Consistency badge */}
-        <Motion.div
-          className="flex flex-col items-start gap-3 sm:flex-row sm:items-center"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-        >
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
           <div className="flex w-full flex-wrap items-center gap-2 rounded-[1.1rem] border border-amber-400/30 bg-amber-500/10 px-3 py-2 sm:w-auto sm:rounded-full sm:px-4">
-            <Motion.span
-              className="text-lg"
-              animate={{ scale: [1, 1.25, 1] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-            >
+            <span className="text-lg">
               📊
-            </Motion.span>
+            </span>
             <span className="text-sm font-semibold text-amber-300">
               Consistency {journalConsistency.lifetimeConsistency}%
             </span>
@@ -763,16 +755,10 @@ export default function Journal() {
             </span>
           </div>
           <p className="text-sm leading-6 text-stone-400">Keep it up — consistency builds clarity.</p>
-        </Motion.div>
-
-        {isDemoMode && (
-          <div className="rounded-[1.1rem] border border-amber-400/20 bg-amber-500/8 px-4 py-3 text-sm leading-6 text-amber-100/85">
-            Journal is preview-only in demo mode. You can move through the steps, but writing and saving entries requires a real account.
-          </div>
-        )}
+        </div>
 
         {/* ── Progress bar ── */}
-        <section className="rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5">
+        <section className="journal-progress rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5">
 
           {/* Header row */}
           <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -839,14 +825,9 @@ export default function Journal() {
         <section className="journal-step-card rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-6">
 
           {/* ── Mandatory steps 1–14 ── */}
-          <AnimatePresence mode="wait">
-          <Motion.div
+          <div
             key={step}
             className="journal-scroll journal-step-body pr-1"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.22, ease: "easeInOut" }}
           >
 
           {/* Step 1 — Mood */}
@@ -855,17 +836,12 @@ export default function Journal() {
               <p className="text-label-lg">Step 1 · Mood</p>
               <h2 className="text-heading-xl mt-1 mb-5 text-[2rem] sm:text-[2.5rem]">How are you feeling?</h2>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {MOODS.map((mood, i) => (
-                  <Motion.button
+                {MOODS.map((mood) => (
+                  <button
                     key={mood.label}
                     type="button"
                     onClick={() => set("mood", mood.label)}
                     disabled={isDemoMode}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.03, duration: 0.2 }}
-                    whileHover={{ y: -3, scale: 1.04 }}
-                    whileTap={{ scale: 0.96 }}
                     className={`flex min-h-[4.75rem] w-full flex-col items-center justify-center gap-1 rounded-xl border p-2.5 transition-colors duration-200 ${
                       form.mood === mood.label
                         ? "border-amber-400/60 bg-amber-500/20 shadow-[0_0_16px_rgba(251,191,36,0.2)]"
@@ -874,7 +850,7 @@ export default function Journal() {
                   >
                     <span className="text-lg">{mood.emoji}</span>
                     <span className="text-[10px] font-medium text-amber-50/70">{mood.label}</span>
-                  </Motion.button>
+                  </button>
                 ))}
               </div>
             </div>
@@ -886,7 +862,7 @@ export default function Journal() {
               <p className="text-label-lg">Step 2 · Wake-up Time</p>
               <h2 className="text-heading-xl mt-1 mb-2 text-[2rem] sm:text-[2.5rem]">When did you wake up?</h2>
               <p className="text-stone-400 text-sm mb-8">Capture when the day started.</p>
-              <input
+<DashboardDateTimeInput
                 type="time"
                 value={form.wakeUpTime}
                 onChange={(e) => set("wakeUpTime", e.target.value)}
@@ -1179,7 +1155,7 @@ export default function Journal() {
               <p className="text-label-lg">Step 13 · Sleep Time</p>
               <h2 className="text-heading-xl mt-1 mb-2">When did you sleep?</h2>
               <p className="text-stone-400 text-sm mb-8">Log your sleep time or planned bedtime.</p>
-              <input
+<DashboardDateTimeInput
                 type="time"
                 value={form.sleepTime}
                 onChange={(e) => set("sleepTime", e.target.value)}
@@ -1289,8 +1265,7 @@ export default function Journal() {
             </div>
           )}
 
-          </Motion.div>
-          </AnimatePresence>
+          </div>
 
           {/* ── Navigation ── */}
           {submitError && (
@@ -1354,8 +1329,8 @@ export default function Journal() {
       </div>
 
       {/* Right sidebar */}
-      <div className="w-full lg:w-64 lg:shrink-0">
-        <div className="lg:sticky lg:top-0">
+      <div className="journal-history">
+        <div className="journal-history-inner">
           <JournalRightSidebar refreshToken={refreshSidebarKey} />
         </div>
       </div>

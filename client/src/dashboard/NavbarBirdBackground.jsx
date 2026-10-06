@@ -61,23 +61,32 @@ export default function NavbarBirdBackground() {
     let height = 0;
     let animationFrameId = 0;
     let birds = [];
+    let lastFrame = 0;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const desktopPointer = window.matchMedia("(min-width: 1024px) and (hover: hover) and (pointer: fine)");
 
     const resize = () => {
       const rect = parent.getBoundingClientRect();
       width = Math.max(1, Math.floor(rect.width));
       height = Math.max(1, Math.floor(rect.height));
 
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       canvas.width = width * dpr;
       canvas.height = height * dpr;
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      birds = Array.from({ length: BIRD_COUNT }, () => createBird(width, height));
+      birds = desktopPointer.matches && !reducedMotion.matches
+        ? Array.from({ length: BIRD_COUNT }, () => createBird(width, height))
+        : [];
+      ctx.clearRect(0, 0, width, height);
     };
 
     const animate = (time) => {
+      animationFrameId = window.requestAnimationFrame(animate);
+      if (time - lastFrame < 1000 / 30 - 1) return;
+      lastFrame = time;
       ctx.clearRect(0, 0, width, height);
 
       birds.forEach((bird, index) => {
@@ -93,9 +102,9 @@ export default function NavbarBirdBackground() {
           if (index === otherIndex) return;
           const dx = other.x - bird.x;
           const dy = other.y - bird.y;
-          const dist = Math.hypot(dx, dy);
+          const distanceSquared = dx * dx + dy * dy;
 
-          if (dist < NEIGHBOR_RADIUS) {
+          if (distanceSquared < NEIGHBOR_RADIUS * NEIGHBOR_RADIUS) {
             alignX += other.vx;
             alignY += other.vy;
             cohesionX += other.x;
@@ -103,7 +112,8 @@ export default function NavbarBirdBackground() {
             neighbors += 1;
           }
 
-          if (dist < SEPARATION_RADIUS) {
+          if (distanceSquared < SEPARATION_RADIUS * SEPARATION_RADIUS) {
+            const dist = Math.sqrt(distanceSquared);
             separationX -= dx / Math.max(dist, 1);
             separationY -= dy / Math.max(dist, 1);
           }
@@ -132,21 +142,37 @@ export default function NavbarBirdBackground() {
 
         drawBird(ctx, bird, time);
       });
-
-      animationFrameId = window.requestAnimationFrame(animate);
     };
 
-    const observer = new ResizeObserver(resize);
+    const syncAnimation = () => {
+      window.cancelAnimationFrame(animationFrameId);
+      lastFrame = performance.now();
+      if (!document.hidden && birds.length > 0 && !reducedMotion.matches) {
+        animationFrameId = window.requestAnimationFrame(animate);
+      }
+    };
+
+    const handleResize = () => {
+      resize();
+      syncAnimation();
+    };
+
+    const observer = new ResizeObserver(handleResize);
     observer.observe(parent);
     resize();
-    animationFrameId = window.requestAnimationFrame(animate);
+    syncAnimation();
+    document.addEventListener("visibilitychange", syncAnimation);
+    reducedMotion.addEventListener("change", handleResize);
+    desktopPointer.addEventListener("change", handleResize);
 
     return () => {
       observer.disconnect();
       window.cancelAnimationFrame(animationFrameId);
+      document.removeEventListener("visibilitychange", syncAnimation);
+      reducedMotion.removeEventListener("change", handleResize);
+      desktopPointer.removeEventListener("change", handleResize);
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0" />;
+  return <canvas aria-hidden="true" ref={canvasRef} className="pointer-events-none absolute inset-0" />;
 }
-

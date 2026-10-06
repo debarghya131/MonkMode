@@ -1,3 +1,4 @@
+import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { INITIAL_TASKS } from "../../../data/ToDoDummyData";
@@ -12,10 +13,10 @@ const PRIORITY_STYLES = {
   Low: "border-green-400/30 bg-green-500/10 text-green-200",
 };
 
-const STATUS_STYLES = {
-  pending: "border-amber-300/25 bg-amber-500/10 text-amber-100",
-  completed: "border-emerald-300/25 bg-emerald-500/10 text-emerald-100",
-  missed: "border-rose-300/25 bg-rose-500/10 text-rose-100",
+const STATUS_TONES = {
+  pending: "warning",
+  completed: "success",
+  missed: "danger",
 };
 
 const STATUS_LABELS = {
@@ -23,6 +24,18 @@ const STATUS_LABELS = {
   completed: "Completed",
   missed: "Missed",
 };
+
+function TaskStatusBadge({ status }) {
+  return (
+    <span
+      aria-label={`Status: ${STATUS_LABELS[status] || status}`}
+      className="dashboard-card-status"
+      data-tone={STATUS_TONES[status]}
+    >
+      {STATUS_LABELS[status] || status}
+    </span>
+  );
+}
 
 const toISODate = (dateObj) => {
   const year = dateObj.getFullYear();
@@ -48,48 +61,50 @@ const normalizeApiTask = (task) => ({
   note: task.note ?? task.description ?? "",
 });
 
-function TaskRow({ task, onUndo, index = 0 }) {
+function TaskRow({ task, onUndo, index = 0, lowMotion = false }) {
+  const Article = lowMotion ? "article" : Motion.article;
   return (
-    <Motion.article
+    <Article
       className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04, duration: 0.2 }}
-      whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
+      {...(lowMotion ? {} : {
+        initial: { opacity: 0, y: 10 },
+        animate: { opacity: 1, y: 0 },
+        transition: { delay: index * 0.04, duration: 0.2 },
+        whileHover: { y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" },
+      })}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-stone-100">{task.title}</p>
           <p className="mt-1 text-xs text-stone-400">{task.note}</p>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-          {onUndo && (
-            <button
-              type="button"
-              onClick={onUndo}
-              title="Undo — mark as pending"
-              className="rounded-full border border-amber-300/25 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-200 transition hover:border-amber-300/50 hover:bg-amber-500/20"
-            >
-              Undo
-            </button>
-          )}
-          <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold ${STATUS_STYLES[task.status]}`}>
-            {STATUS_LABELS[task.status]}
-          </span>
-        </div>
+        <TaskStatusBadge status={task.status} />
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-stone-300">
-        <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{task.category}</span>
-        <span className={`rounded-full border px-2 py-1 ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
-        <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{formatTime(task.time)}</span>
-        {task.lateCompleted && task.completedAt && (
-          <span className="flex items-center gap-1 rounded-full border border-orange-400/30 bg-orange-500/10 px-2 py-1 text-[11px] font-semibold text-orange-300">
-            ⏰ Late · {formatTime(task.completedAt)}
-          </span>
+      <div className="mt-3 flex items-end justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-stone-300">
+          <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{task.category}</span>
+          <span className={`dashboard-card-priority ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
+          <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{formatTime(task.time)}</span>
+          {task.lateCompleted && task.completedAt && (
+            <span className="flex items-center gap-1 rounded-full border border-orange-400/30 bg-orange-500/10 px-2 py-1 text-[11px] font-semibold text-orange-300">
+              ⏰ Late · {formatTime(task.completedAt)}
+            </span>
+          )}
+        </div>
+        {onUndo && (
+          <button
+            type="button"
+            onClick={onUndo}
+            title="Undo — mark as pending"
+            className="dashboard-card-action"
+            data-tone="warning"
+          >
+            ↶ Undo
+          </button>
         )}
       </div>
-    </Motion.article>
+    </Article>
   );
 }
 
@@ -98,7 +113,7 @@ function PriorityColumn({ priority, tasks }) {
     <section className="rounded-2xl border border-amber-100/10 bg-black/10 p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-stone-100">{priority} Priority</h3>
-        <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold ${PRIORITY_STYLES[priority]}`}>
+        <span className={`dashboard-card-priority ${PRIORITY_STYLES[priority]}`}>
           {tasks.length} tasks
         </span>
       </div>
@@ -113,9 +128,7 @@ function PriorityColumn({ priority, tasks }) {
               <p className="mt-1 text-xs text-stone-400">{task.category}</p>
               <div className="mt-2 flex items-center justify-between text-xs text-stone-300">
                 <span>{formatTime(task.time)}</span>
-                <span className={`rounded-full border px-2 py-1 ${STATUS_STYLES[task.status]}`}>
-                  {STATUS_LABELS[task.status]}
-                </span>
+                <TaskStatusBadge status={task.status} />
               </div>
             </div>
           ))
@@ -142,8 +155,68 @@ function PriorityFilter({ selected, onChange }) {
   );
 }
 
-export default function Today() {
+function TodayOverview({ tasks, pendingTasks, completedTasks, missedTasks, className = "" }) {
+  return (
+    <section className={`today-overview-card rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5 ${className}`}>
+      <div>
+        <p className="text-sm font-semibold text-amber-200">Today&apos;s Overview</p>
+        <p className="mt-1 text-xs text-stone-400">A snapshot of your task progress for today.</p>
+      </div>
+
+      <div className="today-overview-stats mt-2 grid grid-cols-2 gap-1.5">
+        <div className="rounded-lg border border-amber-100/10 bg-white/5 px-3 py-2 text-center">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500">All</p>
+          <p className="mt-0.5 text-xl font-bold text-stone-100">{tasks.length}</p>
+        </div>
+        <div className="rounded-lg border border-amber-300/20 bg-amber-500/10 px-3 py-2 text-center">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500">Pending</p>
+          <p className="mt-0.5 text-xl font-bold text-amber-200">{pendingTasks.length}</p>
+        </div>
+        <div className="rounded-lg border border-emerald-300/20 bg-emerald-500/10 px-3 py-2 text-center">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500">Completed</p>
+          <p className="mt-0.5 text-xl font-bold text-emerald-200">{completedTasks.length}</p>
+        </div>
+        <div className="rounded-lg border border-rose-300/20 bg-rose-500/10 px-3 py-2 text-center">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500">Missed</p>
+          <p className="mt-0.5 text-xl font-bold text-rose-200">{missedTasks.length}</p>
+        </div>
+      </div>
+
+      <div className="mt-2 space-y-1.5">
+        {[
+          { label: "Completed", value: completedTasks.length, color: "bg-emerald-400" },
+          { label: "Pending", value: pendingTasks.length, color: "bg-amber-400" },
+          { label: "Missed", value: missedTasks.length, color: "bg-rose-400" },
+        ].map(({ label, value, color }) => (
+          <div key={label}>
+            <div className="mb-1 flex items-center justify-between text-[11px] text-stone-400">
+              <span>{label}</span>
+              <span>{tasks.length > 0 ? Math.round((value / tasks.length) * 100) : 0}%</span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+              <div
+                className={`h-full rounded-full ${color} transition-all duration-500`}
+                style={{ width: tasks.length > 0 ? `${(value / tasks.length) * 100}%` : "0%" }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export default function Today({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
+  const Columns = lowMotion ? "div" : Motion.div;
+  const Section = lowMotion ? "section" : Motion.section;
+  const Article = lowMotion ? "article" : Motion.article;
+  const Block = lowMotion ? "div" : Motion.div;
+  const Action = lowMotion ? "button" : Motion.button;
+  const sectionMotionProps = lowMotion ? {} : {
+    variants: { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } },
+    transition: { duration: 0.3 },
+  };
   const todayISO = toISODate(new Date());
 
   const [tasks, setTasks] = useState(isDemoMode ? INITIAL_TASKS : []);
@@ -268,7 +341,7 @@ export default function Today() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="todo-today-view">
       <div className="today-layout">
         <section className="today-main rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-6">
           <div>
@@ -276,19 +349,28 @@ export default function Today() {
             <h3 className="mt-2 text-2xl font-bold text-amber-100">Today&apos;s Tasks</h3>
           </div>
 
-          <Motion.div
-            className="mt-5 grid grid-cols-1 gap-4 sm:mt-6 sm:gap-5 lg:grid-cols-2 2xl:grid-cols-3"
-            initial="hidden"
-            animate="visible"
-            variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
+          <TodayOverview
+            className="today-overview-inline mt-4"
+            tasks={tasks}
+            pendingTasks={pendingTasks}
+            completedTasks={completedTasks}
+            missedTasks={missedTasks}
+          />
+
+          <Columns
+            className="today-columns mt-5 grid grid-cols-1 gap-4 sm:mt-6 sm:gap-5"
+            {...(lowMotion ? {} : {
+              initial: "hidden",
+              animate: "visible",
+              variants: { hidden: {}, visible: { transition: { staggerChildren: 0.1 } } },
+            })}
           >
             {/* 1. All Tasks */}
-            <Motion.section
+            <Section
               className="today-scroll-card min-w-0 rounded-[1.25rem] border border-amber-100/10 bg-black/10 p-4 sm:rounded-2xl sm:p-5"
-              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
-              transition={{ duration: 0.3 }}
+              {...sectionMotionProps}
             >
-              <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="today-panel-header">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-amber-200">1. All Tasks</p>
                   <p className="mt-1 text-xs text-stone-400">Grouped according to category for a full daily overview.</p>
@@ -314,7 +396,7 @@ export default function Today() {
                         </div>
                         <div className="space-y-2">
                           {filtered.map((task) => (
-                            <TaskRow key={task.id} task={task} />
+                            <TaskRow key={task.id} task={task} lowMotion={lowMotion} />
                           ))}
                         </div>
                       </div>
@@ -322,15 +404,14 @@ export default function Today() {
                   })
                 )}
               </div>
-            </Motion.section>
+            </Section>
 
             {/* 2. Pending */}
-            <Motion.section
+            <Section
               className="today-scroll-card min-w-0 rounded-[1.25rem] border border-amber-100/10 bg-black/10 p-4 sm:rounded-2xl sm:p-5"
-              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
-              transition={{ duration: 0.3 }}
+              {...sectionMotionProps}
             >
-              <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="today-panel-header">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-amber-200">2. Pending</p>
                   <p className="mt-1 text-xs text-stone-400">Tasks that still need attention today.</p>
@@ -350,66 +431,48 @@ export default function Today() {
                     </p>
                   ) : (
                     filtered.map((task, i) => (
-                      <Motion.article
+                      <Article
                         key={task.id}
                         className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.04, duration: 0.2 }}
-                        whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
+                        {...(lowMotion ? {} : {
+                          initial: { opacity: 0, y: 8 },
+                          animate: { opacity: 1, y: 0 },
+                          transition: { delay: i * 0.04, duration: 0.2 },
+                          whileHover: { y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" },
+                        })}
                       >
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-stone-100">{task.title}</p>
                             <p className="mt-1 text-xs text-stone-400">{task.note}</p>
                           </div>
-                          <Motion.button
+                          <button
                             type="button"
                             onClick={() => markComplete(task.id)}
-                            animate={{
-                              boxShadow: [
-                                "0 0 0px rgba(52,211,153,0)",
-                                "0 0 10px rgba(52,211,153,0.45)",
-                                "0 0 0px rgba(52,211,153,0)",
-                              ],
-                            }}
-                            transition={{
-                              boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
-                            }}
-                            whileHover={{
-                              scale: 1.12,
-                              boxShadow: "0 0 20px rgba(52,211,153,0.65), 0 0 40px rgba(52,211,153,0.2)",
-                            }}
-                            whileTap={{ scale: 0.88, boxShadow: "0 0 28px rgba(52,211,153,0.8)" }}
-                            className="relative shrink-0 overflow-hidden rounded-full border border-emerald-300/40 bg-emerald-500/15 px-3 py-1 text-[11px] font-bold text-emerald-200 transition-colors duration-200 hover:border-emerald-300/70 hover:bg-emerald-500/30 hover:text-emerald-100"
+                            className="dashboard-card-action"
+                            data-tone="success"
                           >
-                            <Motion.span
-                              className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
-                              animate={{ left: ["-40%", "130%"] }}
-                              transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
-                            />
-                            <span className="relative z-10">✓ Done</span>
-                          </Motion.button>
+                            ✓ Complete
+                          </button>
                         </div>
                         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-stone-300">
                           <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{task.category}</span>
-                          <span className={`rounded-full border px-2 py-1 ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
+                          <span className={`dashboard-card-priority ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
                           <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{formatTime(task.time)}</span>
                         </div>
-                      </Motion.article>
+                      </Article>
                     ))
                   );
                 })()}
               </div>
-            </Motion.section>
+            </Section>
 
             {/* 3. Completed */}
-            <Motion.section
+            <Section
               className="today-scroll-card min-w-0 rounded-[1.25rem] border border-amber-100/10 bg-black/10 p-4 sm:rounded-2xl sm:p-5"
-              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
-              transition={{ duration: 0.3 }}
+              {...sectionMotionProps}
             >
-              <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="today-panel-header">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-amber-200">3. Completed</p>
                   <p className="mt-1 text-xs text-stone-400">Tasks already finished and closed for today.</p>
@@ -427,65 +490,26 @@ export default function Today() {
                     <p className="mt-3 text-xs text-stone-500">No completed tasks for this priority.</p>
                   ) : (
                     filtered.map((task) => (
-                      <TaskRow key={task.id} task={task} onUndo={() => undoComplete(task.id)} />
+                      <TaskRow key={task.id} task={task} onUndo={() => undoComplete(task.id)} lowMotion={lowMotion} />
                     ))
                   );
                 })()}
               </div>
-            </Motion.section>
-          </Motion.div>
+            </Section>
+          </Columns>
         </section>
 
-        <aside className="today-sidebar space-y-4 sm:space-y-5">
-          <section className="rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
-            <div>
-              <p className="text-sm font-semibold text-amber-200">Today&apos;s Overview</p>
-              <p className="mt-1 text-xs text-stone-400">A snapshot of your task progress for today.</p>
-            </div>
+        <aside className="today-sidebar">
+          <TodayOverview
+            className="today-overview-side"
+            tasks={tasks}
+            pendingTasks={pendingTasks}
+            completedTasks={completedTasks}
+            missedTasks={missedTasks}
+          />
 
-            <div className="mt-2 grid grid-cols-2 gap-1.5">
-              <div className="rounded-lg border border-amber-100/10 bg-white/5 px-3 py-2 text-center">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500">All</p>
-                <p className="mt-0.5 text-xl font-bold text-stone-100">{tasks.length}</p>
-              </div>
-              <div className="rounded-lg border border-amber-300/20 bg-amber-500/10 px-3 py-2 text-center">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500">Pending</p>
-                <p className="mt-0.5 text-xl font-bold text-amber-200">{pendingTasks.length}</p>
-              </div>
-              <div className="rounded-lg border border-emerald-300/20 bg-emerald-500/10 px-3 py-2 text-center">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500">Completed</p>
-                <p className="mt-0.5 text-xl font-bold text-emerald-200">{completedTasks.length}</p>
-              </div>
-              <div className="rounded-lg border border-rose-300/20 bg-rose-500/10 px-3 py-2 text-center">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500">Missed</p>
-                <p className="mt-0.5 text-xl font-bold text-rose-200">{missedTasks.length}</p>
-              </div>
-            </div>
-
-            <div className="mt-2 space-y-1.5">
-              {[
-                { label: "Completed", value: completedTasks.length, color: "bg-emerald-400" },
-                { label: "Pending",   value: pendingTasks.length,   color: "bg-amber-400" },
-                { label: "Missed",    value: missedTasks.length,    color: "bg-rose-400" },
-              ].map(({ label, value, color }) => (
-                <div key={label}>
-                  <div className="mb-1 flex items-center justify-between text-[11px] text-stone-400">
-                    <span>{label}</span>
-                    <span>{tasks.length > 0 ? Math.round((value / tasks.length) * 100) : 0}%</span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                    <div
-                      className={`h-full rounded-full ${color} transition-all duration-500`}
-                      style={{ width: tasks.length > 0 ? `${(value / tasks.length) * 100}%` : "0%" }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="today-scroll-card rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+          <section className="today-missed-card today-scroll-card rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
+            <div className="today-panel-header">
               <div>
                 <p className="text-sm font-semibold text-amber-200">Missed Tasks</p>
                 <p className="mt-1 text-xs text-stone-400">Tasks that slipped past their expected time today.</p>
@@ -502,39 +526,42 @@ export default function Today() {
                 missedTasks.map((task) => {
                   const isPrompting = latePrompt.taskId === task.id;
                   return (
-                    <Motion.div
+                    <Block
                       key={task.id}
-                      layout
+                      {...(lowMotion ? {} : { layout: true })}
                       className="rounded-xl border border-rose-400/15 bg-white/5 p-3"
                     >
-                      <p className="text-sm font-semibold text-stone-100">{task.title}</p>
-                      <p className="mt-1 text-xs text-stone-400">{task.category}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-stone-100">{task.title}</p>
+                          <p className="mt-1 text-xs text-stone-400">{task.category}</p>
+                        </div>
+                        <TaskStatusBadge status={task.status} />
+                      </div>
 
                       {/* Inline late-completion time picker */}
                       {isPrompting ? (
-                        <Motion.div
-                          initial={{ opacity: 0, y: -6 }}
-                          animate={{ opacity: 1, y: 0 }}
+                        <Block
+                          {...(lowMotion ? {} : { initial: { opacity: 0, y: -6 }, animate: { opacity: 1, y: 0 } })}
                           className="mt-3 space-y-2"
                         >
                           <p className="text-[11px] text-orange-300/80">When did you actually complete this?</p>
                           <div className="flex items-center gap-2">
-                            <input
+<DashboardDateTimeInput
                               type="time"
                               value={latePrompt.time}
                               onChange={(e) => setLatePrompt((p) => ({ ...p, time: e.target.value }))}
                               className="rounded-lg border border-orange-400/25 bg-orange-500/10 px-2 py-1 text-xs text-orange-100 outline-none focus:border-orange-400/50"
                             />
-                            <Motion.button
+                            <Action
                               type="button"
                               onClick={() => latePrompt.time && markCompleteWithTime(task.id, latePrompt.time)}
                               disabled={!latePrompt.time}
-                              whileHover={{ scale: 1.04 }}
-                              whileTap={{ scale: 0.95 }}
+                              {...(lowMotion ? {} : { whileHover: { scale: 1.04 }, whileTap: { scale: 0.95 } })}
                               className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200 disabled:opacity-40 transition hover:border-emerald-300/50 hover:bg-emerald-500/20"
                             >
                               Confirm
-                            </Motion.button>
+                            </Action>
                             <button
                               type="button"
                               onClick={() => setLatePrompt({ taskId: null, time: "" })}
@@ -543,32 +570,21 @@ export default function Today() {
                               Cancel
                             </button>
                           </div>
-                        </Motion.div>
+                        </Block>
                       ) : (
-                        <div className="mt-2 flex flex-col gap-2 text-xs text-stone-300 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="mt-2 flex items-end justify-between gap-2 text-xs text-stone-300">
                           <span>{formatTime(task.time)}</span>
-                          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                            <Motion.button
-                              type="button"
-                              onClick={() => setLatePrompt({ taskId: task.id, time: "" })}
-                              whileHover={{ scale: 1.04, boxShadow: "0 0 12px rgba(52,211,153,0.25)" }}
-                              whileTap={{ scale: 0.95 }}
-                              className="relative overflow-hidden rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/20"
-                            >
-                              <Motion.span
-                                className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
-                                animate={{ left: ["-40%", "130%"] }}
-                                transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
-                              />
-                              <span className="relative z-10">Mark as Complete</span>
-                            </Motion.button>
-                            <span className={`rounded-full border px-2 py-1 ${STATUS_STYLES[task.status]}`}>
-                              {STATUS_LABELS[task.status]}
-                            </span>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setLatePrompt({ taskId: task.id, time: "" })}
+                            className="dashboard-card-action"
+                            data-tone="success"
+                          >
+                            ✓ Mark as Complete
+                          </button>
                         </div>
                       )}
-                    </Motion.div>
+                    </Block>
                   );
                 })
               )}

@@ -60,7 +60,7 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
       initial={{ opacity: 0, y: -18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55 }}
-      className="mx-auto w-full max-w-7xl px-3 py-3 sm:px-6 sm:py-6 md:px-8"
+      className="relative z-30 mx-auto w-full max-w-7xl px-3 py-3 sm:px-6 sm:py-6 md:px-8"
     >
       <div className="flex items-center justify-between gap-2 rounded-[1.5rem] border border-amber-200/10 bg-stone-950/45 px-2.5 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:gap-3 sm:px-4 sm:py-3 md:rounded-[1.75rem] md:px-6">
 
@@ -80,7 +80,7 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
 
           {viewCount === undefined ? null : (
             <div
-              className="flex h-9 min-w-9 shrink-0 items-center justify-center gap-2 border-l border-amber-200/15 pl-2 text-amber-100/70 sm:h-11 sm:min-w-[5.5rem] sm:pl-3"
+              className="hidden h-11 min-w-[5.5rem] shrink-0 items-center justify-center gap-2 border-l border-amber-200/15 pl-3 text-amber-100/70 sm:flex"
               aria-live="polite"
               aria-label={
                 viewCountFailed
@@ -135,14 +135,14 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
           <button
             type="button"
             onClick={() => navigate("/login")}
-            className={`hidden rounded-full border border-transparent bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-950/30 transition sm:inline-flex sm:px-5 sm:py-2.5 ${goldenHoverClass}`}
+            className={`hidden min-h-11 items-center rounded-full border border-transparent bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-950/30 transition sm:inline-flex sm:px-5 sm:py-2.5 ${goldenHoverClass}`}
           >
             Login
           </button>
           <button
             type="button"
             onClick={() => navigate("/signup")}
-            className={`rounded-full border border-transparent bg-gradient-to-r from-amber-300 via-orange-400 to-orange-500 px-3 py-2 text-xs font-bold text-stone-950 shadow-lg shadow-orange-950/20 transition sm:px-5 sm:py-2.5 sm:text-sm ${goldenHoverClass}`}
+            className={`inline-flex min-h-11 items-center rounded-full border border-transparent bg-gradient-to-r from-amber-300 via-orange-400 to-orange-500 px-3 py-2 text-xs font-bold text-stone-950 shadow-lg shadow-orange-950/20 transition sm:px-5 sm:py-2.5 sm:text-sm ${goldenHoverClass}`}
           >
             Signup
           </button>
@@ -152,7 +152,9 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
             type="button"
             onClick={() => setMobileOpen((prev) => !prev)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-amber-200/20 bg-white/5 text-amber-200 transition hover:border-amber-300/40 hover:bg-white/10 lg:hidden sm:h-9 sm:w-9"
+            aria-expanded={mobileOpen}
+            aria-controls="landing-mobile-menu"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-amber-200/20 bg-white/5 text-amber-200 transition hover:border-amber-300/40 hover:bg-white/10 lg:hidden"
           >
             <AnimatePresence mode="wait" initial={false}>
               {mobileOpen ? (
@@ -198,6 +200,7 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
         {mobileOpen && (
           <motion.div
             key="mobile-menu"
+            id="landing-mobile-menu"
             initial={{ opacity: 0, y: -10, scaleY: 0.92 }}
             animate={{ opacity: 1, y: 0, scaleY: 1 }}
             exit={{ opacity: 0, y: -10, scaleY: 0.92 }}

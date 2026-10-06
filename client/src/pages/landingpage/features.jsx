@@ -722,6 +722,8 @@ function OverviewSlider({ activeSlide, setActiveSlide }) {
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={overviewSlides[activeSlide].image}
+          loading="lazy"
+          decoding="async"
           alt={overviewSlides[activeSlide].title}
           className="aspect-[16/10] w-full object-contain"
         />
@@ -808,6 +810,8 @@ function JournalSlider({ activeSlide, setActiveSlide }) {
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={journalSlides[activeSlide].image}
+          loading="lazy"
+          decoding="async"
           alt={journalSlides[activeSlide].title}
           className="aspect-[16/10] w-full object-contain"
         />
@@ -894,6 +898,8 @@ function TodoSlider({ activeSlide, setActiveSlide }) {
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={todoSlides[activeSlide].image}
+          loading="lazy"
+          decoding="async"
           alt={todoSlides[activeSlide].title}
           className="aspect-[16/10] w-full object-contain"
         />
@@ -980,6 +986,8 @@ function HabitSlider({ activeSlide, setActiveSlide }) {
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={habitSlides[activeSlide].image}
+          loading="lazy"
+          decoding="async"
           alt={habitSlides[activeSlide].title}
           className="aspect-[16/10] w-full object-contain"
         />
@@ -1066,6 +1074,8 @@ function GoalSlider({ activeSlide, setActiveSlide }) {
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={goalSlides[activeSlide].image}
+          loading="lazy"
+          decoding="async"
           alt={goalSlides[activeSlide].title}
           className="aspect-[16/10] w-full object-contain"
         />
@@ -1152,6 +1162,8 @@ function GymSlider({ activeSlide, setActiveSlide }) {
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={gymSlides[activeSlide].image}
+          loading="lazy"
+          decoding="async"
           alt={gymSlides[activeSlide].title}
           className="aspect-[16/10] w-full object-contain"
         />
@@ -1242,6 +1254,8 @@ function WeeklyReportSlider({ activeSlide, setActiveSlide }) {
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={weeklyReportSlides[activeSlide].image}
+          loading="lazy"
+          decoding="async"
           alt={weeklyReportSlides[activeSlide].title}
           className="aspect-[16/10] w-full object-contain"
         />
@@ -1332,6 +1346,8 @@ function AnalysisSlider({ activeSlide, setActiveSlide }) {
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={analysisSlides[activeSlide].image}
+          loading="lazy"
+          decoding="async"
           alt={analysisSlides[activeSlide].title}
           className="aspect-[16/10] w-full object-contain"
         />
@@ -1422,6 +1438,8 @@ function AiGuruSlider({ activeSlide, setActiveSlide }) {
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={aiGuruSlides[activeSlide].image}
+          loading="lazy"
+          decoding="async"
           alt={aiGuruSlides[activeSlide].title}
           className="aspect-[16/10] w-full object-contain"
         />
@@ -1510,9 +1528,10 @@ export default function Features() {
               <Motion.article
                 key={feature.title}
                 initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.42, delay: index * 0.04, ease: "easeOut" }}
-                className={`relative overflow-hidden rounded-[1.35rem] border border-amber-100/10 bg-stone-950/42 p-4 shadow-[0_16px_46px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:rounded-[1.5rem] sm:p-6 ${
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "100px" }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className={`public-feature-card relative min-w-0 overflow-hidden rounded-[1.35rem] border border-amber-100/10 bg-stone-950/70 p-4 shadow-[0_16px_46px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:rounded-[1.5rem] sm:bg-stone-950/42 sm:p-6 ${
                   index === 0 ||
                   index === 1 ||
                   index === 2 ||
@@ -1528,29 +1547,19 @@ export default function Features() {
               >
                 <Motion.div
                   className="pointer-events-none absolute -left-24 -top-24 h-56 w-56 rounded-full bg-amber-400/10 blur-3xl"
-                  animate={{ opacity: [0.22, 0.5, 0.22], scale: [0.95, 1.1, 0.95] }}
-                  transition={{
-                    duration: 6 + (index % 3),
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
+                  style={{ opacity: 0.35 }}
                 />
                 <Motion.div
                   className="pointer-events-none absolute -bottom-28 right-8 h-64 w-64 rounded-full bg-sky-500/10 blur-3xl"
-                  animate={{ opacity: [0.14, 0.38, 0.14], x: [0, -18, 0] }}
-                  transition={{
-                    duration: 7 + (index % 2),
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
+                  style={{ opacity: 0.25 }}
                 />
                 <Motion.div
                   className="pointer-events-none absolute inset-y-0 left-[-35%] w-[18%] -skew-x-12 bg-amber-100/10 blur-xl"
-                  animate={{ left: ["-35%", "120%"] }}
+                  initial={{ x: "0%" }}
+                  whileInView={{ x: "860%" }}
+                  viewport={{ once: true }}
                   transition={{
                     duration: 4.2,
-                    repeat: Infinity,
-                    repeatDelay: 3.2 + index * 0.18,
                     ease: "easeInOut",
                   }}
                 />

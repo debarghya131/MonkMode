@@ -1,6 +1,8 @@
+import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 
 const PRIORITY_BADGE = {
   High: "border-red-400/30 bg-red-500/10 text-red-200",
@@ -70,6 +72,8 @@ export default function Mygoals({
   onDeleteSubgoal
 }) {
   const navigate = useNavigate();
+  const lowMotion = useMobileLowMotion();
+  const GoalCard = lowMotion ? "article" : Motion.article;
   const [addPopupGoalId, setAddPopupGoalId] = useState(null);
   const [popupGoalId, setPopupGoalId] = useState(null);
   const [newSubgoal, setNewSubgoal] = useState("");
@@ -181,29 +185,44 @@ export default function Mygoals({
   };
 
   return (
-    <div className="flex min-h-[70dvh] flex-col rounded-[1.6rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:h-[78vh] sm:rounded-[2rem] sm:p-6">
-      <p className="text-label-lg">My Goals</p>
-      <h2 className="mt-2 text-2xl font-bold text-amber-100">All Goals</h2>
-      <p className="text-body-md mt-3 text-stone-300/90">
-        View all your goals with active and archived status, then break each goal into habits and milestones.
-      </p>
+    <div className="goals-my-view flex flex-col rounded-[1.6rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-[2rem] sm:p-6">
+      <header className="goals-my-header">
+        <p className="text-label-lg">My Goals</p>
+        <h2 className="mt-2 text-2xl font-bold text-amber-100">All Goals</h2>
+        <p className="text-body-md mt-3 text-stone-300/90">
+          View all your goals with active and archived status, then break each goal into habits and milestones.
+        </p>
+      </header>
 
-      <div className="journal-scroll mt-5 flex-1 space-y-3 overflow-y-auto pr-1">
+      <div className="goals-list journal-scroll mt-5 flex-1 space-y-3 pr-1">
         {sortedGoals.map((goal, i) => {
           const daysLeft = getDaysLeft(goal.deadline);
           return (
-            <Motion.article
+            <GoalCard
               key={goal.id}
-              className="rounded-[1.3rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-3.5 sm:rounded-2xl sm:p-4"
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.06, duration: 0.25 }}
-              whileHover={{ y: -3, boxShadow: "0 12px 32px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
+              className="goal-card rounded-[1.3rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-3.5 sm:rounded-2xl sm:p-4"
+              {...(lowMotion ? {} : {
+                initial: { opacity: 0, y: 14 },
+                animate: { opacity: 1, y: 0 },
+                transition: { delay: i * 0.06, duration: 0.25 },
+                whileHover: { y: -3, boxShadow: "0 12px 32px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }
+              })}
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-lg font-semibold text-amber-100">{goal.title}</h3>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <div className="goal-card-layout">
+                <div className="goal-card-info min-w-0">
+                  <div className="goal-card-title flex min-w-0 items-center gap-2">
+                    <h3 className="min-w-0 text-lg font-semibold text-amber-100">{goal.title}</h3>
+                    {importantByGoal[goal.id] ? (
+                      <span
+                        className="goal-important-symbol shrink-0 text-amber-400"
+                        title="Important goal"
+                        aria-label="Important goal"
+                      >
+                        ★
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="goal-card-metadata mt-1 flex flex-wrap items-center gap-1.5">
                     <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${TYPE_BADGE[goal.type]}`}>
                       {goal.type} Goal
                     </span>
@@ -241,69 +260,56 @@ export default function Mygoals({
                   </div>
                 </div>
 
-                <div className="flex w-full flex-wrap items-center justify-start gap-1.5 sm:w-auto sm:justify-end sm:gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onToggleImportant?.(goal.id)}
-                    className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold transition sm:text-[11px] ${
-                      importantByGoal[goal.id]
-                        ? "border-amber-300/45 bg-amber-500/15 text-amber-200"
-                        : "border-amber-100/15 bg-white/5 text-stone-300 hover:border-amber-300/35 hover:text-amber-200"
-                    }`}
-                  >
-                    {importantByGoal[goal.id] ? "Important ★" : "Mark Important"}
-                  </button>
-                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold sm:text-[11px] ${PRIORITY_BADGE[goal.priority]}`}>
-                    {goal.priority}
-                  </span>
-                  <span
-                    className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold sm:text-[11px] ${
-                      goal.status === "Archived"
-                        ? "border-blue-400/30 bg-blue-500/10 text-blue-200"
-                        : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
-                    }`}
-                  >
-                    {goal.status}
-                  </span>
-                  <Motion.button
-                    type="button"
-                    onClick={() => {
-                      setAddPopupGoalId(goal.id);
-                      setNewSubgoal("");
-                      setNewDeadline("");
-                      setSubgoalError("");
-                    }}
-                    whileHover={{
-                      scale: 1.08,
-                      boxShadow: "0 0 16px rgba(251,191,36,0.5), 0 0 32px rgba(251,191,36,0.15)",
-                    }}
-                    whileTap={{ scale: 0.93 }}
-                    transition={{ duration: 0.18 }}
-                    className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)] sm:text-[11px]"
-                  >
-                    Add Sub-goals
-                  </Motion.button>
-                  <Motion.button
-                    type="button"
-                    onClick={() => setPopupGoalId(goal.id)}
-                    whileHover={{
-                      scale: 1.08,
-                      boxShadow: "0 0 16px rgba(56,189,248,0.5), 0 0 32px rgba(56,189,248,0.15)",
-                    }}
-                    whileTap={{ scale: 0.93 }}
-                    transition={{ duration: 0.18 }}
-                    className="relative overflow-hidden rounded-full border border-sky-300/30 bg-sky-400/10 px-2.5 py-0.5 text-[10px] font-semibold text-sky-200 transition duration-200 hover:border-sky-300/60 hover:bg-sky-400/25 hover:text-sky-100 hover:shadow-[0_0_16px_rgba(56,189,248,0.4)] sm:text-[11px]"
-                  >
-                    <Motion.span
-                      className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
-                      animate={{ left: ["-40%", "130%"] }}
-                      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
-                    />
-                    <span className="relative z-10">Update Progress</span>
-                  </Motion.button>
+                <div className="goal-card-side flex min-w-0 flex-col gap-2">
+                  <div className="goal-card-state flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onToggleImportant?.(goal.id)}
+                      className="dashboard-card-action goal-important-action"
+                      data-tone={importantByGoal[goal.id] ? "warning" : "neutral"}
+                      aria-pressed={Boolean(importantByGoal[goal.id])}
+                    >
+                      <span aria-hidden="true">{importantByGoal[goal.id] ? "★" : "☆"}</span>
+                      <span>{importantByGoal[goal.id] ? "Remove from Important" : "Mark Important"}</span>
+                    </button>
+                    <div className="goal-card-labels flex items-center gap-2">
+                    <span className={`dashboard-card-priority ${PRIORITY_BADGE[goal.priority]}`}>
+                      {goal.priority}
+                    </span>
+                    <span
+                      className="dashboard-card-status"
+                      data-tone={goal.status === "Archived" ? "info" : "success"}
+                    >
+                      {goal.status}
+                    </span>
+                    </div>
+                  </div>
+                  <div className="goal-card-actions">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddPopupGoalId(goal.id);
+                        setNewSubgoal("");
+                        setNewDeadline("");
+                        setSubgoalError("");
+                      }}
+                      className="dashboard-card-action"
+                      data-tone="warning"
+                    >
+                      Add Sub-goals
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPopupGoalId(goal.id)}
+                      className="dashboard-card-action"
+                      data-tone="info"
+                    >
+                      Update Progress
+                    </button>
+                  </div>
                 </div>
               </div>
-            </Motion.article>
+            </GoalCard>
           );
         })}
       </div>
@@ -362,7 +368,7 @@ export default function Mygoals({
                     <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">
                       Deadline <span className="text-rose-400">*</span>
                     </label>
-                    <input
+<DashboardDateTimeInput
                       type="date"
                       value={newDeadline}
                       min={subgoalMinDate}
@@ -441,41 +447,21 @@ export default function Mygoals({
                           <DeadlineBadge deadline={milestone.deadline} />
                         </div>
                         <div className="flex shrink-0 flex-wrap items-start gap-1.5 sm:justify-end">
-                          <Motion.button
+                          <button
                             type="button"
                             onClick={() => void updateMilestoneStatus(popupGoal.id, milestone.id, true)}
                             disabled={Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:done`])}
-                            animate={{
-                              boxShadow: [
-                                "0 0 0px rgba(52,211,153,0)",
-                                "0 0 8px rgba(52,211,153,0.45)",
-                                "0 0 0px rgba(52,211,153,0)",
-                              ],
-                            }}
-                            transition={{
-                              boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
-                            }}
-                            whileHover={{
-                              scale: 1.12,
-                              boxShadow: "0 0 18px rgba(52,211,153,0.65), 0 0 36px rgba(52,211,153,0.2)",
-                            }}
-                            whileTap={{ scale: 0.88, boxShadow: "0 0 26px rgba(52,211,153,0.8)" }}
-                            className="relative overflow-hidden rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-200 transition-colors duration-200 hover:border-emerald-300/70 hover:bg-emerald-500/30 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="dashboard-card-action"
+                            data-tone="success"
                           >
-                            <Motion.span
-                              className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
-                              animate={{ left: ["-40%", "130%"] }}
-                              transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
-                            />
-                            <span className="relative z-10">
-                              {pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:done`] ? "Saving..." : "Mark as Done"}
-                            </span>
-                          </Motion.button>
+                            {pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:done`] ? "Saving..." : "✓ Mark as Done"}
+                          </button>
                           <button
                             type="button"
                             onClick={() => void deleteSubgoal(popupGoal.id, milestone.id)}
                             disabled={Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:delete`])}
-                            className="rounded-full border border-rose-400/35 bg-rose-500/10 px-2 py-0.5 text-[11px] font-bold text-rose-300 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="dashboard-card-action"
+                            data-tone="danger"
                             title="Delete sub-goal"
                           >
                             {pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:delete`] ? "..." : "X"}
@@ -509,15 +495,17 @@ export default function Mygoals({
                             type="button"
                             onClick={() => void updateMilestoneStatus(popupGoal.id, milestone.id, false)}
                             disabled={Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:undo`])}
-                            className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="dashboard-card-action"
+                            data-tone="warning"
                           >
-                            {pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:undo`] ? "Saving..." : "Undo"}
+                            {pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:undo`] ? "Saving..." : "↶ Undo"}
                           </button>
                           <button
                             type="button"
                             onClick={() => void deleteSubgoal(popupGoal.id, milestone.id)}
                             disabled={Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:delete`])}
-                            className="rounded-full border border-rose-400/35 bg-rose-500/10 px-2 py-0.5 text-[11px] font-bold text-rose-300 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="dashboard-card-action"
+                            data-tone="danger"
                             title="Delete sub-goal"
                           >
                             {pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:delete`] ? "..." : "X"}

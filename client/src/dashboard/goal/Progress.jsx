@@ -1,5 +1,6 @@
 import { motion as Motion } from "framer-motion";
 import { useState } from "react";
+import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 
 const PRIORITY_BADGE = {
   High: "border-red-400/30 bg-red-500/10 text-red-200",
@@ -29,8 +30,13 @@ const getBarColor = (pct) => {
 
 const FILTER_OPTIONS = ["All", "Active", "Archived"];
 const PRIORITY_FILTERS = ["All", "High", "Medium", "Low"];
+const isImportantGoal = (goal, importantByGoal) =>
+  Boolean(importantByGoal[goal.id] ?? goal.isImportant);
 
 export default function Progress({ goals = [], importantByGoal = {}, milestonesByGoal = {} }) {
+  const lowMotion = useMobileLowMotion();
+  const ProgressCard = lowMotion ? "article" : Motion.article;
+  const ProgressBar = lowMotion ? "div" : Motion.div;
   const [statusFilter, setStatusFilter] = useState("All");
   const [priorityFilter, setPriorityFilter] = useState("All");
   const visibleGoals = goals.filter((goal) => !(goal.deletedAt || goal.archiveReason === "deleted"));
@@ -39,7 +45,7 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
     if (statusFilter !== "All" && g.status !== statusFilter) return false;
     if (priorityFilter !== "All" && g.priority !== priorityFilter) return false;
     return true;
-  }).sort((a, b) => Number(Boolean(importantByGoal[b.id])) - Number(Boolean(importantByGoal[a.id])));
+  }).sort((a, b) => Number(isImportantGoal(b, importantByGoal)) - Number(isImportantGoal(a, importantByGoal)));
 
   const overall = (() => {
     const total = visibleGoals.reduce((s, g) => s + (milestonesByGoal[g.id] || g.milestones || []).length, 0);
@@ -51,24 +57,29 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
   })();
 
   return (
-    <div className="flex min-h-[70dvh] flex-col rounded-[1.6rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:h-[78vh] sm:rounded-[2rem] sm:p-6">
-      <p className="text-label-lg">Progress</p>
-      <h2 className="mt-2 text-2xl font-bold text-amber-100">Goal Progress</h2>
-      <p className="text-body-md mt-1 text-stone-300/90">
-        Milestone completion progress for each goal.
-      </p>
+    <div className="goal-progress-view flex flex-col rounded-[1.6rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-[2rem] sm:p-6">
+      <header className="goal-progress-heading">
+        <p className="text-label-lg">Progress</p>
+        <h2 className="mt-2 text-2xl font-bold text-amber-100">Goal Progress</h2>
+        <p className="text-body-md mt-1 text-stone-300/90">
+          Milestone completion progress for each goal.
+        </p>
+      </header>
 
-      <div className="mt-4 rounded-xl border border-amber-100/10 bg-black/20 px-3 py-3 sm:px-4">
+      <div className="goal-progress-summary mt-4 rounded-xl border border-amber-100/10 bg-black/20 px-3 py-3 sm:px-4">
         <div className="mb-1.5 flex items-center justify-between gap-2">
           <p className="text-xs font-semibold text-stone-300">Overall Progress</p>
           <span className="text-xs font-bold text-amber-100">{overall}%</span>
         </div>
         <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-          <Motion.div
+          <ProgressBar
             className={`h-full rounded-full ${getBarColor(overall)}`}
-            initial={{ width: 0 }}
-            animate={{ width: `${overall}%` }}
-            transition={{ duration: 1, ease: "easeOut" }}
+            style={lowMotion ? { width: `${overall}%` } : undefined}
+            {...(lowMotion ? {} : {
+              initial: { width: 0 },
+              animate: { width: `${overall}%` },
+              transition: { duration: 1, ease: "easeOut" }
+            })}
           />
         </div>
         <p className="mt-1.5 text-[11px] leading-relaxed text-stone-400">
@@ -80,8 +91,9 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
         </p>
       </div>
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-1.5">
+      <div className="goal-progress-filters mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="goal-progress-filter-group flex flex-wrap gap-1.5">
+          <span className="goal-progress-filter-label">Status</span>
           {FILTER_OPTIONS.map((opt) => (
             <button
               key={opt}
@@ -97,7 +109,8 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="goal-progress-filter-group flex flex-wrap gap-1.5">
+          <span className="goal-progress-filter-label">Priority</span>
           {PRIORITY_FILTERS.map((opt) => (
             <button
               key={opt}
@@ -121,7 +134,7 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
         </div>
       </div>
 
-      <div className="journal-scroll mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
+      <div className="goal-progress-list journal-scroll mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
         {filtered.length === 0 ? (
           <p className="mt-4 text-xs text-stone-500">No goals match the selected filters.</p>
         ) : (
@@ -133,22 +146,35 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
             const daysLeft = getDaysLeft(goal.deadline);
 
             return (
-              <Motion.article
+              <ProgressCard
                 key={goal.id}
-                className="rounded-[1.3rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-3.5 sm:rounded-2xl sm:p-4"
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.07, duration: 0.25 }}
-                whileHover={{ y: -3, boxShadow: "0 12px 32px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
+                className="goal-progress-card rounded-[1.3rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-3.5 sm:rounded-2xl sm:p-4"
+                {...(lowMotion ? {} : {
+                  initial: { opacity: 0, y: 14 },
+                  animate: { opacity: 1, y: 0 },
+                  transition: { delay: i * 0.07, duration: 0.25 },
+                  whileHover: { y: -3, boxShadow: "0 12px 32px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }
+                })}
               >
-                <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="break-words text-base font-semibold text-amber-100">{goal.title}</h3>
+                <div className="goal-progress-card-head mb-3 flex flex-wrap items-start justify-between gap-2">
+                  <div className="goal-progress-card-info min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <h3 className="min-w-0 break-words text-base font-semibold text-amber-100">{goal.title}</h3>
+                      {isImportantGoal(goal, importantByGoal) ? (
+                        <span
+                          className="goal-important-symbol shrink-0 text-amber-400"
+                          title="Important goal"
+                          aria-label="Important goal"
+                        >
+                          ★
+                        </span>
+                      ) : null}
+                    </div>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${TYPE_BADGE[goal.type]}`}>
                         {goal.type}
                       </span>
-                      <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${PRIORITY_BADGE[goal.priority]}`}>
+                      <span className={`dashboard-card-priority ${PRIORITY_BADGE[goal.priority]}`}>
                         {goal.priority}
                       </span>
                       <span
@@ -162,7 +188,7 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
                       </span>
                     </div>
                   </div>
-                  <div className="w-full shrink-0 text-left sm:w-auto sm:text-right">
+                  <div className="goal-progress-card-stat shrink-0 text-right">
                     {total === 0 ? (
                       <p className="text-[11px] text-stone-500 italic">No sub-goals</p>
                     ) : (
@@ -179,17 +205,20 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
                     <p className="text-[11px] text-stone-500">No sub-goals added yet. Break this goal down into milestones to track progress.</p>
                   </div>
                 ) : (
-                  <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-                    <Motion.div
+                  <div className="goal-progress-card-bar h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                    <ProgressBar
                       className={`h-full rounded-full ${getBarColor(pct)}`}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${pct}%` }}
-                      transition={{ duration: 0.8, delay: i * 0.07 + 0.2, ease: "easeOut" }}
+                      style={lowMotion ? { width: `${pct}%` } : undefined}
+                      {...(lowMotion ? {} : {
+                        initial: { width: 0 },
+                        animate: { width: `${pct}%` },
+                        transition: { duration: 0.8, delay: i * 0.07 + 0.2, ease: "easeOut" }
+                      })}
                     />
                   </div>
                 )}
 
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <div className="goal-progress-card-footer mt-2 flex flex-wrap items-center justify-between gap-2">
                   <p className="text-[11px] text-stone-400">Deadline: {goal.deadline}</p>
                   <p
                     className={`text-[11px] font-semibold ${
@@ -207,7 +236,7 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
                         : `${Math.abs(daysLeft)} days overdue`}
                   </p>
                 </div>
-              </Motion.article>
+              </ProgressCard>
             );
           })
         )}
