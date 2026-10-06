@@ -72,30 +72,32 @@ export default function AuthBackground() {
     let birds = [];
     let width = 0;
     let height = 0;
+    let lastFrame = 0;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     const resize = () => {
       width = window.innerWidth;
       height = window.innerHeight;
 
-      const devicePixelRatio = window.devicePixelRatio || 1;
+      const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
       canvas.width = width * devicePixelRatio;
       canvas.height = height * devicePixelRatio;
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       context.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 
-      birds = Array.from({ length: BIRD_COUNT }, () => createBird(width, height));
+      const visibleBirdCount = Math.min(BIRD_COUNT, Math.max(10, Math.round(width / 32)));
+      birds = Array.from({ length: visibleBirdCount }, () => createBird(width, height));
+      if (reducedMotion.matches) birds.forEach((bird) => drawBird(context, bird, 0));
     };
 
     const animate = (time) => {
+      animationFrameId = window.requestAnimationFrame(animate);
+      const elapsed = time - lastFrame;
+      if (elapsed < 1000 / 60 - 1) return;
+      const step = Math.min(elapsed / (1000 / 60), 2);
+      lastFrame = time;
       context.clearRect(0, 0, width, height);
-
-      const gradient = context.createLinearGradient(0, 0, width, height);
-      gradient.addColorStop(0, "#07192f");
-      gradient.addColorStop(0.52, "#111126");
-      gradient.addColorStop(1, "#190b12");
-      context.fillStyle = gradient;
-      context.fillRect(0, 0, width, height);
 
       birds.forEach((bird, index) => {
         let alignX = 0;
@@ -113,9 +115,9 @@ export default function AuthBackground() {
 
           const dx = otherBird.x - bird.x;
           const dy = otherBird.y - bird.y;
-          const distance = Math.hypot(dx, dy);
+          const distanceSquared = dx * dx + dy * dy;
 
-          if (distance < NEIGHBOR_RADIUS) {
+          if (distanceSquared < NEIGHBOR_RADIUS * NEIGHBOR_RADIUS) {
             alignX += otherBird.vx;
             alignY += otherBird.vy;
             cohesionX += otherBird.x;
@@ -123,7 +125,8 @@ export default function AuthBackground() {
             neighborCount += 1;
           }
 
-          if (distance < SEPARATION_RADIUS) {
+          if (distanceSquared < SEPARATION_RADIUS * SEPARATION_RADIUS) {
+            const distance = Math.sqrt(distanceSquared);
             separationX -= dx / Math.max(distance, 1);
             separationY -= dy / Math.max(distance, 1);
           }
@@ -144,8 +147,8 @@ export default function AuthBackground() {
 
         clampSpeed(bird);
 
-        bird.x += bird.vx;
-        bird.y += bird.vy;
+        bird.x += bird.vx * step;
+        bird.y += bird.vy * step;
 
         if (bird.x < -24) bird.x = width + 24;
         if (bird.x > width + 24) bird.x = -24;
@@ -155,22 +158,34 @@ export default function AuthBackground() {
         drawBird(context, bird, time);
       });
 
-      animationFrameId = window.requestAnimationFrame(animate);
+    };
+
+    const syncAnimation = () => {
+      window.cancelAnimationFrame(animationFrameId);
+      lastFrame = performance.now();
+      if (!document.hidden && !reducedMotion.matches) {
+        animationFrameId = window.requestAnimationFrame(animate);
+      }
     };
 
     resize();
-    animationFrameId = window.requestAnimationFrame(animate);
+    syncAnimation();
     window.addEventListener("resize", resize);
+    document.addEventListener("visibilitychange", syncAnimation);
+    reducedMotion.addEventListener("change", syncAnimation);
 
     return () => {
       window.cancelAnimationFrame(animationFrameId);
       window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", syncAnimation);
+      reducedMotion.removeEventListener("change", syncAnimation);
     };
   }, []);
 
   return (
     <>
-      <canvas ref={canvasRef} className="absolute inset-0" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,#07192f,#111126_52%,#190b12)]" />
+      <canvas aria-hidden="true" ref={canvasRef} className="pointer-events-none absolute inset-0" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_18%),linear-gradient(180deg,rgba(5,10,22,0.12),rgba(10,8,18,0.2)_64%,rgba(7,5,14,0.34))]" />
     </>
   );

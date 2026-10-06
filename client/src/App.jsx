@@ -1,10 +1,10 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./pages/authentication/ProtectedRoute";
-import DashboardLayout from "./dashboard/DashboardLayout";
 import GlobalRateLimitToast from "./components/GlobalRateLimitToast";
 
 const LandingPage = lazy(() => import("./pages/landingpage/LandingPage"));
+const DashboardLayout = lazy(() => import("./dashboard/DashboardLayout"));
 const DemoLogin = lazy(() => import("./pages/landingpage/demologin"));
 const About = lazy(() => import("./pages/landingpage/about"));
 const Features = lazy(() => import("./pages/landingpage/features"));
@@ -38,6 +38,7 @@ const withSuspense = (element) => <Suspense fallback={<RouteFallback />}>{elemen
 export default function App() {
   return (
     <BrowserRouter>
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="/" element={withSuspense(<LandingPage />)} />
         <Route path="/about" element={withSuspense(<About />)} />
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="/dashboard/ai_coach" element={<ProtectedRoute><Navigate to="/dashboard/ai_guru" replace /></ProtectedRoute>} />
         <Route path="/dashboard/ai_guru" element={<ProtectedRoute><DashboardLayout>{withSuspense(<AIGuru />)}</DashboardLayout></ProtectedRoute>} />
       </Routes>
+      </Suspense>
       <GlobalRateLimitToast />
     </BrowserRouter>
   );

@@ -311,10 +311,9 @@ function DietModal({ type, day, planData, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="gym-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(28,16,12,0.98),rgba(10,8,8,0.99))] shadow-2xl shadow-black/60"
-        style={{ maxHeight: "80vh" }}
+        className="gym-modal-panel flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(28,16,12,0.98),rgba(10,8,8,0.99))] shadow-2xl shadow-black/60"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="shrink-0 flex items-center justify-between gap-3 border-b border-amber-100/10 px-5 py-4">
@@ -474,8 +473,8 @@ function UpdateProgressModal({ exercise, isDemoMode, onClose }) {
 
   if (loadingExisting) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-        <div className="rounded-2xl border border-amber-100/10 bg-[linear-gradient(180deg,rgba(28,16,12,0.98),rgba(10,8,8,0.99))] px-8 py-6 shadow-2xl">
+      <div className="gym-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+        <div className="gym-modal-panel rounded-2xl border border-amber-100/10 bg-[linear-gradient(180deg,rgba(28,16,12,0.98),rgba(10,8,8,0.99))] px-8 py-6 shadow-2xl">
           <p className="text-sm text-stone-400">Loading...</p>
         </div>
       </div>
@@ -483,9 +482,9 @@ function UpdateProgressModal({ exercise, isDemoMode, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="gym-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-sm rounded-2xl border border-amber-100/10 bg-[linear-gradient(180deg,rgba(28,16,12,0.98),rgba(10,8,8,0.99))] shadow-2xl shadow-black/60 max-h-[90vh] overflow-y-auto"
+        className="gym-modal-panel w-full max-w-sm rounded-2xl border border-amber-100/10 bg-[linear-gradient(180deg,rgba(28,16,12,0.98),rgba(10,8,8,0.99))] shadow-2xl shadow-black/60 overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 border-b border-amber-100/10 px-5 py-4">
@@ -688,9 +687,9 @@ function ViewProgressModal({ exercise, isDemoMode, onClose }) {
   const hasAny = current || last;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="gym-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="journal-scroll w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-amber-100/10 bg-[linear-gradient(180deg,rgba(28,16,12,0.98),rgba(10,8,8,0.99))] shadow-2xl shadow-black/60"
+        className="gym-modal-panel journal-scroll w-full max-w-md overflow-y-auto rounded-2xl border border-amber-100/10 bg-[linear-gradient(180deg,rgba(28,16,12,0.98),rgba(10,8,8,0.99))] shadow-2xl shadow-black/60"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -783,8 +782,12 @@ function ViewProgressModal({ exercise, isDemoMode, onClose }) {
 }
 
 /* ── Main Component ── */
-export default function TodaysWorkout() {
+export default function TodaysWorkout({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
+  const WorkoutCard = lowMotion ? "article" : Motion.div;
+  const ExerciseCard = lowMotion ? "article" : Motion.div;
+  const DietCard = lowMotion ? "article" : Motion.div;
+  const DietButton = lowMotion ? "button" : Motion.button;
   const [selectedDay, setSelectedDay]         = useState(todayDay);
   const [dietModal, setDietModal]             = useState(null);
   const [progressModal, setProgressModal]     = useState(null);
@@ -890,10 +893,10 @@ export default function TodaysWorkout() {
 
   return (
     <>
-      <div className="flex min-h-0 flex-col gap-4 sm:max-h-[calc(100dvh-17rem)]">
+      <div className="gym-today-view flex min-h-0 flex-col gap-4">
 
         {/* Day selector */}
-        <div className="shrink-0 flex flex-wrap items-center gap-2 rounded-[1.4rem] border border-amber-100/10 bg-black/20 px-3 py-3 sm:rounded-2xl sm:px-4">
+        <div className="gym-day-selector shrink-0 flex flex-wrap items-center gap-2 rounded-[1.4rem] border border-amber-100/10 bg-black/20 px-3 py-3 sm:rounded-2xl sm:px-4">
           <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">Day</span>
           {WEEK_DAYS.map((day) => (
             <button key={day} type="button" onClick={() => { setSelectedDay(day); setBodyFilter("all"); }}
@@ -907,10 +910,10 @@ export default function TodaysWorkout() {
           ))}
         </div>
 
-        <div className="flex min-h-0 flex-col items-start gap-4 xl:flex-row">
+        <div className="gym-today-layout flex min-h-0 flex-col items-start gap-4 xl:flex-row">
 
           {/* Workout column */}
-          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.06),transparent_40%),linear-gradient(180deg,rgba(20,12,10,0.97),rgba(10,8,8,0.98))] sm:rounded-2xl">
+          <div className="gym-workout-panel flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.06),transparent_40%),linear-gradient(180deg,rgba(20,12,10,0.97),rgba(10,8,8,0.98))] sm:rounded-2xl">
             <div className="shrink-0 border-b border-amber-100/10 px-4 py-3 sm:px-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 className="text-sm font-semibold text-stone-100">{formatDate(selectedDay)}'s Workouts</h3>
@@ -925,7 +928,7 @@ export default function TodaysWorkout() {
               </div>
             </div>
 
-            <div className="journal-scroll min-h-0 flex-1 overflow-y-auto p-3 pr-1.5 scroll-smooth sm:p-4 sm:pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/40">
+            <div className="gym-workout-scroll journal-scroll min-h-0 flex-1 overflow-y-auto p-3 pr-1.5 scroll-smooth sm:p-4 sm:pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/40">
               {loading ? (
                 <div className="flex h-full items-center justify-center">
                   <p className="text-sm text-stone-500">Loading workouts...</p>
@@ -948,7 +951,8 @@ export default function TodaysWorkout() {
                           <button
                             type="button"
                             onClick={() => handleActivateWorkout(w.id)}
-                            className="shrink-0 rounded-full border border-emerald-400/35 bg-emerald-500/15 px-3 py-1 text-[10px] font-semibold text-emerald-200 transition hover:bg-emerald-500/30"
+                            className="dashboard-card-action"
+                            data-tone="success"
                           >
                             Activate
                           </button>
@@ -960,13 +964,15 @@ export default function TodaysWorkout() {
               ) : (
                 <div className="space-y-4">
                   {filteredWorkouts.map((workout, wi) => (
-                    <Motion.div
+                    <WorkoutCard
                       key={workout.id}
-                      className="rounded-[1.3rem] border border-amber-100/10 bg-white/5 p-3.5 sm:rounded-2xl sm:p-4"
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: wi * 0.07, duration: 0.25 }}
-                      whileHover={{ y: -2, boxShadow: "0 10px 28px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
+                      className="gym-workout-card rounded-[1.3rem] border border-amber-100/10 bg-white/5 p-3.5 sm:rounded-2xl sm:p-4"
+                      {...(lowMotion ? {} : {
+                        initial: { opacity: 0, y: 12 },
+                        animate: { opacity: 1, y: 0 },
+                        transition: { delay: wi * 0.07, duration: 0.25 },
+                        whileHover: { y: -2, boxShadow: "0 10px 28px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" },
+                      })}
                     >
                       {/* Workout header */}
                       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -996,7 +1002,7 @@ export default function TodaysWorkout() {
                           </div>
                         </div>
                         {workout.isActive && (
-                          <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                          <span className="dashboard-card-status" data-tone="success">
                             Active
                           </span>
                         )}
@@ -1023,17 +1029,19 @@ export default function TodaysWorkout() {
                       )}
 
                       {/* Exercise list */}
-                      <div className="journal-scroll mt-3 max-h-[380px] space-y-2 overflow-y-auto scroll-smooth pr-1.5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/25 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/45 md:max-h-[460px]">
+                      <div className="gym-exercise-list journal-scroll mt-3 max-h-[380px] space-y-2 overflow-y-auto scroll-smooth pr-1.5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/25 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/45 md:max-h-[460px]">
                         {workout.exercises.map((ex, idx) => (
-                          <Motion.div
+                          <ExerciseCard
                             key={ex.id}
-                            className="rounded-xl border border-amber-100/8 bg-black/20 px-3 py-2.5"
-                            initial={{ opacity: 0, x: -8 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: wi * 0.07 + idx * 0.05, duration: 0.2 }}
-                            whileHover={{ y: -1, borderColor: "rgba(251,191,36,0.18)", boxShadow: "0 6px 16px rgba(0,0,0,0.3)" }}
+                            className="gym-exercise-card rounded-xl border border-amber-100/8 bg-black/20 px-3 py-2.5"
+                            {...(lowMotion ? {} : {
+                              initial: { opacity: 0, x: -8 },
+                              animate: { opacity: 1, x: 0 },
+                              transition: { delay: wi * 0.07 + idx * 0.05, duration: 0.2 },
+                              whileHover: { y: -1, borderColor: "rgba(251,191,36,0.18)", boxShadow: "0 6px 16px rgba(0,0,0,0.3)" },
+                            })}
                           >
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                            <div className="gym-exercise-header flex items-center gap-3">
                               <div className="flex items-center gap-3 sm:min-w-0 sm:flex-1">
                               <span className="shrink-0 text-[10px] font-bold text-amber-400/50">{idx + 1}.</span>
                               <div className="min-w-0 flex-1">
@@ -1041,29 +1049,8 @@ export default function TodaysWorkout() {
                                 <p className="mt-0.5 text-[10px] text-stone-500">{ex.bodyPart}</p>
                               </div>
                               </div>
-                              <div className="flex shrink-0 flex-wrap gap-1.5 sm:ml-auto sm:justify-end">
-                                <Motion.button type="button" onClick={() => setViewProgressModal(ex)}
-                                  whileHover={{ scale: 1.08, boxShadow: "0 0 16px rgba(251,191,36,0.5)" }}
-                                  whileTap={{ scale: 0.93 }}
-                                  className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-200 transition hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950">
-                                  View Progress
-                                </Motion.button>
-                                {selectedDay === todayDay() && (
-                                  <Motion.button type="button" onClick={() => setProgressModal(ex)}
-                                    animate={{ boxShadow: ["0 0 0px rgba(52,211,153,0)", "0 0 8px rgba(52,211,153,0.4)", "0 0 0px rgba(52,211,153,0)"] }}
-                                    transition={{ boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
-                                    whileHover={{ scale: 1.08, boxShadow: "0 0 18px rgba(52,211,153,0.65)" }}
-                                    whileTap={{ scale: 0.88 }}
-                                    className="relative overflow-hidden rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold text-emerald-200 transition hover:bg-emerald-500/30">
-                                    <Motion.span className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
-                                      animate={{ left: ["-40%", "130%"] }}
-                                      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }} />
-                                    <span className="relative z-10">Update Progress</span>
-                                  </Motion.button>
-                                )}
-                              </div>
                             </div>
-                            <div className="mt-2 flex flex-wrap gap-2">
+                            <div className="gym-exercise-metrics mt-2 flex flex-wrap gap-2">
                               <span className="rounded-md border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-amber-200/80">{ex.sets} sets</span>
                               {ex.reps && (
                                 <span className="rounded-md border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-300">{ex.reps} reps</span>
@@ -1087,10 +1074,22 @@ export default function TodaysWorkout() {
                                 </span>
                               ) : null}
                             </div>
-                          </Motion.div>
+                            <div className="gym-exercise-actions mt-2.5 flex flex-wrap gap-1.5 sm:justify-end">
+                              <button type="button" onClick={() => setViewProgressModal(ex)}
+                                className="dashboard-card-action" data-tone="warning">
+                                View Progress
+                              </button>
+                              {selectedDay === todayDay() && (
+                                <button type="button" onClick={() => setProgressModal(ex)}
+                                  className="dashboard-card-action" data-tone="success">
+                                  Update Progress
+                                </button>
+                              )}
+                            </div>
+                          </ExerciseCard>
                         ))}
                       </div>
-                    </Motion.div>
+                    </WorkoutCard>
                   ))}
                 </div>
               )}
@@ -1098,19 +1097,21 @@ export default function TodaysWorkout() {
           </div>
 
           {/* Diet column */}
-          <div className="journal-scroll w-full shrink-0 overflow-y-auto scroll-smooth xl:w-44 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
+          <aside className="gym-diet-panel journal-scroll w-full shrink-0 overflow-y-auto scroll-smooth xl:w-44 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20">
             <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">Diet</p>
-            <div className="grid grid-cols-2 gap-3 xl:grid-cols-1">
+            <div className="gym-diet-grid grid grid-cols-2 gap-3 xl:grid-cols-1">
               {dietCards.map(({ type, label, icon, color }, di) => {
                 const planType = DIET_TYPE_MAP[type];
                 const hasPlan  = !isDemoMode && Boolean(dietPlans[planType]);
                 return (
-                  <Motion.div key={type}
-                    className={`dashboard-glow-card flex shrink-0 flex-col items-start gap-2 rounded-2xl border p-3 ${color}`}
-                    initial={{ opacity: 0, x: 12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: di * 0.08, duration: 0.25 }}
-                    whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)" }}
+                  <DietCard key={type}
+                    className={`gym-diet-card dashboard-glow-card flex shrink-0 flex-col items-start gap-2 rounded-2xl border p-3 ${color}`}
+                    {...(lowMotion ? {} : {
+                      initial: { opacity: 0, x: 12 },
+                      animate: { opacity: 1, x: 0 },
+                      transition: { delay: di * 0.08, duration: 0.25 },
+                      whileHover: { y: -2, boxShadow: "0 8px 20px rgba(0,0,0,0.35)" },
+                    })}
                   >
                     <span className="text-2xl">{icon}</span>
                     <p className="text-xs font-semibold leading-snug">{label}</p>
@@ -1118,22 +1119,26 @@ export default function TodaysWorkout() {
                       {formatDate(selectedDay)}
                       {hasPlan ? " · Active" : isDemoMode ? "" : " · No plan"}
                     </p>
-                    <Motion.button type="button"
+                    <DietButton type="button"
                       onClick={() => setDietModal({ type, day: selectedDay })}
-                      whileHover={{ scale: 1.03, boxShadow: "0 0 12px rgba(255,255,255,0.22)" }}
-                      whileTap={{ scale: 0.95 }}
-                      className="relative mt-1 w-full overflow-hidden rounded-lg border border-current/30 bg-black/20 py-1 text-[10px] font-semibold transition hover:bg-black/40"
+                      {...(lowMotion ? {} : {
+                        whileHover: { scale: 1.03, boxShadow: "0 0 12px rgba(255,255,255,0.22)" },
+                        whileTap: { scale: 0.95 },
+                      })}
+                      className="gym-diet-view-button relative mt-1 w-full overflow-hidden rounded-lg border border-current/30 bg-black/20 py-1 text-[10px] font-semibold transition hover:bg-black/40"
                     >
-                      <Motion.span className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
-                        animate={{ left: ["-40%", "130%"] }}
-                        transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }} />
+                      {!lowMotion && (
+                        <Motion.span className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                          animate={{ left: ["-40%", "130%"] }}
+                          transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }} />
+                      )}
                       <span className="relative z-10">View</span>
-                    </Motion.button>
-                  </Motion.div>
+                    </DietButton>
+                  </DietCard>
                 );
               })}
             </div>
-          </div>
+          </aside>
 
         </div>
       </div>

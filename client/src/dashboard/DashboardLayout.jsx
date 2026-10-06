@@ -2,6 +2,7 @@ import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
+import useMobileLowMotion from "../hooks/useMobileLowMotion";
 import Navbar from "./Navbar";
 import Sidebar from "./Sidebar";
 import WelcomePopup from "./WelcomePopup";
@@ -76,6 +77,7 @@ export default function DashboardLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { isBootstrapping, isAuthenticated, isDemoMode, user, logout } = useAuth();
+  const lowMotion = useMobileLowMotion();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [demoNotice, setDemoNotice] = useState("");
   const [showWelcome, setShowWelcome] = useState(() => {
@@ -179,7 +181,14 @@ export default function DashboardLayout({ children }) {
   };
 
   const isOverviewRoute = location.pathname === "/dashboard";
+  const isJournalRoute = location.pathname === "/dashboard/journal";
+  const isTodoRoute = location.pathname === "/dashboard/todo";
+  const isHabitsRoute = location.pathname === "/dashboard/habit";
+  const isGoalsRoute = location.pathname === "/dashboard/goal";
+  const isGymRoute = location.pathname === "/dashboard/gym";
+  const isWeeklyReportRoute = location.pathname === "/dashboard/weeklyreport";
   const isAiGuruRoute = location.pathname === "/dashboard/ai_guru";
+  const routeClassName = isJournalRoute ? "journal-route" : isTodoRoute ? "todo-route" : isHabitsRoute ? "habits-route" : isGoalsRoute ? "goal-route" : isGymRoute ? "gym-route" : isWeeklyReportRoute ? "weekly-report-route" : isOverviewRoute ? "min-[1800px]:h-full" : undefined;
   const mobileNoticePositionClass = isAiGuruRoute
     ? "bottom-[calc(env(safe-area-inset-bottom)+6.5rem)]"
     : "bottom-[max(1rem,env(safe-area-inset-bottom))]";
@@ -190,6 +199,13 @@ export default function DashboardLayout({ children }) {
         exit: { opacity: 0 },
         transition: { duration: 0.14, ease: "easeOut" },
       }
+    : isJournalRoute
+      ? {
+          initial: { opacity: 1 },
+          animate: { opacity: 1 },
+          exit: { opacity: 1 },
+          transition: { duration: 0 },
+        }
     : isAiGuruRoute
       ? {
           initial: { opacity: 1, y: 0, filter: "blur(0px)" },
@@ -205,10 +221,10 @@ export default function DashboardLayout({ children }) {
       };
 
   return (
-    <div className="dashboard-shell flex h-screen flex-col overflow-x-hidden bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_34%),linear-gradient(180deg,#17110f_0%,#241714_45%,#120d0c_100%)] text-white">
+    <div className="dashboard-shell flex h-screen h-dvh min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_34%),linear-gradient(180deg,#17110f_0%,#241714_45%,#120d0c_100%)] text-white">
 
       {/* Navbar */}
-      <header className="shrink-0 z-30 border-b border-amber-100/10">
+      <header className="relative z-30 shrink-0 border-b border-amber-100/10">
         <Navbar
           user={user}
           onMenuToggle={() => setMobileMenuOpen((prev) => !prev)}
@@ -217,10 +233,10 @@ export default function DashboardLayout({ children }) {
       </header>
 
       {/* Body row */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
 
         {/* Desktop sidebar */}
-        <aside className="hidden lg:flex w-64 shrink-0 flex-col overflow-y-auto overflow-x-hidden border-r border-amber-100/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur">
+        <aside className="hidden min-h-0 w-[clamp(13rem,15vw,16rem)] shrink-0 flex-col overflow-hidden border-r border-amber-100/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur xl:flex">
           <Sidebar onLogout={handleLogout} />
         </aside>
 
@@ -234,22 +250,23 @@ export default function DashboardLayout({ children }) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: lowMotion ? 0 : 0.2 }}
                 onClick={() => setMobileMenuOpen(false)}
-                className="fixed inset-0 z-40 bg-black/65 backdrop-blur-sm lg:hidden"
+                className="fixed inset-0 z-40 bg-black/65 xl:hidden"
               />
 
               {/* Drawer */}
               <Motion.aside
                 key="drawer"
+                id="dashboard-navigation-drawer"
                 initial={{ x: "-100%" }}
                 animate={{ x: 0 }}
                 exit={{ x: "-100%" }}
-                transition={{ type: "spring", stiffness: 320, damping: 32 }}
-                className="fixed inset-y-0 left-0 z-50 flex w-[min(19rem,calc(100vw-2.5rem))] max-w-full flex-col overflow-y-auto overflow-x-hidden border-r border-amber-100/10 bg-[#17110f] shadow-2xl shadow-black/45 lg:hidden"
+                transition={lowMotion ? { duration: 0 } : { type: "spring", stiffness: 320, damping: 32 }}
+                className="fixed inset-y-0 left-0 z-50 flex h-screen h-dvh w-[min(20rem,calc(100vw-1rem))] max-w-full flex-col overflow-hidden border-r border-amber-100/10 bg-[#17110f] shadow-2xl shadow-black/45 xl:hidden"
               >
                 {/* Drawer header with close button */}
-                <div className="flex items-center justify-between border-b border-amber-100/10 px-5 py-4">
+                <div className="flex shrink-0 items-center justify-between border-b border-amber-100/10 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5 sm:pb-4">
                   <p className="text-sm font-semibold text-amber-200 tracking-wide">MonkMode</p>
                   <button
                     type="button"
@@ -263,7 +280,7 @@ export default function DashboardLayout({ children }) {
                   </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto">
+                <div className="min-h-0 flex-1 overflow-hidden">
                   <Sidebar onLogout={handleLogout} onNavigate={() => setMobileMenuOpen(false)} />
                 </div>
               </Motion.aside>
@@ -273,7 +290,7 @@ export default function DashboardLayout({ children }) {
 
         {/* Main content */}
         <main
-          className="flex-1 min-w-0 overflow-y-auto px-3 py-5 sm:px-5 sm:py-7 md:px-6 md:py-8 lg:px-6 lg:py-10"
+          className={`dashboard-main min-w-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-5 sm:py-6 lg:px-6 lg:py-7 2xl:px-7 2xl:py-8 ${isOverviewRoute ? "min-[1800px]:overflow-hidden" : ""} ${isJournalRoute ? "journal-main" : ""} ${isTodoRoute ? "todo-main" : ""} ${isGoalsRoute ? "goal-main" : ""} ${isGymRoute ? "gym-main" : ""} ${isWeeklyReportRoute ? "weekly-report-main" : ""}`}
           onBeforeInputCapture={handleDemoBeforeInputCapture}
           onClickCapture={handleDemoClickCapture}
           onKeyDownCapture={handleDemoKeyDownCapture}
@@ -281,10 +298,13 @@ export default function DashboardLayout({ children }) {
         >
           {isAiGuruRoute ? (
             <div>{children}</div>
+          ) : lowMotion ? (
+            <div key={location.pathname} className={routeClassName}>{children}</div>
           ) : (
             <AnimatePresence mode="wait">
               <Motion.div
                 key={location.pathname}
+                className={routeClassName}
                 initial={pageTransition.initial}
                 animate={pageTransition.animate}
                 exit={pageTransition.exit}

@@ -1,5 +1,5 @@
-import { motion as Motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import api from "../../api/axios";
 import transformatiomImage1 from "../../assets/transformatiom image 1.webp";
 import transformatiomImage2 from "../../assets/transformatiom image 2.webp";
@@ -124,13 +124,13 @@ function Lightbox({ logs, startEntryId, startImageId, onClose }) {
   if (!allImages.length) return null;
   const image = allImages[current];
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+      className="gym-gallery-lightbox fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-3 backdrop-blur-sm sm:p-4"
       onClick={onClose}
     >
       <div
-        className="relative flex w-full max-w-3xl flex-col items-center"
+        className="gym-gallery-lightbox-panel relative flex w-full max-w-3xl flex-col items-center"
         onClick={(event) => event.stopPropagation()}
       >
         <button
@@ -146,7 +146,7 @@ function Lightbox({ logs, startEntryId, startImageId, onClose }) {
           <img
             src={image.src}
             alt={`${image.date} photo`}
-            className="max-h-[70vh] w-full object-contain"
+            className="gym-gallery-lightbox-image w-full object-contain"
           />
 
           {allImages.length > 1 && (
@@ -179,7 +179,7 @@ function Lightbox({ logs, startEntryId, startImageId, onClose }) {
         </div>
 
         {allImages.length > 1 && (
-          <div className="mt-3 flex max-w-full gap-2 overflow-x-auto pb-1">
+          <div className="gym-gallery-lightbox-thumbs mt-3 flex max-w-full gap-2 overflow-x-auto pb-1">
             {allImages.map((thumb, index) => (
               <button
                 key={thumb.imageId}
@@ -195,7 +195,8 @@ function Lightbox({ logs, startEntryId, startImageId, onClose }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -306,10 +307,18 @@ export default function Gallery() {
 
   return (
     <>
-      <div className="space-y-4">
-        <div className="rounded-[1.5rem] border border-amber-100/10 bg-black/20 p-3 sm:rounded-3xl sm:p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
+      <div className="gym-gallery-view space-y-4">
+        <div className="gym-gallery-toolbar rounded-[1.5rem] border border-amber-100/10 bg-black/20 p-3 sm:rounded-3xl sm:p-4">
+          <div className="gym-gallery-toolbar-row flex flex-col gap-3 lg:flex-row lg:items-stretch">
             <div
+              role={isDemoMode ? undefined : "button"}
+              tabIndex={isDemoMode ? undefined : 0}
+              onKeyDown={isDemoMode ? undefined : (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  fileRef.current?.click();
+                }
+              }}
               onDragOver={(event) => {
                 event.preventDefault();
                 if (!isDemoMode) setDragging(true);
@@ -317,7 +326,7 @@ export default function Gallery() {
               onDragLeave={() => setDragging(false)}
               onDrop={isDemoMode ? undefined : handleDrop}
               onClick={isDemoMode ? undefined : () => fileRef.current?.click()}
-              className={`flex flex-1 flex-col items-start gap-3 rounded-[1.4rem] border-2 border-dashed px-4 py-3 transition sm:flex-row sm:items-center sm:justify-center sm:rounded-2xl sm:py-2 ${
+              className={`gym-gallery-upload flex flex-1 flex-col items-start gap-3 rounded-[1.4rem] border-2 border-dashed px-4 py-3 transition sm:flex-row sm:items-center sm:justify-center sm:rounded-2xl sm:py-2 ${
                 isDemoMode
                   ? "cursor-not-allowed border-amber-100/10 bg-white/[0.03] opacity-60"
                   : "cursor-pointer"
@@ -354,11 +363,11 @@ export default function Gallery() {
             </div>
 
             {logs.length > 0 && (
-              <div className="flex flex-col gap-3 rounded-[1.4rem] border border-amber-100/10 bg-black/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:rounded-2xl sm:py-2 lg:w-72">
+              <div className="gym-gallery-summary flex flex-col gap-3 rounded-[1.4rem] border border-amber-100/10 bg-black/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:rounded-2xl sm:py-2 lg:w-72">
                 <span className="text-xs font-semibold text-stone-400">
-                  {totalImages} photo{totalImages !== 1 ? "s" : ""} across {logs.length} check-in{logs.length !== 1 ? "s" : ""}
+                  {totalImages} photo{totalImages !== 1 ? "s" : ""} · {logs.length} check-in{logs.length !== 1 ? "s" : ""}
                 </span>
-                <Motion.button
+                <button
                   type="button"
                   onClick={() => {
                     const oldestLog = [...logs].sort((a, b) => a.date.localeCompare(b.date))[0];
@@ -371,26 +380,10 @@ export default function Gallery() {
                       });
                     }
                   }}
-                  animate={{
-                    scale: [1, 1.06, 1],
-                    boxShadow: [
-                      "0 0 0px rgba(251,191,36,0)",
-                      "0 0 12px rgba(251,191,36,0.5)",
-                      "0 0 0px rgba(251,191,36,0)",
-                    ],
-                  }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  whileHover={{ scale: 1.1, boxShadow: "0 0 20px rgba(251,191,36,0.65), 0 0 40px rgba(251,191,36,0.2)" }}
-                  whileTap={{ scale: 0.93 }}
-                  className="relative w-full overflow-hidden rounded-full border border-amber-300/40 bg-amber-500/15 px-3 py-1 text-[10px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 sm:w-auto sm:shrink-0"
+                  className="w-full overflow-hidden rounded-full border border-amber-300/40 bg-amber-500/15 px-3 py-1 text-[10px] font-semibold text-amber-200 transition duration-200 hover:border-amber-300/70 hover:bg-amber-500/25 sm:w-auto sm:shrink-0"
                 >
-                  <Motion.span
-                    className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/30 blur-sm"
-                    animate={{ left: ["-40%", "130%"] }}
-                    transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.2, ease: "easeInOut" }}
-                  />
-                  <span className="relative z-10">View All</span>
-                </Motion.button>
+                  View All
+                </button>
               </div>
             )}
           </div>
@@ -402,7 +395,7 @@ export default function Gallery() {
           </div>
         ) : null}
 
-        <div className="max-h-[54vh] overflow-y-auto rounded-[1.5rem] border border-amber-100/10 bg-black/20 p-3 sm:max-h-[calc(100vh-23rem)] sm:rounded-3xl sm:p-5">
+        <div className="gym-gallery-list rounded-[1.5rem] border border-amber-100/10 bg-black/20 p-3 sm:rounded-3xl sm:p-5">
           {loading ? (
             <div className="rounded-2xl border border-dashed border-amber-100/10 bg-black/15 py-12 text-center">
               <p className="text-sm font-semibold text-stone-300">Loading gallery...</p>
@@ -413,15 +406,11 @@ export default function Gallery() {
               <p className="mt-1 text-xs text-stone-500">Upload your first progress photo above.</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {logs.map((log, logIndex) => (
-                <Motion.div
+            <div className="gym-gallery-checkins grid gap-3">
+              {logs.map((log) => (
+                <div
                   key={log.id}
-                  className="rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-3 sm:rounded-2xl"
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: logIndex * 0.07, duration: 0.25 }}
-                  whileHover={{ y: -2, boxShadow: "0 10px 28px rgba(0,0,0,0.4)", borderColor: "rgba(251,191,36,0.2)" }}
+                  className="gym-gallery-checkin min-w-0 rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-3 sm:rounded-2xl"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex items-center gap-2">
@@ -432,19 +421,17 @@ export default function Gallery() {
                     </div>
                   </div>
 
-                  <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:overflow-x-auto sm:pb-1">
+                  <div className="gym-gallery-photos mt-2 grid gap-2">
                     {log.images.map((image, imageIndex) => (
-                      <Motion.div
+                      <div
                         key={image.id}
-                        className="group relative h-28 w-full overflow-hidden rounded-xl border border-amber-100/10 sm:h-24 sm:w-24 sm:shrink-0"
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: logIndex * 0.07 + imageIndex * 0.04, duration: 0.2 }}
-                        whileHover={{ scale: 1.04, borderColor: "rgba(251,191,36,0.35)" }}
+                        className="gym-gallery-photo group relative overflow-hidden rounded-xl border border-amber-100/10 transition hover:border-amber-300/35"
                       >
                         <img
                           src={image.src}
                           alt={`${log.date} ${imageIndex + 1}`}
+                          loading="lazy"
+                          decoding="async"
                           className="h-full w-full cursor-pointer object-cover transition group-hover:opacity-80"
                           onClick={() => setLightbox({ entryId: log.id, imageId: image.id })}
                         />
@@ -455,15 +442,16 @@ export default function Gallery() {
                               event.stopPropagation();
                               void handleDeleteImage(log.id, image.id, log.demo);
                             }}
-                            className="absolute right-1 top-1 hidden h-5 w-5 items-center justify-center rounded-full bg-black/70 text-[10px] text-rose-300 group-hover:flex"
+                            aria-label={`Delete photo from ${formatDate(log.date)}`}
+                            className="gym-gallery-delete absolute right-1 top-1 h-6 w-6 items-center justify-center rounded-full bg-black/80 text-xs text-rose-300"
                           >
                             X
                           </button>
                         )}
-                      </Motion.div>
+                      </div>
                     ))}
                   </div>
-                </Motion.div>
+                </div>
               ))}
             </div>
           )}

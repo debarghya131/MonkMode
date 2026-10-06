@@ -16,27 +16,30 @@ export default function DemoLogin() {
   useEffect(() => {
     if (!isEntering) return undefined;
     const startTime = performance.now();
-    let frameId = 0;
+    let cancelled = false;
 
-    const updateProgress = (now) => {
-      const elapsed = now - startTime;
+    const updateProgress = () => {
+      const elapsed = performance.now() - startTime;
       const nextProgress = Math.min(elapsed / DEMO_ENTRY_DURATION, 1);
-      setEntryProgress(nextProgress);
-
-      if (nextProgress < 1) {
-        frameId = window.requestAnimationFrame(updateProgress);
-      }
+      setEntryProgress(Math.min(nextProgress, 0.95));
     };
 
-    frameId = window.requestAnimationFrame(updateProgress);
+    const progressTimer = window.setInterval(updateProgress, 100);
+    // Start fetching the dashboard while the entry animation is visible.
+    // Navigation can still retry through React.lazy if preloading fails.
+    const dashboardReady = import("../../dashboard/overview/Overview").catch(() => undefined);
 
-    const timerId = window.setTimeout(() => {
+    const timerId = window.setTimeout(async () => {
+      await dashboardReady;
+      if (cancelled) return;
+      setEntryProgress(1);
       startDemoMode();
       navigate("/dashboard", { replace: true });
     }, DEMO_ENTRY_DURATION);
 
     return () => {
-      window.cancelAnimationFrame(frameId);
+      cancelled = true;
+      window.clearInterval(progressTimer);
       window.clearTimeout(timerId);
     };
   }, [isEntering, navigate, startDemoMode]);
@@ -53,16 +56,16 @@ export default function DemoLogin() {
   const progressPercent = Math.round(safeProgress * 100);
 
   return (
-    <div className="auth-page relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-4 text-white sm:min-h-screen sm:px-6 sm:py-8">
-      <AuthBackground />
+    <div className="auth-page relative flex min-h-dvh items-center justify-center overflow-x-hidden px-4 py-6 text-white sm:px-6 sm:py-8">
+      {!isEntering && <AuthBackground />}
 
-      <div className="relative z-10 flex w-full max-w-lg flex-col items-center sm:-translate-y-6">
-        <AuthFloatingMonk />
+      <div className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center">
+        {!isEntering && <AuthFloatingMonk />}
 
         <Motion.div
           className="-mt-4 w-full overflow-hidden rounded-[1.75rem] border border-amber-100/10 bg-white/6 shadow-2xl shadow-black/25 backdrop-blur sm:-mt-10 sm:rounded-[2rem]"
           initial={{ opacity: 0, y: 28 }}
-          animate={isEntering ? { opacity: 0.18, y: -12, scale: 0.97, filter: "blur(8px)" } : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+          animate={isEntering ? { opacity: 0, y: -12, scale: 0.97 } : { opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
           <div className="p-4 sm:p-8 md:p-10">
@@ -113,17 +116,6 @@ export default function DemoLogin() {
                   onClick={handleExploreDemo}
                   disabled={isEntering}
                   className="relative w-full overflow-hidden rounded-full border border-amber-100/45 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] px-5 py-3 text-[0.78rem] font-black uppercase tracking-[0.16em] text-stone-950 shadow-[0_0_0_1px_rgba(255,236,178,0.24),0_0_30px_rgba(251,191,36,0.28),0_18px_42px_rgba(120,52,8,0.3)] transition disabled:cursor-not-allowed disabled:opacity-80 sm:px-6 sm:text-sm sm:tracking-[0.18em]"
-                  animate={
-                    isEntering
-                      ? {
-                          boxShadow: [
-                            "0 0 0 1px rgba(255,236,178,0.24), 0 0 30px rgba(251,191,36,0.28), 0 18px 42px rgba(120,52,8,0.3)",
-                            "0 0 0 1px rgba(255,236,178,0.34), 0 0 52px rgba(251,191,36,0.55), 0 18px 48px rgba(120,52,8,0.36)",
-                            "0 0 0 1px rgba(255,236,178,0.24), 0 0 30px rgba(251,191,36,0.28), 0 18px 42px rgba(120,52,8,0.3)"
-                          ]
-                        }
-                      : {}
-                  }
                   whileHover={
                     isEntering
                       ? undefined
@@ -132,20 +124,6 @@ export default function DemoLogin() {
                   whileTap={isEntering ? undefined : { scale: 0.97 }}
                   transition={{ duration: 0.18 }}
                 >
-                  {isEntering && (
-                    <>
-                      <Motion.span
-                        className="absolute inset-y-0 left-0 rounded-full bg-white/25"
-                        style={{ width: `${progressPercent}%` }}
-                        initial={{ width: 0 }}
-                      />
-                      <Motion.span
-                        className="absolute inset-y-0 left-[-20%] w-[24%] -skew-x-12 bg-white/40 blur-md"
-                        animate={{ left: ["-20%", "118%"] }}
-                        transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut" }}
-                      />
-                    </>
-                  )}
                   <span className="relative z-10">
                     {isEntering ? "Turning On Monk Mode..." : "Turn On Monk Mode"}
                   </span>
@@ -193,7 +171,7 @@ export default function DemoLogin() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
-            className="absolute inset-0 z-40 flex items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,rgba(255,214,107,0.16),transparent_24%),linear-gradient(180deg,rgba(5,7,14,0.76)_0%,rgba(5,5,10,0.92)_38%,rgba(2,2,6,0.98)_100%)] backdrop-blur-md"
+            className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top,rgba(255,214,107,0.16),transparent_24%),linear-gradient(180deg,rgba(5,7,14,0.76)_0%,rgba(5,5,10,0.92)_38%,rgba(2,2,6,0.98)_100%)] py-8 backdrop-blur-md"
           >
             <Motion.div
               initial={{ opacity: 0, scale: 0.92, y: 20 }}
@@ -210,13 +188,13 @@ export default function DemoLogin() {
                 />
 
                 <Motion.div
-                  className="absolute h-80 w-80 rounded-full border border-amber-200/12"
+                  className="absolute h-[min(80vw,20rem)] w-[min(80vw,20rem)] rounded-full border border-amber-200/12"
                   animate={{ scale: [0.88, 1.08], opacity: [0.38, 0] }}
                   transition={{ duration: 1.9, repeat: Infinity, ease: "easeOut" }}
                 />
 
                 <Motion.div
-                  className="absolute h-[26rem] w-[26rem] rounded-full border border-amber-100/8"
+                  className="absolute h-[min(100vw,26rem)] w-[min(100vw,26rem)] rounded-full border border-amber-100/8"
                   animate={{ scale: [0.94, 1.16], opacity: [0.22, 0] }}
                   transition={{ duration: 2.4, repeat: Infinity, ease: "easeOut", delay: 0.3 }}
                 />
@@ -255,7 +233,9 @@ export default function DemoLogin() {
                 <div className="h-2 overflow-hidden rounded-full bg-white/8">
                   <Motion.div
                     className="h-full rounded-full bg-gradient-to-r from-amber-200 via-yellow-300 to-orange-400"
-                    animate={{ width: `${progressPercent}%` }}
+                    style={{ transformOrigin: "left" }}
+                    initial={{ scaleX: 0 }}
+                    animate={{ scaleX: safeProgress }}
                     transition={{ duration: 0.12, ease: "linear" }}
                   />
                 </div>

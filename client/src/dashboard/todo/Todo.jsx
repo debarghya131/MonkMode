@@ -12,6 +12,7 @@ import {
   TODO_CATEGORY_STORAGE_KEY
 } from "./todoShared";
 import useAuth from "../../hooks/useAuth";
+import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import api from "../../api/axios";
 
 const toISODate = (dateObj) => {
@@ -107,6 +108,7 @@ const loadStoredCategories = () => {
 
 export default function Todo() {
   const { isDemoMode } = useAuth();
+  const lowMotion = useMobileLowMotion();
   const [active, setActive] = useState("today");
   const [tasks, setTasks] = useState(isDemoMode ? DEMO_TASKS : []);
   const [consistency, setConsistency] = useState({
@@ -232,8 +234,8 @@ export default function Todo() {
   }, [importantCategories]);
 
   const section = {
-    today: <Today />,
-    upcoming: <Upcomming />,
+    today: <Today lowMotion={lowMotion} />,
+    upcoming: <Upcomming lowMotion={lowMotion} />,
     schedule: (
       <Schedule
         tasks={tasks}
@@ -255,21 +257,21 @@ export default function Todo() {
   };
 
   return (
-    <div className="w-full space-y-4">
+    <div className="todo-page w-full" data-active={active}>
 
       {/* TOP ROW — consistency + navbar side by side, left-aligned */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4 xl:gap-6">
+      <div className="todo-top-row flex flex-col gap-3 md:flex-row md:items-center md:gap-4 xl:gap-6">
         <Motion.div
           className="flex w-full items-start gap-2 rounded-[1.15rem] border border-amber-500/25 bg-amber-950/50 px-3.5 py-2.5 shadow-lg sm:items-center sm:rounded-xl sm:px-4 md:w-auto md:min-w-[255px] md:shrink-0"
-          initial={{ opacity: 0, x: -16 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-          whileHover={{ boxShadow: "0 0 20px rgba(251,191,36,0.25)" }}
+          initial={lowMotion ? false : { opacity: 0, x: -16 }}
+          animate={lowMotion ? undefined : { opacity: 1, x: 0 }}
+          transition={lowMotion ? undefined : { duration: 0.4, ease: "easeOut" }}
+          whileHover={lowMotion ? undefined : { boxShadow: "0 0 20px rgba(251,191,36,0.25)" }}
         >
           <Motion.div
             className="text-xl"
-            animate={{ scale: [1, 1.25, 1] }}
-            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+            animate={lowMotion ? undefined : { scale: [1, 1.25, 1] }}
+            transition={lowMotion ? undefined : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
           >📊</Motion.div>
           <div className="flex min-w-0 flex-col">
             <span className="text-base font-bold text-amber-400 sm:text-lg">
@@ -296,17 +298,22 @@ export default function Todo() {
       </div>
 
       {/* CONTENT */}
-      <AnimatePresence mode="wait">
-        <Motion.div
-          key={active}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.22, ease: "easeInOut" }}
-        >
-          {section[active]}
-        </Motion.div>
-      </AnimatePresence>
+      {lowMotion ? (
+        <div key={active} className="todo-content">{section[active]}</div>
+      ) : (
+        <AnimatePresence mode="wait">
+          <Motion.div
+            key={active}
+            className="todo-content"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22, ease: "easeInOut" }}
+          >
+            {section[active]}
+          </Motion.div>
+        </AnimatePresence>
+      )}
 
     </div>
   );

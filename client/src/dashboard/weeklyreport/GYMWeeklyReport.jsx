@@ -221,7 +221,7 @@ function ReportCard({ children, className = "" }) {
   );
 }
 
-export default function GYMWeeklyReport() {
+export default function GYMWeeklyReport({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
   const [summaries, setSummaries]           = useState([]);
   const [loadingSummaries, setLoadingSummaries] = useState(true);
@@ -369,7 +369,7 @@ export default function GYMWeeklyReport() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
-              className="fixed inset-0 z-[100] flex items-end justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-4"
+              className="weekly-gym-photos-backdrop fixed inset-0 z-[100] flex items-end justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-4"
               onClick={() => { setShowPhotos(false); setShowFullScreen(false); }}
             >
               <Motion.div
@@ -377,7 +377,7 @@ export default function GYMWeeklyReport() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
                 transition={{ duration: 0.2 }}
-                className="journal-scroll relative max-h-[82vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-amber-100/10 bg-[#1a0d0a] p-4 shadow-2xl sm:p-6"
+                className="weekly-gym-photos-modal journal-scroll relative max-h-[82vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-amber-100/10 bg-[#1a0d0a] p-4 shadow-2xl sm:p-6"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="mb-4 flex items-center justify-between gap-3">
@@ -406,7 +406,7 @@ export default function GYMWeeklyReport() {
                       View All
                     </button>
                   </div>
-                  <div className="grid grid-cols-7 gap-2">
+                  <div className="weekly-gym-photo-strip grid grid-cols-7 gap-2">
                     {(selectedWeek.progressPhotos || []).map((entry) => (
                       <div key={entry.day} className="flex flex-col items-center gap-1">
                         <div
@@ -457,7 +457,7 @@ export default function GYMWeeklyReport() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="fixed inset-0 z-[200] flex flex-col bg-black"
+                className="weekly-gym-fullscreen fixed inset-0 z-[200] flex flex-col bg-black"
               >
                 {/* Close */}
                 <button
@@ -524,7 +524,7 @@ export default function GYMWeeklyReport() {
                 </div>
 
                 {/* Thumbnail strip */}
-                <div className="flex shrink-0 items-center justify-center gap-2 overflow-x-auto px-4 pb-5">
+                <div className="weekly-gym-fullscreen-thumbs flex shrink-0 items-center justify-center gap-2 overflow-x-auto px-4 pb-5">
                   {photos.map((p, i) => (
                     <button
                       key={p.day}
@@ -551,10 +551,38 @@ export default function GYMWeeklyReport() {
         document.body
       )}
 
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+    <div className="weekly-gym-view flex flex-col gap-4 lg:flex-row lg:items-start">
+
+      <div className="weekly-gym-quick-weeks rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-3" data-demo-allow="true">
+        <p className="text-label-md">Little Monk's Analysis</p>
+        {loadingSummaries ? (
+          <p className="mt-2 text-xs text-stone-500">Loading weeks...</p>
+        ) : summaries.length === 0 ? (
+          <p className="mt-2 text-xs text-stone-500">No weekly summaries yet.</p>
+        ) : (
+          <div className="weekly-gym-quick-list mt-2 flex gap-2 overflow-x-auto pb-1">
+            {summaries.map((week) => (
+              <button
+                key={week.id}
+                type="button"
+                onClick={() => setSelectedWeekId(week.id)}
+                aria-pressed={selectedWeekId === week.id}
+                className={`min-w-[8.5rem] shrink-0 rounded-xl border px-3 py-2 text-left transition-colors ${
+                  selectedWeekId === week.id
+                    ? "border-amber-400/40 bg-amber-500/10 text-amber-100"
+                    : "border-amber-100/10 bg-black/20 text-stone-300 hover:border-amber-400/25"
+                }`}
+              >
+                <span className="block text-xs font-semibold">{week.date}</span>
+                <span className="mt-0.5 block text-[10px] text-stone-500">{week.workoutDays} workout days</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── LEFT: Main content ─────────────────────────────────── */}
-      <div className="journal-scroll min-w-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-170px)]">
+      <div className="weekly-gym-main journal-scroll min-w-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-170px)]">
         <AnimatePresence mode="wait">
           {loadingSummaries || loadingWeekData ? (
             <Motion.div
@@ -585,7 +613,7 @@ export default function GYMWeeklyReport() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.22 }}
-              className="space-y-4 sm:space-y-5"
+              className="weekly-gym-main-body space-y-4 sm:space-y-5"
           >
             {/* Weekly Summary header */}
             <ReportCard className="px-4 py-3.5 sm:px-5">
@@ -614,7 +642,7 @@ export default function GYMWeeklyReport() {
                     <Motion.span
                       className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
                       animate={{ left: ["-40%", "130%"] }}
-                      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                      transition={{ duration: lowMotion ? 0 : 1.8, repeat: lowMotion ? 0 : Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                     />
                     <span className="relative z-10">📸 Progress Photos</span>
                   </Motion.button>
@@ -638,7 +666,7 @@ export default function GYMWeeklyReport() {
                 const topMuscles = sorted.slice(0, 2).map(([g]) => g);
 
                 return (
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <div className="weekly-gym-summary-pills mt-3 flex flex-wrap items-center gap-2">
                     {selectedWeek.avgWorkoutTime && (
                       <div className="flex items-center gap-1.5 rounded-full border border-sky-400/20 bg-sky-500/10 px-3 py-1">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Avg Time</p>
@@ -650,12 +678,12 @@ export default function GYMWeeklyReport() {
                       <Motion.div
                         className="relative flex items-center gap-1.5 overflow-hidden rounded-full border border-violet-400/25 bg-violet-500/10 px-3 py-1"
                         animate={{ boxShadow: ["0 0 0px rgba(167,139,250,0)", "0 0 10px rgba(167,139,250,0.36)", "0 0 0px rgba(167,139,250,0)"] }}
-                        transition={{ boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
+                        transition={{ boxShadow: { duration: lowMotion ? 0 : 2.2, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" } }}
                       >
                         <Motion.span
                           className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
                           animate={{ left: ["-40%", "130%"] }}
-                          transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                          transition={{ duration: lowMotion ? 0 : 1.8, repeat: lowMotion ? 0 : Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                         />
                         <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Avg Volume Lifted</p>
                         <span className="relative z-10 text-xs font-bold text-violet-300">{selectedWeek.avgVolumeLifted}</span>
@@ -689,12 +717,12 @@ export default function GYMWeeklyReport() {
                               key={group}
                               className={`relative shrink-0 overflow-hidden rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${c.border} ${c.bg} ${c.text}`}
                               animate={{ boxShadow: ["0 0 0px rgba(251,146,60,0)", "0 0 9px rgba(251,146,60,0.32)", "0 0 0px rgba(251,146,60,0)"] }}
-                              transition={{ boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
+                              transition={{ boxShadow: { duration: lowMotion ? 0 : 2.2, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" } }}
                             >
                               <Motion.span
                                 className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
                                 animate={{ left: ["-40%", "130%"] }}
-                                transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                                transition={{ duration: lowMotion ? 0 : 1.8, repeat: lowMotion ? 0 : Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                               />
                               <span className="relative z-10">🔥 {group}</span>
                             </Motion.span>
@@ -708,14 +736,14 @@ export default function GYMWeeklyReport() {
             </ReportCard>
 
             {/* Little Monk AI Summary */}
-            <ReportCard className="flex min-h-[14rem] flex-col overflow-hidden lg:h-[22vh]">
+            <ReportCard className="weekly-gym-ai flex min-h-[14rem] flex-col overflow-hidden lg:h-[22vh]">
               <div className="mb-3 flex shrink-0 items-center gap-2">
                 <Motion.img
                   src={littleMonkLogo}
                   alt="Little Monk"
                   className="h-14 w-17 object-contain"
                   animate={{ y: [0, -3, 0] }}
-                  transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+                  transition={{ duration: lowMotion ? 0 : 2.8, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" }}
                 />
                 <div>
                   <p className="text-label-md">Little Monk's Analysis</p>
@@ -740,13 +768,13 @@ export default function GYMWeeklyReport() {
             </ReportCard>
 
             {/* Strength Progress + Body Progress side by side */}
-            <div className="flex flex-col items-start gap-4 2xl:flex-row">
+            <div className="weekly-gym-progress-grid flex flex-col items-start gap-4 2xl:flex-row">
 
               {/* Strength Progress */}
-              <ReportCard className="flex min-h-[20rem] min-w-0 flex-1 flex-col overflow-hidden lg:h-[44vh] 2xl:basis-0">
+              <ReportCard className="weekly-gym-strength-card flex min-h-[20rem] min-w-0 flex-1 flex-col overflow-hidden lg:h-[44vh] 2xl:basis-0">
                 <div className="mb-3 flex shrink-0 flex-col gap-3 bg-[#1d0f0c]/95 pb-2 backdrop-blur sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Strength Progress</p>
-                  <div className="flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:rounded-full">
+                  <div className="weekly-gym-progress-filters flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:rounded-full">
                     {BODY_GROUP_FILTERS.map((filter) => (
                       <button
                         key={filter}
@@ -798,10 +826,10 @@ export default function GYMWeeklyReport() {
               </ReportCard>
 
               {/* Body Progress */}
-              <ReportCard className="flex min-h-[20rem] min-w-0 flex-1 flex-col overflow-hidden lg:h-[44vh] 2xl:basis-0">
+              <ReportCard className="weekly-gym-body-card flex min-h-[20rem] min-w-0 flex-1 flex-col overflow-hidden lg:h-[44vh] 2xl:basis-0">
                 <div className="mb-3 flex shrink-0 flex-col gap-2 bg-[#1d0f0c]/95 pb-2 backdrop-blur sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Body Progress</p>
-                  <div className="flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:rounded-full">
+                  <div className="weekly-gym-progress-filters flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:rounded-full">
                     {BODY_PART_FILTERS.map((f) => (
                       <button
                         key={f}
@@ -853,20 +881,20 @@ export default function GYMWeeklyReport() {
       </div>
 
       {/* ── RIGHT: Week selector + Nutrition ──────────────────── */}
-      <div className="grid w-full items-start gap-4 lg:w-[360px] lg:shrink-0 xl:w-[380px]">
+      <div className="weekly-gym-sidebar grid w-full items-start gap-4 lg:w-[360px] lg:shrink-0 xl:w-[380px]">
 
         {/* Week selector */}
-        <ReportCard className="flex min-h-[18rem] flex-col overflow-hidden lg:h-[44vh]">
+        <ReportCard className="weekly-gym-weeks-card flex min-h-[18rem] flex-col overflow-hidden lg:h-[44vh]">
           <div className="mb-4 flex shrink-0 items-center gap-3">
             <Motion.div
               className="relative grid h-16 w-17 place-items-center"
               animate={{ y: [0, -4, 0] }}
-              transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+              transition={{ duration: lowMotion ? 0 : 2.8, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" }}
             >
               <Motion.span
                 className="absolute inset-2 rounded-full bg-amber-400/15 blur-md"
                 animate={{ opacity: [0.35, 0.8, 0.35], scale: [0.9, 1.12, 0.9] }}
-                transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+                transition={{ duration: lowMotion ? 0 : 2.8, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" }}
               />
               <Motion.img
                 src={littleMonkLogo}
@@ -925,12 +953,12 @@ export default function GYMWeeklyReport() {
 
         {/* Nutrition Summary */}
         {selectedWeek?.nutrition ? (
-          <ReportCard>
+          <ReportCard className="weekly-gym-nutrition-card">
             <div className="mb-3 flex items-center gap-2">
               <span className="text-base">🥗</span>
               <p className="text-label-md">Nutrition Summary</p>
             </div>
-            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="weekly-gym-nutrition-grid mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {[
                 ["Avg Protein",  selectedWeek.nutrition.avgProtein],
                 ["Avg Carbs",    selectedWeek.nutrition.avgCarbs],
@@ -949,7 +977,7 @@ export default function GYMWeeklyReport() {
             </div>
           </ReportCard>
         ) : selectedWeek ? (
-          <ReportCard>
+          <ReportCard className="weekly-gym-nutrition-card">
             <div className="mb-3 flex items-center gap-2">
               <span className="text-base">🥗</span>
               <p className="text-label-md">Nutrition Summary</p>

@@ -47,16 +47,16 @@ export default function About() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, ease: "easeOut" }}
             whileHover={{ y: -4 }}
-            className="group relative overflow-hidden rounded-[1.35rem] border border-amber-200/10 bg-stone-950/40 px-4 py-5 shadow-[0_18px_56px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:rounded-[1.75rem] sm:px-8 sm:py-8"
+            className="group relative overflow-hidden rounded-[1.35rem] border border-amber-200/10 bg-stone-950/70 px-4 py-5 shadow-[0_18px_56px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:rounded-[1.75rem] sm:bg-stone-950/40 sm:px-8 sm:py-8"
           >
             <Motion.div
               className="pointer-events-none absolute -left-24 -top-24 h-56 w-56 rounded-full bg-amber-400/10 blur-3xl"
-              animate={{ opacity: [0.3, 0.65, 0.3], scale: [0.95, 1.08, 0.95] }}
+              style={{ opacity: 0.45 }}
               transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
             />
             <Motion.div
               className="pointer-events-none absolute -bottom-28 right-10 h-64 w-64 rounded-full bg-sky-400/10 blur-3xl"
-              animate={{ opacity: [0.18, 0.46, 0.18], x: [0, -18, 0] }}
+              style={{ opacity: 0.3 }}
               transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
             />
 
@@ -197,12 +197,12 @@ export default function About() {
             <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(251,191,36,0.12),transparent_38%,rgba(59,130,246,0.08))]" />
             <Motion.div
               className="pointer-events-none absolute -left-28 top-0 h-72 w-72 rounded-full bg-amber-400/10 blur-3xl"
-              animate={{ opacity: [0.22, 0.52, 0.22], scale: [0.95, 1.12, 0.95] }}
+              style={{ opacity: 0.35 }}
               transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut" }}
             />
             <Motion.div
               className="pointer-events-none absolute -right-20 top-16 h-72 w-72 rounded-full bg-sky-500/10 blur-3xl"
-              animate={{ opacity: [0.18, 0.42, 0.18], y: [0, 18, 0] }}
+              style={{ opacity: 0.3 }}
               transition={{ duration: 7.5, repeat: Infinity, ease: "easeInOut" }}
             />
 
@@ -211,7 +211,7 @@ export default function About() {
                 <p className="text-[0.64rem] font-bold uppercase tracking-[0.24em] text-amber-200/65 sm:text-[0.72rem] sm:tracking-[0.34em]">
                   Motivation
                 </p>
-                <h2 className="mt-3 max-w-4xl font-heading text-[1.15rem] font-black leading-tight text-amber-50 sm:text-2xl lg:whitespace-nowrap lg:text-[1.85rem] xl:text-[2.15rem]">
+                <h2 className="mt-3 max-w-4xl font-heading text-[1.15rem] font-black leading-tight text-amber-50 sm:text-2xl lg:text-[1.85rem] xl:text-[2.15rem]">
                   Motivation for creating this project.
                 </h2>
                 <p className="mt-6 max-w-3xl text-sm leading-7 text-stone-300 sm:mt-8 sm:text-base sm:leading-8">
@@ -256,8 +256,10 @@ export default function About() {
               >
                 <Motion.div
                   className="pointer-events-none absolute inset-y-0 left-[-30%] w-[22%] -skew-x-12 bg-amber-100/10 blur-xl"
-                  animate={{ left: ["-30%", "120%"] }}
-                  transition={{ duration: 3.8, repeat: Infinity, repeatDelay: 2.2, ease: "easeInOut" }}
+                  initial={{ x: "0%" }}
+                  whileInView={{ x: "750%" }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 3.8, ease: "easeInOut" }}
                 />
                 <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-amber-200/65 sm:text-[0.68rem] sm:tracking-[0.3em]">
                   Why MonkMode?

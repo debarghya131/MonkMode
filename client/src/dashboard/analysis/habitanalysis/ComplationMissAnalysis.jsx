@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import DashboardSelect from "../../../components/DashboardSelect";
 import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.webp";
 import api from "../../../api/axios";
@@ -560,7 +561,7 @@ export default function ComplationMissAnalysis() {
         )}
         <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
           <span className="text-stone-400">Year</span>
-          <select
+          <DashboardSelect
             value={selectedYear}
             onChange={(event) => {
               const newYear = event.target.value;
@@ -574,12 +575,12 @@ export default function ComplationMissAnalysis() {
             {YEARS.map(year => (
               <option key={year} value={year} className="bg-stone-950 text-stone-200">{year}</option>
             ))}
-          </select>
+          </DashboardSelect>
         </label>
 
         <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
           <span className="text-stone-400">Month</span>
-          <select
+          <DashboardSelect
             value={selectedMonth}
             onChange={(event) => setSelectedMonth(event.target.value)}
             className="bg-transparent text-sky-100 outline-none"
@@ -590,7 +591,7 @@ export default function ComplationMissAnalysis() {
             ).map(month => (
               <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">{month.label}</option>
             ))}
-          </select>
+          </DashboardSelect>
         </label>
       </div>
 

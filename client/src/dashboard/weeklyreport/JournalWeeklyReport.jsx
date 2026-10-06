@@ -174,7 +174,7 @@ function AnalysisStatCard({ icon, title, mainLabel, mainValue, mainAccent = "amb
   );
 }
 
-export default function JournalWeeklyReport() {
+export default function JournalWeeklyReport({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
   const [summaries, setSummaries] = useState([]);
   const [loadingSummaries, setLoadingSummaries] = useState(true);
@@ -300,10 +300,38 @@ export default function JournalWeeklyReport() {
   };
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+    <div className="weekly-journal-view flex flex-col gap-4 lg:flex-row lg:items-stretch">
+
+      <div className="weekly-journal-quick-weeks rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-3" data-demo-allow="true">
+        <p className="text-label-md">Little Monk's Summary</p>
+        {loadingSummaries ? (
+          <p className="mt-2 text-xs text-stone-500">Loading weeks...</p>
+        ) : summaries.length === 0 ? (
+          <p className="mt-2 text-xs text-stone-500">No weekly summaries yet.</p>
+        ) : (
+          <div className="weekly-journal-quick-list mt-2 flex gap-2 overflow-x-auto pb-1">
+            {summaries.map((week) => (
+              <button
+                key={week.id}
+                type="button"
+                onClick={() => setSelectedWeekId(week.id)}
+                aria-pressed={selectedWeekId === week.id}
+                className={`min-w-[8.5rem] shrink-0 rounded-xl border px-3 py-2 text-left transition-colors ${
+                  selectedWeekId === week.id
+                    ? "border-amber-400/40 bg-amber-500/10 text-amber-100"
+                    : "border-amber-100/10 bg-black/20 text-stone-300 hover:border-amber-400/25"
+                }`}
+              >
+                <span className="block text-xs font-semibold">{week.date}</span>
+                <span className="mt-0.5 block text-[10px] text-stone-500">{week.signal}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── LEFT: Main analysis panel ─────────────────────────── */}
-      <div className="min-w-0 flex-1">
+      <div className="weekly-journal-main min-w-0 flex-1">
         <AnimatePresence mode="wait">
           {!selectedWeekId ? (
             <Motion.div
@@ -323,7 +351,7 @@ export default function JournalWeeklyReport() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="space-y-4"
+              className="weekly-journal-main-body space-y-4"
             >
               <div className="animate-pulse rounded-[1.4rem] border border-amber-100/10 bg-white/6 px-4 py-4 h-32 sm:rounded-2xl sm:px-6 sm:h-28" />
               <div className="animate-pulse rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 h-56 sm:rounded-2xl sm:h-48" />
@@ -340,7 +368,7 @@ export default function JournalWeeklyReport() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22 }}
-              className="space-y-4"
+              className="weekly-journal-main-body space-y-4"
             >
               {/* Heading */}
               <div className="dashboard-glow-card rounded-[1.4rem] border border-amber-100/10 bg-white/6 px-4 py-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:px-6">
@@ -349,7 +377,7 @@ export default function JournalWeeklyReport() {
                     <p className="text-label-md">Weekly Summary</p>
                     <p className="mt-1 text-xs font-semibold text-stone-500">{weekData.date}</p>
                   </div>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="weekly-journal-heading-actions flex flex-col gap-2 sm:flex-row sm:items-center">
                     <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
                       {weekData.signal}
                     </span>
@@ -393,12 +421,12 @@ export default function JournalWeeklyReport() {
                           "0 0 0px rgba(251,146,60,0)",
                         ],
                       }}
-                      transition={{ boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
+                      transition={{ boxShadow: { duration: lowMotion ? 0 : 2.2, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" } }}
                     >
                       <Motion.span
                         className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
                         animate={{ left: ["-40%", "130%"] }}
-                        transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                        transition={{ duration: lowMotion ? 0 : 1.8, repeat: lowMotion ? 0 : Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                       />
                       <span className="text-base leading-none">🔥</span>
                       <span className="relative z-10 text-xs font-bold text-orange-300">
@@ -424,7 +452,7 @@ export default function JournalWeeklyReport() {
                       alt="Little Monk"
                       className="h-12 w-14 object-contain"
                       animate={{ y: [0, -3, 0] }}
-                      transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+                      transition={{ duration: lowMotion ? 0 : 2.8, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" }}
                     />
                     <div>
                       <p className="text-label-md">Little Monk's Analysis</p>
@@ -459,7 +487,7 @@ export default function JournalWeeklyReport() {
               </Motion.div>
 
               {/* Stat cards grid */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="weekly-journal-stats grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 <AnalysisStatCard
                   icon="⚡"
                   title="Energy"
@@ -558,15 +586,15 @@ export default function JournalWeeklyReport() {
       </div>
 
       {/* ── RIGHT: Summary + Missed Days ──────────────────────── */}
-      <div className="flex w-full flex-col gap-4 lg:w-[360px] lg:shrink-0 lg:self-stretch">
-        <ReportCard className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="weekly-journal-sidebar flex w-full flex-col gap-4 lg:w-[360px] lg:shrink-0 lg:self-stretch">
+        <ReportCard className="weekly-journal-summary flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="mb-3 flex shrink-0 items-center gap-2.5">
             <Motion.img
               src={littleMonkLogo}
               alt="Little Monk"
               className="h-10 w-10 shrink-0 object-contain"
               animate={{ y: [0, -3, 0] }}
-              transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+              transition={{ duration: lowMotion ? 0 : 2.8, repeat: lowMotion ? 0 : Infinity, ease: "easeInOut" }}
             />
             <div>
               <h3 className="text-label-md leading-tight">Little Monk's Summary</h3>
@@ -599,7 +627,7 @@ export default function JournalWeeklyReport() {
                         : "border-amber-100/10 bg-stone-950/45 hover:border-amber-400/20"
                     }`}
                   >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="weekly-journal-week-row flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
                         <p className="text-xs font-semibold text-stone-200 truncate">Weekly Summary</p>
                         <p className="text-[11px] text-stone-500">{week.date} · {week.signal}</p>
@@ -625,7 +653,7 @@ export default function JournalWeeklyReport() {
           </div>
         </ReportCard>
 
-        <ReportCard className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <ReportCard className="weekly-journal-missed flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="text-base">📅</span>
@@ -661,11 +689,11 @@ export default function JournalWeeklyReport() {
                     key={day.date}
                     className="rounded-lg border border-amber-100/10 bg-stone-950/45 px-3 py-1.5"
                   >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="weekly-journal-missed-row flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-xs font-semibold text-stone-200">
                         {day.label || formatDate(day.date)}
                       </p>
-                      <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-rose-300">Missed</span>
+                      <span className="dashboard-card-status" data-tone="danger">Missed</span>
                     </div>
                     {day.reason ? (
                       <p className="text-[10px] leading-snug text-stone-400 italic">&ldquo;{day.reason}&rdquo;</p>

@@ -65,10 +65,10 @@ export default function Login() {
   const isSubmitting = fetchStatus === "fetching";
 
   return (
-    <div className="auth-page relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-4 text-white sm:min-h-screen sm:px-6 sm:py-8">
+    <div className="auth-page relative flex min-h-dvh items-center justify-center overflow-x-hidden px-4 py-6 text-white sm:px-6 sm:py-8">
       <AuthBackground />
 
-      <div className="relative z-10 flex w-full max-w-lg flex-col items-center sm:-translate-y-6">
+      <div className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center">
         <AuthFloatingMonk />
 
         <Motion.div

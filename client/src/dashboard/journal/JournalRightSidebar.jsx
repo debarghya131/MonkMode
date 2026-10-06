@@ -1,5 +1,4 @@
-import { motion as Motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
@@ -96,7 +95,7 @@ function EntryModal({ entry, onClose }) {
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto p-3 sm:p-4 md:p-6" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div className="journal-modal-backdrop absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
       <div
         className="relative z-10 flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-[1.35rem] border border-amber-100/15 bg-[linear-gradient(160deg,#1e1208,#120d0c)] shadow-2xl shadow-black/60 sm:rounded-2xl"
@@ -278,7 +277,7 @@ function EntryModal({ entry, onClose }) {
   );
 }
 
-export default function JournalRightSidebar({ refreshToken = 0 }) {
+function JournalRightSidebar({ refreshToken = 0 }) {
   const { isDemoMode } = useAuth();
   const [modalEntry, setModalEntry] = useState(null);
   const [history, setHistory] = useState([]);
@@ -370,7 +369,7 @@ export default function JournalRightSidebar({ refreshToken = 0 }) {
 
   return (
     <>
-      <div className="space-y-4">
+      <div className="journal-history-panels space-y-4">
 
         {/* Missed Days This Week */}
         <section className="rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl">
@@ -444,36 +443,32 @@ export default function JournalRightSidebar({ refreshToken = 0 }) {
         </section>
 
         {/* Past Entries */}
-        <section className="rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5">
+        <section className="journal-past-entries rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5">
           <div className="mb-4 flex items-center gap-2">
             <span className="text-base">📖</span>
             <p className="text-label-md">Past Entries</p>
           </div>
 
-          <div className="max-h-[24rem] overflow-y-auto space-y-3 pr-1 journal-scroll sm:max-h-[28rem] xl:h-[47vh] xl:max-h-none">
+          <div className="journal-history-list space-y-3 pr-1 journal-scroll">
             {loading ? (
               <p className="text-xs text-stone-500">Loading entries...</p>
             ) : entries.length === 0 ? (
               <p className="text-xs text-stone-500">No journal entries yet.</p>
-            ) : entries.map((item, i) => {
+            ) : entries.map((item) => {
               const formattedDate = new Date(`${item.dayKey ?? item.date.slice(0, 10)}T12:00:00Z`).toLocaleDateString("en-US", {
                 month: "short", day: "numeric", weekday: "short", timeZone: "UTC",
               });
 
               return (
-                <Motion.div
+                <div
                   key={item.date}
-                  initial={{ opacity: 0, x: 16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.06, duration: 0.25 }}
-                  whileHover={{ y: -2 }}
                   className="rounded-xl border border-amber-100/10 bg-stone-950/45 p-3 transition-colors duration-200 hover:border-amber-400/20"
                 >
 
                   {/* Date + mood */}
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs text-stone-500">{formattedDate}</p>
-                    <span className="flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300">
+                    <span className="inline-flex max-w-full self-start items-center gap-1 whitespace-nowrap rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300 sm:self-auto">
                       {item.mood.emoji} {item.mood.label}
                     </span>
                   </div>
@@ -496,7 +491,7 @@ export default function JournalRightSidebar({ refreshToken = 0 }) {
                     className="mt-1.5 text-xs font-semibold text-amber-500 transition hover:text-amber-300">
                     See full entry ↓
                   </button>
-                </Motion.div>
+                </div>
               );
             })}
           </div>
@@ -508,3 +503,5 @@ export default function JournalRightSidebar({ refreshToken = 0 }) {
     </>
   );
 }
+
+export default memo(JournalRightSidebar);

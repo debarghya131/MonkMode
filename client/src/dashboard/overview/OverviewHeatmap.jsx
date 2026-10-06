@@ -1,7 +1,7 @@
 import CalendarHeatmap from "react-calendar-heatmap";
 import "react-calendar-heatmap/dist/styles.css";
 import { motion as Motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 
@@ -130,8 +130,8 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 sm:tracking-[0.16em]">{label}</p>
         <span className="text-[10px] text-stone-500">{total} contributions</span>
       </div>
-      <div className="overview-heatmap min-h-0 flex-1 w-full overflow-hidden">
-        <div className="h-full w-full">
+      <div className="overview-heatmap journal-scroll min-h-0 w-full flex-1 overflow-x-auto overflow-y-hidden">
+        <div className="h-full min-w-[38rem] sm:min-w-[44rem] lg:min-w-0 lg:w-full">
           <CalendarHeatmap
             startDate={startDate}
             endDate={endDate}
@@ -194,6 +194,74 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
         </div>
       </div>
     </Motion.div>
+  );
+}
+
+function YearPicker({ selectedYear, yearOptions, onChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const closeMenu = (event) => {
+      if (event.type === "keydown" && event.key !== "Escape") return;
+      if (event.type === "pointerdown" && menuRef.current?.contains(event.target)) return;
+      setIsOpen(false);
+    };
+
+    document.addEventListener("pointerdown", closeMenu);
+    document.addEventListener("keydown", closeMenu);
+    return () => {
+      document.removeEventListener("pointerdown", closeMenu);
+      document.removeEventListener("keydown", closeMenu);
+    };
+  }, [isOpen]);
+
+  return (
+    <div ref={menuRef} className="relative w-full sm:w-24">
+      <button
+        type="button"
+        aria-label="Select heatmap year"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((open) => !open)}
+        className="flex min-h-10 w-full items-center justify-between rounded-xl border border-amber-100/15 bg-stone-950/70 px-3 py-2 text-[11px] font-semibold text-stone-200 outline-none transition hover:border-amber-300/35 focus-visible:border-amber-300/45 sm:min-h-8 sm:py-1.5"
+      >
+        <span>{selectedYear}</span>
+        <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" className={`h-3.5 w-3.5 transition-transform ${isOpen ? "rotate-180" : ""}`}>
+          <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div
+          role="listbox"
+          aria-label="Heatmap year"
+          className="absolute right-0 top-[calc(100%+0.4rem)] z-40 w-full overflow-hidden rounded-xl border border-amber-200/20 bg-[#17110f] p-1 shadow-2xl shadow-black/55"
+        >
+          {yearOptions.map((year) => (
+            <button
+              key={year}
+              type="button"
+              role="option"
+              aria-selected={year === selectedYear}
+              onClick={() => {
+                onChange(year);
+                setIsOpen(false);
+              }}
+              className={`flex min-h-9 w-full items-center rounded-lg px-2.5 text-left text-[11px] font-semibold transition ${
+                year === selectedYear
+                  ? "bg-amber-400/20 text-amber-200"
+                  : "text-stone-300 hover:bg-white/7 hover:text-white"
+              }`}
+            >
+              {year}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -546,20 +614,13 @@ export default function OverviewHeatmap() {
 
   return (
     <div className="flex h-full flex-col gap-2.5">
-      <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative z-20 flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500 sm:tracking-[0.18em]">Activity Heatmaps</p>
-        <select
-          value={selectedYear}
-          onChange={(event) => setSelectedYear(Number(event.target.value))}
-          className="w-full rounded-xl border border-amber-100/10 bg-white/5 px-3 py-2 text-[11px] font-semibold text-stone-200 outline-none transition focus:border-amber-300/35 sm:w-auto sm:py-1.5"
-          aria-label="Select heatmap year"
-        >
-          {yearOptions.map((year) => (
-            <option key={year} value={year} style={{ backgroundColor: "#1c1917", color: "#e7e5e4" }}>
-              {year}
-            </option>
-          ))}
-        </select>
+        <YearPicker
+          selectedYear={selectedYear}
+          yearOptions={yearOptions}
+          onChange={setSelectedYear}
+        />
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col justify-between gap-2">

@@ -61,7 +61,7 @@ export default function Analytics() {
         <button
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
-          className="flex w-full items-center justify-between gap-2 rounded-2xl border border-amber-100/10 bg-white/6 px-4 py-2.5 text-sm font-semibold text-amber-300 shadow-xl shadow-black/25 backdrop-blur"
+          className="dashboard-section-trigger flex w-full items-center justify-between gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-xl shadow-black/25"
         >
           <span className="flex min-w-0 items-center gap-2">
             <span className="text-base leading-none">{activeAnalytics.icon}</span>
@@ -80,11 +80,8 @@ export default function Analytics() {
                   key={tab.id}
                   type="button"
                   onClick={() => { setActiveTab(tab.id); setMenuOpen(false); }}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
-                    activeTab === tab.id
-                      ? "bg-gradient-to-r from-amber-400/20 to-orange-400/15 text-amber-300"
-                      : "text-stone-400 hover:bg-white/5 hover:text-stone-200"
-                  }`}
+                  aria-pressed={activeTab === tab.id}
+                  className="dashboard-section-tab flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold"
                 >
                   <span className="text-base leading-none">{tab.icon}</span>
                   {tab.label}
@@ -97,32 +94,18 @@ export default function Analytics() {
 
       {/* Desktop: horizontal scrollable nav */}
       <nav data-demo-allow="true" className="hidden sm:flex w-full items-center gap-1 overflow-x-auto rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur scrollbar-none">
-        {ANALYTICS_TABS.map((tab) => {
-          const isActive = activeTab === tab.id;
-          return (
-            <Motion.button
+        {ANALYTICS_TABS.map((tab) => (
+            <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              whileHover={!isActive ? { scale: 1.03, backgroundColor: "rgba(255,255,255,0.06)" } : {}}
-              whileTap={{ scale: 0.97 }}
-              animate={
-                isActive
-                  ? { boxShadow: "0 0 18px rgba(251,191,36,0.22)" }
-                  : { boxShadow: "0 0 0px rgba(251,191,36,0)" }
-              }
-              transition={{ duration: 0.2 }}
-              className={`flex min-w-[7rem] items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors duration-200 md:flex-1 ${
-                isActive
-                  ? "border border-amber-400/30 bg-gradient-to-r from-amber-400/20 to-orange-400/15 text-amber-300"
-                  : "border border-transparent text-stone-400 hover:text-amber-200"
-              }`}
+              aria-pressed={activeTab === tab.id}
+              className="dashboard-section-tab flex min-w-[7rem] items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold md:flex-1"
             >
               <span className="text-base leading-none">{tab.icon}</span>
               <span>{tab.label}</span>
-            </Motion.button>
-          );
-        })}
+            </button>
+        ))}
       </nav>
 
       {activeAnalytics.id === "journal" ||

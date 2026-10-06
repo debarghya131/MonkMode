@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
+import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import CreateHabit from "./CreateHabit";
 import HabitTracking from "./HabitTracking";
 import HabitsNav from "./HabitsNav";
@@ -11,6 +12,9 @@ import TodaysHabit from "./TodaysHabit";
 export default function Habits() {
   const location = useLocation();
   const { isDemoMode } = useAuth();
+  const lowMotion = useMobileLowMotion();
+  const Header = lowMotion ? "div" : Motion.div;
+  const HeaderIcon = lowMotion ? "div" : Motion.div;
   const requestedTab = location.state?.tab;
   const initialTab = requestedTab === "today" || requestedTab === "create" || requestedTab === "track"
     ? requestedTab
@@ -69,20 +73,24 @@ export default function Habits() {
   };
 
   return (
-    <div className="w-full space-y-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
-        <Motion.div
+    <div className="habits-page w-full space-y-4" data-active={activeTab}>
+      <div className="habits-top-row flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
+        <Header
           className="flex w-full items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-950/50 px-4 py-2.5 shadow-lg md:w-auto md:min-w-[265px] md:shrink-0"
-          initial={{ opacity: 0, x: -16 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-          whileHover={{ boxShadow: "0 0 20px rgba(251,191,36,0.25)" }}
+          {...(lowMotion ? {} : {
+            initial: { opacity: 0, x: -16 },
+            animate: { opacity: 1, x: 0 },
+            transition: { duration: 0.4, ease: "easeOut" },
+            whileHover: { boxShadow: "0 0 20px rgba(251,191,36,0.25)" }
+          })}
         >
-          <Motion.div
+          <HeaderIcon
             className="text-xl"
-            animate={{ scale: [1, 1.25, 1] }}
-            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-          >📊</Motion.div>
+            {...(lowMotion ? {} : {
+              animate: { scale: [1, 1.25, 1] },
+              transition: { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
+            })}
+          >📊</HeaderIcon>
           <div className="flex flex-col">
             <span className="text-base font-bold text-amber-400 sm:text-lg">
               Consistency {isDemoMode ? "--" : `${consistency.lifetimeConsistency}%`}
@@ -106,23 +114,28 @@ export default function Habits() {
               </div>
             )}
           </div>
-        </Motion.div>
+        </Header>
         <div className="w-full min-w-0 flex-1">
           <HabitsNav activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
       </div>
 
-      <AnimatePresence mode="wait">
-        <Motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.22, ease: "easeInOut" }}
-        >
-          {renderContent()}
-        </Motion.div>
-      </AnimatePresence>
+      {lowMotion ? (
+        <div key={activeTab} className="habits-content">{renderContent()}</div>
+      ) : (
+        <AnimatePresence mode="wait">
+          <Motion.div
+            key={activeTab}
+            className="habits-content"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22, ease: "easeInOut" }}
+          >
+            {renderContent()}
+          </Motion.div>
+        </AnimatePresence>
+      )}
     </div>
   );
 }

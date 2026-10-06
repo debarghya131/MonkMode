@@ -1,3 +1,4 @@
+import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -63,7 +64,7 @@ function PlanViewModal({ title, plans, dayFilter, setDayFilter, copyingId, setCo
 
   return (
     <ModalPortal>
-    <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-4">
+    <div className="gym-diet-plan-modal fixed inset-0 z-[1000] flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-4">
       <div
         className="flex w-full max-w-2xl flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.97),rgba(12,8,8,0.98))] shadow-2xl shadow-black/60 max-h-[calc(100dvh-1.5rem)] sm:max-h-[85vh]"
       >
@@ -116,27 +117,27 @@ function PlanViewModal({ title, plans, dayFilter, setDayFilter, copyingId, setCo
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="rounded-full border border-amber-300/40 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-200">{plan.day}</span>
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${plan.isActive ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200" : "border-stone-500/20 bg-white/5 text-stone-400"}`}>
+                        <span className="dashboard-card-status" data-tone={plan.isActive ? "success" : undefined}>
                           {plan.isActive ? "Active" : "Inactive"}
                         </span>
                       </div>
-                      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                      <div className="gym-diet-plan-actions ml-auto flex max-w-full flex-wrap items-center justify-end gap-1.5">
                         <button type="button" onClick={() => onToggleActive(plan.id)}
-                          className={`rounded border px-2 py-0.5 text-[10px] font-semibold transition ${plan.isActive ? "border-stone-400/25 bg-white/5 text-stone-300 hover:text-stone-100" : "border-emerald-400/25 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20"}`}>
+                          className="dashboard-card-action" data-tone={plan.isActive ? "neutral" : "success"}>
                           {plan.isActive ? "Deactivate" : "Activate"}
                         </button>
                         <button type="button" onClick={() => setCopyingId(isCopying ? null : plan.id)}
-                          className="rounded border border-sky-300/25 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-200 transition hover:bg-sky-500/20">
+                          className="dashboard-card-action" data-tone="info">
                           Copy
                         </button>
                         {onEdit && (
                           <button type="button" onClick={() => onEdit(plan)}
-                            className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
+                            className="dashboard-card-action" data-tone="warning">
                             Edit
                           </button>
                         )}
                         <button type="button" onClick={() => onDelete(plan.id)}
-                          className="rounded border border-rose-400/25 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-300 transition hover:bg-rose-500/20">
+                          className="dashboard-card-action" data-tone="danger">
                           Delete
                         </button>
                       </div>
@@ -202,8 +203,6 @@ function MealGroup({ sections, meals, setMeals, inputs, setInputs }) {
               <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-200/70">{label}</p>
               {meals[key].length > 0 && (
                 <Motion.button type="button" onClick={() => setViewingKey(key)}
-                  animate={{ scale: [1, 1.06, 1], boxShadow: ["0 0 0px rgba(251,191,36,0)", "0 0 10px rgba(251,191,36,0.45)", "0 0 0px rgba(251,191,36,0)"] }}
-                  transition={{ scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }, boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
                   whileHover={{ scale: 1.1, boxShadow: "0 0 14px rgba(251,191,36,0.65)", transition: { duration: 0.18 } }}
                   whileTap={{ scale: 0.93, transition: { duration: 0.1 } }}
                   className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-0.5 text-[9px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_14px_rgba(251,191,36,0.4)]">
@@ -211,13 +210,13 @@ function MealGroup({ sections, meals, setMeals, inputs, setInputs }) {
                 </Motion.button>
               )}
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:gap-1.5">
+            <div className="gym-diet-entry-row flex flex-col gap-2 sm:flex-row sm:gap-1.5">
               <input type="text" value={inputs[key].name}
                 onChange={(e) => setInputs((p) => ({ ...p, [key]: { ...p[key], name: e.target.value } }))}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addMeal(key); } }}
                 placeholder="Add meal…"
                 className="min-w-0 flex-1 rounded-lg border border-amber-100/15 bg-white/5 px-2.5 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
-              <input type="time" value={inputs[key].time}
+<DashboardDateTimeInput type="time" value={inputs[key].time}
                 onChange={(e) => setInputs((p) => ({ ...p, [key]: { ...p[key], time: e.target.value } }))}
                 className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35 sm:w-24" />
               <button type="button" onClick={() => addMeal(key)}
@@ -392,9 +391,9 @@ function DaySelector({ selected, onSelect, compact = false, inline = false, disa
     <div
       className={
         compact
-          ? "grid grid-cols-4 gap-1 sm:grid-cols-7"
+          ? "gym-diet-days grid grid-cols-7 gap-1"
           : inline
-            ? "grid min-w-0 w-full grid-cols-4 gap-1 sm:flex-1 sm:grid-cols-7"
+            ? "gym-diet-days grid min-w-0 w-full grid-cols-7 gap-1 sm:flex-1"
             : "mb-4 grid grid-cols-4 gap-1 sm:flex sm:items-center sm:gap-1"
       }
     >
@@ -920,14 +919,14 @@ export default function DietChart() {
 
   return (
     /* Full-height wrapper on larger screens */
-    <div className="flex flex-col gap-4 xl:h-[calc(100vh-19rem)] xl:min-h-0">
+    <div className="gym-diet-view">
 
       {/* ── Responsive 4-card layout ── */}
-      <div className="grid gap-4 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <div className="gym-diet-layout">
 
-        <div className="flex min-h-0 flex-col">
+        <div className="gym-diet-primary">
           {/* ── Container 1: Full Day Diet ── */}
-          <div className={`${card} min-h-0 xl:flex-1`}>
+          <div className={`${card} gym-diet-panel gym-diet-full-day`}>
             {/* sticky header */}
             <div className="shrink-0 border-b border-amber-100/10 px-4 pb-4 pt-4 sm:px-5 sm:pt-5">
               <div className="flex flex-col gap-3">
@@ -935,11 +934,9 @@ export default function DietChart() {
                   <h3 className="text-sm font-semibold text-amber-200">Full Day Diet</h3>
                   <p className="mt-2 text-xs text-stone-400">Select a day and plan your meals.</p>
                 </div>
-                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="gym-diet-controls flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                   <DaySelector selected={selectedDietDay} onSelect={setSelectedDietDay} inline disabled={Boolean(editingDietId)} />
                   <Motion.button type="button" onClick={() => { setShowDietView(true); setDietDayFilter("all"); setCopyingDietId(null); }}
-                    animate={{ scale: [1, 1.05, 1], boxShadow: ["0 0 0px rgba(251,191,36,0)", "0 0 12px rgba(251,191,36,0.5)", "0 0 0px rgba(251,191,36,0)"] }}
-                    transition={{ scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }, boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
                     whileHover={{ scale: 1.1, boxShadow: "0 0 18px rgba(251,191,36,0.65), 0 0 36px rgba(251,191,36,0.2)", transition: { duration: 0.18 } }}
                     whileTap={{ scale: 0.93, transition: { duration: 0.1 } }}
                     className="w-full rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)] sm:w-auto sm:shrink-0">
@@ -976,22 +973,20 @@ export default function DietChart() {
 
         </div>
 
-        <div className="flex min-h-0 flex-col gap-4">
+        <div className="gym-diet-secondary">
           {/* ── Container 2 + 3: Workout Nutrition & Supplements side by side ── */}
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="gym-diet-pair">
             {/* ── Workout Nutrition ── */}
-            <div className={`${card} h-full`}>
+            <div className={`${card} gym-diet-panel gym-diet-nutrition`}>
               <div className="shrink-0 border-b border-amber-100/10 px-4 pb-4 pt-4 sm:px-5 sm:pt-5">
                 <div className="flex flex-col gap-3">
                   <div className="min-w-0">
                     <h3 className="text-sm font-semibold text-amber-200">Workout Nutrition</h3>
                     <p className="mt-2 text-xs text-stone-400">Pre &amp; post workout meals.</p>
                   </div>
-                  <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                  <div className="gym-diet-controls flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                     <DaySelector selected={selectedWnDay} onSelect={setSelectedWnDay} inline disabled={Boolean(editingWnId)} />
                     <Motion.button type="button" onClick={() => { setShowWnView(true); setWnDayFilter("all"); setCopyingWnId(null); }}
-                      animate={{ scale: [1, 1.05, 1], boxShadow: ["0 0 0px rgba(251,191,36,0)", "0 0 12px rgba(251,191,36,0.5)", "0 0 0px rgba(251,191,36,0)"] }}
-                      transition={{ scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }, boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
                       whileHover={{ scale: 1.1, boxShadow: "0 0 18px rgba(251,191,36,0.65), 0 0 36px rgba(251,191,36,0.2)", transition: { duration: 0.18 } }}
                       whileTap={{ scale: 0.93, transition: { duration: 0.1 } }}
                       className="w-full rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)] sm:w-auto sm:shrink-0">
@@ -1000,7 +995,7 @@ export default function DietChart() {
                   </div>
                 </div>
               </div>
-              <div className="journal-scroll px-4 py-4 sm:px-5">
+              <div className="journal-scroll gym-diet-panel-body min-h-0 flex-1 px-4 py-4 sm:px-5">
                 <MealGroup sections={WORKOUT_SECTIONS} meals={workoutMeals} setMeals={setWorkoutMeals} inputs={workoutInputs} setInputs={setWorkoutInputs} />
               </div>
               <div className="shrink-0 border-t border-amber-100/10 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
@@ -1025,19 +1020,17 @@ export default function DietChart() {
             </div>
 
             {/* ── Supplements ── */}
-            <div className={`${card} xl:shrink-0`}>
+            <div className={`${card} gym-diet-panel gym-diet-supplements`}>
             <div className="shrink-0 border-b border-amber-100/10 px-4 pb-4 pt-4 sm:px-5 sm:pt-5">
               <div className="flex flex-col gap-3">
                 <div className="min-w-0">
                   <h3 className="text-sm font-semibold text-amber-200">Supplements</h3>
                   <p className="mt-2 text-xs text-stone-400">Plan your daily supplement intake.</p>
                 </div>
-                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="gym-diet-controls flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                   <DaySelector selected={selectedSuppDay} onSelect={setSelectedSuppDay} inline disabled={Boolean(editingSuppId)} />
                   <div className="w-full sm:w-auto sm:shrink-0">
                     <Motion.button type="button" onClick={() => { setShowSuppView(true); setSuppDayFilter("all"); setCopyingSuppId(null); setShowSuppDraftView(false); }}
-                      animate={{ scale: [1, 1.05, 1], boxShadow: ["0 0 0px rgba(251,191,36,0)", "0 0 12px rgba(251,191,36,0.5)", "0 0 0px rgba(251,191,36,0)"] }}
-                      transition={{ scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }, boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
                       whileHover={{ scale: 1.1, boxShadow: "0 0 18px rgba(251,191,36,0.65), 0 0 36px rgba(251,191,36,0.2)", transition: { duration: 0.18 } }}
                       whileTap={{ scale: 0.93, transition: { duration: 0.1 } }}
                       className="w-full rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)]">
@@ -1063,13 +1056,13 @@ export default function DietChart() {
                 )}
               </div>
               <div className="px-4 pb-3 pt-3 sm:px-5">
-                <div className="flex flex-col gap-2 sm:flex-row sm:gap-1.5">
+                <div className="gym-diet-entry-row flex flex-col gap-2 sm:flex-row sm:gap-1.5">
                   <input type="text" value={suppInput.name}
                     onChange={(e) => setSuppInput((p) => ({ ...p, name: e.target.value }))}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSuppItem(); } }}
                     placeholder="Add supplement…"
                     className="min-w-0 flex-1 rounded-lg border border-amber-100/15 bg-white/5 px-2.5 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
-                  <input type="time" value={suppInput.time}
+<DashboardDateTimeInput type="time" value={suppInput.time}
                     onChange={(e) => setSuppInput((p) => ({ ...p, time: e.target.value }))}
                     className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35 sm:w-24" />
                   <button type="button" onClick={addSuppItem}
@@ -1101,18 +1094,16 @@ export default function DietChart() {
           </div>
 
           {/* ── Container 4: Macros ── */}
-          <div className={`${card} min-h-[18rem] xl:shrink-0`}>
+          <div className={`${card} gym-diet-panel gym-diet-macros`}>
             {/* sticky header */}
             <div className="shrink-0 border-b border-amber-100/10 px-4 pb-4 pt-4 sm:px-5 sm:pt-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <h3 className="text-sm font-semibold text-amber-200">Macros</h3>
                 </div>
-                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                <div className="gym-diet-controls flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                   <DaySelector selected={selectedMacroDay} onSelect={setSelectedMacroDay} compact disabled={Boolean(editingMacroId)} />
                   <Motion.button type="button" onClick={() => { setShowMacrosView(true); setMacrosDayFilter("all"); setCopyingMacroId(null); }}
-                    animate={{ scale: [1, 1.05, 1], boxShadow: ["0 0 0px rgba(251,191,36,0)", "0 0 12px rgba(251,191,36,0.5)", "0 0 0px rgba(251,191,36,0)"] }}
-                    transition={{ scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }, boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
                     whileHover={{ scale: 1.1, boxShadow: "0 0 18px rgba(251,191,36,0.65), 0 0 36px rgba(251,191,36,0.2)", transition: { duration: 0.18 } }}
                     whileTap={{ scale: 0.93, transition: { duration: 0.1 } }}
                     className="w-full rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)] sm:w-auto sm:shrink-0">
@@ -1124,7 +1115,7 @@ export default function DietChart() {
             </div>
             {/* scrollable body */}
             <div className="journal-scroll min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="gym-diet-macro-grid grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {MACRO_FIELDS.map(({ key, label, unit }) => (
                   <div key={key}>
                     <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">

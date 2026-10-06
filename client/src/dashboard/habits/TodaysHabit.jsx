@@ -2,6 +2,7 @@ import { motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
+import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import { INITIAL_HABITS } from "../../../data/HabitDummyData";
 
 const toISODate = (date) => {
@@ -25,10 +26,10 @@ const PRIORITY_STYLES = {
   Low: "border-green-400/30 bg-green-500/10 text-green-200",
 };
 
-const STATUS_STYLES = {
-  pending: "border-amber-300/25 bg-amber-500/10 text-amber-100",
-  completed: "border-emerald-300/25 bg-emerald-500/10 text-emerald-100",
-  broken: "border-rose-300/25 bg-rose-500/10 text-rose-100",
+const STATUS_TONES = {
+  pending: "warning",
+  completed: "success",
+  broken: "danger",
 };
 
 const STATUS_LABELS = {
@@ -99,45 +100,49 @@ const getHabitStatus = (habit) => {
   return "pending";
 };
 
-function HabitRow({ habit, status, onUndo, index = 0 }) {
+function HabitRow({ habit, status, onUndo, index = 0, lowMotion = false }) {
   const slot = getTimeSlot(habit.time);
+  const Row = lowMotion ? "article" : Motion.article;
 
   return (
-    <Motion.article
+    <Row
       className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04, duration: 0.2 }}
-      whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
+      {...(lowMotion ? {} : {
+        initial: { opacity: 0, y: 10 },
+        animate: { opacity: 1, y: 0 },
+        transition: { delay: index * 0.04, duration: 0.2 },
+        whileHover: { y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }
+      })}
     >
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-stone-100">{habit.title}</p>
           <p className="mt-1 text-xs text-stone-400">{habit.note}</p>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:justify-end">
-          {onUndo && (
-            <button
-              type="button"
-              onClick={onUndo}
-              className="rounded-full border border-amber-300/25 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-200 transition hover:border-amber-300/50 hover:bg-amber-500/20"
-            >
-              Undo
-            </button>
-          )}
-          <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold ${STATUS_STYLES[status]}`}>
-            {STATUS_LABELS[status]}
-          </span>
-        </div>
+        <span className="dashboard-card-status" data-tone={STATUS_TONES[status]}>
+          {STATUS_LABELS[status]}
+        </span>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-stone-300">
-        <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{habit.category}</span>
-        <span className={`rounded-full border px-2 py-1 ${PRIORITY_STYLES[habit.priority]}`}>{habit.priority}</span>
-        <span className="rounded-full border border-sky-300/25 bg-sky-500/10 px-2 py-1 text-sky-100">{timeSlotLabel[slot]}</span>
-        <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{formatTime(habit.time)}</span>
+      <div className="mt-3 flex items-end justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-stone-300">
+          <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{habit.category}</span>
+          <span className={`dashboard-card-priority ${PRIORITY_STYLES[habit.priority]}`}>{habit.priority}</span>
+          <span className="rounded-full border border-sky-300/25 bg-sky-500/10 px-2 py-1 text-sky-100">{timeSlotLabel[slot]}</span>
+          <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{formatTime(habit.time)}</span>
+        </div>
+        {onUndo && (
+          <button
+            type="button"
+            onClick={onUndo}
+            className="dashboard-card-action"
+            data-tone="warning"
+          >
+            ↶ Undo
+          </button>
+        )}
       </div>
-    </Motion.article>
+    </Row>
   );
 }
 
@@ -194,6 +199,10 @@ function TimeSlotFilter({ selected, onChange }) {
 
 export default function TodaysHabit() {
   const { isDemoMode } = useAuth();
+  const lowMotion = useMobileLowMotion();
+  const Columns = lowMotion ? "div" : Motion.div;
+  const Column = lowMotion ? "section" : Motion.section;
+  const PendingRow = lowMotion ? "article" : Motion.article;
   const [habits, setHabits] = useState(isDemoMode ? INITIAL_HABITS : []);
   const [loading, setLoading] = useState(!isDemoMode);
   const [allFilter, setAllFilter] = useState("All");
@@ -339,16 +348,20 @@ export default function TodaysHabit() {
             </div>
           </div>
 
-          <Motion.div
-            className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5 2xl:grid-cols-3"
-            initial="hidden"
-            animate="visible"
-            variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
+          <Columns
+            className="habits-today-columns mt-5 grid grid-cols-1 gap-4 lg:gap-5"
+            {...(lowMotion ? {} : {
+              initial: "hidden",
+              animate: "visible",
+              variants: { hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }
+            })}
           >
-            <Motion.section
+            <Column
               className="today-scroll-card min-w-0 rounded-[1.25rem] border border-amber-100/10 bg-black/10 p-4 sm:rounded-2xl sm:p-5"
-              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
-              transition={{ duration: 0.3 }}
+              {...(lowMotion ? {} : {
+                variants: { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } },
+                transition: { duration: 0.3 }
+              })}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -366,26 +379,28 @@ export default function TodaysHabit() {
                   const filtered = allFilter === "All" ? categoryHabits : categoryHabits.filter((h) => h.priority === allFilter);
                   if (filtered.length === 0) return null;
                   return (
-                    <div key={category} className="rounded-[1.1rem] border border-amber-100/10 bg-white/[0.03] p-3 sm:rounded-2xl sm:p-4">
+                    <div key={category} className="habit-category-card rounded-[1.1rem] border border-amber-100/10 bg-white/[0.03] p-3 sm:rounded-2xl sm:p-4">
                       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                         <h4 className="text-sm font-semibold text-stone-100">{category}</h4>
                         <span className="text-xs text-stone-400">{filtered.length} habits</span>
                       </div>
                       <div className="space-y-2">
                         {filtered.map((habit) => (
-                          <HabitRow key={habit._id ?? habit.id} habit={habit} status={getHabitStatus(habit)} />
+                          <HabitRow key={habit._id ?? habit.id} habit={habit} status={getHabitStatus(habit)} lowMotion={lowMotion} />
                         ))}
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </Motion.section>
+            </Column>
 
-            <Motion.section
+            <Column
               className="today-scroll-card min-w-0 rounded-[1.25rem] border border-amber-100/10 bg-black/10 p-4 sm:rounded-2xl sm:p-5"
-              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
-              transition={{ duration: 0.3 }}
+              {...(lowMotion ? {} : {
+                variants: { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } },
+                transition: { duration: 0.3 }
+              })}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -407,65 +422,50 @@ export default function TodaysHabit() {
                     </p>
                   ) : (
                     filtered.map((habit, i) => (
-                      <Motion.article
+                      <PendingRow
                         key={habit._id ?? habit.id}
                         className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.04, duration: 0.2 }}
-                        whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }}
+                        {...(lowMotion ? {} : {
+                          initial: { opacity: 0, y: 8 },
+                          animate: { opacity: 1, y: 0 },
+                          transition: { delay: i * 0.04, duration: 0.2 },
+                          whileHover: { y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }
+                        })}
                       >
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
                             <p className="text-sm font-semibold text-stone-100">{habit.title}</p>
                             <p className="mt-1 text-xs text-stone-400">{habit.note}</p>
                           </div>
-                          <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:justify-end">
-                            <Motion.button
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <button
                               type="button"
                               onClick={() => markDone(habit._id ?? habit.id)}
-                              animate={{
-                                boxShadow: [
-                                  "0 0 0px rgba(52,211,153,0)",
-                                  "0 0 10px rgba(52,211,153,0.45)",
-                                  "0 0 0px rgba(52,211,153,0)",
-                                ],
-                              }}
-                              transition={{
-                                boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
-                              }}
-                              whileHover={{
-                                scale: 1.12,
-                                boxShadow: "0 0 20px rgba(52,211,153,0.65), 0 0 40px rgba(52,211,153,0.2)",
-                              }}
-                              whileTap={{ scale: 0.88, boxShadow: "0 0 28px rgba(52,211,153,0.8)" }}
-                              className="relative overflow-hidden rounded-full border border-emerald-300/40 bg-emerald-500/15 px-3 py-1 text-[11px] font-bold text-emerald-200 transition-colors duration-200 hover:border-emerald-300/70 hover:bg-emerald-500/30 hover:text-emerald-100"
+                              className="dashboard-card-action"
+                              data-tone="success"
                             >
-                              <Motion.span
-                                className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
-                                animate={{ left: ["-40%", "130%"] }}
-                                transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
-                              />
-                              <span className="relative z-10">✓ Done</span>
-                            </Motion.button>
+                              ✓ Done
+                            </button>
                           </div>
                         </div>
                         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-stone-300">
                           <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{habit.category}</span>
-                          <span className={`rounded-full border px-2 py-1 ${PRIORITY_STYLES[habit.priority]}`}>{habit.priority}</span>
+                          <span className={`dashboard-card-priority ${PRIORITY_STYLES[habit.priority]}`}>{habit.priority}</span>
                           <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{formatTime(habit.time)}</span>
                         </div>
-                      </Motion.article>
+                      </PendingRow>
                     ))
                   );
                 })()}
               </div>
-            </Motion.section>
+            </Column>
 
-            <Motion.section
+            <Column
               className="today-scroll-card min-w-0 rounded-[1.25rem] border border-amber-100/10 bg-black/10 p-4 sm:rounded-2xl sm:p-5"
-              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
-              transition={{ duration: 0.3 }}
+              {...(lowMotion ? {} : {
+                variants: { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } },
+                transition: { duration: 0.3 }
+              })}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -490,13 +490,14 @@ export default function TodaysHabit() {
                         habit={habit}
                         status={getHabitStatus(habit)}
                         onUndo={() => markPending(habit._id ?? habit.id)}
+                        lowMotion={lowMotion}
                       />
                     ))
                   );
                 })()}
               </div>
-            </Motion.section>
-          </Motion.div>
+            </Column>
+          </Columns>
         </section>
 
         <aside className="today-sidebar">
@@ -518,7 +519,7 @@ export default function TodaysHabit() {
                 <p className="text-xs text-stone-500">No habits for this priority filter.</p>
               ) : (
                 sidebarHabits.map((habit) => (
-                  <article key={`summary-${habit._id ?? habit.id}`} className="rounded-xl border border-amber-100/10 bg-white/5 p-3">
+                  <article key={`summary-${habit._id ?? habit.id}`} className="habit-streak-row rounded-xl border border-amber-100/10 bg-white/5 p-3">
                     <p className="text-sm font-semibold text-stone-100">{habit.title}</p>
                     <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-stone-300">
                       <div className="flex-1 space-y-1">
