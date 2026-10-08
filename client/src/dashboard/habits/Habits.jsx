@@ -1,6 +1,6 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
@@ -8,14 +8,20 @@ import CreateHabit from "./CreateHabit";
 import HabitTracking from "./HabitTracking";
 import HabitsNav from "./HabitsNav";
 import TodaysHabit from "./TodaysHabit";
+import { HABIT_TABS } from "./habitTabs";
 
 export default function Habits() {
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isDemoMode } = useAuth();
   const lowMotion = useMobileLowMotion();
-  const Header = lowMotion ? "div" : Motion.div;
-  const HeaderIcon = lowMotion ? "div" : Motion.div;
-  const requestedTab = location.state?.tab;
+  const requestedView = searchParams.get("view");
+  const requestedStateTab = location.state?.tab;
+  const requestedTab = HABIT_TABS.some((tab) => tab.id === requestedView)
+    ? requestedView
+    : HABIT_TABS.some((tab) => tab.id === requestedStateTab)
+      ? requestedStateTab
+      : null;
   const initialTab = requestedTab === "today" || requestedTab === "create" || requestedTab === "track"
     ? requestedTab
     : "today";
@@ -29,10 +35,30 @@ export default function Habits() {
   });
 
   useEffect(() => {
-    if (requestedTab === "today" || requestedTab === "create" || requestedTab === "track") {
+    if (requestedTab) {
       setActiveTab(requestedTab);
+      if (!HABIT_TABS.some((tab) => tab.id === requestedView)) {
+        setSearchParams((current) => {
+          const next = new URLSearchParams(current);
+          next.set("view", requestedTab);
+          return next;
+        }, { replace: true });
+      }
+    } else {
+      setActiveTab("today");
     }
-  }, [requestedTab]);
+  }, [requestedTab, requestedView, setSearchParams]);
+
+  const changeActiveTab = (tab) => {
+    setActiveTab(tab);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("view", tab);
+      if (tab !== "today") next.delete("habitToday");
+      if (tab !== "create") next.delete("habitCreate");
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (isDemoMode) return;
@@ -69,54 +95,14 @@ export default function Habits() {
   const renderContent = () => {
     if (activeTab === "create") return <CreateHabit />;
     if (activeTab === "track") return <HabitTracking />;
-    return <TodaysHabit />;
+    return <TodaysHabit consistency={consistency} />;
   };
 
   return (
     <div className="habits-page w-full space-y-4" data-active={activeTab}>
-      <div className="habits-top-row flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
-        <Header
-          className="flex w-full items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-950/50 px-4 py-2.5 shadow-lg md:w-auto md:min-w-[265px] md:shrink-0"
-          {...(lowMotion ? {} : {
-            initial: { opacity: 0, x: -16 },
-            animate: { opacity: 1, x: 0 },
-            transition: { duration: 0.4, ease: "easeOut" },
-            whileHover: { boxShadow: "0 0 20px rgba(251,191,36,0.25)" }
-          })}
-        >
-          <HeaderIcon
-            className="text-xl"
-            {...(lowMotion ? {} : {
-              animate: { scale: [1, 1.25, 1] },
-              transition: { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
-            })}
-          >📊</HeaderIcon>
-          <div className="flex flex-col">
-            <span className="text-base font-bold text-amber-400 sm:text-lg">
-              Consistency {isDemoMode ? "--" : `${consistency.lifetimeConsistency}%`}
-            </span>
-            {isDemoMode ? (
-              <span className="text-[11px] text-amber-200/80">Demo mode</span>
-            ) : (
-              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
-                <span
-                  title="Today uses active habits only."
-                  className="rounded-full border border-amber-100/20 bg-black/20 px-2 py-0.5 text-amber-100/90"
-                >
-                  Today {consistency.completedToday}/{consistency.expectedToday}
-                </span>
-                <span
-                  title="Lifetime uses all-time historical habits."
-                  className="rounded-full border border-amber-100/20 bg-black/20 px-2 py-0.5 text-amber-100/90"
-                >
-                  Lifetime {consistency.totalCompletedLifetime}/{consistency.totalExpectedLifetime}
-                </span>
-              </div>
-            )}
-          </div>
-        </Header>
+      <div className="habits-top-row hidden flex-col gap-3 sm:flex md:flex-row md:items-center md:gap-6">
         <div className="w-full min-w-0 flex-1">
-          <HabitsNav activeTab={activeTab} onTabChange={setActiveTab} />
+          <HabitsNav activeTab={activeTab} onTabChange={changeActiveTab} />
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
@@ -19,6 +20,11 @@ const GOAL_TYPES = [
 ];
 
 const PRIORITIES = ["High", "Medium", "Low"];
+const CREATE_GOAL_VIEWS = [
+  { id: "create", icon: "+", label: "New Goal" },
+  { id: "goals", icon: "✓", label: "All Goals" },
+  { id: "logs", icon: "↻", label: "Goal Logs" },
+];
 const PRIORITY_STYLES = {
   High: "border-red-400/40 text-red-200 bg-red-500/10",
   Medium: "border-yellow-400/40 text-yellow-200 bg-yellow-500/10",
@@ -157,6 +163,19 @@ const emitGoalsUpdated = () => {
 
 export default function CreateGoal({ onGoalChanged }) {
   const { isDemoMode } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedMobileView = searchParams.get("goalCreate");
+  const mobileView = CREATE_GOAL_VIEWS.some((view) => view.id === requestedMobileView)
+    ? requestedMobileView
+    : "create";
+  const selectMobileView = (view) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("tab", "create-goals");
+      next.set("goalCreate", view);
+      return next;
+    });
+  };
   const lowMotion = useMobileLowMotion();
   const GoalListCard = lowMotion ? "article" : Motion.article;
   const today = useMemo(() => toISO(new Date()), []);
@@ -179,6 +198,7 @@ export default function CreateGoal({ onGoalChanged }) {
   const [archiveEditForm, setArchiveEditForm] = useState({});
   const [archiveDeleteId, setArchiveDeleteId] = useState(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const formPanelRef = useRef(null);
 
   const fetchGoalData = useCallback(async () => {
     if (isDemoMode) {
@@ -281,6 +301,13 @@ export default function CreateGoal({ onGoalChanged }) {
       startDate: goal.startDate,
       deadline: goal.deadline,
       priority: goal.priority,
+    });
+    selectMobileView("create");
+    requestAnimationFrame(() => {
+      formPanelRef.current?.scrollIntoView({
+        block: "start",
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      });
     });
   };
 
@@ -485,14 +512,31 @@ export default function CreateGoal({ onGoalChanged }) {
   };
 
   return (
-    <div className="goal-create-view">
+    <div className="goal-create-view" data-mobile-view={mobileView}>
+      <nav className="goal-create-mobile-nav" aria-label="Create goal sections" data-demo-allow="true">
+        {CREATE_GOAL_VIEWS.map((view) => (
+          <button
+            key={view.id}
+            type="button"
+            onClick={() => selectMobileView(view.id)}
+            aria-pressed={mobileView === view.id}
+            className="goal-create-mobile-nav-button"
+          >
+            <span className="goal-create-mobile-nav-icon" aria-hidden="true">{view.icon}</span>
+            <span>{view.label}</span>
+            {view.id === "goals" ? <span className="goal-create-mobile-nav-count">{displayedGoals.length}</span> : null}
+            {view.id === "logs" ? <span className="goal-create-mobile-nav-count">{goalLogs.length}</span> : null}
+          </button>
+        ))}
+      </nav>
+
       <div className="goal-create-heading">
         <p className="text-label-lg">Create Goal</p>
         <h2 className="mt-2 text-2xl font-bold text-amber-100">Build Your Goals</h2>
       </div>
 
       <div className="schedule-layout goal-create-layout">
-        <div className="schedule-main goal-create-form journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
+        <div ref={formPanelRef} data-goal-create-panel="create" className="schedule-main goal-create-form journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
           <h3 className="mb-4 text-sm font-semibold text-amber-200">New Goal</h3>
           <form className="space-y-3" onSubmit={handleSubmit}>
             <div>
@@ -628,6 +672,7 @@ export default function CreateGoal({ onGoalChanged }) {
         </div>
 
         <section
+          data-goal-create-panel="goals"
           className="schedule-all-tasks goal-create-list rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5"
         >
           <div className="goal-create-list-header mb-4 flex flex-wrap items-start justify-between gap-2">
@@ -740,7 +785,7 @@ export default function CreateGoal({ onGoalChanged }) {
           </div>
         </section>
 
-        <aside className="schedule-sidebar goal-create-logs">
+        <aside data-goal-create-panel="logs" className="schedule-sidebar goal-create-logs">
           <div className="goal-create-log-panel flex h-full flex-col rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl">
             <div className="mb-3 shrink-0 border-b border-amber-100/10 pb-3">
               <p className="text-sm font-semibold tracking-wide text-amber-200">Goal Logs</p>

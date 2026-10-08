@@ -372,7 +372,7 @@ function JournalRightSidebar({ refreshToken = 0 }) {
       <div className="journal-history-panels space-y-4">
 
         {/* Missed Days This Week */}
-        <section className="rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl">
+        <section data-journal-panel="missed" className="rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl">
           <div className="mb-3 flex items-center gap-2">
             <span className="text-sm">📅</span>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-300/80">
@@ -443,7 +443,7 @@ function JournalRightSidebar({ refreshToken = 0 }) {
         </section>
 
         {/* Past Entries */}
-        <section className="journal-past-entries rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5">
+        <section data-journal-panel="past" className="journal-past-entries rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5">
           <div className="mb-4 flex items-center gap-2">
             <span className="text-base">📖</span>
             <p className="text-label-md">Past Entries</p>

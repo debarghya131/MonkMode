@@ -203,7 +203,7 @@ function InsightRail({ insights }) {
                   : "border-sky-100/10 bg-stone-950/45 hover:border-sky-300/20"
               }`}
             >
-              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
+              <div className="todo-analysis-insight-row grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
                 <div className="min-w-0">
                   <span className="text-xs font-semibold text-sky-200">{insight.title}</span>
                   <p className="text-sm font-semibold text-stone-200">{insight.value}</p>
@@ -541,7 +541,6 @@ export default function CategPrioAnalyProca() {
   const maxCatLate       = Math.max(0, ...procrastinationCategorySeries.map(c => c.value));
   const mostProcrastinateCategories = maxCatLate > 0 ? procrastinationCategorySeries.filter(c => c.value === maxCatLate) : [];
 
-  const isCurrentMonth = selectedYear === String(NOW.getFullYear()) && selectedMonth === String(NOW.getMonth() + 1).padStart(2, "0");
 
   const insights = [
     { title: "Strong Category",           value: strongCategory  ? `${strongCategory.name} (${strongCategory.completionRate}% completion)` : "No data", description: strongCategory  ? `${strongCategory.completed}/${strongCategory.total} tasks completed in this category.` : "" },
@@ -552,14 +551,8 @@ export default function CategPrioAnalyProca() {
   ];
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-        {isCurrentMonth && (
-          <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-            Live · updates daily
-          </span>
-        )}
+    <section className="todo-analysis-section space-y-4">
+      <div className="todo-analysis-filters flex flex-wrap items-center gap-2.5 sm:gap-3">
         <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
           <span className="text-stone-400">Year</span>
           <DashboardSelect
@@ -604,8 +597,8 @@ export default function CategPrioAnalyProca() {
       )}
       {!loading && (
 
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
-        <div className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[1.6rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem] xl:max-h-[calc(100vh-350px)]">
+      <div className="todo-analysis-layout flex flex-col gap-4 xl:flex-row xl:items-start">
+        <div className="todo-analysis-chart-column journal-scroll min-w-0 flex-1 rounded-[1.6rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem]">
           <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
             <DualBarCountGraph
               title="Category Wise Analysis (Complete & Miss)"
@@ -669,7 +662,7 @@ export default function CategPrioAnalyProca() {
           </div>
         </div>
 
-        <div className="journal-scroll flex w-full flex-col gap-3 scroll-smooth overflow-y-auto xl:max-h-[calc(100vh-180px)] xl:max-w-[380px] xl:shrink-0 xl:self-start">
+        <div className="todo-analysis-side-column journal-scroll flex w-full flex-col gap-3 xl:max-w-[380px] xl:shrink-0 xl:self-start">
           <InsightRail insights={insights} />
         </div>
       </div>

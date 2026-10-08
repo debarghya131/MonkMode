@@ -1,6 +1,6 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
@@ -9,8 +9,9 @@ import CreateGoal from "./CreateGoal";
 import GoalNav from "./GoalNav";
 import Mygoals from "./Mygoals";
 import Progress from "./Progress";
+import { GOAL_TABS } from "./goalTabs";
 
-const GOAL_TABS = new Set(["my-goals", "create-goals", "progress"]);
+const GOAL_TAB_IDS = new Set(GOAL_TABS.map((tab) => tab.id));
 const toISODate = (value) => {
   if (!value) return "";
   const date = new Date(value);
@@ -60,15 +61,31 @@ const emitGoalsUpdated = () => {
 export default function Goal() {
   const { isDemoMode } = useAuth();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const lowMotion = useMobileLowMotion();
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(location.search);
     const requestedTab = params.get("tab") || location.state?.tab;
-    return GOAL_TABS.has(requestedTab) ? requestedTab : "my-goals";
+    return GOAL_TAB_IDS.has(requestedTab) ? requestedTab : "my-goals";
   });
   const [goals, setGoals] = useState([]);
   const [importantByGoal, setImportantByGoal] = useState({});
   const [milestonesByGoal, setMilestonesByGoal] = useState({});
+
+  const requestedTab = searchParams.get("tab") || location.state?.tab;
+  useEffect(() => {
+    setActiveTab(GOAL_TAB_IDS.has(requestedTab) ? requestedTab : "my-goals");
+  }, [requestedTab]);
+
+  const changeActiveTab = (tab) => {
+    setActiveTab(tab);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("tab", tab);
+      if (tab !== "create-goals") next.delete("goalCreate");
+      return next;
+    });
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -270,8 +287,8 @@ export default function Goal() {
 
   return (
     <div className="goals-page w-full" data-active={activeTab}>
-      <div className="goals-top-row min-w-0 flex-1">
-        <GoalNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="goals-top-row hidden min-w-0 flex-1 sm:block">
+        <GoalNav activeTab={activeTab} onTabChange={changeActiveTab} />
       </div>
       {lowMotion ? (
         <div key={activeTab} className="goals-content">{renderContent()}</div>

@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DEFAULT_IMPORTANT_CATEGORIES, isDefaultCategory } from "./todoShared";
 
 const PRIORITY_FILTERS = ["High", "Medium", "Low", "All"];
+
+const IMPORTANT_VIEWS = [
+  { id: "categories", icon: "★", label: "Important Categories" },
+  { id: "tasks", icon: "✓", label: "User-Created Tasks" },
+];
 
 const REPEAT_LABELS = {
   once: "One Time",
@@ -60,6 +66,7 @@ export default function Important({
   importantCategories = DEFAULT_IMPORTANT_CATEGORIES,
   setImportantCategories = () => {},
 }) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedPriority, setSelectedPriority] = useState("High");
   const [selectedCategory, setSelectedCategory] = useState(importantCategories[0] ?? DEFAULT_IMPORTANT_CATEGORIES[0]);
   const [categoryDeleteError, setCategoryDeleteError] = useState("");
@@ -90,6 +97,23 @@ export default function Important({
     [selectedCategory, activeTasks]
   );
 
+  const requestedMobileView = searchParams.get("important");
+  const mobileView = IMPORTANT_VIEWS.some((view) => view.id === requestedMobileView)
+    ? requestedMobileView
+    : "categories";
+
+  const selectMobileView = (view) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("view", "important");
+      next.set("important", view);
+      next.delete("today");
+      next.delete("upcoming");
+      next.delete("schedule");
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (normalizedImportantCategories.length === 0) {
       setSelectedCategory(DEFAULT_IMPORTANT_CATEGORIES[0]);
@@ -113,7 +137,28 @@ export default function Important({
   };
 
   return (
-    <div className="important-page">
+    <div className="important-page" data-mobile-view={mobileView}>
+      <nav className="important-mobile-nav" aria-label="Important task sections">
+        {IMPORTANT_VIEWS.map((view) => {
+          const isSelected = mobileView === view.id;
+          const count = view.id === "categories" ? normalizedImportantCategories.length : activeTasks.length;
+
+          return (
+            <button
+              key={view.id}
+              type="button"
+              className="important-mobile-nav-button"
+              aria-pressed={isSelected}
+              onClick={() => selectMobileView(view.id)}
+            >
+              <span className="important-mobile-nav-icon" aria-hidden="true">{view.icon}</span>
+              <span>{view.label}</span>
+              <span className="important-mobile-nav-count" aria-label={`${count} items`}>{count}</span>
+            </button>
+          );
+        })}
+      </nav>
+
       <div className="important-heading">
         <p className="text-label-lg">Important</p>
         <h2 className="mt-2 text-2xl font-bold text-amber-100">Important Tasks</h2>
@@ -121,7 +166,7 @@ export default function Important({
       </div>
 
       <div className="important-layout">
-        <section className="dashboard-glow-card important-main flex min-h-0 flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5">
+        <section data-important-panel="categories" className="dashboard-glow-card important-main flex min-h-0 flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5">
           <div className="mb-4">
             <p className="text-sm font-semibold text-amber-200">Important Categories</p>
             <p className="mt-0.5 text-xs text-stone-400">Default: Health and Bill & Payment. Custom starred categories appear here.</p>
@@ -173,7 +218,7 @@ export default function Important({
           </div>
         </section>
 
-        <section className="dashboard-glow-card important-side flex min-h-0 flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5">
+        <section data-important-panel="tasks" className="dashboard-glow-card important-side flex min-h-0 flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-amber-200">User Created Tasks</p>

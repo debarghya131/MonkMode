@@ -1,11 +1,20 @@
 import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { INITIAL_TASKS } from "../../../data/ToDoDummyData";
 import useAuth from "../../hooks/useAuth";
 import api from "../../api/axios";
 
 const PRIORITY_ORDER = ["High", "Medium", "Low"];
+
+const TODAY_VIEWS = [
+  { id: "overview", label: "Today’s Overview" },
+  { id: "all", label: "All Tasks" },
+  { id: "pending", label: "Pending" },
+  { id: "completed", label: "Completed" },
+  { id: "missed", label: "Missed Tasks" },
+];
 
 const PRIORITY_STYLES = {
   High: "border-red-400/30 bg-red-500/10 text-red-200",
@@ -206,8 +215,13 @@ function TodayOverview({ tasks, pendingTasks, completedTasks, missedTasks, class
   );
 }
 
-export default function Today({ lowMotion = false }) {
+export default function Today({ lowMotion = false, consistency }) {
   const { isDemoMode } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTodayView = searchParams.get("today");
+  const mobileView = TODAY_VIEWS.some((view) => view.id === requestedTodayView)
+    ? requestedTodayView
+    : "overview";
   const Columns = lowMotion ? "div" : Motion.div;
   const Section = lowMotion ? "section" : Motion.section;
   const Article = lowMotion ? "article" : Motion.article;
@@ -250,6 +264,24 @@ export default function Today({ lowMotion = false }) {
   const pendingTasks = useMemo(() => tasks.filter((t) => t.status === "pending"), [tasks]);
   const completedTasks = useMemo(() => tasks.filter((t) => t.status === "completed"), [tasks]);
   const missedTasks = useMemo(() => tasks.filter((t) => t.status === "missed"), [tasks]);
+  const viewCounts = {
+    overview: tasks.length,
+    all: tasks.length,
+    pending: pendingTasks.length,
+    completed: completedTasks.length,
+    missed: missedTasks.length,
+  };
+
+  const selectMobileView = (view) => {
+    if (view === mobileView) return;
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("view", "today");
+      next.set("today", view);
+      return next;
+    });
+    document.querySelector(".todo-main")?.scrollTo({ top: 0, behavior: "auto" });
+  };
 
   const groupedByCategory = useMemo(
     () =>
@@ -341,12 +373,73 @@ export default function Today({ lowMotion = false }) {
   }
 
   return (
-    <div className="todo-today-view">
+    <div className="todo-today-view" data-mobile-view={mobileView}>
+      <nav className="today-mobile-filter" aria-label="Today's task views" data-demo-allow="true">
+        <div className="today-mobile-consistency">
+          <span className="today-mobile-consistency-icon" aria-hidden="true">📊</span>
+          <div className="min-w-0">
+            <p className="today-mobile-consistency-title">
+              Consistency {isDemoMode ? "--" : `${consistency.lifetimeConsistency}%`}
+            </p>
+            <p className="today-mobile-consistency-detail">
+              {isDemoMode ? "Demo mode" : `Today ${consistency.todayCompleted}/${consistency.todayTotal}`}
+            </p>
+          </div>
+        </div>
+        {TODAY_VIEWS.map((view) => (
+          <button
+            key={view.id}
+            type="button"
+            onClick={() => selectMobileView(view.id)}
+            aria-pressed={mobileView === view.id}
+            className="today-mobile-filter-button"
+          >
+            <span>{view.label}</span>
+            <span className="today-mobile-filter-count">{viewCounts[view.id]}</span>
+          </button>
+        ))}
+      </nav>
       <div className="today-layout">
         <section className="today-main rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-6">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-200/70">{todayLabel}</p>
-            <h3 className="mt-2 text-2xl font-bold text-amber-100">Today&apos;s Tasks</h3>
+          <div className="today-desktop-heading flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-200/70">{todayLabel}</p>
+              <h3 className="mt-2 text-2xl font-bold text-amber-100">Today&apos;s Tasks</h3>
+            </div>
+
+            <Motion.div
+              className="today-heading-consistency hidden min-w-[255px] shrink-0 items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-950/50 px-4 py-2.5 shadow-lg lg:flex"
+              initial={lowMotion ? false : { opacity: 0, x: 16 }}
+              animate={lowMotion ? undefined : { opacity: 1, x: 0 }}
+              transition={lowMotion ? undefined : { duration: 0.4, ease: "easeOut" }}
+              whileHover={lowMotion ? undefined : { boxShadow: "0 0 20px rgba(251,191,36,0.25)" }}
+            >
+              <Motion.span
+                className="text-xl"
+                aria-hidden="true"
+                animate={lowMotion ? undefined : { scale: [1, 1.25, 1] }}
+                transition={lowMotion ? undefined : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+              >
+                📊
+              </Motion.span>
+              <div className="flex min-w-0 flex-col">
+                <span className="text-lg font-bold text-amber-400">
+                  Consistency {isDemoMode ? "--" : `${consistency.lifetimeConsistency}%`}
+                </span>
+                {isDemoMode ? (
+                  <span className="text-[11px] text-amber-200/80">Demo mode</span>
+                ) : (
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+                    <span className="rounded-full border border-amber-100/20 bg-black/20 px-2 py-0.5 text-amber-100/90">
+                      Today {consistency.todayCompleted}/{consistency.todayTotal}
+                    </span>
+                    <span className="rounded-full border border-amber-100/20 bg-black/20 px-2 py-0.5 text-amber-100/90">
+                      Lifetime {consistency.lifetimeCompleted}/{consistency.lifetimeTotal}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </Motion.div>
           </div>
 
           <TodayOverview
@@ -367,6 +460,7 @@ export default function Today({ lowMotion = false }) {
           >
             {/* 1. All Tasks */}
             <Section
+              data-today-panel="all"
               className="today-scroll-card min-w-0 rounded-[1.25rem] border border-amber-100/10 bg-black/10 p-4 sm:rounded-2xl sm:p-5"
               {...sectionMotionProps}
             >
@@ -408,6 +502,7 @@ export default function Today({ lowMotion = false }) {
 
             {/* 2. Pending */}
             <Section
+              data-today-panel="pending"
               className="today-scroll-card min-w-0 rounded-[1.25rem] border border-amber-100/10 bg-black/10 p-4 sm:rounded-2xl sm:p-5"
               {...sectionMotionProps}
             >
@@ -469,6 +564,7 @@ export default function Today({ lowMotion = false }) {
 
             {/* 3. Completed */}
             <Section
+              data-today-panel="completed"
               className="today-scroll-card min-w-0 rounded-[1.25rem] border border-amber-100/10 bg-black/10 p-4 sm:rounded-2xl sm:p-5"
               {...sectionMotionProps}
             >

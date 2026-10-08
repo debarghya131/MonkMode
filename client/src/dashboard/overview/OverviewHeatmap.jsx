@@ -614,13 +614,15 @@ export default function OverviewHeatmap() {
 
   return (
     <div className="overview-heatmap-stack flex h-full flex-col gap-2.5">
-      <div className="relative z-20 flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500 sm:tracking-[0.18em]">Activity Heatmaps</p>
-        <YearPicker
-          selectedYear={selectedYear}
-          yearOptions={yearOptions}
-          onChange={setSelectedYear}
-        />
+      <div className="overview-heatmap-toolbar relative z-20 shrink-0">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500 sm:tracking-[0.18em]">Activity Heatmaps</p>
+          <YearPicker
+            selectedYear={selectedYear}
+            yearOptions={yearOptions}
+            onChange={setSelectedYear}
+          />
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col justify-between gap-2">

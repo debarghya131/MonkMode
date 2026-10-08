@@ -138,7 +138,7 @@ function InsightRail({ insights }) {
   const [selectedInsight, setSelectedInsight] = useState(null);
 
   return (
-    <aside className="flex w-full flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:max-h-[67vh]">
+    <aside className="flex w-full flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl">
       <div className="shrink-0 p-4 pb-3 sm:p-5 sm:pb-4">
         <div className="flex items-center gap-3">
           <Motion.div
@@ -181,7 +181,7 @@ function InsightRail({ insights }) {
                   : "border-sky-100/10 bg-stone-950/45 hover:border-sky-300/20"
               }`}
             >
-              <div className="grid items-start gap-3 sm:grid-cols-[1fr_auto]">
+              <div className="habit-analysis-insight-row grid items-start gap-3 sm:grid-cols-[1fr_auto]">
                 <div className="min-w-0">
                   <span className="text-xs font-semibold text-sky-200">{insight.title}</span>
                   <p className="text-sm font-semibold text-stone-200">{insight.value}</p>
@@ -605,8 +605,8 @@ export default function ScoreStreakAnalysis() {
   ];
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
+    <section className="habit-analysis-section space-y-4">
+      <div className="habit-analysis-filters flex flex-wrap items-center gap-3">
         <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
           <span className="text-stone-400">Year</span>
           <DashboardSelect
@@ -637,10 +637,6 @@ export default function ScoreStreakAnalysis() {
           </DashboardSelect>
         </label>
 
-        <span className="flex w-full items-center justify-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 sm:ml-auto sm:w-auto">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-          Live
-        </span>
       </div>
 
       {loading ? (
@@ -652,9 +648,9 @@ export default function ScoreStreakAnalysis() {
           <p className="text-sm text-stone-500">No habit data for this period.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
+        <div className="habit-analysis-layout flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
           <div
-            className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[1.6rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem] lg:max-h-[calc(100vh-350px)]"
+            className="habit-analysis-chart-column journal-scroll min-w-0 flex-1 rounded-[1.6rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem]"
           >
             <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
               <StreakLineGraph series={streakSeries} daysInMonth={daily.length} />
@@ -686,7 +682,7 @@ export default function ScoreStreakAnalysis() {
           </div>
 
           <div
-            className="journal-scroll self-start flex w-full flex-col gap-2 scroll-smooth overflow-y-auto lg:max-h-[calc(100vh-180px)] lg:max-w-[380px] lg:shrink-0"
+            className="habit-analysis-side-column journal-scroll self-start flex w-full flex-col gap-2 lg:max-w-[380px] lg:shrink-0"
           >
             <InsightRail insights={insights} />
           </div>

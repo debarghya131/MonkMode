@@ -52,7 +52,7 @@ function InsightRail({ insights }) {
                   : "border-sky-100/10 bg-stone-950/45 hover:border-sky-300/20"
               }`}
             >
-              <div className="grid items-start gap-3 sm:grid-cols-[1fr_auto]">
+              <div className="gym-analysis-insight-row grid items-start gap-3 sm:grid-cols-[1fr_auto]">
                 <div className="min-w-0">
                   <span className="text-xs font-semibold text-sky-200">{insight.title}</span>
                   <p className="text-sm font-semibold text-stone-200">{insight.value}</p>
@@ -328,7 +328,7 @@ function ExerciseProgressCharts({ exercise }) {
           </span>
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
         {metricCharts.map((m) => (
           <MiniLineChart key={m.key} data={m.data} color={m.color} stroke={m.stroke} label={m.label} />
         ))}
@@ -493,14 +493,14 @@ export default function StrengthProgressAnalysis() {
   const filteredExercises = groupFilter === "All" ? exercises : exercises.filter((e) => e.bodyGroup === groupFilter);
 
   return (
-    <section className="space-y-4">
+    <section className="gym-analysis-section space-y-4">
       {loading && !exercises.length ? (
         <div className="flex h-64 items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
         </div>
       ) : (
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
-          <div className="flex w-full shrink-0 flex-col gap-2 lg:w-52 lg:shrink-0">
+        <div className="gym-analysis-layout gym-analysis-layout-picker flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
+          <div className="gym-analysis-picker flex w-full shrink-0 flex-col gap-2 lg:shrink-0">
             <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">Body Group</p>
               <div className="flex flex-wrap gap-1">
@@ -516,7 +516,7 @@ export default function StrengthProgressAnalysis() {
                 ))}
               </div>
             </div>
-            <div className="journal-scroll max-h-48 overflow-y-auto rounded-2xl border border-white/8 bg-white/[0.03] p-2 lg:max-h-[calc(100vh-340px)]">
+            <div className="gym-analysis-picker-list journal-scroll rounded-2xl border border-white/8 bg-white/[0.03] p-2">
               {filteredExercises.map((ex) => (
                 <button
                   key={ex.exerciseId}
@@ -534,14 +534,14 @@ export default function StrengthProgressAnalysis() {
             </div>
           </div>
 
-          <div className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[1.6rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem] lg:max-h-[calc(100vh-280px)]">
+          <div className="gym-analysis-chart-column journal-scroll min-w-0 flex-1 rounded-[1.6rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem]">
             <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
               <ExerciseProgressCharts exercise={selectedExercise} />
               <PRBoard exercises={exercises} />
             </div>
           </div>
 
-          <div className="journal-scroll self-start flex w-full flex-col gap-2 scroll-smooth overflow-y-auto lg:max-h-[calc(100vh-180px)] lg:max-w-[380px] lg:shrink-0">
+          <div className="gym-analysis-side-column journal-scroll self-start flex w-full flex-col gap-2 lg:max-w-[380px] lg:shrink-0">
             <InsightRail insights={insights} />
           </div>
         </div>

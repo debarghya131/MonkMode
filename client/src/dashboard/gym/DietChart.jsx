@@ -442,6 +442,7 @@ function SaveBtn({ label, selectedDay, onClick, disabled }) {
 export default function DietChart() {
   const { isDemoMode } = useAuth();
   const draftCache = useMemo(() => loadDietDraftCache(), []);
+  const [mobilePanel, setMobilePanel] = useState("diet");
 
   /* Full Day Diet */
   const [selectedDietDay, setSelectedDietDay]   = useState(() => String(draftCache?.selectedDietDay || ""));
@@ -663,6 +664,7 @@ export default function DietChart() {
     setEditingDietId(plan.id);
     setCopyingDietId(null);
     setShowDietView(false);
+    setMobilePanel("diet");
   };
 
   const saveDiet = async () => {
@@ -726,6 +728,7 @@ export default function DietChart() {
     setEditingWnId(plan.id);
     setCopyingWnId(null);
     setShowWnView(false);
+    setMobilePanel("nutrition");
   };
 
   const saveWn = async () => {
@@ -787,6 +790,7 @@ export default function DietChart() {
     setCopyingSuppId(null);
     setShowSuppDraftView(false);
     setShowSuppView(false);
+    setMobilePanel("supplements");
   };
 
   const addSuppItem = () => {
@@ -864,6 +868,7 @@ export default function DietChart() {
     setEditingMacroId(plan.id);
     setCopyingMacroId(null);
     setShowMacrosView(false);
+    setMobilePanel("macros");
   };
 
   const saveMacro = async () => {
@@ -921,8 +926,28 @@ export default function DietChart() {
     /* Full-height wrapper on larger screens */
     <div className="gym-diet-view">
 
+      <div className="gym-diet-mobile-tabs" role="tablist" aria-label="Diet chart sections">
+        {[
+          { id: "diet", icon: "🥗", label: "Diet" },
+          { id: "nutrition", icon: "⚡", label: "Workout" },
+          { id: "supplements", icon: "💊", label: "Supps" },
+          { id: "macros", icon: "📊", label: "Macros" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={mobilePanel === tab.id}
+            onClick={() => setMobilePanel(tab.id)}
+          >
+            <span aria-hidden="true">{tab.icon}</span>
+            <span>{tab.label}</span>
+          </button>
+        ))}
+      </div>
+
       {/* ── Responsive 4-card layout ── */}
-      <div className="gym-diet-layout">
+      <div className="gym-diet-layout" data-mobile-panel={mobilePanel}>
 
         <div className="gym-diet-primary">
           {/* ── Container 1: Full Day Diet ── */}

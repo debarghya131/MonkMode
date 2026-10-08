@@ -173,7 +173,7 @@ function InsightRail({ insights }) {
                   : "border-amber-100/10 bg-stone-950/45 hover:border-amber-400/20"
               }`}
             >
-              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
+              <div className="journal-analysis-insight-row grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
                 <div className="min-w-0">
                   <span className={`text-xs font-semibold ${insight.meta.text}`}>
                     {insight.title}
@@ -636,15 +636,9 @@ export default function MoodAnalysis() {
   ];
 
   return (
-    <section className="space-y-4">
+    <section className="journal-analysis-section space-y-4">
       {/* Filters — outside the container */}
-      <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-        {String(NOW.getFullYear()) === selectedYear && String(NOW.getMonth() + 1).padStart(2, "0") === selectedMonth && (
-          <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-            Live · updates daily
-          </span>
-        )}
+      <div className="journal-analysis-filters flex flex-wrap items-center gap-2.5 sm:gap-3">
         <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
           <span className="text-stone-400">Year</span>
           <DashboardSelect
@@ -691,10 +685,10 @@ export default function MoodAnalysis() {
           <div className="h-36 animate-pulse rounded-2xl border border-amber-100/10 bg-white/[0.03]" />
         </div>
       ) : (
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <div className="journal-analysis-layout flex flex-col gap-4 lg:flex-row lg:items-start">
         {/* LEFT — one big scrollable container */}
         <div
-          className="journal-scroll min-w-0 flex-1 rounded-[1.6rem] border border-amber-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur lg:max-h-[calc(100vh-360px)] lg:overflow-y-auto sm:rounded-[2rem]"
+          className="journal-analysis-chart-column journal-scroll min-w-0 flex-1 rounded-[1.6rem] border border-amber-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem]"
         >
           <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
             <MoodVsGraph data={moodVsSeries} daysLogged={daysLogged} />
@@ -704,7 +698,7 @@ export default function MoodAnalysis() {
 
         {/* RIGHT — Little Monk panel + Mood Distribution */}
         <div
-          className="journal-scroll flex w-full self-start flex-col gap-3 lg:-mt-14 lg:max-h-[calc(100vh-180px)] lg:max-w-[360px] lg:shrink-0 lg:overflow-y-auto xl:max-w-[380px]"
+          className="journal-analysis-side-column journal-analysis-mood-side journal-scroll flex w-full self-start flex-col gap-3 lg:max-w-[360px] lg:shrink-0 xl:max-w-[380px]"
         >
           <InsightRail insights={littleMonkInsights} />
           <MoodDistributionGraph data={distribution} moodTypesLogged={moodTypesLogged} />

@@ -1,5 +1,6 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
@@ -44,6 +45,13 @@ const TIME_SLOT_OPTIONS = [
   { value: "afternoon", label: "Afternoon" },
   { value: "evening", label: "Evening" },
   { value: "night", label: "Night" },
+];
+
+const HABIT_TODAY_VIEWS = [
+  { id: "all", icon: "▦", label: "All Habits" },
+  { id: "pending", icon: "◷", label: "Pending" },
+  { id: "completed", icon: "✓", label: "Completed" },
+  { id: "streak", icon: "🔥", label: "Streak Summary" },
 ];
 
 const timeSlotLabel = {
@@ -175,7 +183,7 @@ function PriorityFilter({ selected, onChange }) {
 
 function TimeSlotFilter({ selected, onChange }) {
   return (
-    <div className="flex flex-wrap justify-end gap-1.5">
+    <div className="habit-time-slot-filter flex flex-wrap justify-end gap-1.5">
       {TIME_SLOT_OPTIONS.map((slot) => {
         const isActive = selected === slot.value;
         return (
@@ -197,8 +205,9 @@ function TimeSlotFilter({ selected, onChange }) {
   );
 }
 
-export default function TodaysHabit() {
+export default function TodaysHabit({ consistency = {} }) {
   const { isDemoMode } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const lowMotion = useMobileLowMotion();
   const Columns = lowMotion ? "div" : Motion.div;
   const Column = lowMotion ? "section" : Motion.section;
@@ -211,6 +220,18 @@ export default function TodaysHabit() {
   const [sidebarPriorityFilter, setSidebarPriorityFilter] = useState("All");
   const [timeSlotFilter, setTimeSlotFilter] = useState("All");
   const [todayISO, setTodayISO] = useState(() => toISODate(new Date()));
+  const requestedMobileView = searchParams.get("habitToday");
+  const mobileView = HABIT_TODAY_VIEWS.some((view) => view.id === requestedMobileView)
+    ? requestedMobileView
+    : "all";
+
+  const selectMobileView = (view) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("habitToday", view);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (isDemoMode) return;
@@ -335,15 +356,74 @@ export default function TodaysHabit() {
   }
 
   return (
-    <div className="habits-today-page space-y-5">
+    <div className="habits-today-page space-y-5" data-mobile-view={mobileView}>
+      <div className="habit-today-mobile-controls">
+        <nav className="habit-today-mobile-nav" aria-label="Today's habit sections">
+          <div className="habit-today-mobile-consistency">
+            <span className="habit-today-mobile-consistency-icon" aria-hidden="true">📊</span>
+            <div className="min-w-0">
+              <p className="habit-today-mobile-consistency-title">
+                Consistency {isDemoMode ? "--" : `${consistency.lifetimeConsistency ?? 0}%`}
+              </p>
+              <p className="habit-today-mobile-consistency-detail">
+                {isDemoMode
+                  ? "Demo mode"
+                  : `Today ${consistency.completedToday ?? 0}/${consistency.expectedToday ?? 0}`}
+              </p>
+            </div>
+          </div>
+
+          {HABIT_TODAY_VIEWS.map((view) => {
+            const count = view.id === "all"
+              ? visibleHabits.length
+              : view.id === "pending"
+                ? pendingHabits.length
+                : view.id === "completed"
+                  ? completedHabits.length
+                  : sidebarHabits.length;
+
+            return (
+              <button
+                key={view.id}
+                type="button"
+                className="habit-today-mobile-nav-button"
+                aria-pressed={mobileView === view.id}
+                onClick={() => selectMobileView(view.id)}
+              >
+                <span className="habit-today-mobile-nav-icon" aria-hidden="true">{view.icon}</span>
+                <span>{view.label}</span>
+                <span className="habit-today-mobile-nav-count" aria-label={`${count} habits`}>{count}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="habit-today-mobile-time-filter">
+          <TimeSlotFilter selected={timeSlotFilter} onChange={setTimeSlotFilter} />
+        </div>
+      </div>
+
       <div className="today-layout">
         <section className="today-main rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-6">
-          <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="habit-today-heading-row flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-200/70">{todayLabel}</p>
               <h3 className="mt-2 text-2xl font-bold text-amber-100">Today&apos;s Habits</h3>
             </div>
-            <div className="w-full sm:w-auto sm:shrink-0">
+            <div className="habit-today-desktop-consistency flex min-w-[15rem] items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-950/40 px-3 py-2">
+              <span className="text-base leading-none" aria-hidden="true">📊</span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-amber-300">
+                  Consistency {isDemoMode ? "--" : `${consistency.lifetimeConsistency ?? 0}%`}
+                </p>
+                <p className="mt-0.5 text-[10px] text-amber-100/60">
+                  {isDemoMode
+                    ? "Demo mode"
+                    : `Today ${consistency.completedToday ?? 0}/${consistency.expectedToday ?? 0} · Lifetime ${consistency.totalCompletedLifetime ?? 0}/${consistency.totalExpectedLifetime ?? 0}`}
+                </p>
+              </div>
+            </div>
+            <div className="habit-today-desktop-time-filter w-full sm:w-auto sm:shrink-0">
               <TimeSlotFilter selected={timeSlotFilter} onChange={setTimeSlotFilter} />
             </div>
           </div>
@@ -357,6 +437,7 @@ export default function TodaysHabit() {
             })}
           >
             <Column
+              data-habit-today-panel="all"
               className="today-scroll-card min-w-0 rounded-[1.25rem] border border-amber-100/10 bg-black/10 p-4 sm:rounded-2xl sm:p-5"
               {...(lowMotion ? {} : {
                 variants: { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } },
@@ -396,6 +477,7 @@ export default function TodaysHabit() {
             </Column>
 
             <Column
+              data-habit-today-panel="pending"
               className="today-scroll-card min-w-0 rounded-[1.25rem] border border-amber-100/10 bg-black/10 p-4 sm:rounded-2xl sm:p-5"
               {...(lowMotion ? {} : {
                 variants: { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } },
@@ -461,6 +543,7 @@ export default function TodaysHabit() {
             </Column>
 
             <Column
+              data-habit-today-panel="completed"
               className="today-scroll-card min-w-0 rounded-[1.25rem] border border-amber-100/10 bg-black/10 p-4 sm:rounded-2xl sm:p-5"
               {...(lowMotion ? {} : {
                 variants: { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } },
@@ -500,7 +583,7 @@ export default function TodaysHabit() {
           </Columns>
         </section>
 
-        <aside className="today-sidebar">
+        <aside className="today-sidebar" data-habit-today-panel="streak">
           <section className="today-scroll-card rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
@@ -518,37 +601,51 @@ export default function TodaysHabit() {
               {sidebarHabits.length === 0 ? (
                 <p className="text-xs text-stone-500">No habits for this priority filter.</p>
               ) : (
-                sidebarHabits.map((habit) => (
-                  <article key={`summary-${habit._id ?? habit.id}`} className="habit-streak-row rounded-xl border border-amber-100/10 bg-white/5 p-3">
-                    <p className="text-sm font-semibold text-stone-100">{habit.title}</p>
-                    <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-stone-300">
-                      <div className="flex-1 space-y-1">
-                        <p>No. of Streak Break: <span className="font-semibold text-rose-200">{habit.streakBreaks ?? 0}</span></p>
-                        {(() => {
-                          const endDateStr = habit.endDate
-                            ? (typeof habit.endDate === "string" ? habit.endDate.slice(0, 10) : habit.endDate.toISOString?.().slice(0, 10))
-                            : null;
-                          const daysLeft = endDateStr
-                            ? Math.ceil((new Date(endDateStr) - new Date(todayISO)) / (1000 * 60 * 60 * 24))
-                            : null;
-                          return (
-                            <>
-                              <p>End Date: <span className="font-semibold text-amber-100">{endDateStr ?? "Never Ends"}</span></p>
-                              {endDateStr && (
-                                <p>Days Left: <span className={`font-semibold ${daysLeft <= 7 ? "text-rose-300" : daysLeft <= 30 ? "text-yellow-200" : "text-sky-200"}`}>{daysLeft > 0 ? `${daysLeft} days` : "Ending today"}</span></p>
-                              )}
-                            </>
-                          );
-                        })()}
+                sidebarHabits.map((habit) => {
+                  const endDateStr = habit.endDate
+                    ? (typeof habit.endDate === "string" ? habit.endDate.slice(0, 10) : habit.endDate.toISOString?.().slice(0, 10))
+                    : null;
+                  const daysLeft = endDateStr
+                    ? Math.ceil((new Date(endDateStr) - new Date(todayISO)) / (1000 * 60 * 60 * 24))
+                    : null;
+
+                  return (
+                    <article key={`summary-${habit._id ?? habit.id}`} className="habit-streak-row rounded-xl border border-amber-100/10 bg-white/5 p-3">
+                      <p className="habit-streak-title text-sm font-semibold text-stone-100">{habit.title}</p>
+
+                      <div className="habit-streak-stats">
+                        <div className="habit-streak-stat">
+                          <span>Current</span>
+                          <strong className="text-emerald-200">{habit.currentStreak ?? 0}</strong>
+                        </div>
+                        <div className="habit-streak-stat">
+                          <span>Target</span>
+                          <strong className="text-amber-100">{habit.targetStreak ?? "--"}</strong>
+                        </div>
+                        <div className="habit-streak-stat">
+                          <span>Best</span>
+                          <strong className="text-amber-100">{habit.maxStreak ?? "--"}</strong>
+                        </div>
+                        <div className="habit-streak-stat">
+                          <span>Breaks</span>
+                          <strong className="text-rose-200">{habit.streakBreaks ?? 0}</strong>
+                        </div>
                       </div>
-                      <div className="w-full space-y-1 text-left sm:min-w-[140px] sm:w-auto sm:text-right">
-                        <p>Target Streak: <span className="font-semibold text-amber-100">{habit.targetStreak ?? "--"}</span></p>
-                        <p>Current Streak: <span className="font-semibold text-emerald-200">{habit.currentStreak ?? 0}</span></p>
-                        <p>Max Streak: <span className="font-semibold text-amber-100">{habit.maxStreak ?? "--"}</span></p>
+
+                      <div className="habit-streak-dates">
+                        <p><span>Ends</span><strong>{endDateStr ?? "Never"}</strong></p>
+                        {endDateStr && (
+                          <p>
+                            <span>Remaining</span>
+                            <strong className={daysLeft <= 7 ? "text-rose-300" : daysLeft <= 30 ? "text-yellow-200" : "text-sky-200"}>
+                              {daysLeft > 0 ? `${daysLeft} days` : "Today"}
+                            </strong>
+                          </p>
+                        )}
                       </div>
-                    </div>
-                  </article>
-                ))
+                    </article>
+                  );
+                })
               )}
             </div>
           </section>

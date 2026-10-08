@@ -66,7 +66,7 @@ function InsightRail({ insights }) {
                   : "border-sky-100/10 bg-stone-950/45 hover:border-sky-300/20"
               }`}
             >
-              <div className="grid items-start gap-3 sm:grid-cols-[1fr_auto]">
+              <div className="gym-analysis-insight-row grid items-start gap-3 sm:grid-cols-[1fr_auto]">
                 <div className="min-w-0">
                   <span className="text-xs font-semibold text-sky-200">{insight.title}</span>
                   <p className="text-sm font-semibold text-stone-200">{insight.value}</p>
@@ -495,8 +495,8 @@ export default function MeasurementsAnalysis() {
   }, [checkins]);
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
+    <section className="gym-analysis-section space-y-4">
+      <div className="gym-analysis-filters flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1 rounded-2xl border border-white/8 bg-white/[0.03] p-1.5">
           {FIELD_GROUPS.map((g) => (
             <button
@@ -520,9 +520,9 @@ export default function MeasurementsAnalysis() {
         {loading && <span className="animate-pulse text-xs text-stone-500">Loading…</span>}
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
-        <div className="flex w-full shrink-0 flex-col gap-2 lg:w-48 lg:shrink-0">
-          <div className="journal-scroll max-h-40 overflow-y-auto rounded-2xl border border-white/8 bg-white/[0.03] p-2 lg:max-h-[calc(100vh-280px)]">
+      <div className="gym-analysis-layout gym-analysis-layout-picker flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
+        <div className="gym-analysis-picker flex w-full shrink-0 flex-col gap-2 lg:shrink-0">
+          <div className="gym-analysis-picker-list journal-scroll rounded-2xl border border-white/8 bg-white/[0.03] p-2">
             {filteredFields.map((field) => (
               <button
                 key={field.key}
@@ -541,7 +541,7 @@ export default function MeasurementsAnalysis() {
           </div>
         </div>
 
-        <div className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[1.6rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem] lg:max-h-[calc(100vh-350px)]">
+        <div className="gym-analysis-chart-column journal-scroll min-w-0 flex-1 rounded-[1.6rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem]">
           <div className="space-y-4 p-4">
             <MeasurementTrendChart
               checkins={checkins}
@@ -553,7 +553,7 @@ export default function MeasurementsAnalysis() {
           </div>
         </div>
 
-        <div className="journal-scroll self-start flex w-full flex-col gap-2 scroll-smooth overflow-y-auto lg:max-h-[calc(100vh-180px)] lg:max-w-[380px] lg:shrink-0">
+        <div className="gym-analysis-side-column journal-scroll self-start flex w-full flex-col gap-2 lg:max-w-[380px] lg:shrink-0">
           <InsightRail insights={insights} />
         </div>
       </div>

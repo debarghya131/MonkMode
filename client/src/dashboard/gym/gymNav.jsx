@@ -1,20 +1,9 @@
 import { useState } from "react";
-
-const TABS = [
-  { id: "todays-workout", icon: "🏋️", label: "Today"           },
-  { id: "add-workout",    icon: "➕", label: "Add Workout"      },
-  { id: "diet-chart",     icon: "🥗", label: "Diet Chart"       },
-  { id: "measurements",   icon: "📏", label: "Measurements"     },
-  { id: "progress",       icon: "📈", label: "Progress"         },
-  { id: "library",        icon: "📚", label: "Workout Library"  },
-  { id: "gallery",        icon: "🖼️", label: "Gallery"          },
-];
-
-export { TABS };
+import { GYM_TABS } from "./gymTabs";
 
 export default function GymNav({ active, onChange }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const activeTab = TABS.find((t) => t.id === active) ?? TABS[0];
+  const activeTab = GYM_TABS.find((t) => t.id === active) ?? GYM_TABS[0];
 
   return (
     <>
@@ -38,7 +27,7 @@ export default function GymNav({ active, onChange }) {
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
             <div className="absolute left-0 right-0 top-full z-50 mt-1.5 rounded-2xl border border-amber-100/10 bg-stone-950/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur">
-              {TABS.map((tab) => (
+              {GYM_TABS.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
@@ -57,7 +46,7 @@ export default function GymNav({ active, onChange }) {
 
       {/* Desktop: horizontal scrollable nav */}
       <nav data-demo-allow="true" className="hidden w-full overflow-x-auto rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur scrollbar-none sm:flex sm:items-center sm:gap-1">
-        {TABS.map((tab) => (
+        {GYM_TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"

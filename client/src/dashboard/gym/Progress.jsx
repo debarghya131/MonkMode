@@ -363,7 +363,7 @@ function WorkoutProgress({ workouts, lowMotion = false }) {
             {visibleExercises.length} shown
           </span>
         </div>
-        <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1 pr-1">
+        <div className="gym-progress-workout-filters mt-3 flex gap-1.5 overflow-x-auto pb-1 pr-1">
           {groups.map((group) => (
             <button
               key={group}
@@ -412,7 +412,7 @@ function WorkoutProgress({ workouts, lowMotion = false }) {
 
       <div className="gym-progress-workout-detail min-w-0 space-y-4">
         {selectedExercise && (
-          <div className="rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
+          <div className="gym-progress-workout-summary rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-stone-100">{selectedExercise.name}</p>

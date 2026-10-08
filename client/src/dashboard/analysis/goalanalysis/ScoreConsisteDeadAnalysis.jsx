@@ -58,7 +58,7 @@ function InsightRail({ insights }) {
           const isSelected = selectedInsight === insight.title;
           return (
             <Motion.div key={insight.title} layout className={`rounded-xl border p-3 text-sm transition-colors ${isSelected ? "border-sky-400/30 bg-sky-500/8" : "border-sky-100/10 bg-stone-950/45 hover:border-sky-300/20"}`}>
-              <div className="grid items-start gap-3 sm:grid-cols-[1fr_auto]">
+              <div className="goal-analysis-insight-row grid items-start gap-3 sm:grid-cols-[1fr_auto]">
                 <div className="min-w-0">
                   <span className="text-xs font-semibold text-sky-200">{insight.title}</span>
                   <p className="text-sm font-semibold text-stone-200">{insight.value}</p>
@@ -93,9 +93,9 @@ function HorizontalRateGraph({ title, subtitle, goals }) {
           <div className="ml-44 grid grid-cols-6 text-[10px] font-semibold text-stone-500">
             {[0, 20, 40, 60, 80, 100].map((tick) => <span key={tick} className="text-right">{tick}</span>)}
           </div>
-          <div className="journal-scroll mt-2 min-h-40 space-y-4 overflow-y-auto pr-3 lg:max-h-[43vh]">
+          <div className="mt-2 min-h-40 space-y-4 pr-3">
             {goals.map((goal, index) => (
-              <div key={goal.title} className="grid items-center gap-3 sm:grid-cols-[11rem_1fr]">
+              <div key={goal.title} className="grid grid-cols-[11rem_1fr] items-center gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-xs font-semibold text-stone-200">{goal.title}</p>
                   <p className="mt-0.5 text-[10px] text-stone-500">{riskLabel(goal)}</p>
@@ -112,7 +112,7 @@ function HorizontalRateGraph({ title, subtitle, goals }) {
               </div>
             ))}
             {goals.length === 0 && (
-              <div className="grid items-center gap-3 opacity-60 sm:grid-cols-[11rem_1fr]">
+              <div className="grid grid-cols-[11rem_1fr] items-center gap-3 opacity-60">
                 <div className="h-8 rounded-lg border border-dashed border-white/8 bg-white/[0.02]" />
                 <div className="relative h-12 border-l border-white/8 pl-3">
                   <div className="absolute bottom-0 top-0 grid w-[calc(100%-0.75rem)] grid-cols-5">
@@ -159,11 +159,11 @@ function DeadlineAnalysisGraph({ goals }) {
 
       <div className="mt-6 overflow-x-auto">
         <div className="min-w-[760px]">
-          <div className="journal-scroll min-h-40 space-y-4 overflow-y-auto pr-3 lg:max-h-[48vh]">
+          <div className="min-h-40 space-y-4 pr-3">
             {goalsWithDeadline.map((goal, index) => {
               const behind = goal.progress < goal.expected;
               return (
-                <div key={goal.title} className="grid items-center gap-3 sm:grid-cols-[11rem_1fr]">
+                <div key={goal.title} className="grid grid-cols-[11rem_1fr] items-center gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-xs font-semibold text-stone-200">{goal.title}</p>
                     <p className={`mt-0.5 text-[10px] font-semibold ${behind ? "text-rose-300" : "text-emerald-300"}`}>
@@ -326,8 +326,8 @@ export default function ScoreConsisteDeadAnalysis() {
   ];
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
+    <section className="goal-analysis-section space-y-4">
+      <div className="goal-analysis-filters flex flex-wrap items-center gap-3">
         <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
           <span className="text-stone-400">Year</span>
           <DashboardSelect
@@ -351,10 +351,6 @@ export default function ScoreConsisteDeadAnalysis() {
               .map((month) => <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">{month.label}</option>)}
           </DashboardSelect>
         </label>
-        <span className="flex w-full items-center justify-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 sm:ml-auto sm:w-auto">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-          Live
-        </span>
       </div>
 
       {loading ? (
@@ -362,8 +358,8 @@ export default function ScoreConsisteDeadAnalysis() {
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
         </div>
       ) : (
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
-          <div className="journal-scroll min-w-0 flex-1 scroll-smooth overflow-y-auto rounded-[1.6rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem] lg:max-h-[calc(100vh-350px)]">
+        <div className="goal-analysis-layout flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
+          <div className="goal-analysis-chart-column journal-scroll min-w-0 flex-1 rounded-[1.6rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem]">
             <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
               <HorizontalRateGraph title="Goal Consistency Analysis" subtitle="Consistency Rate" goals={goals} />
               <DeadlineAnalysisGraph goals={goals} />
@@ -371,7 +367,7 @@ export default function ScoreConsisteDeadAnalysis() {
             </div>
           </div>
 
-          <div className="journal-scroll self-start flex w-full flex-col gap-2 scroll-smooth overflow-y-auto lg:max-h-[calc(100vh-180px)] lg:max-w-[380px] lg:shrink-0">
+          <div className="goal-analysis-side-column journal-scroll self-start flex w-full flex-col gap-2 lg:max-w-[380px] lg:shrink-0">
             <InsightRail insights={insights} />
           </div>
         </div>
