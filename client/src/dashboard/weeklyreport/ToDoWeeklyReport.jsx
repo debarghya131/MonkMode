@@ -433,7 +433,7 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
               className="weekly-todo-main-body space-y-4"
             >
               {/* Heading */}
-              <div className="dashboard-glow-card rounded-[1.4rem] border border-amber-100/10 bg-white/6 px-4 py-3 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:px-5 sm:py-2.5">
+              <div className="weekly-todo-overview dashboard-glow-card rounded-[1.4rem] border border-amber-100/10 bg-white/6 px-4 py-3 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:px-5 sm:py-2.5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-baseline gap-2">
                     <p className="text-label-md">Weekly Summary</p>

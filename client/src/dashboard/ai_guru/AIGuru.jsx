@@ -255,7 +255,8 @@ export default function AIGuru() {
   // Chat state
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
   const [prompt, setPrompt]     = useState("");
-  const bottomRef = useRef(null);
+  const [chatLoading, setChatLoading] = useState(false);
+  const messagesScrollRef = useRef(null);
   const idRef     = useRef(0);
 
   const fetchInsights = useCallback(async (s) => {
@@ -276,9 +277,11 @@ export default function AIGuru() {
   }, [scope, isDemoMode, fetchInsights]);
 
   // Chat helpers
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
-
-  const [chatLoading, setChatLoading] = useState(false);
+  useEffect(() => {
+    if (activeTab !== "chat") return;
+    const pane = messagesScrollRef.current;
+    if (pane) pane.scrollTo({ top: pane.scrollHeight, behavior: "smooth" });
+  }, [messages, chatLoading, activeTab]);
 
   const sendPrompt = async (value) => {
     const clean = value.trim();
@@ -322,35 +325,35 @@ export default function AIGuru() {
   const suggestions = data ? generateRecommendations(data)    : [];
 
   return (
-    <section className="h-full min-h-0 w-full lg:-mt-4 xl:-mt-6">
-      <div className="grid min-h-[78vh] overflow-hidden rounded-[1.4rem] border border-amber-100/10 shadow-2xl shadow-black/30 lg:h-[calc(100vh-9rem)] lg:min-h-0 lg:grid-cols-[minmax(15rem,20rem)_minmax(0,1fr)] xl:rounded-[2rem]">
+    <section className="ai-guru-page min-h-0 w-full">
+      <div className="ai-guru-frame grid min-h-0 overflow-hidden rounded-[1.4rem] border border-amber-100/10 shadow-2xl shadow-black/30 xl:rounded-[2rem]">
 
         {/* ── LEFT: Avatar panel ── */}
-        <div className="order-1 flex flex-col gap-4 border-b border-amber-100/10 bg-stone-950/60 px-4 py-4 backdrop-blur sm:px-5 sm:py-5 md:px-6 lg:order-1 lg:min-h-0 lg:gap-4 lg:overflow-y-auto lg:border-r lg:border-b-0 lg:px-6 lg:py-4 xl:px-8 xl:py-5">
-          <div className="flex flex-col items-center gap-4 text-center sm:gap-5 lg:gap-4">
+        <div className="ai-guru-profile order-1 flex flex-col gap-4 border-b border-amber-100/10 bg-stone-950/60 px-4 py-4 backdrop-blur sm:px-5 sm:py-5 md:px-6 lg:order-1 lg:min-h-0 lg:gap-4 lg:overflow-y-auto lg:border-r lg:border-b-0 lg:px-6 lg:py-4 xl:px-8 xl:py-5">
+          <div className="ai-guru-identity flex flex-col items-center gap-4 text-center sm:gap-5 lg:gap-4">
             <div className="relative">
               <div className="amber-glow absolute -inset-3 rounded-full bg-amber-400/10 blur-2xl" />
               <img
                 src={mingLogo}
                 alt="Ming — AI Insights"
-                className="soft-float relative h-16 w-16 rounded-full object-cover ring-2 ring-amber-300/25 shadow-xl shadow-amber-900/30 sm:h-20 sm:w-20 lg:h-40 lg:w-40 xl:h-52 xl:w-52"
+                className="ai-guru-avatar soft-float relative h-16 w-16 rounded-full object-cover ring-2 ring-amber-300/25 shadow-xl shadow-amber-900/30 sm:h-20 sm:w-20 lg:h-40 lg:w-40 xl:h-52 xl:w-52"
               />
             </div>
-            <div className="min-w-0 max-w-sm space-y-1.5 lg:space-y-2">
+            <div className="ai-guru-identity-copy min-w-0 max-w-sm space-y-1.5 lg:space-y-2">
               <p className="text-[0.625rem] font-semibold uppercase tracking-[0.28em] text-amber-300/60 sm:text-xs sm:tracking-[0.35em]">
                 Namo Buddhaya
               </p>
               <h2 className="font-heading text-xl font-bold text-amber-50 sm:text-2xl xl:text-[clamp(1.6rem,1.2rem+0.8vw,2.1rem)]">
                 I am Ming
               </h2>
-              <p className="mx-auto max-w-xs text-sm leading-6 text-stone-400 sm:text-[0.95rem] sm:leading-7">
+              <p className="ai-guru-description mx-auto max-w-xs text-sm leading-6 text-stone-400 sm:text-[0.95rem] sm:leading-7">
                 Your personal discipline guide — shaped by ancient wisdom and modern focus. I walk beside those who seek mastery over themselves.
               </p>
             </div>
           </div>
 
           {/* Tab switcher */}
-          <div className="flex w-full gap-2 rounded-xl border border-amber-100/10 bg-white/[0.03] p-1">
+          <div className="ai-guru-tabs flex w-full gap-2 rounded-xl border border-amber-100/10 bg-white/[0.03] p-1">
             {[
               { key: "chat",     label: "Ask Ming"  },
               { key: "insights", label: "Insights" },
@@ -372,7 +375,7 @@ export default function AIGuru() {
 
           {/* Scope selector (only when insights tab active) */}
           {activeTab === "insights" && (
-            <div className="grid w-full grid-cols-3 gap-1.5 rounded-xl border border-amber-100/10 bg-white/[0.03] p-1">
+            <div className="ai-guru-scopes grid w-full grid-cols-3 gap-1.5 rounded-xl border border-amber-100/10 bg-white/[0.03] p-1">
               {SCOPES.map((s) => (
                 <button
                   key={s.key}
@@ -403,10 +406,10 @@ export default function AIGuru() {
         </div>
 
         {/* ── RIGHT: Insights / Chat ── */}
-        <div className="order-2 flex min-h-[30rem] flex-col bg-white/[0.025] backdrop-blur sm:min-h-[32rem] lg:order-2 lg:min-h-0">
+        <div className="ai-guru-content order-2 flex min-h-0 flex-col bg-white/[0.025] backdrop-blur lg:order-2">
 
           {/* Header */}
-          <div className="shrink-0 border-b border-amber-100/10 px-4 py-4 sm:px-5 md:px-6">
+          <div className="ai-guru-content-header shrink-0 border-b border-amber-100/10 px-4 py-4 sm:px-5 md:px-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.625rem] uppercase tracking-[0.3em] text-amber-200/50">AI Insights</p>
@@ -437,7 +440,7 @@ export default function AIGuru() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="journal-scroll flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 md:px-6 lg:min-h-0"
+                className="ai-guru-insights-scroll journal-scroll min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 md:px-6"
               >
                 {loading && (
                   <div className="flex h-40 items-center justify-center">
@@ -462,7 +465,7 @@ export default function AIGuru() {
                   transition={{ duration: 0.35, ease: "easeOut" }}
                   whileHover={{ scale: 1.003 }}
                   style={{ willChange: "transform, box-shadow" }}
-                  className="relative mb-6 flex flex-col items-start gap-4 overflow-hidden rounded-[1.4rem] border border-amber-400/25 bg-gradient-to-r from-amber-500/10 via-orange-500/8 to-amber-500/10 px-4 py-4 sm:flex-row sm:items-center sm:px-6 sm:py-4"
+                  className="ai-guru-beta-banner relative mb-6 flex flex-col items-start gap-4 overflow-hidden rounded-[1.4rem] border border-amber-400/25 bg-gradient-to-r from-amber-500/10 via-orange-500/8 to-amber-500/10 px-4 py-4 sm:flex-row sm:items-center sm:px-6 sm:py-4"
                 >
                   <Motion.span
                     className="pointer-events-none absolute inset-y-0 left-[-45%] w-[28%] -skew-x-12 bg-white/20 blur-sm"
@@ -514,7 +517,7 @@ export default function AIGuru() {
                 )}
 
                 {data && !loading && !error && (
-                  <div className="space-y-6">
+                  <div className="ai-guru-insights-body space-y-6">
                     {/* Period label */}
                     {data.period && (
                       <p className="text-[0.65rem] font-semibold uppercase tracking-widest text-stone-500">
@@ -523,7 +526,7 @@ export default function AIGuru() {
                     )}
 
                     {/* Stat cards */}
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                    <div className="ai-guru-stat-grid grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                       {cards.map((card, i) => (
                         <StatCard key={card.label} card={card} index={i} />
                       ))}
@@ -631,11 +634,11 @@ export default function AIGuru() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex flex-1 flex-col lg:min-h-0"
+                className="ai-guru-chat flex min-h-0 flex-1 flex-col"
               >
                 {/* Quick prompts */}
-                <div className="shrink-0 border-b border-amber-100/10 px-4 py-3 sm:px-5 md:px-6">
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="ai-guru-prompts shrink-0 border-b border-amber-100/10 px-4 py-3 sm:px-5 md:px-6">
+                  <div className="ai-guru-prompt-list grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {QUICK_PROMPTS.map((item) => (
                       <button
                         key={item}
@@ -650,8 +653,8 @@ export default function AIGuru() {
                 </div>
 
                 {/* Messages */}
-                <div className="relative flex-1 overflow-hidden lg:min-h-0">
-                  <div className="journal-scroll scrollbar-none flex min-h-[12rem] flex-col gap-2.5 overflow-y-auto px-4 py-4 sm:gap-3 sm:px-5 md:px-6 lg:h-full lg:min-h-0">
+                <div className="ai-guru-messages-region relative min-h-0 flex-1 overflow-hidden">
+                  <div ref={messagesScrollRef} className="ai-guru-messages-scroll journal-scroll scrollbar-none flex h-full min-h-0 flex-col gap-2.5 overflow-y-auto px-4 py-4 sm:gap-3 sm:px-5 md:px-6">
                     {messages.map((msg) => (
                       <ChatBubble key={msg.id} role={msg.role} text={msg.text} />
                     ))}
@@ -673,15 +676,14 @@ export default function AIGuru() {
                         </div>
                       </div>
                     )}
-                    <div ref={bottomRef} />
                   </div>
                 </div>
 
                 {/* Input */}
-                <div className="shrink-0 border-t border-amber-100/10 px-4 py-4 sm:px-5 md:px-6">
-                  <div className="flex flex-col gap-2 rounded-[1.15rem] border border-amber-200/10 bg-[#120d0c]/88 p-2 ring-1 ring-inset ring-amber-300/5 sm:flex-row sm:items-center">
+                <div className="ai-guru-composer shrink-0 border-t border-amber-100/10 px-4 py-4 sm:px-5 md:px-6">
+                  <div className="ai-guru-composer-row flex flex-col gap-2 rounded-[1.15rem] border border-amber-200/10 bg-[#120d0c]/88 p-2 ring-1 ring-inset ring-amber-300/5 sm:flex-row sm:items-center">
                     <div className="flex min-w-0 flex-1 items-center rounded-[1rem] border border-amber-100/10 bg-black/30 px-3">
-                      <img src={mingAvatar} alt="Ming" className="mr-3 h-10 w-auto shrink-0 object-contain" />
+                      <img src={mingAvatar} alt="Ming" className="ai-guru-composer-avatar mr-3 h-10 w-auto shrink-0 object-contain" />
                       <textarea
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
@@ -699,7 +701,7 @@ export default function AIGuru() {
                       transition={{ boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
                       whileHover={chatLoading ? {} : { y: -2, scale: 1.04 }}
                       whileTap={chatLoading ? {} : { scale: 0.95 }}
-                      className="relative min-h-[3rem] w-full overflow-hidden rounded-[1rem] border border-amber-200/35 bg-gradient-to-r from-[#ffd86b] via-[#f7bc3a] to-[#ee971d] px-5 text-sm font-black uppercase tracking-[0.16em] text-stone-950 transition hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto sm:min-w-[6.5rem]"
+                      className="ai-guru-send relative min-h-[3rem] w-full overflow-hidden rounded-[1rem] border border-amber-200/35 bg-gradient-to-r from-[#ffd86b] via-[#f7bc3a] to-[#ee971d] px-5 text-sm font-black uppercase tracking-[0.16em] text-stone-950 transition hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto sm:min-w-[6.5rem]"
                     >
                       <Motion.span
                         className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/35 blur-sm"
@@ -709,7 +711,7 @@ export default function AIGuru() {
                       <span className="relative z-10">Send</span>
                     </Motion.button>
                   </div>
-                  <p className="mt-2 px-1 text-[10px] text-stone-600">Enter to send · Shift + Enter for new line</p>
+                  <p className="ai-guru-composer-help mt-2 px-1 text-[10px] text-stone-600">Enter to send · Shift + Enter for new line</p>
                 </div>
               </Motion.div>
             )}

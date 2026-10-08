@@ -342,6 +342,7 @@ export default function AddWorkout({ lowMotion = false }) {
   const [loading, setLoading] = useState(!isDemoMode);
   const [workoutsView, setWorkoutsView] = useState("active");
   const [workoutDayFilter, setWorkoutDayFilter] = useState("all");
+  const [mobileSection, setMobileSection] = useState("form");
   const [logs, setLogs] = useState(() => isDemoMode ? createDummyLogs(new Date()) : []);
   const [editingId, setEditingId] = useState(null);
   const [copyWorkout, setCopyWorkout] = useState(null);
@@ -666,6 +667,7 @@ export default function AddWorkout({ lowMotion = false }) {
       difficulty: w.difficulty,
     });
     setExercises(w.exercises || []);
+    setMobileSection("form");
   };
 
   const handleDelete = async (id) => {
@@ -908,6 +910,7 @@ export default function AddWorkout({ lowMotion = false }) {
         ]);
       }
       resetForm();
+      setMobileSection("workouts");
       return;
     }
 
@@ -926,6 +929,7 @@ export default function AddWorkout({ lowMotion = false }) {
         persistLog({ ...logEntry, planId: data.id });
       }
       resetForm();
+      setMobileSection("workouts");
     } catch (submitErr) {
       setError(submitErr?.response?.data?.message || "Failed to save workout.");
     }
@@ -1043,7 +1047,21 @@ export default function AddWorkout({ lowMotion = false }) {
 
   return (
     <div className="gym-add-view">
-      <div className="gym-add-layout flex min-w-0 flex-col gap-5 lg:flex-row lg:items-start">
+      <div className="gym-add-mobile-tabs" role="tablist" aria-label="Add workout sections">
+        <button type="button" role="tab" aria-selected={mobileSection === "form"} onClick={() => setMobileSection("form")}>
+          <span>＋ New</span>
+        </button>
+        <button type="button" role="tab" aria-selected={mobileSection === "workouts"} onClick={() => setMobileSection("workouts")}>
+          <span>🏋 Workouts</span>
+          <small>{displayedWorkouts.length}</small>
+        </button>
+        <button type="button" role="tab" aria-selected={mobileSection === "logs"} onClick={() => setMobileSection("logs")}>
+          <span>▤ Logs</span>
+          <small>{logs.length}</small>
+        </button>
+      </div>
+
+      <div className="gym-add-layout flex min-w-0 flex-col gap-5 lg:flex-row lg:items-start" data-mobile-section={mobileSection}>
 
         {/* ── FORM ── */}
         <div
@@ -1500,7 +1518,7 @@ export default function AddWorkout({ lowMotion = false }) {
               <p className="text-sm font-semibold text-amber-200">All Workouts</p>
               <p className="mt-0.5 text-xs text-stone-400">Your saved workout plans.</p>
             </div>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <div className="gym-add-view-tabs mt-2 flex flex-wrap items-center gap-1.5">
                 {["active", "archive"].map((view) => (
                   <button
                     key={view}

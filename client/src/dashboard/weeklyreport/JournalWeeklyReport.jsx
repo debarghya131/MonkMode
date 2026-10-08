@@ -371,7 +371,7 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
               className="weekly-journal-main-body space-y-4"
             >
               {/* Heading */}
-              <div className="dashboard-glow-card rounded-[1.4rem] border border-amber-100/10 bg-white/6 px-4 py-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:px-6">
+              <div className="weekly-journal-overview dashboard-glow-card rounded-[1.4rem] border border-amber-100/10 bg-white/6 px-4 py-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:px-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <div>
                     <p className="text-label-md">Weekly Summary</p>
@@ -443,7 +443,7 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="flex flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:max-h-48 sm:rounded-2xl"
+                className="weekly-journal-ai-analysis flex flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:max-h-48 sm:rounded-2xl"
               >
                 <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
                   <div className="flex items-center gap-2">

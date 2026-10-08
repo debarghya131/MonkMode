@@ -314,7 +314,7 @@ export default function GoalWeeklyReport({ lowMotion = false }) {
             transition={{ duration: 0.22 }}
             className="weekly-goal-main-body space-y-4 sm:space-y-6"
           >
-            <ReportCard className="px-4 py-4 sm:px-5">
+            <ReportCard className="weekly-goal-overview px-4 py-4 sm:px-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-label-md">Goal Weekly Summary</p>

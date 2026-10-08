@@ -1,24 +1,17 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
-import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import GoalAnalysis from "./goalanalysis/GoalAnalysis";
 import GYMAnalysis from "./gymanalysis/GYMAnalysis";
 import HabitAnalysis from "./habitanalysis/HabitAnalysis";
 import JournalAnalysis from "./journalanalysis/JournalAnalysis";
 import ToDoAnalysis from "./todoanalysis/ToDoAnalysis";
-
-const ANALYTICS_TABS = [
-  { id: "journal", icon: "📝", label: "Journal Analysis" },
-  { id: "todo", icon: "✓", label: "To-Do Analysis" },
-  { id: "habit", icon: "⚡", label: "Habit Analysis" },
-  { id: "goal", icon: "🎯", label: "Goal Analysis" },
-  { id: "gym", icon: "💪", label: "GYM Analysis" },
-];
+import { ANALYTICS_TABS } from "./analysisTabs";
 
 export default function Analytics() {
-  const [activeTab, setActiveTab] = useState("journal");
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [searchParams] = useSearchParams();
   const activeAnalytics =
-    ANALYTICS_TABS.find((tab) => tab.id === activeTab) ?? ANALYTICS_TABS[0];
+    ANALYTICS_TABS.find((tab) => tab.id === searchParams.get("tab")) ?? ANALYTICS_TABS[0];
+  const activeTab = activeAnalytics.id;
 
   const renderAnalyticsContent = () => {
     if (activeAnalytics.id === "journal") {
@@ -55,59 +48,7 @@ export default function Analytics() {
   };
 
   return (
-    <div className="analytics-page w-full space-y-3">
-      {/* Mobile: hamburger dropdown */}
-      <div className="relative sm:hidden" data-demo-allow="true">
-        <button
-          type="button"
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="dashboard-section-trigger flex w-full items-center justify-between gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-xl shadow-black/25"
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="text-base leading-none">{activeAnalytics.icon}</span>
-            <span className="min-w-0 truncate">{activeAnalytics.label}</span>
-          </span>
-          <svg className="h-4 w-4 shrink-0 text-stone-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <path d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-        {menuOpen && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-            <div className="absolute left-0 right-0 top-full z-50 mt-1.5 rounded-2xl border border-amber-100/10 bg-stone-950/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur">
-              {ANALYTICS_TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => { setActiveTab(tab.id); setMenuOpen(false); }}
-                  aria-pressed={activeTab === tab.id}
-                  className="dashboard-section-tab flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold"
-                >
-                  <span className="text-base leading-none">{tab.icon}</span>
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Desktop: horizontal scrollable nav */}
-      <nav data-demo-allow="true" className="hidden sm:flex w-full items-center gap-1 overflow-x-auto rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur scrollbar-none">
-        {ANALYTICS_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              aria-pressed={activeTab === tab.id}
-              className="dashboard-section-tab flex min-w-[7rem] items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold md:flex-1"
-            >
-              <span className="text-base leading-none">{tab.icon}</span>
-              <span>{tab.label}</span>
-            </button>
-        ))}
-      </nav>
-
+    <div className="analytics-page w-full space-y-3" data-active={activeTab}>
       {activeAnalytics.id === "journal" ||
       activeAnalytics.id === "todo" ||
       activeAnalytics.id === "habit" ||

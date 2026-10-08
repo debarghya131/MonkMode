@@ -292,6 +292,7 @@ export default function Measurements({ lowMotion = false }) {
   const currentDate = todayISO();
   const [form, setForm] = useState(createBlankForm);
   const [entries, setEntries] = useState(() => (isDemoMode ? sortEntries(createDemoEntries()) : []));
+  const [mobilePanel, setMobilePanel] = useState("add");
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [selectedId, setSelectedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
@@ -487,6 +488,7 @@ export default function Measurements({ lowMotion = false }) {
     setForm(createFormFromEntry(entry, currentDate));
     setError("");
     setStatus(`Editing check-in from ${formatDate(entry.checkInDate)}.`);
+    setMobilePanel("add");
   };
 
   const handleSubmit = async (event) => {
@@ -545,6 +547,7 @@ export default function Measurements({ lowMotion = false }) {
       setError("");
       setForm(createFormFromEntry(nextEntry, currentDate));
       setEditingId(null);
+      setMobilePanel("saved");
       return;
     }
 
@@ -577,6 +580,7 @@ export default function Measurements({ lowMotion = false }) {
       setError("");
       setForm(createFormFromEntry(saved, currentDate));
       setEditingId(null);
+      setMobilePanel("saved");
       window.dispatchEvent(new Event("monkmode:gym-measurements-updated"));
     } catch (submitErr) {
       setError(submitErr?.response?.data?.message || "Failed to save measurements.");
@@ -590,9 +594,21 @@ export default function Measurements({ lowMotion = false }) {
 
   return (
     <>
-      <div className="gym-measurements-layout grid gap-4 sm:gap-6">
+      <div className="gym-measurements-mobile-tabs" role="tablist" aria-label="Measurement sections">
+        <button type="button" role="tab" aria-selected={mobilePanel === "add"} onClick={() => setMobilePanel("add")}>
+          <span className="gym-measurements-mobile-tab-icon" aria-hidden="true">＋</span>
+          <span>Add Measurements</span>
+        </button>
+        <button type="button" role="tab" aria-selected={mobilePanel === "saved"} onClick={() => setMobilePanel("saved")}>
+          <span className="gym-measurements-mobile-tab-icon" aria-hidden="true">📏</span>
+          <span>Saved</span>
+          <small>{activeEntries.length}</small>
+        </button>
+      </div>
+
+      <div className="gym-measurements-layout grid gap-4 sm:gap-6" data-mobile-panel={mobilePanel}>
         <section className="gym-measurements-form-panel flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[linear-gradient(180deg,rgba(251,191,36,0.06),rgba(255,255,255,0.02))] p-4 shadow-lg shadow-black/20 sm:rounded-[1.75rem] sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="gym-measurements-saved-header flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="mt-2 text-xl font-semibold text-stone-100">
                 {editingId ? "Update measurements" : "Add measurements"}
@@ -747,7 +763,7 @@ export default function Measurements({ lowMotion = false }) {
           ) : (
             <div className="gym-measurements-saved-content mt-5 grid min-h-0 flex-1 gap-4 overflow-hidden sm:mt-6 sm:gap-5">
               <div className="gym-measurements-preview flex min-h-0 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-white/5 p-4 sm:rounded-[1.5rem] sm:p-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="gym-measurements-preview-header flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h4 className="text-lg font-semibold text-stone-100">
@@ -762,7 +778,7 @@ export default function Measurements({ lowMotion = false }) {
                   </div>
                 </div>
 
-                <div className="mt-5 rounded-[1.5rem] border border-amber-100/10 bg-black/15 p-1">
+                <div className="gym-measurements-saved-groups mt-5 rounded-[1.5rem] border border-amber-100/10 bg-black/15 p-1">
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {MEASUREMENT_GROUPS.map((group) => {
                       const isActive = savedActiveGroup.title === group.title;
@@ -791,7 +807,7 @@ export default function Measurements({ lowMotion = false }) {
                 </div>
 
                 <div className="gym-measurements-preview-group mt-4 min-h-0 flex flex-1 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-black/15 p-4 sm:rounded-[1.5rem] sm:p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3 border-b border-amber-100/10 pb-3">
+                  <div className="gym-measurements-preview-group-header flex flex-wrap items-start justify-between gap-3 border-b border-amber-100/10 pb-3">
                     <div className="min-w-0">
                       <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-200">
                         {savedActiveGroup.title}
@@ -835,7 +851,7 @@ export default function Measurements({ lowMotion = false }) {
               </div>
 
               <div className="gym-measurements-history flex min-h-0 min-w-0 w-full flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-3 sm:rounded-[1.5rem] sm:p-4">
-                <div className="flex flex-col gap-2 sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="gym-measurements-history-header flex flex-col gap-2 sm:flex-wrap sm:items-center sm:justify-between">
                   <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-300">
                     Check-in History
                   </h4>
@@ -853,7 +869,7 @@ export default function Measurements({ lowMotion = false }) {
                     return (
                       <Motion.div
                         key={entry.id}
-                        className={`flex w-full flex-col gap-2.5 rounded-xl border px-3 py-2.5 transition sm:flex-row sm:items-start sm:justify-between ${
+                        className={`gym-measurements-history-row flex w-full flex-col gap-2.5 rounded-xl border px-3 py-2.5 transition sm:flex-row sm:items-start sm:justify-between ${
                           isSelected
                             ? "border-amber-300/35 bg-amber-500/10"
                             : "border-amber-100/10 bg-white/5 hover:border-amber-200/20 hover:bg-white/10"
@@ -876,7 +892,7 @@ export default function Measurements({ lowMotion = false }) {
                             {hasValue(entry.bodyWeight) ? ` • ${entry.bodyWeight} kg` : ""}
                           </p>
                         </button>
-                        <div className="flex shrink-0 flex-row items-center gap-2 self-start sm:flex-col sm:items-end sm:gap-1 sm:self-center">
+                        <div className="gym-measurements-history-actions flex shrink-0 flex-row items-center gap-2 self-start sm:flex-col sm:items-end sm:gap-1 sm:self-center">
                           <span className="dashboard-card-status" data-tone={canUndoDelete ? "danger" : isSelected ? "info" : undefined}>
                             {canUndoDelete ? "Deleted" : isSelected ? "Viewing" : "Open"}
                           </span>

@@ -2,6 +2,7 @@ import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import JournalRightSidebar from "./JournalRightSidebar";
@@ -28,6 +29,31 @@ const MOODS = [
   { emoji: "🥲", label: "Emotional" },
   { emoji: "🤗", label: "Content" },
 ];
+
+const JOURNAL_MOBILE_VIEWS = [
+  { id: "today", icon: "✍", label: "Today" },
+  { id: "missed", icon: "📅", label: "Missed Days" },
+  { id: "past", icon: "📖", label: "Past Entries" },
+];
+
+function JournalMobileNav({ active, onChange }) {
+  return (
+    <nav className="journal-mobile-nav" aria-label="Journal sections">
+      {JOURNAL_MOBILE_VIEWS.map((view) => (
+        <button
+          key={view.id}
+          type="button"
+          className="journal-mobile-nav-button"
+          aria-pressed={active === view.id}
+          onClick={() => onChange(view.id)}
+        >
+          <span className="journal-mobile-nav-icon" aria-hidden="true">{view.icon}</span>
+          <span>{view.label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
 
 const MANDATORY_STEPS = [
   { id: 1,  icon: "😊", label: "Mood"        },
@@ -402,6 +428,19 @@ function JournalViewModal({ form, customFields, date, onClose }) {
 
 export default function Journal() {
   const { isDemoMode } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedMobileView = searchParams.get("journal");
+  const mobileView = JOURNAL_MOBILE_VIEWS.some((view) => view.id === requestedMobileView)
+    ? requestedMobileView
+    : "today";
+
+  const selectMobileView = (view) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("journal", view);
+      return next;
+    });
+  };
   const [step, setStep]               = useState(1);
   const [form, setForm]               = useState(INITIAL_FORM);
   const [customFields, setCustomFields] = useState([]);
@@ -660,8 +699,11 @@ export default function Journal() {
     const canEditToday = submittedDate === todayStr();
 
     return (
-      <div className="journal-layout journal-submitted">
+      <div className="journal-layout journal-submitted" data-mobile-view={mobileView}>
+        <JournalMobileNav active={mobileView} onChange={selectMobileView} />
+
         <Motion.div
+          data-journal-panel="today"
           className="flex-1 min-w-0 flex flex-col items-center justify-center space-y-5 py-16 sm:py-24"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -738,12 +780,14 @@ export default function Journal() {
 
   /* ─────────── main wizard ─────────── */
   return (
-    <div className="journal-layout">
-      <div className="journal-editor">
+    <div className="journal-layout" data-mobile-view={mobileView}>
+      <JournalMobileNav active={mobileView} onChange={selectMobileView} />
+
+      <div className="journal-editor" data-journal-panel="today">
 
         {/* Consistency badge */}
-        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-          <div className="flex w-full flex-wrap items-center gap-2 rounded-[1.1rem] border border-amber-400/30 bg-amber-500/10 px-3 py-2 sm:w-auto sm:rounded-full sm:px-4">
+        <div className="journal-consistency-row flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+          <div className="journal-consistency-card flex w-full flex-wrap items-center gap-2 rounded-[1.1rem] border border-amber-400/30 bg-amber-500/10 px-3 py-2 sm:w-auto sm:rounded-full sm:px-4">
             <span className="text-lg">
               📊
             </span>
@@ -754,14 +798,14 @@ export default function Journal() {
               Lifetime {journalConsistency.lifetimeLoggedDays}/{journalConsistency.lifetimeExpectedDays}
             </span>
           </div>
-          <p className="text-sm leading-6 text-stone-400">Keep it up — consistency builds clarity.</p>
+          <p className="journal-consistency-message text-sm leading-6 text-stone-400">Keep it up — consistency builds clarity.</p>
         </div>
 
         {/* ── Progress bar ── */}
         <section className="journal-progress rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5">
 
           {/* Header row */}
-          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="journal-progress-header mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-label-md truncate">
               Step {step} of {totalSteps} &mdash; {allSteps[step - 1]?.label}
             </p>
@@ -782,42 +826,55 @@ export default function Journal() {
             </div>
           </div>
 
-          {/* Segment track */}
-          <div className="flex gap-1">
-            {allSteps.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setStep(s.id)}
-                title={s.label}
-                className={`flex-1 h-2 rounded-full transition-all duration-300 ${
-                  s.id === step && isStepComplete(s.id)
-                    ? "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.55)]"
-                    : s.id === step
-                    ? "bg-amber-400/50 shadow-[0_0_6px_rgba(251,191,36,0.3)]"
-                    : isStepComplete(s.id)
-                    ? "bg-gradient-to-r from-amber-400 to-orange-400"
-                    : s.id > MANDATORY_STEP_COUNT
-                    ? "bg-indigo-900/60 hover:bg-indigo-800/60"
-                    : "bg-stone-800 hover:bg-stone-700"
-                }`}
-              />
-            ))}
+          <div
+            className="journal-mobile-progress-meter"
+            role="progressbar"
+            aria-label={`Journal step ${step} of ${totalSteps}`}
+            aria-valuemin="1"
+            aria-valuemax={totalSteps}
+            aria-valuenow={step}
+          >
+            <span style={{ width: `${(step / totalSteps) * 100}%` }} />
           </div>
 
-          {/* Icon row */}
-          <div className="flex mt-2">
-            {allSteps.map((s) => (
-              <div key={s.id} className="flex-1 flex justify-center">
-                <span
-                  className={`text-[11px] leading-none transition-opacity duration-200 select-none ${
-                    s.id === step ? "opacity-100" : "opacity-20"
+          <div className="journal-progress-steps journal-scroll">
+            {/* Segment track */}
+            <div className="journal-progress-segments flex gap-1">
+              {allSteps.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setStep(s.id)}
+                  title={s.label}
+                  className={`flex-1 h-2 rounded-full transition-all duration-300 ${
+                    s.id === step && isStepComplete(s.id)
+                      ? "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.55)]"
+                      : s.id === step
+                      ? "bg-amber-400/50 shadow-[0_0_6px_rgba(251,191,36,0.3)]"
+                      : isStepComplete(s.id)
+                      ? "bg-gradient-to-r from-amber-400 to-orange-400"
+                      : s.id > MANDATORY_STEP_COUNT
+                      ? "bg-indigo-900/60 hover:bg-indigo-800/60"
+                      : "bg-stone-800 hover:bg-stone-700"
                   }`}
-                >
-                  {s.icon}
-                </span>
-              </div>
-            ))}
+                />
+              ))}
+            </div>
+
+            {/* Icon row */}
+            <div className="journal-progress-icons flex mt-2">
+              {allSteps.map((s) => (
+                <div key={s.id} className="flex-1 flex justify-center">
+                  <span
+                    className={`text-[11px] leading-none transition-opacity duration-200 select-none ${
+                      s.id === step ? "opacity-100" : "opacity-20"
+                    }`}
+                  >
+                    {s.icon}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 

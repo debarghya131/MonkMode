@@ -795,6 +795,7 @@ export default function TodaysWorkout({ lowMotion = false }) {
   const [allWorkouts, setAllWorkouts]         = useState(() => isDemoMode ? loadDemoWorkouts() : []);
   const [dietPlans, setDietPlans]             = useState({});
   const [bodyFilter, setBodyFilter]           = useState("all");
+  const [mobileView, setMobileView]           = useState("workouts");
   const [loading, setLoading]                 = useState(!isDemoMode);
 
   /* Fetch workout plans */
@@ -910,7 +911,28 @@ export default function TodaysWorkout({ lowMotion = false }) {
           ))}
         </div>
 
-        <div className="gym-today-layout flex min-h-0 flex-col items-start gap-4 xl:flex-row">
+        <div className="gym-today-mobile-tabs" role="tablist" aria-label="Today's gym sections">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobileView === "workouts"}
+            onClick={() => setMobileView("workouts")}
+          >
+            <span>🏋️ Workouts</span>
+            <small>{todayWorkouts.length}</small>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobileView === "diet"}
+            onClick={() => setMobileView("diet")}
+          >
+            <span>🥗 Diet</span>
+            <small>{dietCards.length}</small>
+          </button>
+        </div>
+
+        <div className="gym-today-layout flex min-h-0 flex-col items-start gap-4 xl:flex-row" data-mobile-view={mobileView}>
 
           {/* Workout column */}
           <div className="gym-workout-panel flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.06),transparent_40%),linear-gradient(180deg,rgba(20,12,10,0.97),rgba(10,8,8,0.98))] sm:rounded-2xl">

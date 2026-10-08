@@ -187,8 +187,9 @@ export default function DashboardLayout({ children }) {
   const isGoalsRoute = location.pathname === "/dashboard/goal";
   const isGymRoute = location.pathname === "/dashboard/gym";
   const isWeeklyReportRoute = location.pathname === "/dashboard/weeklyreport";
+  const isAnalysisRoute = location.pathname === "/dashboard/analytics";
   const isAiGuruRoute = location.pathname === "/dashboard/ai_guru";
-  const routeClassName = isJournalRoute ? "journal-route" : isTodoRoute ? "todo-route" : isHabitsRoute ? "habits-route" : isGoalsRoute ? "goal-route" : isGymRoute ? "gym-route" : isWeeklyReportRoute ? "weekly-report-route" : isOverviewRoute ? "min-[1800px]:h-full" : undefined;
+  const routeClassName = isJournalRoute ? "journal-route" : isTodoRoute ? "todo-route" : isHabitsRoute ? "habits-route" : isGoalsRoute ? "goal-route" : isGymRoute ? "gym-route" : isWeeklyReportRoute ? "weekly-report-route" : isAnalysisRoute ? "analysis-route" : isOverviewRoute ? "min-[1800px]:h-full" : undefined;
   const mobileNoticePositionClass = isAiGuruRoute
     ? "bottom-[calc(env(safe-area-inset-bottom)+6.5rem)]"
     : "bottom-[max(1rem,env(safe-area-inset-bottom))]";
@@ -290,14 +291,14 @@ export default function DashboardLayout({ children }) {
 
         {/* Main content */}
         <main
-          className={`dashboard-main min-w-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-5 sm:py-6 lg:px-6 lg:py-7 2xl:px-7 2xl:py-8 ${isOverviewRoute ? "min-[1800px]:overflow-hidden" : ""} ${isJournalRoute ? "journal-main" : ""} ${isTodoRoute ? "todo-main" : ""} ${isGoalsRoute ? "goal-main" : ""} ${isGymRoute ? "gym-main" : ""} ${isWeeklyReportRoute ? "weekly-report-main" : ""}`}
+          className={`dashboard-main min-w-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-5 sm:py-6 lg:px-6 lg:py-7 2xl:px-7 2xl:py-8 ${isOverviewRoute ? "min-[1800px]:overflow-hidden" : ""} ${isJournalRoute ? "journal-main" : ""} ${isTodoRoute ? "todo-main" : ""} ${isGoalsRoute ? "goal-main" : ""} ${isGymRoute ? "gym-main" : ""} ${isWeeklyReportRoute ? "weekly-report-main" : ""} ${isAnalysisRoute ? "analysis-main" : ""} ${isAiGuruRoute ? "ai-guru-main" : ""}`}
           onBeforeInputCapture={handleDemoBeforeInputCapture}
           onClickCapture={handleDemoClickCapture}
           onKeyDownCapture={handleDemoKeyDownCapture}
           onSubmitCapture={handleDemoSubmitCapture}
         >
           {isAiGuruRoute ? (
-            <div>{children}</div>
+            <div className="ai-guru-route">{children}</div>
           ) : lowMotion ? (
             <div key={location.pathname} className={routeClassName}>{children}</div>
           ) : (

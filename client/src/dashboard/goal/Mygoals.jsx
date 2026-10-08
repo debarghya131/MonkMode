@@ -187,9 +187,14 @@ export default function Mygoals({
   return (
     <div className="goals-my-view flex flex-col rounded-[1.6rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-[2rem] sm:p-6">
       <header className="goals-my-header">
-        <p className="text-label-lg">My Goals</p>
-        <h2 className="mt-2 text-2xl font-bold text-amber-100">All Goals</h2>
-        <p className="text-body-md mt-3 text-stone-300/90">
+        <div className="goals-my-heading-copy">
+          <p className="text-label-lg">My Goals</p>
+          <h2 className="mt-2 text-2xl font-bold text-amber-100">All Goals</h2>
+        </div>
+        <span className="goals-my-count rounded-full border border-amber-100/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
+          {sortedGoals.length} goals
+        </span>
+        <p className="goals-my-description text-body-md mt-3 text-stone-300/90">
           View all your goals with active and archived status, then break each goal into habits and milestones.
         </p>
       </header>
@@ -270,7 +275,8 @@ export default function Mygoals({
                       aria-pressed={Boolean(importantByGoal[goal.id])}
                     >
                       <span aria-hidden="true">{importantByGoal[goal.id] ? "★" : "☆"}</span>
-                      <span>{importantByGoal[goal.id] ? "Remove from Important" : "Mark Important"}</span>
+                      <span className="goal-important-label-long">{importantByGoal[goal.id] ? "Remove from Important" : "Mark Important"}</span>
+                      <span className="goal-important-label-short">{importantByGoal[goal.id] ? "Remove" : "Important"}</span>
                     </button>
                     <div className="goal-card-labels flex items-center gap-2">
                     <span className={`dashboard-card-priority ${PRIORITY_BADGE[goal.priority]}`}>
@@ -315,9 +321,9 @@ export default function Mygoals({
       </div>
 
       {addPopupGoal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/65 p-3 sm:items-center sm:p-4">
-          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.95),rgba(12,8,8,0.97))] shadow-2xl shadow-black/50 backdrop-blur">
-            <div className="sticky top-0 z-10 mb-4 flex items-start justify-between gap-3 border-b border-amber-100/10 bg-[#1a100c]/95 px-4 py-3 sm:px-5">
+        <div className="goal-mobile-modal fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/65 p-3 sm:items-center sm:p-4">
+          <div className="goal-mobile-modal-card w-full max-w-2xl overflow-hidden rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.95),rgba(12,8,8,0.97))] shadow-2xl shadow-black/50 backdrop-blur">
+            <div className="goal-mobile-modal-header sticky top-0 z-10 mb-4 flex items-start justify-between gap-3 border-b border-amber-100/10 bg-[#1a100c]/95 px-4 py-3 sm:px-5">
               <div>
                 <p className="text-label-lg">Add Sub-goals</p>
                 <h3 className="mt-1 text-xl font-semibold text-amber-100">{addPopupGoal.title}</h3>
@@ -331,7 +337,7 @@ export default function Mygoals({
               </button>
             </div>
 
-            <div className="journal-scroll max-h-[calc(100dvh-9rem)] space-y-3 overflow-y-auto px-4 pb-4 text-sm sm:px-5 sm:pb-5">
+            <div className="goal-mobile-modal-body journal-scroll max-h-[calc(100dvh-9rem)] space-y-3 overflow-y-auto px-4 pb-4 text-sm sm:px-5 sm:pb-5">
               <div className="rounded-lg border border-amber-100/10 bg-white/5 p-3">
                 <p className="mb-2 text-sm font-semibold text-amber-200">1. Create Habit</p>
                 <button
@@ -406,9 +412,9 @@ export default function Mygoals({
       )}
 
       {popupGoal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/65 p-3 sm:items-center sm:p-4">
-          <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.95),rgba(12,8,8,0.97))] shadow-2xl shadow-black/50 backdrop-blur">
-            <div className="sticky top-0 z-10 mb-4 flex items-start justify-between gap-3 border-b border-amber-100/10 bg-[#1a100c]/95 px-4 py-3 sm:px-5">
+        <div className="goal-mobile-modal fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/65 p-3 sm:items-center sm:p-4">
+          <div className="goal-mobile-modal-card w-full max-w-4xl overflow-hidden rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.95),rgba(12,8,8,0.97))] shadow-2xl shadow-black/50 backdrop-blur">
+            <div className="goal-mobile-modal-header sticky top-0 z-10 mb-4 flex items-start justify-between gap-3 border-b border-amber-100/10 bg-[#1a100c]/95 px-4 py-3 sm:px-5">
               <div>
                 <p className="text-label-lg">Update Progress</p>
                 <h3 className="mt-1 text-xl font-semibold text-amber-100">{popupGoal.title}</h3>
@@ -422,14 +428,14 @@ export default function Mygoals({
               </button>
             </div>
 
-            <div className="journal-scroll max-h-[calc(100dvh-9rem)] overflow-y-auto px-4 pb-4 sm:px-5 sm:pb-5">
+            <div className="goal-mobile-modal-body journal-scroll max-h-[calc(100dvh-9rem)] overflow-y-auto px-4 pb-4 sm:px-5 sm:pb-5">
               {subgoalError ? (
                 <p className="mb-3 rounded-lg border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
                   {subgoalError}
                 </p>
               ) : null}
-              <div className="grid gap-4 md:grid-cols-2">
-              <section className="flex min-h-[18rem] flex-col rounded-xl border border-amber-100/10 bg-white/5 p-3 sm:h-[47vh]">
+              <div className="goal-progress-modal-columns grid gap-4 md:grid-cols-2">
+              <section className="goal-progress-modal-panel flex min-h-[18rem] flex-col rounded-xl border border-amber-100/10 bg-white/5 p-3 sm:h-[47vh]">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-semibold text-amber-200">Pending</p>
                   <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5 text-[11px] text-stone-300">
@@ -473,7 +479,7 @@ export default function Mygoals({
                 )}
               </section>
 
-              <section className="flex min-h-[18rem] flex-col rounded-xl border border-amber-100/10 bg-white/5 p-3 sm:h-[47vh]">
+              <section className="goal-progress-modal-panel flex min-h-[18rem] flex-col rounded-xl border border-amber-100/10 bg-white/5 p-3 sm:h-[47vh]">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-semibold text-amber-200">Completed</p>
                   <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5 text-[11px] text-stone-300">

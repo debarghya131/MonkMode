@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion as Motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import DashboardLayout from "../DashboardLayout";
@@ -20,6 +20,11 @@ const EMPTY_HABIT_SUMMARY = { completed: 0, pending: 0 };
 const EMPTY_TASK_SUMMARY = { completed: 0, pending: 0, missed: 0, importantToday: 0 };
 const EMPTY_GOAL_SUMMARY = { totalGoals: 0, completedGoals: 0, totalSubgoals: 0, completedSubgoals: 0 };
 const EMPTY_GYM_SUMMARY = { completedProgress: 0, totalProgress: 0, pendingUpdates: 0, progressUpdatesToday: 0 };
+
+const OVERVIEW_MOBILE_VIEWS = [
+  { id: "summary", icon: "▦", label: "Daily Summary" },
+  { id: "heatmaps", icon: "▥", label: "Activity Heatmaps" },
+];
 
 const formatCheckInDate = (date) => {
   if (!ISO_DATE_REGEX.test(String(date || ""))) return "No check-in";
@@ -155,6 +160,19 @@ const containerVariants = {
 };
 
 export default function Overview() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedMobileView = searchParams.get("overview");
+  const mobileView = OVERVIEW_MOBILE_VIEWS.some((view) => view.id === requestedMobileView)
+    ? requestedMobileView
+    : "heatmaps";
+
+  const selectMobileView = (view) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("overview", view);
+      return next;
+    });
+  };
   const { isDemoMode } = useAuth();
   const [journalSummary, setJournalSummary] = useState(() => ({
     todayLogged: false,
@@ -465,10 +483,26 @@ export default function Overview() {
 
   return (
     <DashboardLayout>
-      <div className="h-full w-full">
+      <div className="overview-page h-full w-full" data-mobile-view={mobileView}>
+        <nav className="overview-mobile-nav" aria-label="Overview sections">
+          {OVERVIEW_MOBILE_VIEWS.map((view) => (
+            <button
+              key={view.id}
+              type="button"
+              className="overview-mobile-nav-button"
+              aria-pressed={mobileView === view.id}
+              onClick={() => selectMobileView(view.id)}
+            >
+              <span className="overview-mobile-nav-icon" aria-hidden="true">{view.icon}</span>
+              <span>{view.label}</span>
+            </button>
+          ))}
+        </nav>
+
         <div className="overview-page-layout grid gap-4 lg:gap-5 min-[1800px]:h-full min-[1800px]:grid-cols-[minmax(30rem,5fr)_minmax(0,7fr)] min-[1800px]:items-stretch">
           {/* Main Content Area */}
           <Motion.div
+            data-overview-panel="summary"
             className="order-2 h-full min-w-0 md:order-1 min-[1800px]:min-h-0"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -545,6 +579,7 @@ export default function Overview() {
 
           {/* Heatmap Sidebar */}
           <Motion.div
+            data-overview-panel="heatmaps"
             className="order-1 h-full min-w-0 md:order-2 min-[1800px]:min-h-0"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

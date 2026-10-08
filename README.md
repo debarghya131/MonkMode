@@ -343,6 +343,229 @@ flowchart TD
 | AI Guru | User message, scope, and cross-module activity | Build context, apply AI limit, and call Groq | Personalized Ming guidance |
 | Site Views | Anonymous visitor identifier | Deduplicate visitor and increment persistent count | Public site-view total |
 
+## 📋 Feature List
+
+### Overview Section Feature List
+
+```text
+Overview
+├── Daily Summary
+│   ├── Today’s Journal
+│   ├── Today’s Tasks
+│   ├── Today’s Habits
+│   ├── Goals
+│   └── Gym
+│
+└── Activity Heatmaps
+    ├── Year filter
+    ├── Journal activity
+    ├── To-Do activity
+    ├── Habit activity
+    ├── Goal activity
+    └── Gym activity
+```
+
+### Journal Section Feature List
+
+```text
+Journal
+├── Today’s Entry
+│   ├── Consistency summary
+│   ├── 14-step guided journal
+│   │   ├── Mood
+│   │   ├── Wake-up time
+│   │   ├── Energy level
+│   │   ├── Daily summary
+│   │   ├── Wins
+│   │   ├── Mistakes
+│   │   ├── Insight
+│   │   ├── Distractions
+│   │   ├── Gratitude
+│   │   ├── Achievements
+│   │   ├── Affirmation
+│   │   ├── Tomorrow’s plan
+│   │   ├── Sleep time
+│   │   └── Daily rating
+│   ├── Custom journal fields
+│   ├── Step progress tracking
+│   └── Submit, view, and edit today’s entry
+│
+├── Missed Days
+│   ├── Weekly missed-day summary
+│   └── Add or edit missed-day reasons
+│
+└── Past Entries
+    ├── Previous journal entry cards
+    ├── Mood and daily-stat preview
+    └── Full journal entry details
+```
+
+### To-Do Section Feature List
+
+```text
+To-Do
+├── Today
+│   ├── Today’s Overview
+│   ├── All Tasks
+│   ├── Pending Tasks
+│   ├── Completed Tasks
+│   └── Missed Tasks
+│
+├── Upcoming
+│   ├── Tomorrow
+│   ├── Day-wise task selection
+│   ├── Priority filtering
+│   └── Upcoming task details
+│
+├── Schedule
+│   ├── Create Task
+│   ├── All Tasks
+│   ├── Calendar
+│   └── Task Logs
+│
+└── Important
+    ├── Important Categories
+    └── User-Created Tasks
+```
+
+### Habits Section Feature List
+
+```text
+Habits
+├── Today
+│   ├── Consistency summary
+│   ├── Time-of-day filtering
+│   ├── All Habits
+│   ├── Pending Habits
+│   ├── Completed Habits
+│   └── Habit Streak Summary
+│
+├── Create Habit
+│   ├── New Habit
+│   │   ├── Habit name and purpose
+│   │   ├── Target streak
+│   │   ├── Time of day
+│   │   ├── Category and priority
+│   │   └── Repeat schedule and duration
+│   ├── All Habits
+│   │   ├── Active Habits
+│   │   └── Archived Habits
+│   ├── Calendar
+│   └── Habit Logs
+│
+└── Track Your Habit
+    ├── Active and archived filtering
+    ├── Important and ending-soon filtering
+    ├── Year and month selection
+    ├── Day-wise completion history
+    ├── Current and target streaks
+    └── Important habit management
+```
+
+### Goals Section Feature List
+
+```text
+Goals
+├── My Goals
+│   ├── Active and archived goal cards
+│   ├── Goal type, priority, and deadline details
+│   ├── Important goal management
+│   ├── Add Sub-goals
+│   │   ├── Sub-goal title and deadline
+│   │   └── Create a supporting habit
+│   └── Update Progress
+│       ├── Pending Sub-goals
+│       ├── Completed Sub-goals
+│       ├── Mark as completed or reopen
+│       └── Delete Sub-goals
+│
+├── Create Goals
+│   ├── New Goal
+│   │   ├── Goal title and motivation
+│   │   ├── Short-term or long-term type
+│   │   ├── Start date and deadline
+│   │   └── Priority level
+│   ├── All Goals
+│   │   ├── Active Goals
+│   │   └── Archived Goals
+│   └── Goal Logs
+│
+└── Progress
+    ├── Overall milestone progress
+    ├── Status filtering
+    ├── Priority filtering
+    ├── Goal-wise completion percentage
+    ├── Completed milestone totals
+    └── Deadline and remaining-day status
+```
+
+### Gym Section Feature List
+
+```text
+Gym
+├── Today
+│   ├── Day-wise workout selection
+│   ├── Today’s workout plans and exercises
+│   ├── Exercise completion and progress updates
+│   ├── Sets, reps, weight, duration, and rest tracking
+│   ├── Exercise progress history
+│   └── Daily diet and workout nutrition preview
+│
+├── Add Workout
+│   ├── Create Workout Plan
+│   │   ├── Goal type and workout split
+│   │   ├── Exercise selection and configuration
+│   │   ├── Training days and plan duration
+│   │   ├── Difficulty level
+│   │   └── Automatic estimated workout time
+│   ├── All Workouts
+│   │   ├── Active and archived plans
+│   │   ├── Edit, copy, archive, and delete actions
+│   │   └── Workout details and exercise list
+│   └── Workout Logs
+│
+├── Diet Chart
+│   ├── Full-Day Diet
+│   │   ├── Day-wise meal planning
+│   │   └── Custom meal sections and timings
+│   ├── Workout Nutrition
+│   │   ├── Pre-workout meals
+│   │   └── Post-workout meals
+│   ├── Supplements
+│   ├── Daily Macro Targets
+│   └── Saved plan management and day-wise copying
+│
+├── Measurements
+│   ├── Add Body Measurements
+│   ├── Body Weight, Upper Body, Arms, and Lower Body groups
+│   ├── Saved Measurements
+│   ├── Check-In History
+│   └── Measurement update comparison
+│
+├── Progress
+│   ├── Measurements Progress
+│   │   ├── Body-group and metric filtering
+│   │   ├── Measurement trend chart
+│   │   └── Check-in updates and value changes
+│   └── Workout Progress
+│       ├── Exercise and body-group filtering
+│       ├── Exercise performance trends
+│       └── Sets, reps, weight, volume, and duration history
+│
+├── Workout Library
+│   ├── Body-group and muscle-section filtering
+│   ├── Searchable exercise collection
+│   ├── Exercise details
+│   └── User-created exercises
+│
+└── Gallery
+    ├── Dated progress-photo uploads
+    ├── Photo and check-in summary
+    ├── Check-in-based photo gallery
+    ├── Full-screen photo preview
+    └── Progress-photo deletion
+```
+
 ## 📁 Folder Structure
 
 ```text

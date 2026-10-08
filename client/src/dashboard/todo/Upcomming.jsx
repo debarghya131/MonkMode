@@ -1,5 +1,6 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
 import api from "../../api/axios";
 
@@ -174,9 +175,11 @@ function DayColumn({ date, tasks, selectedPriority, lowMotion }) {
 
 export default function Upcoming({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const daysRailRef = useRef(null);
   const [tomorrowPriority, setTomorrowPriority] = useState("All");
   const [next5Priority, setNext5Priority] = useState("All");
+  const [mobilePriority, setMobilePriority] = useState("All");
 
   // Real user state
   const [tomorrowTasks, setTomorrowTasks] = useState(isDemoMode ? TOMORROW_TASKS : []);
@@ -234,6 +237,35 @@ export default function Upcoming({ lowMotion = false }) {
     [next5Data]
   );
 
+  const mobileDays = useMemo(
+    () => [
+      { offset: 1, date: tomorrowDate, tasks: tomorrowTasks },
+      ...next5Data.map((day, index) => ({ ...day, offset: index + 2 })),
+    ],
+    [next5Data, tomorrowDate, tomorrowTasks]
+  );
+  const requestedDay = Number(searchParams.get("upcoming"));
+  const activeDayOffset = Number.isInteger(requestedDay) && requestedDay >= 1 && requestedDay <= 6
+    ? requestedDay
+    : 1;
+  const activeMobileDay = mobileDays.find((day) => day.offset === activeDayOffset) ?? mobileDays[0];
+  const mobileTasks = useMemo(
+    () => mobilePriority === "All"
+      ? activeMobileDay.tasks
+      : activeMobileDay.tasks.filter((task) => task.priority === mobilePriority),
+    [activeMobileDay, mobilePriority]
+  );
+
+  const selectMobileDay = (offset) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("view", "upcoming");
+      next.set("upcoming", String(offset));
+      next.delete("today");
+      return next;
+    });
+  };
+
   const scrollDays = (direction) => {
     const rail = daysRailRef.current;
     if (!rail) return;
@@ -265,7 +297,57 @@ export default function Upcoming({ lowMotion = false }) {
   }
 
   return (
-    <div className="upcoming-layout">
+    <>
+      <nav className="upcoming-mobile-day-nav" aria-label="Choose an upcoming day" data-demo-allow="true">
+        {mobileDays.map(({ offset, date, tasks }) => (
+          <button
+            key={offset}
+            type="button"
+            onClick={() => selectMobileDay(offset)}
+            aria-pressed={activeDayOffset === offset}
+            className="upcoming-mobile-day-button"
+          >
+            <span className="upcoming-mobile-day-name">
+              {offset === 1 ? "Tomorrow" : formatWeekday(date).slice(0, 3)}
+            </span>
+            <span className="upcoming-mobile-day-date">
+              {date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            </span>
+            <span className="upcoming-mobile-day-count">{tasks.length}</span>
+          </button>
+        ))}
+      </nav>
+
+      <section className="upcoming-mobile-panel rounded-[1.25rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200/70">
+              {activeDayOffset === 1 ? "Tomorrow" : formatWeekday(activeMobileDay.date)}
+            </p>
+            <h3 className="mt-1 text-xl font-bold text-amber-100">{formatDayLabel(activeMobileDay.date)}</h3>
+          </div>
+          <div className="shrink-0 rounded-xl border border-amber-100/10 bg-white/5 px-3 py-2 text-center">
+            <p className="text-[9px] uppercase tracking-[0.14em] text-stone-500">Tasks</p>
+            <p className="mt-0.5 text-lg font-semibold text-amber-200">{activeMobileDay.tasks.length}</p>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <PriorityFilterBar selected={mobilePriority} onChange={setMobilePriority} />
+        </div>
+
+        <div className="upcoming-mobile-task-list mt-4 space-y-2">
+          {mobileTasks.length === 0 ? (
+            <p className="text-xs text-stone-500">
+              {activeMobileDay.tasks.length === 0 ? "No tasks scheduled for this day." : "No tasks for this priority."}
+            </p>
+          ) : (
+            mobileTasks.map((task) => <TaskCard key={task.id} task={task} lowMotion={lowMotion} />)
+          )}
+        </div>
+      </section>
+
+      <div className="upcoming-layout">
       {/* ── Card 1: Tomorrow ──────────────────────────────────────────────── */}
       <section className="upcoming-card-tomorrow upcoming-scroll-card rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
         <div className="flex items-start justify-between gap-3">
@@ -335,6 +417,7 @@ export default function Upcoming({ lowMotion = false }) {
           ))}
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 }

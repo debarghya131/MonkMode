@@ -1,5 +1,6 @@
 import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import DashboardSelect from "../../components/DashboardSelect";
 import {
   DEFAULT_CATEGORIES,
@@ -24,6 +25,12 @@ const REPEAT_TYPES = [
 ];
 const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_SHORT = { Sun: "Su", Mon: "M", Tue: "T", Wed: "W", Thu: "Th", Fri: "F", Sat: "Sa" };
+const SCHEDULE_VIEWS = [
+  { id: "create", icon: "+", label: "Create Task" },
+  { id: "tasks", icon: "✓", label: "All Tasks" },
+  { id: "calendar", icon: "▦", label: "Calendar" },
+  { id: "logs", icon: "↻", label: "Task Logs" },
+];
 
 const toISODate = (dateObj) => {
   const year = dateObj.getFullYear();
@@ -186,6 +193,21 @@ export default function Schedule({
   refreshTasks = () => {},
 }) {
   const { isDemoMode } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedScheduleView = searchParams.get("schedule");
+  const mobileView = SCHEDULE_VIEWS.some((view) => view.id === requestedScheduleView)
+    ? requestedScheduleView
+    : "create";
+  const selectMobileView = (view) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("view", "schedule");
+      next.set("schedule", view);
+      next.delete("today");
+      next.delete("upcoming");
+      return next;
+    });
+  };
   const today = useMemo(() => toISODate(new Date()), []);
   const tomorrow = useMemo(() => {
     const next = new Date();
@@ -764,6 +786,7 @@ export default function Schedule({
       neverEnds: task.endDate == null,
       days: getTaskDisplayDays(task),
     });
+    selectMobileView("create");
     requestAnimationFrame(() => {
       formPanelRef.current?.scrollIntoView({
         block: "start",
@@ -773,9 +796,25 @@ export default function Schedule({
   };
 
   return (
-    <div className="todo-schedule-view">
+    <div className="todo-schedule-view" data-mobile-view={mobileView}>
+      <nav className="schedule-mobile-nav" aria-label="Schedule sections" data-demo-allow="true">
+        {SCHEDULE_VIEWS.map((view) => (
+          <button
+            key={view.id}
+            type="button"
+            onClick={() => selectMobileView(view.id)}
+            aria-pressed={mobileView === view.id}
+            className="schedule-mobile-nav-button"
+          >
+            <span className="schedule-mobile-nav-icon" aria-hidden="true">{view.icon}</span>
+            <span>{view.label}</span>
+            {view.id === "tasks" ? <span className="schedule-mobile-nav-count">{displayedTasks.length}</span> : null}
+            {view.id === "logs" ? <span className="schedule-mobile-nav-count">{allLogs.length}</span> : null}
+          </button>
+        ))}
+      </nav>
       <div className="schedule-layout">
-        <div ref={formPanelRef} className="schedule-main journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
+        <div ref={formPanelRef} data-schedule-panel="create" className="schedule-main journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
           <h3 className="mb-4 text-sm font-semibold text-amber-200">{editingId ? "Edit Task" : "Create Task"}</h3>
           <form className="space-y-3" onSubmit={handleSubmit}>
             {/* Row 1: Title */}
@@ -1075,7 +1114,7 @@ export default function Schedule({
         </div>
 
         {/* All Tasks column */}
-        <section className="schedule-all-tasks rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
+        <section data-schedule-panel="tasks" className="schedule-all-tasks rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-amber-200">All Tasks</p>
@@ -1177,7 +1216,7 @@ export default function Schedule({
           <div className="schedule-sidebar-card flex flex-col gap-0 rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl">
 
             {/* Calendar */}
-            <section ref={calendarSectionRef} className="schedule-calendar relative shrink-0">
+            <section ref={calendarSectionRef} data-schedule-panel="calendar" className="schedule-calendar relative shrink-0">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold tracking-wide text-amber-200">Calendar</h3>
                 <div className="flex items-center gap-1">
@@ -1302,7 +1341,7 @@ export default function Schedule({
             <div className="schedule-sidebar-divider my-3 shrink-0 border-t border-amber-100/10" />
 
             {/* Task Logs — fills remaining height */}
-            <section className="schedule-logs flex min-h-0 flex-1 flex-col">
+            <section data-schedule-panel="logs" className="schedule-logs flex min-h-0 flex-1 flex-col">
               <p className="mb-2 shrink-0 text-sm font-semibold tracking-wide text-amber-200">Task Logs</p>
               {undoError && (
                 <p className="mb-2 shrink-0 rounded-md border border-rose-400/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-300">{undoError}</p>

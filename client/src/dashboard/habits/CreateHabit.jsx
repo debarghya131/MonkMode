@@ -2,6 +2,7 @@ import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
 import DashboardSelect from "../../components/DashboardSelect";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
@@ -23,6 +24,12 @@ const REPEAT_TYPES = [
   { value: "21days",   label: "21 Days"                 },
 ];
 const TIME_OF_DAY_OPTIONS = ["Morning", "Afternoon", "Evening", "Night"];
+const CREATE_HABIT_VIEWS = [
+  { id: "create", icon: "+", label: "New Habit" },
+  { id: "habits", icon: "✓", label: "All Habits" },
+  { id: "calendar", icon: "▦", label: "Calendar" },
+  { id: "logs", icon: "↻", label: "Habit Logs" },
+];
 const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_SHORT = { Sun: "Su", Mon: "M", Tue: "T", Wed: "W", Thu: "Th", Fri: "F", Sat: "Sa" };
 
@@ -249,6 +256,20 @@ const loadStoredCategories = () => {
 export default function CreateHabit({ entity = "habit" }) {
   const today = useMemo(() => toISO(new Date()), []);
   const { isDemoMode } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedMobileView = searchParams.get("habitCreate");
+  const mobileView = CREATE_HABIT_VIEWS.some((view) => view.id === requestedMobileView)
+    ? requestedMobileView
+    : "create";
+  const selectMobileView = (view) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("view", "create");
+      next.set("habitCreate", view);
+      next.delete("habitToday");
+      return next;
+    });
+  };
   const lowMotion = useMobileLowMotion();
   const HabitCard = lowMotion ? "article" : Motion.article;
   const isGoal = entity === "goal";
@@ -332,6 +353,7 @@ export default function CreateHabit({ entity = "habit" }) {
   const [habitLogs, setHabitLogs] = useState(() => isDemoMode ? buildDemoLogs(toISO(new Date())) : []);
   const [loading, setLoading] = useState(!isDemoMode);
   const [editingId, setEditingId] = useState(null);
+  const formPanelRef = useRef(null);
 
   /* fetch habits for real users */
   useEffect(() => {
@@ -1027,6 +1049,13 @@ export default function CreateHabit({ entity = "habit" }) {
       days: h.pendingDays || h.days || []
     };
     setForm(nextEdit);
+    selectMobileView("create");
+    requestAnimationFrame(() => {
+      formPanelRef.current?.scrollIntoView({
+        block: "start",
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      });
+    });
   };
 
 
@@ -1045,7 +1074,24 @@ export default function CreateHabit({ entity = "habit" }) {
 
   /* ─── Render ─────────────────────────────────────── */
   return (
-    <div className="habits-create-view space-y-5">
+    <div className="habits-create-view space-y-5" data-mobile-view={mobileView}>
+      <nav className="habit-create-mobile-nav" aria-label="Create habit sections" data-demo-allow="true">
+        {CREATE_HABIT_VIEWS.map((view) => (
+          <button
+            key={view.id}
+            type="button"
+            onClick={() => selectMobileView(view.id)}
+            aria-pressed={mobileView === view.id}
+            className="habit-create-mobile-nav-button"
+          >
+            <span className="habit-create-mobile-nav-icon" aria-hidden="true">{view.icon}</span>
+            <span>{view.label}</span>
+            {view.id === "habits" ? <span className="habit-create-mobile-nav-count">{displayedHabits.length}</span> : null}
+            {view.id === "logs" ? <span className="habit-create-mobile-nav-count">{allLogs.length}</span> : null}
+          </button>
+        ))}
+      </nav>
+
       <div className="habits-create-heading mb-5">
         <p className="text-label-lg">{`Create ${singular}`}</p>
         <h2 className="mt-2 text-2xl font-bold text-amber-100">{`Build Your ${plural}`}</h2>
@@ -1055,6 +1101,8 @@ export default function CreateHabit({ entity = "habit" }) {
 
         {/* ── Column 1 : Create Habit Form ── */}
         <div
+          ref={formPanelRef}
+          data-habit-create-panel="create"
           className="schedule-main habits-create-form journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5"
         >
           <h3 className="mb-4 text-sm font-semibold text-amber-200">{editingId ? `Edit ${singular}` : `New ${singular}`}</h3>
@@ -1331,7 +1379,7 @@ export default function CreateHabit({ entity = "habit" }) {
         </div>
 
         {/* ── Column 2 : All Habits ── */}
-        <section className="schedule-all-tasks habits-create-list rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
+        <section data-habit-create-panel="habits" className="schedule-all-tasks habits-create-list rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-amber-200">{`All ${plural}`}</p>
@@ -1467,7 +1515,7 @@ export default function CreateHabit({ entity = "habit" }) {
           <div className="habits-create-sidebar-card flex flex-col gap-0 rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl">
 
             {/* Calendar */}
-            <section className="habits-create-calendar shrink-0">
+            <section data-habit-create-panel="calendar" className="habits-create-calendar shrink-0">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold tracking-wide text-amber-200">Calendar</h3>
                 <div className="flex items-center gap-1">
@@ -1509,7 +1557,7 @@ export default function CreateHabit({ entity = "habit" }) {
             <div className="habits-create-divider my-3 shrink-0 border-t border-amber-100/10" />
 
             {/* Habit Logs */}
-            <section className="habits-create-logs flex min-h-0 flex-1 flex-col">
+            <section data-habit-create-panel="logs" className="habits-create-logs flex min-h-0 flex-1 flex-col">
               <p className="mb-2 shrink-0 text-sm font-semibold tracking-wide text-amber-200">{`${singular} Logs`}</p>
               {undoError && (
                 <p className="mb-2 shrink-0 rounded-md border border-rose-400/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-300">{undoError}</p>

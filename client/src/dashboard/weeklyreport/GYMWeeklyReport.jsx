@@ -616,7 +616,7 @@ export default function GYMWeeklyReport({ lowMotion = false }) {
               className="weekly-gym-main-body space-y-4 sm:space-y-5"
           >
             {/* Weekly Summary header */}
-            <ReportCard className="px-4 py-3.5 sm:px-5">
+            <ReportCard className="weekly-gym-overview px-4 py-3.5 sm:px-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-base">

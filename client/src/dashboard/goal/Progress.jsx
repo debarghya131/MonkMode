@@ -59,78 +59,85 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
   return (
     <div className="goal-progress-view flex flex-col rounded-[1.6rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-[2rem] sm:p-6">
       <header className="goal-progress-heading">
-        <p className="text-label-lg">Progress</p>
-        <h2 className="mt-2 text-2xl font-bold text-amber-100">Goal Progress</h2>
-        <p className="text-body-md mt-1 text-stone-300/90">
+        <div className="goal-progress-heading-copy">
+          <p className="text-label-lg">Progress</p>
+          <h2 className="mt-2 text-2xl font-bold text-amber-100">Goal Progress</h2>
+        </div>
+        <span className="goal-progress-count rounded-full border border-amber-100/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
+          {filtered.length} goals
+        </span>
+        <p className="goal-progress-description text-body-md mt-1 text-stone-300/90">
           Milestone completion progress for each goal.
         </p>
       </header>
 
-      <div className="goal-progress-summary mt-4 rounded-xl border border-amber-100/10 bg-black/20 px-3 py-3 sm:px-4">
-        <div className="mb-1.5 flex items-center justify-between gap-2">
-          <p className="text-xs font-semibold text-stone-300">Overall Progress</p>
-          <span className="text-xs font-bold text-amber-100">{overall}%</span>
+      <div className="goal-progress-mobile-controls">
+        <div className="goal-progress-summary mt-4 rounded-xl border border-amber-100/10 bg-black/20 px-3 py-3 sm:px-4">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-stone-300">Overall Progress</p>
+            <span className="text-xs font-bold text-amber-100">{overall}%</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+            <ProgressBar
+              className={`h-full rounded-full ${getBarColor(overall)}`}
+              style={lowMotion ? { width: `${overall}%` } : undefined}
+              {...(lowMotion ? {} : {
+                initial: { width: 0 },
+                animate: { width: `${overall}%` },
+                transition: { duration: 1, ease: "easeOut" }
+              })}
+            />
+          </div>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-stone-400">
+            {visibleGoals.reduce((s, g) => {
+              const milestones = milestonesByGoal[g.id] || g.milestones || [];
+              return s + milestones.filter((m) => m.completed).length;
+            }, 0)} of{" "}
+            {visibleGoals.reduce((s, g) => s + (milestonesByGoal[g.id] || g.milestones || []).length, 0)} milestones completed across all goals
+          </p>
         </div>
-        <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-          <ProgressBar
-            className={`h-full rounded-full ${getBarColor(overall)}`}
-            style={lowMotion ? { width: `${overall}%` } : undefined}
-            {...(lowMotion ? {} : {
-              initial: { width: 0 },
-              animate: { width: `${overall}%` },
-              transition: { duration: 1, ease: "easeOut" }
-            })}
-          />
-        </div>
-        <p className="mt-1.5 text-[11px] leading-relaxed text-stone-400">
-          {visibleGoals.reduce((s, g) => {
-            const milestones = milestonesByGoal[g.id] || g.milestones || [];
-            return s + milestones.filter((m) => m.completed).length;
-          }, 0)} of{" "}
-          {visibleGoals.reduce((s, g) => s + (milestonesByGoal[g.id] || g.milestones || []).length, 0)} milestones completed across all goals
-        </p>
-      </div>
 
-      <div className="goal-progress-filters mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <div className="goal-progress-filter-group flex flex-wrap gap-1.5">
-          <span className="goal-progress-filter-label">Status</span>
-          {FILTER_OPTIONS.map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => setStatusFilter(opt)}
-              className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${
-                statusFilter === opt
-                  ? "border-amber-300/50 bg-amber-500/20 text-amber-100"
-                  : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-stone-200"
-              }`}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
-        <div className="goal-progress-filter-group flex flex-wrap gap-1.5">
-          <span className="goal-progress-filter-label">Priority</span>
-          {PRIORITY_FILTERS.map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => setPriorityFilter(opt)}
-              className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${
-                priorityFilter === opt
-                  ? opt === "High"
-                    ? "border-red-400/50 bg-red-500/20 text-red-100"
-                    : opt === "Medium"
-                      ? "border-yellow-400/50 bg-yellow-500/20 text-yellow-100"
-                      : opt === "Low"
-                        ? "border-green-400/50 bg-green-500/20 text-green-100"
-                        : "border-amber-300/50 bg-amber-500/20 text-amber-100"
-                  : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-stone-200"
-              }`}
-            >
-              {opt}
-            </button>
-          ))}
+        <div className="goal-progress-filters mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="goal-progress-filter-group goal-progress-filter-status flex flex-wrap gap-1.5">
+            <span className="goal-progress-filter-label">Status</span>
+            {FILTER_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setStatusFilter(opt)}
+                className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${
+                  statusFilter === opt
+                    ? "border-amber-300/50 bg-amber-500/20 text-amber-100"
+                    : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-stone-200"
+                }`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+          <div className="goal-progress-filter-group goal-progress-filter-priority flex flex-wrap gap-1.5">
+            <span className="goal-progress-filter-label">Priority</span>
+            {PRIORITY_FILTERS.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setPriorityFilter(opt)}
+                className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${
+                  priorityFilter === opt
+                    ? opt === "High"
+                      ? "border-red-400/50 bg-red-500/20 text-red-100"
+                      : opt === "Medium"
+                        ? "border-yellow-400/50 bg-yellow-500/20 text-yellow-100"
+                        : opt === "Low"
+                          ? "border-green-400/50 bg-green-500/20 text-green-100"
+                          : "border-amber-300/50 bg-amber-500/20 text-amber-100"
+                    : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-stone-200"
+                }`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
