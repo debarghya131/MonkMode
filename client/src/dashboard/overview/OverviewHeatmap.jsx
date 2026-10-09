@@ -117,6 +117,53 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
           return sum + (Number.isFinite(completed) ? completed : (value.count || 0));
         }, 0)
       : values.reduce((sum, value) => sum + (value.count || 0), 0);
+  const [selectedDay, setSelectedDay] = useState(null);
+  const describeValue = (value) => {
+    if (!value) return "";
+    if (binary) {
+      if (!value.count) return "";
+      const entryCount = value.entries || 1;
+      return entryCount > 1
+        ? `${value.date}: Journal submitted (${entryCount} entries)`
+        : `${value.date}: Journal submitted`;
+    }
+    if (sectionId === "todo") {
+      const completed = Number(value.completed) || 0;
+      const totalTasks = Number(value.total) || 0;
+      const missed = Number(value.missed) || 0;
+      if (totalTasks > 0) {
+        return missed > 0
+          ? `${value.date}: ${completed}/${totalTasks} completed, ${missed} missed`
+          : `${value.date}: ${completed}/${totalTasks} completed`;
+      }
+    }
+    if (sectionId === "habit") {
+      const completed = Number(value.completed) || 0;
+      const totalHabits = Number(value.total) || 0;
+      if (totalHabits > 0) {
+        return `${value.date}: ${completed}/${totalHabits} habits completed`;
+      }
+    }
+    if (sectionId === "goal") {
+      const completedSubgoals = Number(value.completedSubgoals) || 0;
+      return completedSubgoals === 1
+        ? `${value.date}: 1 sub-goal done`
+        : `${value.date}: ${completedSubgoals} sub-goals done`;
+    }
+    if (sectionId === "gym") {
+      const parts = [];
+      const ex   = Number(value.exercises)   || 0;
+      const meas = Number(value.measurement) || 0;
+      const gal  = Number(value.gallery)     || 0;
+      if (ex   > 0) parts.push(`${ex} workout update${ex > 1 ? "s" : ""}`);
+      if (meas > 0) parts.push(`${meas} measurement update${meas > 1 ? "s" : ""}`);
+      if (gal  > 0) parts.push(`${gal} gallery update${gal > 1 ? "s" : ""}`);
+      if (parts.length) return `${value.date}: ${parts.join(", ")}`;
+      const updates = Number(value.updates) || 0;
+      return updates > 0 ? `${value.date}: ${updates} gym activit${updates > 1 ? "ies" : "y"}` : value.date;
+    }
+    return `${value.date}: ${value.count}`;
+  };
   const startDate = new Date(year, 0, 1);
   const endDate = new Date(year, 11, 31);
 
@@ -126,11 +173,11 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
       transition={{ type: "spring", stiffness: 300, damping: 22 }}
       className="overview-heatmap-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-stone-950/45 px-1.5 py-1.5 sm:rounded-2xl"
     >
-      <div className="mb-1 flex shrink-0 flex-col gap-1 px-1.5 pt-1 sm:flex-row sm:items-center sm:justify-between">
+      <div className="overview-heatmap-card-header mb-1 flex shrink-0 flex-col gap-1 px-1.5 pt-1 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 sm:tracking-[0.16em]">{label}</p>
         <span className="text-[10px] text-stone-500">{total} contributions</span>
       </div>
-      <div className="overview-heatmap journal-scroll min-h-0 w-full flex-1 overflow-x-auto overflow-y-hidden">
+      <div className="overview-heatmap journal-scroll min-h-0 w-full flex-1 overflow-x-auto overflow-y-hidden" tabIndex={0} role="region" aria-label={`${label} activity for ${year}, scroll to see all months`}>
         <div className="overview-heatmap-canvas h-full min-w-[38rem] sm:min-w-[44rem] lg:min-w-0 lg:w-full">
           <CalendarHeatmap
             startDate={startDate}
@@ -144,55 +191,22 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
               if (binary) return `${scale}-scale-4`;
               return `${scale}-scale-${Math.min(value.count, 4)}`;
             }}
-            titleForValue={(value) => {
-              if (!value) return "";
-              if (binary) {
-                if (!value.count) return "";
-                const entryCount = value.entries || 1;
-                return entryCount > 1
-                  ? `${value.date}: Journal submitted (${entryCount} entries)`
-                  : `${value.date}: Journal submitted`;
-              }
-              if (sectionId === "todo") {
-                const completed = Number(value.completed) || 0;
-                const totalTasks = Number(value.total) || 0;
-                const missed = Number(value.missed) || 0;
-                if (totalTasks > 0) {
-                  return missed > 0
-                    ? `${value.date}: ${completed}/${totalTasks} completed, ${missed} missed`
-                    : `${value.date}: ${completed}/${totalTasks} completed`;
-                }
-              }
-              if (sectionId === "habit") {
-                const completed = Number(value.completed) || 0;
-                const totalHabits = Number(value.total) || 0;
-                if (totalHabits > 0) {
-                  return `${value.date}: ${completed}/${totalHabits} habits completed`;
-                }
-              }
-              if (sectionId === "goal") {
-                const completedSubgoals = Number(value.completedSubgoals) || 0;
-                return completedSubgoals === 1
-                  ? `${value.date}: 1 sub-goal done`
-                  : `${value.date}: ${completedSubgoals} sub-goals done`;
-              }
-              if (sectionId === "gym") {
-                const parts = [];
-                const ex   = Number(value.exercises)   || 0;
-                const meas = Number(value.measurement) || 0;
-                const gal  = Number(value.gallery)     || 0;
-                if (ex   > 0) parts.push(`${ex} workout update${ex > 1 ? "s" : ""}`);
-                if (meas > 0) parts.push(`${meas} measurement update${meas > 1 ? "s" : ""}`);
-                if (gal  > 0) parts.push(`${gal} gallery update${gal > 1 ? "s" : ""}`);
-                if (parts.length) return `${value.date}: ${parts.join(", ")}`;
-                const updates = Number(value.updates) || 0;
-                return updates > 0 ? `${value.date}: ${updates} gym activit${updates > 1 ? "ies" : "y"}` : value.date;
-              }
-              return `${value.date}: ${value.count}`;
-            }}
+            titleForValue={describeValue}
+            onClick={setSelectedDay}
           />
         </div>
       </div>
+      <div className="overview-heatmap-mobile-footer">
+        <span>Swipe for more months →</span>
+        <svg width={binary ? 28 : 70} height="12" role="img" aria-label={binary ? "Dim: no entry. Bright: journal submitted." : "Activity intensity from less to more."}>
+          {(binary ? [0, 4] : [0, 1, 2, 3, 4]).map((level, index) => (
+            <rect key={level} x={index * 14} width="10" height="10" rx="2" className={level ? `${scale}-scale-${level}` : `${scale}-empty`} />
+          ))}
+        </svg>
+      </div>
+      <p className="overview-heatmap-mobile-detail" aria-live="polite">
+        {selectedDay ? describeValue(selectedDay) : "Tap a colored day for details"}
+      </p>
     </Motion.div>
   );
 }
@@ -625,10 +639,10 @@ export default function OverviewHeatmap() {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col justify-between gap-2">
+      <div className="overview-heatmap-cards flex min-h-0 flex-1 flex-col justify-between gap-2">
         {sectionData.map((section) => (
           <HeatmapCard
-            key={section.id}
+            key={`${section.id}-${selectedYear}`}
             sectionId={section.id}
             label={section.label}
             scale={section.scale}
