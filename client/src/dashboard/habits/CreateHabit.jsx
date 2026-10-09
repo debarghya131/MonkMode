@@ -536,6 +536,19 @@ export default function CreateHabit({ entity = "habit" }) {
     return cells;
   }, [viewMonth]);
 
+  const selectedCalendarHabits = useMemo(
+    () => displayedHabits.filter((habit) => isHabitOnDate(habit, selectedDate)),
+    [displayedHabits, selectedDate]
+  );
+  const selectedCalendarDate = useMemo(
+    () => parseISO(selectedDate).toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    }),
+    [selectedDate]
+  );
+
   /* ── helpers ── */
   const setField = (field, value) => {
     setForm((p) => ({ ...p, [field]: value }));
@@ -1543,14 +1556,31 @@ export default function CreateHabit({ entity = "habit" }) {
                   const isSel = iso === selectedDate;
                   return (
                     <button key={iso} type="button" onClick={() => setSelectedDate(iso)}
-                      title={`${count} ${lowerSingular}${count === 1 ? "" : "s"} scheduled`}
                       aria-label={`${iso}: ${count} ${lowerSingular}${count === 1 ? "" : "s"} scheduled`}
+                      aria-pressed={isSel}
                       className={`relative h-8 rounded text-xs transition ${isSel ? "border border-amber-300/60 bg-amber-400/15 text-amber-100" : "border border-amber-100/10 bg-white/5 text-stone-200 hover:border-amber-300/35"} ${isToday ? "ring-1 ring-amber-500/40" : ""}`}>
                       {cell.getDate()}
                       {count > 0 && <span className="absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-amber-400/90" />}
                     </button>
                   );
                 })}
+              </div>
+
+              <div className="habit-calendar-selection mt-3" aria-live="polite">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-stone-200">{selectedCalendarDate}</p>
+                  <span className="rounded-full border border-amber-400/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
+                    {selectedCalendarHabits.length} {lowerSingular}{selectedCalendarHabits.length === 1 ? "" : "s"} scheduled
+                  </span>
+                </div>
+                {selectedCalendarHabits.length > 0 ? (
+                  <p className="mt-1 text-[11px] leading-4 text-stone-400">
+                    {selectedCalendarHabits.slice(0, 3).map((habit) => habit.title).join(" · ")}
+                    {selectedCalendarHabits.length > 3 ? ` +${selectedCalendarHabits.length - 3} more` : ""}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[11px] text-stone-500">No habits scheduled for this day.</p>
+                )}
               </div>
             </section>
 

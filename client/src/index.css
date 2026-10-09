@@ -2586,6 +2586,19 @@ a {
   overflow: visible;
 }
 
+.habits-page[data-active="create"] .habit-calendar-selection {
+  min-height: 3.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid rgba(251, 191, 36, 0.16);
+  border-radius: 0.75rem;
+  background: rgba(0, 0, 0, 0.16);
+  overflow-wrap: anywhere;
+}
+
+.habits-page[data-active="create"] .habits-create-calendar button[aria-pressed="true"] {
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.22), 0 0 14px rgba(251, 191, 36, 0.12);
+}
+
 .habits-page[data-active="create"] .habits-create-logs > .journal-scroll {
   max-height: clamp(9rem, 27dvh, 18rem);
   overflow-y: auto;
@@ -2713,6 +2726,10 @@ a {
   .habits-page[data-active="create"] :is(.habit-list-body, .habits-create-logs > .journal-scroll) {
     max-height: none;
     overflow: visible;
+  }
+
+  .habits-page[data-active="create"] .habit-calendar-selection {
+    min-height: 0;
   }
 }
 
@@ -3706,15 +3723,44 @@ a {
   }
 
   .goals-page[data-active="create-goals"] :is(.goal-create-form, .goal-create-list, .goal-create-logs, .goal-create-log-panel) {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
     height: auto;
     max-height: none;
     overflow: visible;
   }
 
   .goals-page[data-active="create-goals"] :is(.goal-create-list-body, .goal-create-log-list) {
+    box-sizing: border-box;
+    width: auto;
+    min-width: 0;
     max-height: none;
     overflow: visible;
+    padding-inline: 0.25rem;
   }
+
+  .goals-page[data-active="create-goals"] :is(.goal-created-card, .goal-create-log-row) {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .goals-page[data-active="create-goals"] .goal-create-list-header {
+    align-items: flex-start;
+  }
+
+  .goals-page[data-active="create-goals"] .goal-create-list-header > div {
+    min-width: 0;
+  }
+
+  .goals-page[data-active="create-goals"] .goal-created-card-meta > span {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
 }
 
 @container created-goal (min-width: 30rem) {
@@ -4595,7 +4641,15 @@ a {
   }
 
   /* Goals: avoid a second vertical scroll region in every sub-section. */
-  .goal-main,
+  .goal-main {
+    height: auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .goal-route,
   .goals-page,
   .goals-page .goals-content {
@@ -4622,7 +4676,15 @@ a {
     max-height: none;
     overflow: visible;
     overscroll-behavior: auto;
+  }
+
+  .goals-page[data-active="my-goals"] .goals-list,
+  .goals-page[data-active="progress"] .goal-progress-list {
     padding-right: 0;
+  }
+
+  .goals-page[data-active="create-goals"] :is(.goal-create-list-body, .goal-create-log-list) {
+    padding-inline: 0.25rem;
   }
 
   /* Gym: list-heavy pages never create a hidden, viewport-height inner pane. */
@@ -4646,6 +4708,9 @@ a {
     max-height: none;
     overflow: visible;
     overscroll-behavior: auto;
+  }
+
+  .gym-page[data-active="add-workout"] :is(.gym-add-list-body, .gym-add-log-list) {
     padding-right: 0;
   }
 
@@ -9013,18 +9078,22 @@ a {
     font-size: 0.5rem;
   }
 
-  /* Gym progress: fixed mode/filter controls with a compact horizontal picker
-     and one height-aware detail scroller for charts and update history. */
+  /* Gym progress follows the phone's page scroll so short results do not
+     leave an empty viewport-height panel. */
   .gym-main:has(.gym-page[data-active="progress"]) {
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .gym-main:has(.gym-page[data-active="progress"]) > .gym-route,
   .gym-page[data-active="progress"],
   .gym-page[data-active="progress"] .gym-content,
   .gym-page[data-active="progress"] .gym-progress-view {
-    height: 100%;
+    height: auto;
     min-height: 0;
+    overflow: visible;
   }
 
   .gym-page[data-active="progress"],
@@ -9032,12 +9101,12 @@ a {
   .gym-page[data-active="progress"] .gym-progress-view {
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .gym-page[data-active="progress"] .gym-content,
   .gym-page[data-active="progress"] .gym-progress-view {
-    flex: 1 1 0%;
+    flex: 0 0 auto;
   }
 
   .gym-page[data-active="progress"] .gym-progress-view > :not([hidden]) ~ :not([hidden]) {
@@ -9059,18 +9128,18 @@ a {
   }
 
   .gym-page[data-active="progress"] .gym-progress-tab-content {
-    flex: 1 1 0%;
+    flex: 0 0 auto;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .gym-page[data-active="progress"] :is(.gym-progress-measurements, .gym-progress-workouts) {
     display: flex;
-    height: 100%;
+    height: auto;
     min-height: 0;
     flex-direction: column;
     gap: 0.75rem;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .gym-page[data-active="progress"] .gym-progress-measurements > :not([hidden]) ~ :not([hidden]) {
@@ -9083,9 +9152,9 @@ a {
   }
 
   .gym-page[data-active="progress"] :is(.gym-progress-measurement-layout, .gym-progress-workouts) {
-    flex: 1 1 0%;
+    flex: 0 0 auto;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .gym-page[data-active="progress"] .gym-progress-measurement-layout {
@@ -9228,13 +9297,11 @@ a {
   }
 
   .gym-page[data-active="progress"] :is(.gym-progress-measurement-detail, .gym-progress-workout-detail) {
-    flex: 1 1 0%;
+    flex: 0 0 auto;
     min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding-right: 0.15rem;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
+    overscroll-behavior: auto;
+    padding-right: 0;
   }
 
   .gym-page[data-active="progress"] :is(.gym-progress-chart, .gym-progress-history, .gym-progress-workout-charts > *) {
@@ -10200,20 +10267,25 @@ a {
   }
 }
 
-/* Goal Progress on phones: controls stay motionless; only the card list scrolls. */
+/* Goal Progress on phones follows the page height. A viewport-sized list leaves
+   a large empty panel whenever there are only a few goals. */
 @media (max-width: 639px) {
   .goal-main:has(.goals-page[data-active="progress"]) {
+    height: auto;
     min-height: 0;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .goal-main:has(.goals-page[data-active="progress"]) > .goal-route,
   .goals-page[data-active="progress"],
   .goals-page[data-active="progress"] .goals-content,
   .goals-page[data-active="progress"] .goal-progress-view {
-    height: 100%;
+    height: auto;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .goals-page[data-active="progress"] .goal-progress-view {
@@ -10222,21 +10294,22 @@ a {
   }
 
   .goals-page[data-active="progress"] .goal-progress-mobile-controls {
-    position: static;
-    z-index: auto;
+    position: sticky;
+    z-index: 20;
+    top: 0;
     flex: 0 0 auto;
+    padding-bottom: 0.25rem;
+    background: rgba(23, 17, 15, 0.98);
   }
 
   .goals-page[data-active="progress"] .goal-progress-list {
-    flex: 1 1 0%;
+    flex: none;
     height: auto;
-    min-height: 0;
+    min-height: auto;
     max-height: none;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    padding-right: 0.125rem;
+    overflow: visible;
+    overscroll-behavior: auto;
+    padding-right: 0;
   }
 }
 
