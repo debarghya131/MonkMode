@@ -1104,6 +1104,52 @@ a {
 }
 
 @media (max-width: 1023px) {
+  .journal-layout,
+  .journal-editor {
+    gap: 0.75rem;
+  }
+
+  .journal-step-card {
+    padding: 0.875rem;
+    border-radius: 1rem;
+  }
+
+  .journal-step-body {
+    flex: none;
+    padding-right: 0;
+    overflow: visible;
+    scroll-margin-top: 5rem;
+  }
+
+  .journal-step-body h2 {
+    margin-bottom: 1rem;
+    font-size: 1.375rem;
+    line-height: 1.3;
+  }
+
+  .journal-mood-option {
+    min-width: 0;
+    min-height: 4.5rem;
+    padding: 0.5rem 0.25rem;
+    gap: 0.375rem;
+  }
+
+  .journal-mood-option > span:first-child {
+    font-size: 1.375rem;
+    line-height: 1.5rem;
+  }
+
+  .journal-mood-option > span:last-child {
+    font-size: 0.6875rem;
+    color: #e7e5e4;
+    overflow-wrap: anywhere;
+  }
+
+  .journal-mood-option:focus-visible {
+    outline: 2px solid #fbbf24;
+    outline-offset: 2px;
+  }
+
   .journal-consistency-row {
     display: grid;
     width: 100%;
@@ -1135,6 +1181,10 @@ a {
   }
 
   .journal-progress-header {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
     margin-bottom: 0.625rem;
     gap: 0.5rem;
   }
@@ -1190,7 +1240,7 @@ a {
     border-radius: 0.625rem;
     background: rgba(255, 255, 255, 0.035);
     color: #b7aaa4;
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     font-weight: 700;
     line-height: 1.2;
     text-align: center;
@@ -1271,14 +1321,26 @@ a {
   }
 
   .journal-step-nav {
-    position: sticky;
-    z-index: 10;
-    bottom: 0;
-    margin-inline: -0.5rem;
-    padding: 0.75rem 0.5rem;
-    border-radius: 0.875rem;
-    background: rgba(23, 17, 15, 0.96);
-    box-shadow: 0 -8px 18px rgba(0, 0, 0, 0.25);
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 0.875rem;
+    padding-top: 0.75rem;
+    gap: 0.625rem;
+  }
+
+  .journal-step-nav > span {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    max-width: none;
+    color: #a8a29e;
+    font-size: 0.75rem;
+  }
+
+  .journal-step-nav > button {
+    grid-row: 2;
+    min-height: 2.75rem;
+    padding-inline: 0.5rem;
+    border-radius: 0.75rem;
   }
 
   .journal-layout .backdrop-blur, .journal-modal-backdrop {
@@ -1292,6 +1354,13 @@ a {
   }
   .journal-layout .journal-scroll { scroll-behavior: auto; }
   .journal-step-body input:not([type="range"]), .journal-step-body textarea { font-size: 16px; }
+}
+
+@media (max-width: 639px) {
+  .journal-mood-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
 }
 
 /* The dashboard flex shell supplies the actual space below the navbar. */
@@ -4778,38 +4847,6 @@ a {
 
   .overview-card-actions > .overview-card-action:last-child:nth-child(odd) {
     grid-column: 1 / -1;
-  }
-
-  /* Heatmaps scale to the card instead of preserving a desktop minimum width. */
-  .overview-heatmap-panel {
-    height: clamp(34rem, calc(100dvh - 4.75rem), 42rem);
-    min-height: 34rem;
-    border-radius: 1.25rem;
-    padding: 0.75rem;
-  }
-
-  .overview-heatmap-stack {
-    gap: 0.5rem;
-  }
-
-  .overview-heatmap-card {
-    min-height: 0;
-    border-radius: 0.875rem;
-  }
-
-  .overview-heatmap {
-    overflow: hidden;
-  }
-
-  .overview-heatmap-canvas {
-    width: 100%;
-    min-width: 0 !important;
-  }
-
-  .overview-heatmap svg {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
   }
 
   /* Todo uses the page scrollbar on phones so cards and action buttons cannot
@@ -10940,8 +10977,13 @@ a {
   }
 }
 
-/* Overview: compact screens switch between the summary and a viewport-sized
-   panel containing all five yearly activity heatmaps. */
+/* Overview: readable yearly charts scroll horizontally inside cards; the
+   full stack follows the dashboard's vertical page scroll on mobile. */
+.overview-heatmap-mobile-footer,
+.overview-heatmap-mobile-detail {
+  display: none;
+}
+
 .overview-mobile-nav {
   display: none;
 }
@@ -11026,15 +11068,23 @@ a {
   }
 
   .overview-heatmap-panel {
-    height: clamp(36rem, calc(100dvh - 9rem), 48rem) !important;
-    min-height: 36rem !important;
-    max-height: 48rem;
-    overflow: hidden;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none;
+    overflow: visible;
+    padding: 0.75rem;
+    border-radius: 1rem;
   }
 
   .overview-heatmap-stack {
-    height: 100%;
+    height: auto;
     min-height: 0;
+    gap: 0.75rem;
+  }
+
+  .overview-heatmap-cards {
+    flex: none;
+    gap: 0.75rem;
   }
 
   .overview-heatmap-toolbar {
@@ -11042,26 +11092,101 @@ a {
     z-index: 20;
   }
 
+  .overview-heatmap-toolbar > div {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .overview-heatmap-toolbar > div > div {
+    width: 6rem;
+    flex: 0 0 auto;
+  }
+
   .overview-heatmap-card {
-    flex: 1 1 0;
+    flex: none;
     min-height: 0;
+    min-width: 0;
     overflow: hidden;
+    padding: 0.75rem;
+    border-radius: 0.875rem;
+  }
+
+  .overview-heatmap-card-header {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.375rem;
+    padding: 0;
+    margin-bottom: 0.75rem;
+  }
+
+  .overview-heatmap-card-header p {
+    font-size: 0.75rem;
+    color: #e7e5e4;
+  }
+
+  .overview-heatmap-card-header span {
+    font-size: 0.6875rem;
+    color: #a8a29e;
   }
 
   .overview-heatmap {
-    overflow-x: hidden !important;
+    flex: none;
+    overflow-x: auto !important;
     overflow-y: hidden !important;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding-bottom: 0.5rem;
+  }
+
+  .overview-heatmap:focus-visible {
+    outline: 2px solid #fbbf24;
+    outline-offset: 2px;
   }
 
   .overview-heatmap-canvas {
-    width: 100% !important;
-    min-width: 0 !important;
+    width: 48rem !important;
+    min-width: 48rem !important;
+    height: auto;
   }
 
   .overview-heatmap svg {
     width: 100%;
     min-width: 0;
     max-width: 100%;
+    max-height: none;
+    height: auto;
+  }
+
+  .overview-heatmap .react-calendar-heatmap text,
+  .overview-heatmap .react-calendar-heatmap .react-calendar-heatmap-month-label {
+    font-size: 9px;
+    fill: #a8a29e;
+  }
+
+  .overview-heatmap-mobile-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.375rem;
+    color: #a8a29e;
+    font-size: 0.625rem;
+  }
+
+  .overview-heatmap-mobile-detail {
+    display: block;
+    margin-top: 0.5rem;
+    min-height: 2rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    color: #d6d3d1;
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    overflow-wrap: anywhere;
   }
 }
 

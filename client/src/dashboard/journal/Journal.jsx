@@ -1,6 +1,6 @@
 import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
@@ -442,6 +442,8 @@ export default function Journal() {
     });
   };
   const [step, setStep]               = useState(1);
+  const stepBodyRef = useRef(null);
+  const previousStepRef = useRef(step);
   const [form, setForm]               = useState(INITIAL_FORM);
   const [customFields, setCustomFields] = useState([]);
   const [submitted, setSubmitted]       = useState(false);
@@ -456,6 +458,14 @@ export default function Journal() {
     lifetimeExpectedDays: 0
   });
   const [refreshSidebarKey, setRefreshSidebarKey] = useState(0);
+
+  useEffect(() => {
+    if (previousStepRef.current !== step && window.matchMedia("(max-width: 1023px)").matches) {
+      stepBodyRef.current?.focus({ preventScroll: true });
+      stepBodyRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
+    }
+    previousStepRef.current = step;
+  }, [step]);
 
   const todayStr = () => toLocalISODate(new Date());
 
@@ -884,6 +894,9 @@ export default function Journal() {
           {/* ── Mandatory steps 1–14 ── */}
           <div
             key={step}
+            ref={stepBodyRef}
+            tabIndex={-1}
+            aria-label={`Step ${step}: ${allSteps[step - 1]?.label}`}
             className="journal-scroll journal-step-body pr-1"
           >
 
@@ -892,14 +905,15 @@ export default function Journal() {
             <div className="flex-1 flex flex-col">
               <p className="text-label-lg">Step 1 · Mood</p>
               <h2 className="text-heading-xl mt-1 mb-5 text-[2rem] sm:text-[2.5rem]">How are you feeling?</h2>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="journal-mood-grid grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Choose your mood">
                 {MOODS.map((mood) => (
                   <button
                     key={mood.label}
                     type="button"
+                    aria-pressed={form.mood === mood.label}
                     onClick={() => set("mood", mood.label)}
                     disabled={isDemoMode}
-                    className={`flex min-h-[4.75rem] w-full flex-col items-center justify-center gap-1 rounded-xl border p-2.5 transition-colors duration-200 ${
+                    className={`journal-mood-option flex min-h-[4.75rem] w-full flex-col items-center justify-center gap-1 rounded-xl border p-2.5 transition-colors duration-200 ${
                       form.mood === mood.label
                         ? "border-amber-400/60 bg-amber-500/20 shadow-[0_0_16px_rgba(251,191,36,0.2)]"
                         : "border-amber-100/10 bg-stone-950/45 hover:border-amber-400/30 hover:bg-amber-500/10"
