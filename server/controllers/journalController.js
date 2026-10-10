@@ -1,9 +1,9 @@
 import Journal from "../models/Journal.js";
 import User from "../models/User.js";
 import mongoose from "mongoose";
+import { APP_TIMEZONE } from "../config/runtime.js";
+import { addCalendarDays, calendarDaysBetween } from "../utils/calendarUtils.js";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const APP_TIMEZONE = process.env.APP_TIMEZONE || "Asia/Kolkata";
 
 const MOOD_MAP = new Map([
   ["motivated", "Motivated"],
@@ -267,7 +267,11 @@ const toSafePagination = (value, fallback, min, max) => {
 // Create journal entry for a day (upsert by dayKey).
 export const createJournalEntry = async (req, res) => {
   try {
-    const inputDate = parseDateInput(req.body.date) || new Date();
+    const parsedDate = parseDateInput(req.body.date);
+    if (req.body.date !== undefined && !parsedDate) {
+      return res.status(400).json({ message: "Valid date is required" });
+    }
+    const inputDate = parsedDate || new Date();
     const dayKey = toDayKey(inputDate);
     const todayKey = toDayKey(new Date());
     const payload = buildJournalPayload(req.body);
@@ -384,6 +388,9 @@ export const getJournalEntries = async (req, res) => {
 
     const fromDate = parseDateInput(req.query.from);
     const toDate = parseDateInput(req.query.to);
+    if ((req.query.from !== undefined && !fromDate) || (req.query.to !== undefined && !toDate) || (fromDate && toDate && fromDate > toDate)) {
+      return res.status(400).json({ message: "Valid ordered from/to dates are required" });
+    }
 
     const filter = { userId: req.user.id };
     if (req.query.mood) {
@@ -394,10 +401,21 @@ export const getJournalEntries = async (req, res) => {
       filter.mood = normalizedMood;
     }
 
-    if (fromDate || toDate) {
-      filter.date = {};
-      if (fromDate) filter.date.$gte = getStartOfDay(fromDate);
-      if (toDate) filter.date.$lt = new Date(getStartOfDay(toDate).getTime() + DAY_MS);
+    if (req.query.today === "true") {
+      const today = getStartOfDay();
+      filter.$or = [
+        { dayKey: toDayKey(today) },
+        { dayKey: { $exists: false }, date: { $gte: today, $lt: addCalendarDays(today, 1) } }
+      ];
+    } else if (fromDate || toDate) {
+      const dayRange = {};
+      const dateRange = {};
+      if (fromDate) { dayRange.$gte = toDayKey(fromDate); dateRange.$gte = getStartOfDay(fromDate); }
+      if (toDate) { dayRange.$lte = toDayKey(toDate); dateRange.$lt = addCalendarDays(getStartOfDay(toDate), 1); }
+      filter.$or = [
+        { dayKey: dayRange },
+        { dayKey: { $exists: false }, date: dateRange }
+      ];
     }
 
     if (!hasPagination) {
@@ -470,7 +488,10 @@ export const getJournalSummary = async (req, res) => {
       Journal.findOne({ userId: req.user.id, dayKey: todayKey }).select("_id dayKey"),
       Journal.find({
         userId: req.user.id,
-        date: { $gte: weekStart, $lt: new Date(today.getTime() + DAY_MS) }
+        $or: [
+          { dayKey: { $gte: toDayKey(weekStart), $lte: todayKey } },
+          { dayKey: { $exists: false }, date: { $gte: weekStart, $lt: addCalendarDays(today, 1) } }
+        ]
       }).select("achievement wins mistakes energyLevel overallRating mood"),
       Journal.countDocuments({ userId: req.user.id }),
       Journal.aggregate([
@@ -535,23 +556,25 @@ export const getJournalSummary = async (req, res) => {
     let cursor = getStartOfDay(today);
     // Keep yesterday's streak visible after midnight until today's entry is added.
     if (!todayEntry) {
-      cursor = new Date(cursor.getTime() - DAY_MS);
+      cursor = addCalendarDays(cursor, -1);
     }
     while (loggedDaySet.has(toDayKey(cursor))) {
       currentStreakDays += 1;
-      cursor = new Date(cursor.getTime() - DAY_MS);
+      cursor = addCalendarDays(cursor, -1);
     }
 
     const lifetimeLoggedDays = loggedDays.length;
     const firstLoggedDay = loggedDays[0] || null;
     const lifetimeExpectedDays = firstLoggedDay
-      ? Math.max(1, Math.floor((today.getTime() - getStartOfDay(firstLoggedDay).getTime()) / DAY_MS) + 1)
+      ? Math.max(1, calendarDaysBetween(parseDateInput(firstLoggedDay), today) + 1)
       : 0;
     const lifetimeConsistency = lifetimeExpectedDays > 0
       ? Number(((lifetimeLoggedDays / lifetimeExpectedDays) * 100).toFixed(1))
       : 0;
 
     return res.json({
+      date: todayKey,
+      timezone: APP_TIMEZONE,
       todayLogged: Boolean(todayEntry),
       daysThisWeek: weekEntries.length,
       achievementsThisWeek,
@@ -559,6 +582,7 @@ export const getJournalSummary = async (req, res) => {
       mistakesThisWeek,
       totalEntries,
       currentStreakDays,
+      ...(req.includeCompletionDays ? { completedDayKeys: loggedDays } : {}),
       lifetimeLoggedDays,
       lifetimeExpectedDays,
       lifetimeConsistency,

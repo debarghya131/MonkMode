@@ -1,6 +1,8 @@
 import Goal from "../models/Goal.js";
 import GoalProgressLog from "../models/GoalProgressLog.js";
 import mongoose from "mongoose";
+import "../config/runtime.js";
+import { retainGoalActivityLogs } from "../utils/goalActivityUtils.js";
 import {
   buildSubgoalActivityTitle,
   GOAL_ACTIVITY_TIMEZONE
@@ -114,7 +116,7 @@ const buildActivityLogEntry = (action, title, at = new Date(), extra = {}) => ({
 const appendActivityLog = (goal, entry) => {
   const currentLogs = Array.isArray(goal.activityLogs) ? [...goal.activityLogs] : [];
   currentLogs.push(entry);
-  goal.activityLogs = currentLogs.slice(-MAX_ACTIVITY_LOGS);
+  goal.activityLogs = retainGoalActivityLogs(currentLogs, MAX_ACTIVITY_LOGS);
 };
 
 const getGoalStatus = (goal, today = getStartOfDay(new Date())) => {
@@ -156,6 +158,7 @@ const serializeGoal = (goal, today = getStartOfDay(new Date())) => {
   const archiveReason = raw?.deletedAt ? "deleted" : (getGoalStatus(raw, today) === "Archived" ? "ended" : null);
   return {
     ...raw,
+    activityLogs: (raw.activityLogs || []).slice(-MAX_ACTIVITY_LOGS),
     status: getGoalStatus(raw, today),
     milestones,
     subgoalProgress,

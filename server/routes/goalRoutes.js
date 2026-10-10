@@ -22,8 +22,8 @@ const router = express.Router();
 const goalWriteLimiter = createRateLimiter({
   keyPrefix: "goal-write-daily",
   windowMs: Number(process.env.GOAL_WRITE_RATE_LIMIT_DAILY_WINDOW_MS || 86_400_000),
-  max: Number(process.env.GOAL_WRITE_RATE_LIMIT_DAILY_MAX || 5),
-  message: "You have reached the daily goal update limit for this portfolio project. Please try again tomorrow.",
+  max: Number(process.env.GOAL_WRITE_RATE_LIMIT_DAILY_MAX || 1000),
+  message: "You have reached the daily goal update limit. Please try again tomorrow.",
 });
 
 router.use(protect);

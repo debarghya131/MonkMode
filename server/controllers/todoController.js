@@ -1,13 +1,13 @@
 import Todo from "../models/Todo.js";
 import TodoLog from "../models/TodoLog.js";
 import mongoose from "mongoose";
+import { APP_TIMEZONE } from "../config/runtime.js";
+import { addCalendarDays, calendarDaysBetween } from "../utils/calendarUtils.js";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const DELETE_UNDO_WINDOW_MS = 48 * 60 * 60 * 1000;
 const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DEFAULT_WEEKDAY_SELECTION = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 const DEFAULT_IMPORTANT_TODO_CATEGORIES = ["Health", "Bill & Payment"];
-const APP_TIMEZONE = process.env.APP_TIMEZONE || "Asia/Kolkata";
 const DAY_KEY_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   timeZone: APP_TIMEZONE,
   year: "numeric",
@@ -120,7 +120,7 @@ const hasOccurrenceInRange = (repeatType, startDate, endDate, days = []) => {
   if (!startDate || !endDate) return true;
   const normalizedStart = getStartOfDay(startDate);
   const normalizedEnd = getStartOfDay(endDate);
-  const rangeDays = Math.floor((normalizedEnd.getTime() - normalizedStart.getTime()) / DAY_MS) + 1;
+  const rangeDays = calendarDaysBetween(normalizedStart, normalizedEnd) + 1;
   if (rangeDays <= 0) return false;
   if (repeatType === "daily") return true;
 
@@ -582,7 +582,7 @@ export const updateTodo = async (req, res) => {
 
     const today = new Date();
     const todayStart = getStartOfDay(today);
-    const tomorrowStart = new Date(todayStart.getTime() + DAY_MS);
+    const tomorrowStart = addCalendarDays(todayStart, 1);
     const todayKey = toDayKey(todayStart);
     if (todo.repeatType === "once") {
       const currentDate = todo.date || todo.startDate || todo.createdAt;
@@ -836,7 +836,7 @@ export const getTodoSummary = async (req, res) => {
 
     const week = { total: 0, completed: 0, pending: 0, missed: 0 };
     for (let i = 0; i < 7; i += 1) {
-      const day = new Date(weekStart.getTime() + i * DAY_MS);
+      const day = addCalendarDays(weekStart, i);
       const dayKey = toDayKey(day);
       for (const todo of activeTodos) {
         if (!isTaskScheduledOnDay(todo, dayKey)) continue;
@@ -853,6 +853,7 @@ export const getTodoSummary = async (req, res) => {
       : 0;
 
     const lifetime = { total: 0, completed: 0, pending: 0, missed: 0 };
+    const completedDayKeys = [];
     if (allTodos.length > 0) {
       const earliest = allTodos.reduce((min, todo) => {
         const candidate = todo.date || todo.startDate || todo.createdAt;
@@ -860,21 +861,26 @@ export const getTodoSummary = async (req, res) => {
       }, null);
 
       const lifetimeStart = getStartOfDay(earliest || selectedDate);
-      const lifetimeEnd = new Date(getStartOfDay(selectedDate).getTime() + DAY_MS);
+      const lifetimeEnd = addCalendarDays(getStartOfDay(selectedDate), 1);
 
-      for (let cursor = new Date(lifetimeStart); cursor < lifetimeEnd; cursor = new Date(cursor.getTime() + DAY_MS)) {
+      for (let cursor = new Date(lifetimeStart); cursor < lifetimeEnd; cursor = addCalendarDays(cursor, 1)) {
         const dayKey = toDayKey(cursor);
+        let expectedForDay = 0;
+        let onTimeForDay = 0;
         for (const todo of allTodos) {
           if (!isTaskAliveOnDay(todo, dayKey)) continue;
           if (!isTaskScheduledOnDay(todo, dayKey)) continue;
           lifetime.total += 1;
+          expectedForDay++;
           const status = getTodoStatusForDay(todo, dayKey, todayKey);
           if (status === "completed") {
             lifetime.completed += 1;
+            if (!getExistingDayState(todo, dayKey)?.lateCompleted) onTimeForDay++;
           }
           else if (status === "missed") lifetime.missed += 1;
           else lifetime.pending += 1;
         }
+        if (expectedForDay > 0 && onTimeForDay === expectedForDay) completedDayKeys.push(dayKey);
       }
     }
 
@@ -887,12 +893,12 @@ export const getTodoSummary = async (req, res) => {
       }, null);
 
       const streakRangeStart = getStartOfDay(earliestActive || selectedDate);
-      const streakRangeEnd = new Date(getStartOfDay(selectedDate).getTime() + DAY_MS);
+      const streakRangeEnd = addCalendarDays(getStartOfDay(selectedDate), 1);
 
       for (
         let cursor = new Date(streakRangeStart);
         cursor < streakRangeEnd;
-        cursor = new Date(cursor.getTime() + DAY_MS)
+        cursor = addCalendarDays(cursor, 1)
       ) {
         const dayKey = toDayKey(cursor);
         for (const todo of activeTodos) {
@@ -933,7 +939,7 @@ export const getTodoSummary = async (req, res) => {
       streakStartCursor.setDate(streakStartCursor.getDate() - 1);
     }
 
-    for (let cursor = new Date(streakStartCursor); cursor >= streakStart; cursor = new Date(cursor.getTime() - DAY_MS)) {
+    for (let cursor = new Date(streakStartCursor); cursor >= streakStart; cursor = addCalendarDays(cursor, -1)) {
       const dayKey = toDayKey(cursor);
       const expected = Number(streakExpectedByDay.get(dayKey) || 0);
       const completed = Number(streakCompletedByDay.get(dayKey) || 0);
@@ -954,6 +960,7 @@ export const getTodoSummary = async (req, res) => {
       lifetime,
       importantToday: todaySummary.important,
       fullCompletionStreakDays,
+      ...(req.includeCompletionDays ? { completedDayKeys } : {}),
       totalCompletedLifetime: lifetime.completed,
       totalExpectedLifetime: normalizedTotalExpectedLifetime,
       lifetimeConsistency
@@ -1000,14 +1007,14 @@ export const getTodoHeatmap = async (req, res) => {
         return !min || candidate < min ? candidate : min;
       }, null);
       startDate = getStartOfDay(earliest || new Date());
-      endDate = new Date(today.getTime() + DAY_MS);
+      endDate = addCalendarDays(today, 1);
     } else {
       startDate = new Date(today.getFullYear(), 0, 1);
       endDate = new Date(today.getFullYear() + 1, 0, 1);
     }
 
     const groupedByDay = new Map();
-    for (let cursor = new Date(startDate); cursor < endDate; cursor = new Date(cursor.getTime() + DAY_MS)) {
+    for (let cursor = new Date(startDate); cursor < endDate; cursor = addCalendarDays(cursor, 1)) {
       const dayKey = toDayKey(cursor);
       let total = 0;
       let completed = 0;

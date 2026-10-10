@@ -21,8 +21,8 @@ const router = express.Router();
 const habitWriteLimiter = createRateLimiter({
   keyPrefix: "habit-write-daily",
   windowMs: Number(process.env.HABIT_WRITE_RATE_LIMIT_DAILY_WINDOW_MS || 86_400_000),
-  max: Number(process.env.HABIT_WRITE_RATE_LIMIT_DAILY_MAX || 5),
-  message: "You have reached the daily habit update limit for this portfolio project. Please try again tomorrow.",
+  max: Number(process.env.HABIT_WRITE_RATE_LIMIT_DAILY_MAX || 1000),
+  message: "You have reached the daily habit update limit. Please try again tomorrow.",
 });
 
 router.use(protect);

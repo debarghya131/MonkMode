@@ -63,8 +63,8 @@ const exerciseProgressWriteLimiter = createRateLimiterChain([
   {
     keyPrefix: "gym-exercise-progress-write-daily",
     windowMs: Number(process.env.GYM_EXERCISE_PROGRESS_RATE_LIMIT_DAILY_WINDOW_MS || 86_400_000),
-    max: Number(process.env.GYM_EXERCISE_PROGRESS_RATE_LIMIT_DAILY_MAX || 5),
-    message: "You have reached the daily exercise progress update limit for this portfolio project. Please try again tomorrow.",
+    max: Number(process.env.GYM_EXERCISE_PROGRESS_RATE_LIMIT_DAILY_MAX || 200),
+    message: "You have reached the daily exercise progress update limit. Please try again tomorrow.",
   },
 ]);
 const measurementWriteLimiter = createRateLimiterChain([
@@ -85,8 +85,8 @@ const workoutDietWriteLimiter = createRateLimiterChain([
   {
     keyPrefix: "gym-workout-diet-write-daily",
     windowMs: Number(process.env.GYM_WORKOUT_DIET_WRITE_RATE_LIMIT_DAILY_WINDOW_MS || 86_400_000),
-    max: Number(process.env.GYM_WORKOUT_DIET_WRITE_RATE_LIMIT_DAILY_MAX || 5),
-    message: "You have reached the daily workout or diet update limit for this portfolio project. Please try again tomorrow.",
+    max: Number(process.env.GYM_WORKOUT_DIET_WRITE_RATE_LIMIT_DAILY_MAX || 200),
+    message: "You have reached the daily workout or diet update limit. Please try again tomorrow.",
   },
 ]);
 

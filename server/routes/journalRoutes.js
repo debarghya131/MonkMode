@@ -18,8 +18,8 @@ const router = express.Router();
 const journalSaveLimiter = createRateLimiter({
   keyPrefix: "journal-save-write-daily",
   windowMs: Number(process.env.JOURNAL_SAVE_RATE_LIMIT_DAILY_WINDOW_MS || 86_400_000),
-  max: Number(process.env.JOURNAL_SAVE_RATE_LIMIT_DAILY_MAX || 2),
-  message: "You have reached the daily journal save limit for this portfolio project. Please try again tomorrow.",
+  max: Number(process.env.JOURNAL_SAVE_RATE_LIMIT_DAILY_MAX || 100),
+  message: "You have reached the daily journal save limit. Please try again tomorrow.",
 });
 
 router.use(protect);

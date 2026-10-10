@@ -1,22 +1,18 @@
-import dotenv from "dotenv";
+import { getDatabaseConfig } from "../config/database.js";
 import mongoose from "mongoose";
 import Goal from "../models/Goal.js";
 import {
   buildSubgoalActivityTitle,
-  hasSubgoalCompletedEvent
+  hasSubgoalCompletedEvent,
+  retainGoalActivityLogs
 } from "../utils/goalActivityUtils.js";
 
-dotenv.config();
-
-const MONGO_URI = process.env.MONGO_URI;
 const MAX_ACTIVITY_LOGS = 200;
 
 const run = async () => {
-  if (!MONGO_URI) {
-    throw new Error("MONGO_URI is missing in server/.env");
-  }
-
-  await mongoose.connect(MONGO_URI);
+  const database = getDatabaseConfig();
+  console.log(`Target database: ${database.dbName} (${database.environment})`);
+  await mongoose.connect(database.uri, { dbName: database.dbName, autoIndex: false, autoCreate: false });
 
   const goals = await Goal.find({
     subgoals: {
@@ -37,7 +33,7 @@ const run = async () => {
       if (!subgoal?.completed || !subgoal?.completedAt) continue;
       if (hasSubgoalCompletedEvent(goal, subgoal)) continue;
 
-      goal.activityLogs = [
+      goal.activityLogs = retainGoalActivityLogs([
         ...(Array.isArray(goal.activityLogs) ? goal.activityLogs : []),
         {
           action: "subgoal_completed",
@@ -45,7 +41,7 @@ const run = async () => {
           subgoalId: subgoal._id || null,
           at: subgoal.completedAt
         }
-      ].slice(-MAX_ACTIVITY_LOGS);
+      ], MAX_ACTIVITY_LOGS);
 
       changed = true;
       eventCount += 1;

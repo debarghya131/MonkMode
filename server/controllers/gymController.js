@@ -7,6 +7,8 @@ import GymCustomExercise from "../models/GymCustomExercise.js";
 import GymDietPlan from "../models/GymDietPlan.js";
 import GymMeasurement from "../models/GymMeasurement.js";
 import mongoose from "mongoose";
+import { APP_TIMEZONE } from "../config/runtime.js";
+import { getWorkoutChecklistSummary } from "../utils/workoutChecklistUtils.js";
 
 const MAX_GALLERY_IMAGES_PER_REQUEST = 6;
 const MAX_GALLERY_IMAGES_PER_CHECKIN = 12;
@@ -22,7 +24,7 @@ const DIET_MEAL_SECTIONS = ["morning", "breakfast", "lunch", "evening", "dinner"
 const WORKOUT_NUTRITION_SECTIONS = ["preWorkout", "postWorkout"];
 const MACRO_FIELDS = ["protein", "carbs", "fats", "fiber", "calories", "water", "sugar", "sodium"];
 const WEEK_DAY_BY_INDEX = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const SERVER_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+const SERVER_TIMEZONE = APP_TIMEZONE;
 
 const getStartOfDay = (value = new Date()) => {
   const date = new Date(value);
@@ -592,18 +594,8 @@ export const getGymSummary = async (req, res) => {
       }).select("exercises")
     ]);
 
-    /* unique exercise IDs updated today */
-    const updatedExerciseIds = new Set(todaysProgressEntries.map((e) => e.exerciseId));
-    const progressUpdatesToday = updatedExerciseIds.size;
-
-    /* total exercises scheduled today across all active plans */
-    const totalExercisesToday = todaysWorkoutPlans.reduce(
-      (sum, plan) => sum + (Array.isArray(plan.exercises) ? plan.exercises.length : 0),
-      0
-    );
-    const completedProgress = Math.min(progressUpdatesToday, totalExercisesToday);
-    const totalProgress = totalExercisesToday;
-    const pendingUpdates = Math.max(0, totalProgress - completedProgress);
+    const { progressUpdatesToday, completedProgress, totalProgress, pendingUpdates } =
+      getWorkoutChecklistSummary(todaysWorkoutPlans, todaysProgressEntries);
 
     const latestGalleryUploadDate = latestGalleryUpload?.[0]?.latestUploadedAt
       ? toDayKey(latestGalleryUpload[0].latestUploadedAt)

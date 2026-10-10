@@ -1,4 +1,6 @@
-const DAY_MS = 24 * 60 * 60 * 1000;
+import "../config/runtime.js";
+import { addCalendarDays } from "./calendarUtils.js";
+
 const DAY_NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
 const normalizeDate = (value) => {
@@ -48,7 +50,7 @@ const isScheduledOnDate = (habit, date) => {
 
 const isWithinHabitWindow = (habit, date) => {
   const dayStart = normalizeDate(date);
-  const dayEnd = new Date(dayStart.getTime() + DAY_MS);
+  const dayEnd = addCalendarDays(dayStart, 1);
 
   const createdAt = habit?.createdAt ? new Date(habit.createdAt) : null;
   if (createdAt && createdAt >= dayEnd) return false;
@@ -75,7 +77,7 @@ const isExpectedOnDate = (habit, date) => {
 const findLastExpectedDate = (habit, today) => {
   const cursor = normalizeDate(today);
   const floorDate = normalizeDate(
-    habit?.startDate || habit?.createdAt || new Date(today.getTime() - (3650 * DAY_MS))
+    habit?.startDate || habit?.createdAt || addCalendarDays(today, -3650)
   );
 
   while (cursor >= floorDate) {
@@ -99,7 +101,12 @@ export const calculateStreak = (logs, habit = {}) => {
 
   const today = normalizeDate(new Date());
   const firstExpectedDate = normalizeDate(habit?.startDate || habit?.createdAt || today);
-  const lastExpectedDate = findLastExpectedDate(habit, today);
+  let lastExpectedDate = findLastExpectedDate(habit, today);
+  if (lastExpectedDate && toDayKey(lastExpectedDate) === toDayKey(today) && !completedSet.has(toDayKey(today))) {
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    lastExpectedDate = findLastExpectedDate(habit, yesterday);
+  }
 
   if (!lastExpectedDate || firstExpectedDate > lastExpectedDate) {
     return { currentStreak: 0, maxStreak: 0, streakBreaks: 0 };

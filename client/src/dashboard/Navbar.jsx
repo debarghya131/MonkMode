@@ -4,6 +4,7 @@ import api from "../api/axios";
 import monkLogo from "../assets/monkmode-logo.webp";
 import { INITIAL_HABITS } from "../../data/HabitDummyData";
 import { INITIAL_TASKS } from "../../data/ToDoDummyData";
+import { DEMO_OVERVIEW_STATS } from "../../data/DummyData";
 import useAuth from "../hooks/useAuth";
 import useMobileLowMotion from "../hooks/useMobileLowMotion";
 import NavbarBirdBackground from "./NavbarBirdBackground";
@@ -16,56 +17,14 @@ const formatDate = (date) => {
   });
 };
 
-const MONK_STREAK_KEY = "monkmode_monk_streak";
-const JOURNAL_LOGGED_DAYS_KEY = "monkmode_journal_logged_days";
-const CONSISTENCY_SCORE_KEY = "monkmode_consistency_score";
 const DEMO_STREAKS = {
   journal: 5,
   todo: 6,
   habit: 9,
 };
 
-const toLocalISODate = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const getYesterdayISODate = () => {
-  const date = new Date();
-  date.setDate(date.getDate() - 1);
-  return toLocalISODate(date);
-};
-
-const readJSON = (key) => {
-  try {
-    return JSON.parse(localStorage.getItem(key));
-  } catch {
-    return null;
-  }
-};
-
-const readNumber = (key, fallback = 0) => {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === null || raw === undefined || raw === "") return fallback;
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const getJournalSubmittedToday = (today) => {
-  const loggedDays = readJSON(JOURNAL_LOGGED_DAYS_KEY);
-  if (Array.isArray(loggedDays)) return loggedDays.includes(today);
-  return false;
-};
-
-const calculateConsistencyScoreFromLocalDemo = () => {
-  const today = toLocalISODate(new Date());
-  const journalScore = getJournalSubmittedToday(today) ? 100 : 0;
+const calculateConsistencyScoreFromDemo = () => {
+  const journalScore = DEMO_OVERVIEW_STATS.journal.todayLogged ? 100 : 0;
   const todoScore = INITIAL_TASKS.length
     ? (INITIAL_TASKS.filter((task) => task.status === "completed").length / INITIAL_TASKS.length) * 100
     : 0;
@@ -74,27 +33,6 @@ const calculateConsistencyScoreFromLocalDemo = () => {
     : 0;
 
   return Math.round((journalScore + todoScore + habitScore) / 3);
-};
-
-const calculateMonkStreak = (allSectionsComplete) => {
-  const today = toLocalISODate(new Date());
-  const yesterday = getYesterdayISODate();
-
-  const stored = readJSON(MONK_STREAK_KEY);
-  const currentCount = Math.max(0, Number(stored?.count) || 0);
-
-  if (!allSectionsComplete) {
-    // Don't write to localStorage — user may still complete everything today.
-    // Returning 0 for display only; the previous stored state is preserved.
-    return 0;
-  }
-
-  // Already counted a completed day today — return the stored value.
-  if (stored?.lastDate === today && currentCount > 0) return currentCount;
-
-  const nextCount = stored?.lastDate === yesterday ? currentCount + 1 : 1;
-  localStorage.setItem(MONK_STREAK_KEY, JSON.stringify({ count: nextCount, lastDate: today }));
-  return nextCount;
 };
 
 const getMonkLevel = (streak) => {
@@ -190,29 +128,23 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
   const lowMotion = useMobileLowMotion();
   const firstName = user?.name || "Friend";
   const [monkStreak, setMonkStreak] = useState(0);
-  const [consistencyScore, setConsistencyScore] = useState(() => (isDemoMode ? readNumber(CONSISTENCY_SCORE_KEY, 0) : 0));
+  const [consistencyScore, setConsistencyScore] = useState(() => (isDemoMode ? calculateConsistencyScoreFromDemo() : 0));
   const [journalStreak, setJournalStreak] = useState(() => (isDemoMode ? DEMO_STREAKS.journal : 0));
   const [habitStreak, setHabitStreak] = useState(() => (isDemoMode ? DEMO_STREAKS.habit : 0));
   const [todoStreak, setTodoStreak] = useState(() => (isDemoMode ? DEMO_STREAKS.todo : 0));
+  const [statsDayKey, setStatsDayKey] = useState(null);
   const [showMobileStats, setShowMobileStats] = useState(false);
   const [activeMobileRule, setActiveMobileRule] = useState("");
   const [animateNavbarStats, setAnimateNavbarStats] = useState(() => window.innerWidth >= 1536);
-  const currentDate = formatDate(new Date());
+  const currentDate = formatDate(statsDayKey ? `${statsDayKey}T12:00:00` : new Date());
 
   useEffect(() => {
     let cancelled = false;
 
     const refreshNavbarStats = async () => {
       if (isDemoMode) {
-        const allSectionsComplete =
-          getJournalSubmittedToday(toLocalISODate(new Date())) &&
-          INITIAL_TASKS.length > 0 &&
-          INITIAL_TASKS.every((task) => task.status === "completed") &&
-          INITIAL_HABITS.length > 0 &&
-          INITIAL_HABITS.every((habit) => habit.status === "completed");
-
-        setMonkStreak(calculateMonkStreak(allSectionsComplete));
-        setConsistencyScore(calculateConsistencyScoreFromLocalDemo());
+        setMonkStreak(0);
+        setConsistencyScore(calculateConsistencyScoreFromDemo());
         setJournalStreak(DEMO_STREAKS.journal);
         setHabitStreak(DEMO_STREAKS.habit);
         setTodoStreak(DEMO_STREAKS.todo);
@@ -227,14 +159,13 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
         const nextJournalStreak = Math.max(0, Number(data?.sections?.journal?.currentStreakDays || 0));
         const nextTodoStreak = Math.max(0, Number(data?.sections?.todo?.fullCompletionStreakDays || 0));
         const nextHabitStreak = Math.max(0, Number(data?.sections?.habit?.fullCompletionStreakDays || 0));
-        const allSectionsComplete = Boolean(data?.allSectionsComplete);
 
         setJournalStreak(nextJournalStreak);
         setTodoStreak(nextTodoStreak);
         setHabitStreak(nextHabitStreak);
         setConsistencyScore(nextConsistency);
-        localStorage.setItem(CONSISTENCY_SCORE_KEY, String(nextConsistency));
-        setMonkStreak(calculateMonkStreak(allSectionsComplete));
+        setMonkStreak(Math.max(0, Number(data?.monkStreakDays) || 0));
+        if (/^\d{4}-\d{2}-\d{2}$/.test(data?.date || "")) setStatsDayKey(data.date);
       } catch {
         // keep previous values on transient failure
       }
@@ -255,7 +186,7 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
       window.removeEventListener("monkmode:todos-updated", refreshNavbarStats);
       window.removeEventListener("monkmode:journal-logged-days-updated", refreshNavbarStats);
     };
-  }, [isDemoMode]);
+  }, [isDemoMode, user?.id]);
 
   useEffect(() => {
     const handleResize = () => {

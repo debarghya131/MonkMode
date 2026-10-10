@@ -2,10 +2,10 @@ import Habit from "../models/Habit.js";
 import HabitLog from "../models/HabitLog.js";
 import mongoose from "mongoose";
 import { calculateStreak } from "../utils/streakUtils.js";
+import { APP_TIMEZONE } from "../config/runtime.js";
+import { addCalendarDays, calendarDaysBetween } from "../utils/calendarUtils.js";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const DELETE_UNDO_WINDOW_MS = 48 * 60 * 60 * 1000;
-const APP_TIMEZONE = process.env.APP_TIMEZONE || "Asia/Kolkata";
 
 const getUtcStartOfDay = (value = new Date()) => {
   const day = new Date(value);
@@ -15,7 +15,7 @@ const getUtcStartOfDay = (value = new Date()) => {
 
 const getUtcDayBounds = (value = new Date()) => {
   const start = getUtcStartOfDay(value);
-  const end = new Date(start.getTime() + DAY_MS);
+  const end = addCalendarDays(start, 1);
   return { start, end };
 };
 
@@ -197,7 +197,7 @@ const hasOccurrenceInUtcRange = (repeatType, startDate, endDate, days = []) => {
   if (!startDate || !endDate) return true;
   const normalizedStart = getUtcStartOfDay(startDate);
   const normalizedEnd = getUtcStartOfDay(endDate);
-  const rangeDays = Math.floor((normalizedEnd.getTime() - normalizedStart.getTime()) / DAY_MS) + 1;
+  const rangeDays = calendarDaysBetween(normalizedStart, normalizedEnd) + 1;
   if (rangeDays <= 0) return false;
 
   if (repeatType === "daily" || repeatType === "7days" || repeatType === "21days") return true;
@@ -371,7 +371,7 @@ export const createHabit = async (req, res) => {
       return res.status(400).json({ message: "End date cannot be before start date" });
     }
     if (parsedEndDate) {
-      const totalDays = Math.floor((parsedEndDate.getTime() - nextStartDate.getTime()) / DAY_MS) + 1;
+      const totalDays = calendarDaysBetween(nextStartDate, parsedEndDate) + 1;
       if (normalizedTargetStreak > totalDays) {
         return res.status(400).json({ message: "Target streak should be <= total start to end date days." });
       }
@@ -855,7 +855,7 @@ export const updateHabit = async (req, res) => {
       ? updates.targetStreak
       : existingHabit.targetStreak;
     if (nextTargetStreak && nextStartDate && nextEndDate) {
-      const totalDays = Math.floor((nextEndDate.getTime() - nextStartDate.getTime()) / DAY_MS) + 1;
+      const totalDays = calendarDaysBetween(nextStartDate, nextEndDate) + 1;
       if (nextTargetStreak > totalDays) {
         return res.status(400).json({ message: "Target streak should be <= total start to end date days." });
       }
@@ -877,7 +877,7 @@ export const updateHabit = async (req, res) => {
     const timeChanged = Object.prototype.hasOwnProperty.call(changedUpdates, "time");
     const daysChanged = Object.prototype.hasOwnProperty.call(changedUpdates, "days");
     const isWeekdaysHabit = nextRepeatType === "weekdays";
-    const tomorrowUtc = new Date(todayUtc.getTime() + DAY_MS);
+    const tomorrowUtc = addCalendarDays(todayUtc, 1);
     let reflectFromNextDay = false;
     let reflectDaysFromNextDay = false;
 
@@ -1028,7 +1028,6 @@ export const getHabitConsistency = async (req, res) => {
   try {
     const today = getUtcStartOfDay();
     const todayKey = toDayKey(today);
-    const tomorrow = new Date(today.getTime() + DAY_MS);
 
     const [activeHabits, allHabits] = await Promise.all([
       Habit.find(buildHabitFilter(req.user.id, "active", today)).select(
@@ -1054,37 +1053,15 @@ export const getHabitConsistency = async (req, res) => {
         totalCompletedLifetime: 0,
         totalExpectedLifetime: 0,
         lifetimeConsistency: 0,
-        fullCompletionStreakDays: 0
+        fullCompletionStreakDays: 0,
+        ...(req.includeCompletionDays ? { completedDayKeys: [] } : {})
       });
     }
 
     const activeHabitIds = activeHabits.map((habit) => habit._id);
     const allHabitIds = allHabits.map((habit) => habit._id);
 
-    const [todayCompletedWithDayKey, todayCompletedLegacy, lifetimeCompleted, completedByDay] = await Promise.all([
-      HabitLog.countDocuments({
-        habitId: { $in: activeHabitIds },
-        completed: true,
-        dayKey: todayKey
-      }),
-      HabitLog.aggregate([
-        {
-          $match: {
-            habitId: { $in: activeHabitIds },
-            completed: true,
-            dayKey: { $exists: false },
-            date: { $gte: today, $lt: tomorrow }
-          }
-        },
-        {
-          $group: {
-            _id: "$habitId"
-          }
-        },
-        {
-          $count: "count"
-        }
-      ]),
+    const [lifetimeCompleted, completedByDay] = await Promise.all([
       HabitLog.aggregate([
         {
           $match: {
@@ -1124,7 +1101,7 @@ export const getHabitConsistency = async (req, res) => {
       HabitLog.aggregate([
         {
           $match: {
-            habitId: { $in: activeHabitIds },
+            habitId: { $in: req.includeCompletionDays ? allHabitIds : activeHabitIds },
             completed: true
           }
         },
@@ -1156,13 +1133,13 @@ export const getHabitConsistency = async (req, res) => {
         {
           $group: {
             _id: "$_id.day",
-            completedHabits: { $sum: 1 }
+            completedHabits: { $sum: 1 },
+            habitIds: { $addToSet: "$_id.habitId" }
           }
         }
       ])
     ]);
 
-    const completedToday = todayCompletedWithDayKey + Number(todayCompletedLegacy[0]?.count || 0);
     const totalCompletedLifetime = Number(lifetimeCompleted[0]?.count || 0);
 
     const expectedToday = activeHabits.reduce(
@@ -1170,11 +1147,18 @@ export const getHabitConsistency = async (req, res) => {
       0
     );
 
-    const completedByDayMap = new Map(
-      completedByDay.map((item) => [String(item._id), Number(item.completedHabits) || 0])
-    );
+    const completedIdsByDay = new Map(completedByDay.map((item) => [
+      String(item._id), new Set((item.habitIds || []).map(String))
+    ]));
+    const completedByDayMap = new Map(completedByDay.map((item) => [
+      String(item._id), activeHabits.filter((habit) =>
+        isHabitExpectedOnDate(habit, String(item._id)) && completedIdsByDay.get(String(item._id)).has(String(habit._id))
+      ).length
+    ]));
+    const completedToday = Number(completedByDayMap.get(todayKey) || 0);
 
     let totalExpectedLifetime = 0;
+    const lifetimeExpectedIdsByDay = new Map();
     const expectedByDayMap = new Map();
     let earliestExpectedDate = null;
 
@@ -1192,6 +1176,11 @@ export const getHabitConsistency = async (req, res) => {
         const cursorDayKey = toDayKey(cursor);
         if (isHabitExpectedOnDate(habit, cursorDayKey)) {
           totalExpectedLifetime++;
+          if (req.includeCompletionDays) {
+            const expectedIds = lifetimeExpectedIdsByDay.get(cursorDayKey) || new Set();
+            expectedIds.add(String(habit._id));
+            lifetimeExpectedIdsByDay.set(cursorDayKey, expectedIds);
+          }
         }
       }
     }
@@ -1240,6 +1229,9 @@ export const getHabitConsistency = async (req, res) => {
     }
 
     const normalizedTotalExpectedLifetime = Math.max(totalExpectedLifetime, totalCompletedLifetime);
+    const completedDayKeys = [...lifetimeExpectedIdsByDay.entries()]
+      .filter(([day, expectedIds]) => [...expectedIds].every((id) => completedIdsByDay.get(day)?.has(id)))
+      .map(([day]) => day);
     const lifetimeConsistency = normalizedTotalExpectedLifetime > 0
       ? Number(((totalCompletedLifetime / normalizedTotalExpectedLifetime) * 100).toFixed(1))
       : 0;
@@ -1250,7 +1242,8 @@ export const getHabitConsistency = async (req, res) => {
       totalCompletedLifetime,
       totalExpectedLifetime: normalizedTotalExpectedLifetime,
       lifetimeConsistency,
-      fullCompletionStreakDays
+      fullCompletionStreakDays,
+      ...(req.includeCompletionDays ? { completedDayKeys } : {})
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -1417,7 +1410,7 @@ export const getHabitHeatmap = async (req, res) => {
       }
 
       rangeStart = getUtcStartOfDay(baseline);
-      rangeEnd = new Date(today.getTime() + DAY_MS);
+      rangeEnd = addCalendarDays(today, 1);
     }
 
     const values = [];

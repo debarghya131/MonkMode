@@ -12,6 +12,6 @@ const workoutPlanLogSchema = new mongoose.Schema({
   restoredFromLogId: { type: String, default: "" },
 }, { timestamps: true });
 
-workoutPlanLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
+workoutPlanLogSchema.index({ createdAt: 1 });
 
 export default mongoose.model("WorkoutPlanLog", workoutPlanLogSchema);
