@@ -69,7 +69,7 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
           <button
             type="button"
             onClick={handleHomeNavigation}
-            className="h-[50px] w-[122px] shrink-0 overflow-hidden rounded-[1.15rem] border border-amber-300/15 bg-gradient-to-br from-[#2a120b] via-[#1d0d08] to-[#170907] shadow-[0_0_30px_rgba(251,191,36,0.12),inset_0_1px_0_rgba(255,240,200,0.06)] transition duration-300 hover:-translate-y-0.5 hover:border-amber-200/25 hover:shadow-[0_0_42px_rgba(251,191,36,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 sm:h-[72px] sm:w-[180px] md:h-[88px] md:w-[220px]"
+            className="landing-nav-logo h-[50px] w-[122px] shrink-0 overflow-hidden rounded-[1.15rem] border border-amber-300/15 bg-gradient-to-br from-[#2a120b] via-[#1d0d08] to-[#170907] shadow-[0_0_30px_rgba(251,191,36,0.12),inset_0_1px_0_rgba(255,240,200,0.06)] transition duration-300 hover:-translate-y-0.5 hover:border-amber-200/25 hover:shadow-[0_0_42px_rgba(251,191,36,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 sm:h-[72px] sm:w-[180px] md:h-[88px] md:w-[220px]"
           >
             <img
               src={monkModeLogo}
@@ -80,7 +80,7 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
 
           {viewCount === undefined ? null : (
             <div
-              className="hidden h-11 min-w-[5.5rem] shrink-0 items-center justify-center gap-2 border-l border-amber-200/15 pl-3 text-amber-100/70 sm:flex"
+              className="landing-nav-views flex h-11 min-w-[5.5rem] shrink-0 items-center justify-center gap-2 border-l border-amber-200/15 pl-3 text-amber-100/70"
               aria-live="polite"
               aria-label={
                 viewCountFailed
@@ -91,7 +91,7 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
               }
             >
               {viewCountFailed ? (
-                <span className="text-[0.58rem] font-bold uppercase tracking-[0.1em] text-stone-400 sm:text-[0.64rem]">
+                <span className="landing-nav-views-label landing-nav-views-unavailable text-[0.58rem] font-bold uppercase tracking-[0.1em] text-stone-400 sm:text-[0.64rem]">
                   Views unavailable
                 </span>
               ) : viewCount === null ? (
@@ -101,13 +101,13 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
                 />
               ) : (
                 <>
-                  <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="landing-nav-views-dot relative flex h-2 w-2 shrink-0">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-300 opacity-50" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-300" />
                   </span>
-                  <span className="whitespace-nowrap text-[0.62rem] font-bold uppercase tracking-[0.12em] sm:text-[0.68rem]">
+                  <span className="landing-nav-views-label whitespace-nowrap text-[0.62rem] font-bold uppercase tracking-[0.12em] sm:text-[0.68rem]">
                     {viewCountFormatter.format(viewCount)}
-                    <span className="hidden sm:inline"> views</span>
+                    <span> views</span>
                   </span>
                 </>
               )}
@@ -142,7 +142,7 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
           <button
             type="button"
             onClick={() => navigate("/signup")}
-            className={`inline-flex min-h-11 items-center rounded-full border border-transparent bg-gradient-to-r from-amber-300 via-orange-400 to-orange-500 px-3 py-2 text-xs font-bold text-stone-950 shadow-lg shadow-orange-950/20 transition sm:px-5 sm:py-2.5 sm:text-sm ${goldenHoverClass}`}
+            className={`landing-nav-signup inline-flex min-h-11 items-center rounded-full border border-transparent bg-gradient-to-r from-amber-300 via-orange-400 to-orange-500 px-3 py-2 text-xs font-bold text-stone-950 shadow-lg shadow-orange-950/20 transition sm:px-5 sm:py-2.5 sm:text-sm ${goldenHoverClass}`}
           >
             Signup
           </button>
@@ -154,7 +154,7 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
             aria-controls="landing-mobile-menu"
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-amber-200/20 bg-white/5 text-amber-200 transition hover:border-amber-300/40 hover:bg-white/10 lg:hidden"
+            className="landing-nav-menu flex h-11 w-11 items-center justify-center rounded-full border border-amber-200/20 bg-white/5 text-amber-200 transition hover:border-amber-300/40 hover:bg-white/10 lg:hidden"
           >
             <AnimatePresence mode="wait" initial={false}>
               {mobileOpen ? (
@@ -206,7 +206,7 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
             exit={{ opacity: 0, y: -10, scaleY: 0.92 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
             style={{ transformOrigin: "top" }}
-            className="mt-2 overflow-hidden rounded-[1.4rem] border border-amber-200/10 bg-stone-950/80 p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:hidden"
+            className="landing-mobile-menu mt-2 overflow-hidden rounded-[1.4rem] border border-amber-200/10 bg-stone-950/80 p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:hidden"
           >
             {navItems.map((item, index) => {
               const isActive = pathname === item.path;

@@ -4,6 +4,7 @@ import { motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../../assets/littlemonklogo.webp";
 import api from "../../../api/axios";
 import useAuth from "../../../hooks/useAuth";
+import useMobileLowMotion from "../../../hooks/useMobileLowMotion";
 
 const MONTH_OPTIONS = [
   { value: "01", label: "January" }, { value: "02", label: "February" },
@@ -269,16 +270,17 @@ function InsightRail({ insights }) {
 
 function SleepDurationLineGraph({ data }) {
   const [hovered, setHovered] = useState(null);
+  const lowMotion = useMobileLowMotion();
   const populatedData = data.filter((item) => item.sleepDuration !== null);
 
   if (populatedData.length === 0) {
     return (
-      <section className="rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5">
+      <section className="sleep-duration-chart rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5">
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Sleep Trend</p>
           <h4 className="mt-2 text-xl font-semibold text-sky-50">Total Sleep Duration</h4>
         </div>
-        <div className="mt-6 flex h-[29vh] items-center justify-center rounded-2xl border border-dashed border-sky-100/10 text-sm text-stone-400">
+        <div className="mt-4 flex h-[24vh] items-center justify-center rounded-2xl border border-dashed border-sky-100/10 text-sm text-stone-400">
           No sleep logs for this month.
         </div>
       </section>
@@ -286,7 +288,7 @@ function SleepDurationLineGraph({ data }) {
   }
 
   const width = Math.max(980, data.length * 34);
-  const height = 280;
+  const height = 240;
   const pad = { top: 24, right: 20, bottom: 42, left: 42 };
   const chartW = width - pad.left - pad.right;
   const chartH = height - pad.top - pad.bottom;
@@ -314,11 +316,10 @@ function SleepDurationLineGraph({ data }) {
 
   return (
     <Motion.section
-      className="rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5"
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.25 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="sleep-duration-chart rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5"
+      initial={lowMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: lowMotion ? 0 : 0.3, ease: "easeOut" }}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -341,23 +342,20 @@ function SleepDurationLineGraph({ data }) {
         </div>
       </div>
 
-      <div className="mt-6 overflow-x-auto">
+      <div className="mt-4 overflow-x-auto">
         <div style={{ minWidth: `${width}px` }}>
           <svg viewBox={`0 0 ${width} ${height}`} className="w-full">
           {yMarks.map((mark) => {
             const y = yOf(mark);
             return (
               <g key={mark}>
-                <Motion.line
+                <line
                   x1={pad.left}
                   y1={y}
                   x2={width - pad.right}
                   y2={y}
                   stroke="rgba(255,255,255,0.08)"
                   strokeDasharray="4 6"
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 1 }}
-                  transition={{ duration: 1, delay: 0.14 * mark }}
                 />
                 <text x={pad.left - 10} y={y + 4} textAnchor="end" fontSize="10" fill="rgba(255,255,255,0.35)">
                   {mark}h
@@ -387,9 +385,9 @@ function SleepDurationLineGraph({ data }) {
                 <Motion.path
                   d={area}
                   fill="url(#sleepLineFill)"
-                  initial={{ opacity: 0 }}
+                  initial={lowMotion ? false : { opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 1.4, delay: 1.2 + index * 0.25 }}
+                  transition={{ duration: lowMotion ? 0 : 0.6, delay: lowMotion ? 0 : 0.1 }}
                 />
                 <Motion.path
                   d={line}
@@ -398,9 +396,9 @@ function SleepDurationLineGraph({ data }) {
                   strokeWidth="3"
                   strokeLinecap="round"
                   filter="url(#sleepLineGlow)"
-                  initial={{ pathLength: 0, opacity: 0 }}
+                  initial={lowMotion ? false : { pathLength: 0, opacity: 0 }}
                   animate={{ pathLength: 1, opacity: 1 }}
-                  transition={{ duration: 2.2, delay: 1.5 + index * 0.3, ease: "easeOut" }}
+                  transition={{ duration: lowMotion ? 0 : 1.2, ease: "easeOut" }}
                 />
               </g>
             );
@@ -417,18 +415,16 @@ function SleepDurationLineGraph({ data }) {
             return (
               <Motion.g
                 key={item.date}
-                initial={{ opacity: 0, scale: 0.75 }}
+                initial={lowMotion ? false : { opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.55, delay: 1.4 + index * 0.09, ease: "easeOut" }}
+                transition={{ duration: lowMotion ? 0 : 0.35, delay: lowMotion ? 0 : Math.min(index * 0.025, 0.75), ease: "easeOut" }}
               >
-                <Motion.circle
+                <circle
                   cx={x}
                   cy={y}
                   r="9"
                   fill="#38bdf8"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: [0, 0.26, 0.1] }}
-                  transition={{ duration: 1.8, delay: 1.6 + index * 0.09, ease: "easeOut" }}
+                  opacity="0.1"
                 />
                 <circle
                   cx={x}
@@ -437,21 +433,18 @@ function SleepDurationLineGraph({ data }) {
                   fill={hovered === index ? "#38bdf8" : "#0f172a"}
                   stroke="#7dd3fc"
                   strokeWidth="2.5"
-                  style={{ transition: "r 0.15s ease, fill 0.15s ease" }}
+                  style={{ transition: lowMotion ? "none" : "r 0.15s ease, fill 0.15s ease" }}
                 />
-                <Motion.text
+                <text
                   x={x}
                   y={y - 12}
                   textAnchor="middle"
                   fontSize="10"
                   fill="#bae6fd"
                   fontWeight="700"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: shouldShowValueLabel ? 1 : 0 }}
-                  transition={{ duration: 0.5, delay: 2 + index * 0.12 }}
                 >
                   {shouldShowValueLabel ? `${round(item.sleepDuration)}h` : ""}
-                </Motion.text>
+                </text>
               </Motion.g>
             );
           })}
@@ -463,7 +456,7 @@ function SleepDurationLineGraph({ data }) {
 
             return (
               <g key={`missing-${item.date}`}>
-                <Motion.circle
+                <circle
                   cx={x}
                   cy={y}
                   r="4"
@@ -471,16 +464,14 @@ function SleepDurationLineGraph({ data }) {
                   stroke="rgba(253,164,175,0.75)"
                   strokeWidth="1.5"
                   strokeDasharray="2 2"
-                  initial={{ opacity: 0, scale: 0.7 }}
-                  animate={{ opacity: [0.45, 0.85, 0.45], scale: [0.9, 1.2, 0.9] }}
-                  transition={{ duration: 1.6, delay: 0.2 + index * 0.05, repeat: Infinity, ease: "easeInOut" }}
+                  opacity="0.65"
                 />
               </g>
             );
           })}
 
           {(() => {
-            if (hovered === null || data[hovered]?.sleepDuration === null) return null;
+            if (hovered === null || data[hovered]?.sleepDuration == null) return null;
             const item = data[hovered];
             const x = xOf(hovered);
             const y = yOf(item.sleepDuration);
@@ -526,25 +517,19 @@ function SleepDurationLineGraph({ data }) {
 
           </svg>
 
-          <Motion.div
+          <div
             className="mt-1 flex items-center text-[10px] text-stone-500"
             style={{ paddingLeft: `${pad.left}px`, paddingRight: `${pad.right}px` }}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, delay: 0.2 }}
           >
-            {data.map((item, index) => (
-              <Motion.span
+            {data.map((item) => (
+              <span
                 key={`day-label-${item.date}`}
                 className="flex-1 text-center"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.2, delay: 0.22 + index * 0.01 }}
               >
                 {item.dayOfMonth}
-              </Motion.span>
+              </span>
             ))}
-          </Motion.div>
+          </div>
         </div>
       </div>
     </Motion.section>

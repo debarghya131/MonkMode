@@ -14,10 +14,10 @@ const SCOPES = [
 ];
 
 const QUICK_PROMPTS = [
-  "Plan my next 3 hours for deep work",
-  "Review my missed tasks and suggest recovery",
-  "Create a habit consistency strategy",
-  "Design a weekly gym discipline plan",
+  { label: "Plan deep work", icon: "◷", prompt: "Plan my next 3 hours for deep work" },
+  { label: "Recover missed tasks", icon: "↻", prompt: "Review my missed tasks and suggest recovery" },
+  { label: "Build consistent habits", icon: "✓", prompt: "Create a habit consistency strategy" },
+  { label: "Plan my gym week", icon: "↗", prompt: "Design a weekly gym discipline plan" },
 ];
 
 const INITIAL_MESSAGES = [
@@ -353,7 +353,7 @@ export default function AIGuru() {
           </div>
 
           {/* Tab switcher */}
-          <div className="ai-guru-tabs flex w-full gap-2 rounded-xl border border-amber-100/10 bg-white/[0.03] p-1">
+          <div role="group" aria-label="Ming view" className="ai-guru-tabs flex w-full gap-2 rounded-xl border border-amber-100/10 bg-white/[0.03] p-1">
             {[
               { key: "chat",     label: "Ask Ming"  },
               { key: "insights", label: "Insights" },
@@ -362,6 +362,7 @@ export default function AIGuru() {
                 key={t.key}
                 type="button"
                 onClick={() => setActiveTab(t.key)}
+                aria-pressed={activeTab === t.key}
                 className={`flex-1 rounded-lg py-1.5 text-xs font-semibold uppercase tracking-widest transition ${
                   activeTab === t.key
                     ? "bg-amber-500/20 text-amber-200 border border-amber-400/30"
@@ -410,15 +411,17 @@ export default function AIGuru() {
 
           {/* Header */}
           <div className="ai-guru-content-header shrink-0 border-b border-amber-100/10 px-4 py-4 sm:px-5 md:px-6">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-[0.625rem] uppercase tracking-[0.3em] text-amber-200/50">AI Insights</p>
+            <div className="ai-guru-heading-row flex flex-wrap items-start justify-between gap-3">
+              <div className="ai-guru-heading-copy">
+                <p className="ai-guru-heading-eyebrow text-[0.625rem] uppercase tracking-[0.3em] text-amber-200/50">
+                  {activeTab === "insights" ? "AI Insights" : "Your AI guide"}
+                </p>
                 <h3 className="text-base font-bold text-amber-50 sm:text-lg">
                   {activeTab === "insights" ? "Your Discipline Overview" : "Your Discipline Co-Pilot"}
                 </h3>
               </div>
               <Motion.span
-                className="relative shrink-0 overflow-hidden rounded-full border border-emerald-300/30 bg-emerald-500/10 px-3 py-1 text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-emerald-200"
+                className="ai-guru-beta-status relative shrink-0 overflow-hidden rounded-full border border-emerald-300/30 bg-emerald-500/10 px-3 py-1 text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-emerald-200"
                 animate={{ boxShadow: ["0 0 0px rgba(52,211,153,0)", "0 0 12px rgba(52,211,153,0.36)", "0 0 0px rgba(52,211,153,0)"] }}
                 transition={{ boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
               >
@@ -641,12 +644,16 @@ export default function AIGuru() {
                   <div className="ai-guru-prompt-list grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {QUICK_PROMPTS.map((item) => (
                       <button
-                        key={item}
+                        key={item.prompt}
                         type="button"
-                        onClick={() => sendPrompt(item)}
+                        onClick={() => sendPrompt(item.prompt)}
+                        aria-label={item.prompt}
+                        title={item.prompt}
                         className="min-h-10 rounded-2xl border border-amber-200/20 bg-amber-500/10 px-3 py-2 text-left text-xs font-semibold leading-5 text-amber-200 transition hover:-translate-y-0.5 hover:border-amber-200/40 hover:bg-amber-500/20"
                       >
-                        {item}
+                        <span className="ai-guru-prompt-icon hidden" aria-hidden="true">{item.icon}</span>
+                        <span className="ai-guru-prompt-short hidden">{item.label}</span>
+                        <span className="ai-guru-prompt-full">{item.prompt}</span>
                       </button>
                     ))}
                   </div>

@@ -3,11 +3,13 @@ import { motion as Motion } from "framer-motion";
 import { Link, useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
+import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import DashboardLayout from "../DashboardLayout";
 import { GYM_GALLERY_DEMO_DATES, DEMO_OVERVIEW_STATS } from "../../../data/DummyData";
 import { INITIAL_HABITS as TODAY_HABITS } from "../../../data/HabitDummyData";
 import { INITIAL_TASKS as TODAY_TASKS } from "../../../data/ToDoDummyData";
 import OverviewHeatmap from "./OverviewHeatmap";
+import "./overview-summary.css";
 import {
   DEFAULT_IMPORTANT_CATEGORIES,
   IMPORTANT_TODO_CATEGORIES_STORAGE_KEY
@@ -86,44 +88,101 @@ const cardVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
-function StatusCard({ label, className = "", viewHref, actions = [], children }) {
+const OVERVIEW_ICON_PATHS = {
+  journal: "M12 5v15M12 5C9 3 5 3 3 4v15c3-1 6-1 9 1 3-2 6-2 9-1V4c-2-1-6-1-9 1Z",
+  tasks: "M9 6h11M9 12h11M9 18h11M3 6l1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2",
+  habits: "m13 3-9 11h7l-1 7 10-12h-7l0-6Z",
+  goals: "M21 12a9 9 0 1 1-9-9M17 12a5 5 0 1 1-5-5M12 12l9-9M16 3h5v5",
+  gym: "M6 7v10M3 9v6M18 7v10M21 9v6M6 12h12M3 12h3M18 12h3",
+};
+
+function OverviewArrow() {
   return (
-    <Motion.div
-      variants={cardVariants}
-      whileHover={{ y: -5, boxShadow: "0 20px 40px rgba(0,0,0,0.4)" }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ type: "spring", stiffness: 300, damping: 22 }}
-      className={`overview-status-card flex flex-col rounded-[1.25rem] border border-amber-100/10 bg-stone-950/45 p-4 sm:rounded-2xl sm:p-5 ${className}`}
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14m-5-5 5 5-5 5" />
+    </svg>
+  );
+}
+
+function StatusCard({ label, description, kind, metric, progress, lowMotion, className = "", viewHref, actions = [], children }) {
+  const percentage = progress.total > 0
+    ? Math.min(100, Math.max(0, Math.round((progress.completed / progress.total) * 100)))
+    : 0;
+  const cardActions = actions.length > 0 && (
+    <div className="overview-card-actions">
+      {actions.map(({ label: actionLabel, href, state }, index) => (
+        <Link
+          key={`${href}-${actionLabel}`}
+          to={href}
+          state={state}
+          className="overview-card-action"
+          data-primary={index === 0 ? "true" : "false"}
+        >
+          <span>{actionLabel}</span>
+          <OverviewArrow />
+        </Link>
+      ))}
+    </div>
+  );
+
+  return (
+    <Motion.article
+      variants={lowMotion ? undefined : cardVariants}
+      whileHover={lowMotion ? undefined : { y: -3 }}
+      transition={{ duration: 0.2 }}
+      data-kind={kind}
+      className={`overview-status-card ${className}`}
     >
-      <div className="overview-card-header flex items-center justify-between">
-        <p className="text-label-md">{label}</p>
+      <div className="overview-card-header">
+        <div className="overview-card-identity">
+          <span className="overview-card-icon">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d={OVERVIEW_ICON_PATHS[kind]} />
+            </svg>
+          </span>
+          <div className="overview-card-heading">
+            <h3>{label}</h3>
+            <p>{description}</p>
+          </div>
+        </div>
         {viewHref && (
-          <Link
-            to={viewHref}
-            className="dashboard-card-action overview-card-action"
-            data-tone="warning"
-          >
-            View
+          <Link to={viewHref} className="overview-card-view" aria-label={`View ${label}`}>
+            <OverviewArrow />
           </Link>
         )}
       </div>
-      <dl className="overview-status-list mt-4 flex flex-1 flex-col gap-2">{children}</dl>
-      {actions.length > 0 && (
-        <div className="overview-card-actions mt-4 flex flex-wrap gap-2">
-          {actions.map(({ label: actionLabel, href, state }) => (
-            <Link
-              key={`${href}-${actionLabel}`}
-              to={href}
-              state={state}
-              className="dashboard-card-action overview-card-action"
-              data-tone="warning"
+      <div className="overview-card-body">
+        <div className="overview-card-metric">
+          <p className="overview-metric-value">
+            {metric.value}
+            {metric.total !== undefined && <span> / {metric.total}</span>}
+          </p>
+          <p className="overview-metric-label">{metric.label}</p>
+          <div className="overview-card-progress">
+            <div className="overview-progress-caption">
+              <span>{progress.label}</span>
+              <span>{percentage}%</span>
+            </div>
+            <div
+              className="overview-progress-track"
+              role="progressbar"
+              aria-label={`${label}: ${progress.label}`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={percentage}
+              aria-valuetext={`${progress.completed} of ${progress.total}`}
             >
-              {actionLabel}
-            </Link>
-          ))}
+              <span style={{ width: `${percentage}%` }} />
+            </div>
+          </div>
         </div>
-      )}
-    </Motion.div>
+        <div className="overview-card-details">
+          <dl className="overview-status-list">{children}</dl>
+          {kind !== "gym" && cardActions}
+        </div>
+      </div>
+      {kind === "gym" && cardActions}
+    </Motion.article>
   );
 }
 
@@ -160,6 +219,7 @@ const containerVariants = {
 };
 
 export default function Overview() {
+  const lowMotion = useMobileLowMotion();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedMobileView = searchParams.get("overview");
   const mobileView = OVERVIEW_MOBILE_VIEWS.some((view) => view.id === requestedMobileView)
@@ -509,65 +569,93 @@ export default function Overview() {
             transition={{ duration: 0.16, ease: "easeOut" }}
           >
             <section className="overview-summary-panel journal-scroll h-full rounded-[1.5rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 md:backdrop-blur sm:rounded-[2rem] sm:p-6 xl:p-7 min-[1800px]:overflow-y-auto min-[1800px]:p-8">
-              <p className="text-label-lg">Overview</p>
+              <header className="overview-summary-heading">
+                <p className="overview-summary-eyebrow">Overview</p>
+              </header>
 
               <Motion.div
                 className="overview-status-grid mt-6 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:gap-4 min-[1800px]:mt-8"
                 variants={containerVariants}
-                initial="hidden"
+                initial={lowMotion ? false : "hidden"}
                 animate="visible"
               >
-                <StatusCard label="Today's Journal" viewHref="/dashboard/journal">
+                <StatusCard
+                  label="Today's Journal"
+                  description="Daily reflection"
+                  kind="journal"
+                  lowMotion={lowMotion}
+                  viewHref="/dashboard/journal"
+                  metric={{ value: displayJournalSummary.daysThisWeek, total: 7, label: "days logged this week" }}
+                  progress={{ completed: displayJournalSummary.daysThisWeek, total: 7, label: "Weekly consistency" }}
+                >
                   <StatRow
                     label="Status"
                     value={displayJournalSummary.todayLogged ? "Submitted" : "Pending"}
                     accent={displayJournalSummary.todayLogged ? "success" : "negative"}
                   />
-                  <StatRow label="Days logged this week" value={`${displayJournalSummary.daysThisWeek} / 7`} accent="positive" />
                   <StatRow label="Wins this week" value={displayJournalSummary.winsThisWeek} accent="positive" />
                   <StatRow label="Achievements this week" value={displayJournalSummary.achievementsThisWeek} accent="positive" />
                 </StatusCard>
 
-                <StatusCard label="Today's Tasks" viewHref="/dashboard/todo">
-                  <StatRow label="Completed" value={taskSummary.completed} accent="positive" />
+                <StatusCard
+                  label="Today's Tasks"
+                  description="Make room for what matters"
+                  kind="tasks"
+                  lowMotion={lowMotion}
+                  viewHref="/dashboard/todo"
+                  metric={{ value: taskSummary.completed, label: "tasks completed today" }}
+                  progress={{ completed: taskSummary.completed, total: taskSummary.completed + taskSummary.pending + taskSummary.missed, label: "Task completion" }}
+                >
                   <StatRow label="Pending" value={taskSummary.pending} />
                   <StatRow label="Missed" value={taskSummary.missed} accent="negative" />
-                  <StatRow label="Important Task" value={taskSummary.importantToday} accent="positive" />
+                  <StatRow label="Important tasks" value={taskSummary.importantToday} accent="positive" />
                 </StatusCard>
 
                 <StatusCard
                   label="Today's Habits"
+                  description="Build your daily rhythm"
+                  kind="habits"
+                  lowMotion={lowMotion}
+                  metric={{ value: habitSummary.completed, label: "habits completed today" }}
+                  progress={{ completed: habitSummary.completed, total: habitSummary.completed + habitSummary.pending, label: "Routine completion" }}
                   viewHref="/dashboard/habit"
                   actions={[
-                    { label: "Track Your Habit", href: "/dashboard/habit", state: { tab: "track" } },
+                    { label: "Track habits", href: "/dashboard/habit", state: { tab: "track" } },
                   ]}
                 >
-                  <StatRow label="Complete" value={habitSummary.completed} accent="positive" />
                   <StatRow label="Pending" value={habitSummary.pending} />
                 </StatusCard>
 
                 <StatusCard
                   label="Goals"
+                  description="Turn intention into progress"
+                  kind="goals"
+                  lowMotion={lowMotion}
+                  metric={{ value: displayedGoalSummary.completedGoals, total: displayedGoalSummary.totalGoals, label: "goals completed" }}
+                  progress={{ completed: displayedGoalSummary.completedGoals, total: displayedGoalSummary.totalGoals, label: "Goal completion" }}
                   viewHref="/dashboard/goal"
                   actions={[
                     { label: "View Progress", href: "/dashboard/goal", state: { tab: "progress" } },
                   ]}
                 >
-                  <StatRow label="Goals done" value={`${displayedGoalSummary.completedGoals} / ${displayedGoalSummary.totalGoals}`} accent="positive" />
                   <StatRow label="Subgoals done" value={`${displayedGoalSummary.completedSubgoals} / ${displayedGoalSummary.totalSubgoals}`} accent="positive" />
                 </StatusCard>
 
                 <StatusCard
                   label="Gym"
+                  description="Strength through consistency"
+                  kind="gym"
+                  lowMotion={lowMotion}
+                  metric={{ value: displayedGymSummary.progressUpdatesToday, label: "progress updates today" }}
+                  progress={{ completed: displayedGymSummary.completedProgress, total: displayedGymSummary.totalProgress, label: "Checklist completion" }}
                   viewHref="/dashboard/gym"
                   className="sm:col-span-2"
                   actions={[
-                    { label: "View Measure Progress", href: "/dashboard/gym?tab=progress&progress=measurements" },
-                    { label: "View Workout Progress", href: "/dashboard/gym?tab=progress&progress=workouts" },
-                    { label: "Upload Pic", href: "/dashboard/gym", state: { tab: "gallery" } },
+                    { label: "Measurements", href: "/dashboard/gym?tab=progress&progress=measurements" },
+                    { label: "Workout progress", href: "/dashboard/gym?tab=progress&progress=workouts" },
+                    { label: "Upload photo", href: "/dashboard/gym", state: { tab: "gallery" } },
                   ]}
                 >
-                  <StatRow label="Today's Progress updates" value={displayedGymSummary.progressUpdatesToday} accent="positive" />
                   <StatRow label="Checklist completed" value={`${displayedGymSummary.completedProgress} / ${displayedGymSummary.totalProgress}`} accent="positive" />
                   <StatRow label="Pending checklist" value={displayedGymSummary.pendingUpdates} accent="negative" />
                   <StatRow label="Last measurement check-in" value={formatCheckInDate(displayedLastMeasurementDate)} accent="positive" />
