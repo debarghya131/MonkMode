@@ -1066,6 +1066,87 @@ ARCJET_MODE=LIVE
 
 The backend also supports configurable rate-limit variables for AI chat, weekly AI summaries, journal saves, todo writes, habit writes, goal writes, and gym-related writes. See `server/.env.example` for the full list.
 
+### Local and deployed database separation
+
+The same cluster can hold both databases. Every backend connection explicitly
+selects its database, overriding any database path in `MONGO_URI`:
+
+| Backend environment | Database | Purpose |
+| --- | --- | --- |
+| `development` (default) or `test` | `test` | Localhost activity and development data |
+| `production` | `MonkMode` | Live deployed users |
+
+`npm run dev` forces development mode. On your **deployed backend**, set
+`NODE_ENV=production`, keep `MONGO_URI` in the hosting provider's secret settings,
+and use `npm start` (or `npm run start:production`). Production needs its own
+Clerk live keys and production `CORS_ORIGINS`. Build the deployed client with
+`VITE_API_URL=https://your-backend-domain/api`; localhost should use
+`VITE_API_URL=http://localhost:5000/api`. Database selection happens on the
+backend, not from the browser's hostname.
+
+Optional `MONGO_DB_NAME` must match the selected database exactly; conflicting
+values fail startup rather than silently mixing records. `MonkMode` is the exact
+database name, not `monkmode`. Unsupported `NODE_ENV` values also fail startup.
+Use separate database users restricted to the appropriate database where possible.
+
+To make the empty live database appear in Compass before deployment, from
+`server/` run:
+
+```bash
+NODE_ENV=production npm run db:init
+NODE_ENV=production npm run db:init -- --apply
+```
+
+This creates only an empty `users` collection if absent. The normal backend
+startup initializes model indexes and other collections. Existing `test` records
+stay in `test`: nothing is copied, moved, or deleted. The new live database starts
+empty; any previously deployed records in `test` will not appear in `MonkMode`
+without a separately planned data migration. Refresh your Compass connection to
+see the databases after initialization.
+
+Retention migration and goal backfill commands use the same environment mapping.
+Prefix them with `NODE_ENV=production` only when deliberately maintaining live
+data; otherwise they target `test`. Development seed/diagnostic scripts refuse
+production. `npm test` uses stubs and does not connect to either database.
+
+### Dashboard correctness and existing-database upgrade
+
+Demo mode uses sample data only and does not call protected dashboard APIs. For
+signed-in users, Monk Streak is calculated from saved journal, on-time task and
+scheduled habit completion histories. Yesterday's streak remains visible while
+today is unfinished; a genuinely missed day breaks it. All backend calendars use
+`APP_TIMEZONE` (default `Asia/Kolkata`), independent of the hosting machine's zone.
+
+Habit completions, goal progress, todo activity and workout-plan logs no longer
+expire. Existing databases may still contain their old 30-day TTL indexes:
+changing schemas alone does **not** remove them. From
+`server/`, inspect the migration first, then explicitly apply it:
+
+```bash
+npm run migrate:activity-retention
+npm run migrate:activity-retention -- --apply
+```
+
+The migration removes only the four listed activity-history TTL indexes and
+recreates only their non-expiring date indexes. Soft-deleted measurement cleanup is unchanged.
+It never deletes records. Already expired records cannot be recovered by this
+migration; restoration requires an existing database backup. Goal completion and
+progress-update events are retained beyond the recent 200-entry activity feed.
+To reconstruct missing events for still-completed subgoals with a saved completion
+timestamp, the existing `npm run backfill:goal-heatmap` command is available. It
+cannot reconstruct deleted subgoals or unknown historical completion timestamps.
+
+Normal tracking defaults are 1,000 daily writes each for habits, todos and goals,
+100 for journal saves/custom fields, and 200 for exercise progress and workout/diet
+updates. AI and photo-upload limits remain restricted. Explicit deployment
+environment values override these defaults; replace old portfolio quota values
+with the values in `server/.env.example` if unrestricted daily tracking is desired.
+Configuration is loaded before routes and formatters initialize.
+
+Run backend regressions from `server/` with `npm test`; frontend checks from
+`client/` are `npm run lint` and `npm run build`. Regression tests use isolated
+model stubs and never connect to a database or call paid APIs.
+
 ## 🧩 Challenges Faced
 
 - Designing one dashboard that connects journal, todo, habits, goals, gym, analytics, and weekly reports without mixing data boundaries.

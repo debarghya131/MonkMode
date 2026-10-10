@@ -9,8 +9,9 @@ import GymMeasurement from "../models/GymMeasurement.js";
 import { getJournalSummary } from "./journalController.js";
 import { getTodoSummary } from "./todoController.js";
 import { getHabitConsistency } from "./habitController.js";
+import { APP_TIMEZONE } from "../config/runtime.js";
+import { calculateMonkStreak } from "../utils/monkStreakUtils.js";
 
-const APP_TIMEZONE = process.env.APP_TIMEZONE || "Asia/Kolkata";
 const DAY_KEY_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   timeZone: APP_TIMEZONE,
   year: "numeric",
@@ -213,9 +214,9 @@ export const getNavbarConsistency = async (req, res) => {
     const todayKey = toDayKey(new Date());
 
     const [journalResult, todoResult, habitResult] = await Promise.all([
-      callController(getJournalSummary, { user: req.user, query: {} }),
-      callController(getTodoSummary, { user: req.user, query: { date: todayKey } }),
-      callController(getHabitConsistency, { user: req.user, query: {} })
+      callController(getJournalSummary, { user: req.user, query: {}, includeCompletionDays: true }),
+      callController(getTodoSummary, { user: req.user, query: { date: todayKey }, includeCompletionDays: true }),
+      callController(getHabitConsistency, { user: req.user, query: {}, includeCompletionDays: true })
     ]);
 
     if (journalResult.statusCode >= 400 || todoResult.statusCode >= 400 || habitResult.statusCode >= 400) {
@@ -248,13 +249,24 @@ export const getNavbarConsistency = async (req, res) => {
       todoExpectedToday > 0 &&
       todoCompletedToday >= todoExpectedToday &&
       habitExpectedToday > 0 &&
-      habitCompletedToday >= habitExpectedToday
+      habitCompletedToday >= habitExpectedToday &&
+      todoResult.payload?.completedDayKeys?.includes(todayKey) &&
+      habitResult.payload?.completedDayKeys?.includes(todayKey)
     );
+
+    const monkStreakDays = calculateMonkStreak({
+      todayKey,
+      journalDays: journalResult.payload?.completedDayKeys,
+      todoDays: todoResult.payload?.completedDayKeys,
+      habitDays: habitResult.payload?.completedDayKeys
+    });
 
     return res.json({
       date: todayKey,
       consistencyScore,
       allSectionsComplete,
+      monkStreakDays,
+      timezone: APP_TIMEZONE,
       sections: {
         journal: {
           submittedToday: journalTodaySubmitted,

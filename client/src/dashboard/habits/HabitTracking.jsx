@@ -299,22 +299,20 @@ export default function HabitTracking() {
       <div className="habits-track-heading flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <p className="text-label-lg">Track Your Habit</p>
         <div className="habit-track-filters flex w-full flex-wrap items-center gap-2 sm:w-auto">
-          <div className="habit-track-state-filter flex flex-wrap items-center gap-1 rounded-full border border-amber-100/10 bg-white/5 p-1">
-            {["active", "archived"].map((view) => (
-              <button
-                key={view}
-                type="button"
-                onClick={() => setHabitView(view)}
-                className={`rounded-full px-2.5 py-1 text-[10px] font-semibold capitalize transition ${
-                  habitView === view
-                    ? "border border-amber-300/40 bg-amber-500/15 text-amber-200"
-                    : "border border-transparent text-stone-400 hover:text-amber-200"
-                }`}
-              >
-                {view}
-              </button>
-            ))}
-          </div>
+          {["active", "archived"].map((view) => (
+            <button
+              key={view}
+              type="button"
+              onClick={() => setHabitView(view)}
+              className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold capitalize transition ${
+                habitView === view
+                  ? "border-amber-300/45 bg-amber-500/15 text-amber-200"
+                  : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-amber-200"
+              }`}
+            >
+              {view}
+            </button>
+          ))}
           <button
             type="button"
             onClick={() => setImportantOnly((prev) => !prev)}

@@ -1,14 +1,12 @@
+import "./config/runtime.js";
 import { clerkMiddleware } from "@clerk/express";
 import cors from "cors";
-import dotenv from "dotenv";
 import express from "express";
 import mongoose from "mongoose";
-
-dotenv.config();
+import { getDatabaseConfig } from "./config/database.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI;
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const CONFIGURED_CORS_ORIGINS = (process.env.CORS_ORIGINS || "")
   .split(",")
@@ -195,13 +193,11 @@ const registerShutdownHandlers = () => {
 };
 
 const startServer = async () => {
-  if (!MONGO_URI) {
-    throw new Error("MONGO_URI is missing in server/.env");
-  }
+  const database = getDatabaseConfig();
 
   if (mongoose.connection.readyState === 0) {
-    await mongoose.connect(MONGO_URI);
-    console.log("MongoDB connected");
+    await mongoose.connect(database.uri, { dbName: database.dbName });
+    console.log(`MongoDB connected: ${database.dbName} (${database.environment})`);
   }
 
   await new Promise((resolve, reject) => {

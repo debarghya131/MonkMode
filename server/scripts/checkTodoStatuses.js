@@ -1,15 +1,11 @@
 import mongoose from "mongoose";
-import dotenv from "dotenv";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: join(__dirname, "../.env") });
+import { requireDevelopmentDatabase } from "../config/database.js";
 
 import Todo from "../models/Todo.js";
 
 async function main() {
-  await mongoose.connect(process.env.MONGO_URI);
+  const database = requireDevelopmentDatabase();
+  await mongoose.connect(database.uri, { dbName: database.dbName, autoIndex: false, autoCreate: false });
 
   const User = mongoose.model("User", new mongoose.Schema({ email: String }, { strict: false }));
   const user = await User.findOne({ email: "rahul@gmail.com" }).lean();

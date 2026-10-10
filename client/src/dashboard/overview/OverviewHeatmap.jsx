@@ -351,6 +351,7 @@ export default function OverviewHeatmap() {
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
 
   useEffect(() => {
+    if (isDemoMode) return;
     let isMounted = true;
 
     const fetchJournalHeatmap = async () => {
@@ -392,9 +393,10 @@ export default function OverviewHeatmap() {
       window.removeEventListener("focus", fetchJournalHeatmap);
       window.removeEventListener("monkmode:journal-logged-days-updated", fetchJournalHeatmap);
     };
-  }, []);
+  }, [isDemoMode]);
 
   useEffect(() => {
+    if (isDemoMode) return;
     let isMounted = true;
 
     const fetchHabitHeatmap = async () => {
@@ -443,9 +445,10 @@ export default function OverviewHeatmap() {
       window.removeEventListener("focus", fetchHabitHeatmap);
       window.removeEventListener("monkmode:habits-updated", fetchHabitHeatmap);
     };
-  }, []);
+  }, [isDemoMode]);
 
   useEffect(() => {
+    if (isDemoMode) return;
     let isMounted = true;
 
     const fetchGymHeatmap = async () => {
@@ -499,9 +502,10 @@ export default function OverviewHeatmap() {
       window.removeEventListener("monkmode:gym-gallery-updated", fetchGymHeatmap);
       window.removeEventListener("monkmode:exercise-progress-updated", fetchGymHeatmap);
     };
-  }, []);
+  }, [isDemoMode]);
 
   useEffect(() => {
+    if (isDemoMode) return;
     let isMounted = true;
 
     const fetchGoalHeatmap = async () => {
@@ -547,9 +551,10 @@ export default function OverviewHeatmap() {
       window.removeEventListener("focus", fetchGoalHeatmap);
       window.removeEventListener("monkmode:goals-updated", fetchGoalHeatmap);
     };
-  }, []);
+  }, [isDemoMode]);
 
   useEffect(() => {
+    if (isDemoMode) return;
     let isMounted = true;
 
     const fetchTodoHeatmap = async () => {
@@ -598,7 +603,7 @@ export default function OverviewHeatmap() {
       window.removeEventListener("focus", fetchTodoHeatmap);
       window.removeEventListener("monkmode:todos-updated", fetchTodoHeatmap);
     };
-  }, []);
+  }, [isDemoMode]);
 
   const yearOptions = useMemo(() => {
     const years = new Set(isDemoMode ? [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2] : [CURRENT_YEAR]);
@@ -644,35 +649,35 @@ export default function OverviewHeatmap() {
           const real = byYear(journalAllValues, selectedYear);
           return {
             ...section,
-            values: !isDemoMode ? real : (real.length ? real : demoJournalSeries(section.seed, selectedYear, section.density)),
+            values: isDemoMode ? demoJournalSeries(section.seed, selectedYear, section.density) : real,
           };
         }
         if (section.id === "todo") {
           const real = byYear(todoAllValues, selectedYear);
           return {
             ...section,
-            values: !isDemoMode ? real : (real.length ? real : demoTodoSeries(section.seed, selectedYear, section.density)),
+            values: isDemoMode ? demoTodoSeries(section.seed, selectedYear, section.density) : real,
           };
         }
         if (section.id === "habit") {
           const real = byYear(habitAllValues, selectedYear);
           return {
             ...section,
-            values: !isDemoMode ? real : (real.length ? real : demoHabitSeries(section.seed, selectedYear, section.density)),
+            values: isDemoMode ? demoHabitSeries(section.seed, selectedYear, section.density) : real,
           };
         }
         if (section.id === "goal") {
           const real = byYear(goalAllValues, selectedYear);
           return {
             ...section,
-            values: !isDemoMode ? real : (real.length ? real : demoGoalSeries(section.seed, selectedYear, section.density)),
+            values: isDemoMode ? demoGoalSeries(section.seed, selectedYear, section.density) : real,
           };
         }
         if (section.id === "gym") {
           const real = byYear(gymAllValues, selectedYear);
           return {
             ...section,
-            values: !isDemoMode ? real : (real.length ? real : demoGymSeries(section.seed, selectedYear, section.density)),
+            values: isDemoMode ? demoGymSeries(section.seed, selectedYear, section.density) : real,
           };
         }
         return {

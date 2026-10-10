@@ -1,17 +1,13 @@
 import mongoose from "mongoose";
-import dotenv from "dotenv";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: join(__dirname, "../.env") });
+import { requireDevelopmentDatabase } from "../config/database.js";
 
 import Journal from "../models/Journal.js";
 
 const RAHUL_EMAIL = "rahul@gmail.com";
 
 async function main() {
-  await mongoose.connect(process.env.MONGO_URI);
+  const database = requireDevelopmentDatabase();
+  await mongoose.connect(database.uri, { dbName: database.dbName, autoIndex: false, autoCreate: false });
   console.log("Connected to MongoDB");
 
   // Resolve rahul's userId

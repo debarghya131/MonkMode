@@ -13,6 +13,8 @@ import GymExerciseProgress from "../models/GymExerciseProgress.js";
 import GymMeasurement from "../models/GymMeasurement.js";
 import GymGalleryEntry from "../models/GymGalleryEntry.js";
 import GymDietPlan from "../models/GymDietPlan.js";
+import User from "../models/User.js";
+import { journalDayKey, journalWeekDays, parseJournalDayKey } from "../utils/journalCalendarUtils.js";
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
@@ -1238,12 +1240,14 @@ export const getJournalSummaries = async (req, res) => {
 export const getMissedJournalDays = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { weekStart } = getWeekBounds(req.query.week);
-    const weekDays    = getWeekDayKeys(weekStart);
-    const startDayKey = weekDays[0].dayKey;
-    const endDayKey   = weekDays[6].dayKey;
+    if (req.query.week !== undefined && !parseJournalDayKey(req.query.week)) {
+      return res.status(400).json({ error: "Invalid week" });
+    }
+    const weekDays = journalWeekDays(req.query.week);
+    const startDayKey = weekDays[0];
+    const endDayKey = weekDays[6];
 
-    const [entries, savedReasons] = await Promise.all([
+    const [entries, savedReasons, account] = await Promise.all([
       Journal.find(
         { userId, dayKey: { $gte: startDayKey, $lte: endDayKey } },
         { dayKey: 1 }
@@ -1251,21 +1255,23 @@ export const getMissedJournalDays = async (req, res) => {
       JournalMissedReason.find(
         { userId, dayKey: { $gte: startDayKey, $lte: endDayKey } }
       ).lean(),
+      User.findById(userId).select("createdAt").lean(),
     ]);
 
     const loggedDayKeys = new Set(entries.map(e => e.dayKey));
     const reasonMap     = Object.fromEntries(savedReasons.map(r => [r.dayKey, r.reason]));
 
-    // Only include days up to today (don't count future days as "missed")
-    const todayKey = toDayKey(new Date());
+    // Today's journal can still be submitted. Never penalize pre-account days.
+    const todayKey = journalDayKey();
+    const joinedKey = journalDayKey(account?.createdAt || new Date());
 
     const missedDays = weekDays
-      .filter(wd => wd.dayKey <= todayKey && !loggedDayKeys.has(wd.dayKey))
-      .map(wd => ({
-        date:   wd.dayKey,
-        label:  new Date(`${wd.dayKey}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }),
+      .filter(day => day >= joinedKey && day < todayKey && !loggedDayKeys.has(day))
+      .map(day => ({
+        date:   day,
+        label:  new Date(`${day}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }),
         note:   "No journal submitted",
-        reason: reasonMap[wd.dayKey] || null,
+        reason: reasonMap[day] || null,
       }));
 
     res.json(missedDays);
@@ -1283,17 +1289,33 @@ export const saveJournalMissedReason = async (req, res) => {
     const userId = req.user.id;
     const { dayKey, reason } = req.body;
 
-    if (!dayKey || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
+    if (!parseJournalDayKey(dayKey)) {
       return res.status(400).json({ error: "Invalid dayKey" });
     }
     if (typeof reason !== "string" || !reason.trim()) {
       return res.status(400).json({ error: "Reason is required" });
     }
+    if (reason.trim().length > 1000) {
+      return res.status(400).json({ error: "Reason must be at most 1000 characters" });
+    }
+    if (dayKey >= journalDayKey()) {
+      return res.status(400).json({ error: "Only finished past days can have missed-day reasons" });
+    }
+    const [account, entry] = await Promise.all([
+      User.findById(userId).select("createdAt").lean(),
+      Journal.findOne({ userId, dayKey }).select("_id").lean()
+    ]);
+    if (dayKey < journalDayKey(account?.createdAt || new Date())) {
+      return res.status(400).json({ error: "This day is before your account was created" });
+    }
+    if (entry) {
+      return res.status(400).json({ error: "A journal entry already exists for this day" });
+    }
 
     const doc = await JournalMissedReason.findOneAndUpdate(
       { userId, dayKey },
       { reason: reason.trim() },
-      { upsert: true, new: true }
+      { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
     );
 
     res.json({ dayKey: doc.dayKey, reason: doc.reason });

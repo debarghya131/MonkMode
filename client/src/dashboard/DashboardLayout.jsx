@@ -227,6 +227,7 @@ export default function DashboardLayout({ children }) {
       {/* Navbar */}
       <header className="relative z-30 shrink-0 border-b border-amber-100/10">
         <Navbar
+          key={user?.id || "guest"}
           user={user}
           onMenuToggle={() => setMobileMenuOpen((prev) => !prev)}
           mobileMenuOpen={mobileMenuOpen}

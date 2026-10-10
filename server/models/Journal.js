@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import "../config/runtime.js";
 
 const customFieldSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true, maxlength: 120 },

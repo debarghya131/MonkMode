@@ -1,6 +1,17 @@
+import { APP_TIMEZONE } from "../config/runtime.js";
+
 const DEFAULT_ACTIVITY_WINDOW_MS = 1000;
 
-export const GOAL_ACTIVITY_TIMEZONE = process.env.APP_TIMEZONE || process.env.TZ || "Asia/Kolkata";
+export const GOAL_ACTIVITY_TIMEZONE = APP_TIMEZONE;
+
+// Completion events are historical analytics data, not disposable UI logs.
+// Keep them even when trimming the recent activity feed.
+export const retainGoalActivityLogs = (logs, recentLimit = 200) => {
+  const recentStart = Math.max(0, logs.length - recentLimit);
+  return logs.filter((entry, index) =>
+    entry.action === "subgoal_completed" || entry.action === "progress_updated" || index >= recentStart
+  );
+};
 
 export const buildSubgoalActivityTitle = (subgoalTitle, goalTitle) =>
   `${subgoalTitle || "Untitled"} (Sub-goal in ${goalTitle || "Untitled"})`;

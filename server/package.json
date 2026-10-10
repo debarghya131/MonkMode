@@ -5,8 +5,12 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
+    "dev": "NODE_ENV=development nodemon server.js",
+    "start:production": "NODE_ENV=production node server.js",
+    "db:init": "node scripts/initializeDatabase.js",
+    "test": "node --test tests/*.test.js",
     "test:goals": "node --test tests/goalActivityUtils.test.js",
+    "migrate:activity-retention": "node scripts/migrateActivityRetention.js",
     "backfill:goal-heatmap": "node scripts/backfillGoalSubgoalCompletionEvents.js"
   },
   "keywords": [],

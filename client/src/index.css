@@ -1358,7 +1358,7 @@ a {
 
 @media (max-width: 639px) {
   .journal-mood-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.5rem;
   }
 }
@@ -2946,14 +2946,6 @@ a {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.375rem;
-  }
-
-  .habits-page[data-active="track"] .habit-track-state-filter {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
-    border-radius: 0.625rem;
   }
 
   .habits-page[data-active="track"] .habit-track-filters button {
@@ -4988,6 +4980,10 @@ a {
   .todo-page[data-active="important"] .important-page,
   .todo-page[data-active="important"] .important-layout {
     gap: 0.75rem;
+  }
+
+  .todo-page[data-active="important"] .important-heading {
+    margin-inline-start: 0.75rem;
   }
 
   .todo-page[data-active="important"] .important-main,
