@@ -1,11 +1,12 @@
 import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
 import DashboardSelect from "../../components/DashboardSelect";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
+import HabitCalendarTooltip from "./HabitCalendarTooltip";
 
 /* ─── Constants ─────────────────────────────────────── */
 const PRIORITIES = ["High", "Medium", "Low"];
@@ -435,6 +436,12 @@ export default function CreateHabit({ entity = "habit" }) {
     const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1);
   });
   const [selectedDate, setSelectedDate] = useState(today);
+  const [calendarPreview, setCalendarPreview] = useState(null);
+  const calendarTooltipId = useId();
+  const dismissCalendarPreview = useCallback(() => setCalendarPreview(null), []);
+  const showCalendarPreview = (event, iso, source) => {
+    setCalendarPreview({ iso, anchor: event.currentTarget, source });
+  };
 
   /* create form */
   const [form, setForm] = useState({
@@ -536,17 +543,10 @@ export default function CreateHabit({ entity = "habit" }) {
     return cells;
   }, [viewMonth]);
 
-  const selectedCalendarHabits = useMemo(
-    () => displayedHabits.filter((habit) => isHabitOnDate(habit, selectedDate)),
-    [displayedHabits, selectedDate]
-  );
-  const selectedCalendarDate = useMemo(
-    () => parseISO(selectedDate).toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    }),
-    [selectedDate]
+  const previewDate = calendarPreview?.iso;
+  const previewHabits = useMemo(
+    () => previewDate ? displayedHabits.filter((habit) => isHabitOnDate(habit, previewDate)) : [],
+    [displayedHabits, previewDate]
   );
 
   /* ── helpers ── */
@@ -1528,18 +1528,20 @@ export default function CreateHabit({ entity = "habit" }) {
           <div className="habits-create-sidebar-card flex flex-col gap-0 rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl">
 
             {/* Calendar */}
-            <section data-habit-create-panel="calendar" className="habits-create-calendar shrink-0">
+            <section data-habit-create-panel="calendar" className="habits-create-calendar shrink-0" data-demo-allow="true">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold tracking-wide text-amber-200">Calendar</h3>
                 <div className="flex items-center gap-1">
                   <button type="button"
-                    onClick={() => setViewMonth((p) => new Date(p.getFullYear(), p.getMonth()-1, 1))}
+                    aria-label="Previous calendar month"
+                    onClick={() => { dismissCalendarPreview(); setViewMonth((p) => new Date(p.getFullYear(), p.getMonth()-1, 1)); }}
                     className="rounded border border-amber-100/15 px-1.5 py-0.5 text-xs text-stone-300 transition hover:border-amber-300/35 hover:text-amber-200">
                     ‹
                   </button>
                   <span className="text-xs font-medium text-stone-200">{monthTitle}</span>
                   <button type="button"
-                    onClick={() => setViewMonth((p) => new Date(p.getFullYear(), p.getMonth()+1, 1))}
+                    aria-label="Next calendar month"
+                    onClick={() => { dismissCalendarPreview(); setViewMonth((p) => new Date(p.getFullYear(), p.getMonth()+1, 1)); }}
                     className="rounded border border-amber-100/15 px-1.5 py-0.5 text-xs text-stone-300 transition hover:border-amber-300/35 hover:text-amber-200">
                     ›
                   </button>
@@ -1555,10 +1557,22 @@ export default function CreateHabit({ entity = "habit" }) {
                   const isToday = iso === today;
                   const isSel = iso === selectedDate;
                   return (
-                    <button key={iso} type="button" onClick={() => setSelectedDate(iso)}
+                    <button key={iso} type="button"
+                      onClick={(event) => {
+                        setSelectedDate(iso);
+                        if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) showCalendarPreview(event, iso, "tap");
+                      }}
+                      onPointerEnter={(event) => {
+                        if (event.pointerType !== "touch" && window.matchMedia("(hover: hover) and (pointer: fine)").matches) showCalendarPreview(event, iso, "hover");
+                      }}
+                      onPointerLeave={() => setCalendarPreview((preview) => preview?.iso === iso && preview.source === "hover" ? null : preview)}
+                      onFocus={(event) => showCalendarPreview(event, iso, "focus")}
+                      onBlur={() => setCalendarPreview((preview) => preview?.iso === iso ? null : preview)}
                       aria-label={`${iso}: ${count} ${lowerSingular}${count === 1 ? "" : "s"} scheduled`}
+                      aria-describedby={calendarPreview?.iso === iso ? calendarTooltipId : undefined}
+                      aria-current={isToday ? "date" : undefined}
                       aria-pressed={isSel}
-                      className={`relative h-8 rounded text-xs transition ${isSel ? "border border-amber-300/60 bg-amber-400/15 text-amber-100" : "border border-amber-100/10 bg-white/5 text-stone-200 hover:border-amber-300/35"} ${isToday ? "ring-1 ring-amber-500/40" : ""}`}>
+                      className={`relative h-8 rounded text-xs transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-300 ${isSel ? "border border-amber-300/60 bg-amber-400/15 text-amber-100" : "border border-amber-100/10 bg-white/5 text-stone-200 hover:border-amber-300/35 hover:bg-amber-400/10"} ${isToday ? "ring-1 ring-amber-500/40" : ""}`}>
                       {cell.getDate()}
                       {count > 0 && <span className="absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-amber-400/90" />}
                     </button>
@@ -1566,22 +1580,15 @@ export default function CreateHabit({ entity = "habit" }) {
                 })}
               </div>
 
-              <div className="habit-calendar-selection mt-3" aria-live="polite">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold text-stone-200">{selectedCalendarDate}</p>
-                  <span className="rounded-full border border-amber-400/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
-                    {selectedCalendarHabits.length} {lowerSingular}{selectedCalendarHabits.length === 1 ? "" : "s"} scheduled
-                  </span>
-                </div>
-                {selectedCalendarHabits.length > 0 ? (
-                  <p className="mt-1 text-[11px] leading-4 text-stone-400">
-                    {selectedCalendarHabits.slice(0, 3).map((habit) => habit.title).join(" · ")}
-                    {selectedCalendarHabits.length > 3 ? ` +${selectedCalendarHabits.length - 3} more` : ""}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-[11px] text-stone-500">No habits scheduled for this day.</p>
-                )}
-              </div>
+              {calendarPreview && (
+                <HabitCalendarTooltip
+                  id={calendarTooltipId}
+                  preview={calendarPreview}
+                  habits={previewHabits}
+                  singular={lowerSingular}
+                  onDismiss={dismissCalendarPreview}
+                />
+              )}
             </section>
 
             <div className="habits-create-divider my-3 shrink-0 border-t border-amber-100/10" />

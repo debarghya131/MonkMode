@@ -1,9 +1,11 @@
 import CalendarHeatmap from "react-calendar-heatmap";
 import "react-calendar-heatmap/dist/styles.css";
 import { motion as Motion } from "framer-motion";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { cloneElement, useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
+import "./overview-heatmap.css";
 
 const TODAY = new Date();
 const CURRENT_YEAR = TODAY.getFullYear();
@@ -118,6 +120,29 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
         }, 0)
       : values.reduce((sum, value) => sum + (value.count || 0), 0);
   const [selectedDay, setSelectedDay] = useState(null);
+  const [tooltip, setTooltip] = useState(null);
+  const tooltipId = useId();
+  const tooltipVisible = Boolean(tooltip);
+
+  useEffect(() => {
+    if (!tooltipVisible) return undefined;
+
+    const dismiss = () => setTooltip(null);
+    const dismissOnEscape = (event) => {
+      if (event.key === "Escape") dismiss();
+    };
+    window.addEventListener("scroll", dismiss, true);
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("blur", dismiss);
+    window.addEventListener("keydown", dismissOnEscape);
+    return () => {
+      window.removeEventListener("scroll", dismiss, true);
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("blur", dismiss);
+      window.removeEventListener("keydown", dismissOnEscape);
+    };
+  }, [tooltipVisible]);
+
   const describeValue = (value) => {
     if (!value) return "";
     if (binary) {
@@ -164,12 +189,28 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
     }
     return `${value.date}: ${value.count}`;
   };
+  const showTooltip = (event, value) => {
+    const text = describeValue(value);
+    if (!text || !window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+      setTooltip(null);
+      return;
+    }
+    const width = Math.min(280, window.innerWidth - 24);
+    const below = event.clientY < 112;
+    setTooltip({
+      text,
+      date: value.date,
+      left: Math.max(12, Math.min(event.clientX + 12, window.innerWidth - width - 12)),
+      top: event.clientY + (below ? 16 : -12),
+      below,
+    });
+  };
   const startDate = new Date(year, 0, 1);
   const endDate = new Date(year, 11, 31);
 
   return (
     <Motion.div
-      whileHover={{ y: -5, boxShadow: "0 20px 40px rgba(0,0,0,0.4)" }}
+      whileHover={{ boxShadow: "0 20px 40px rgba(0,0,0,0.4)" }}
       transition={{ type: "spring", stiffness: 300, damping: 22 }}
       className="overview-heatmap-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.1rem] border border-amber-100/10 bg-stone-950/45 px-1.5 py-1.5 sm:rounded-2xl"
     >
@@ -191,7 +232,12 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
               if (binary) return `${scale}-scale-4`;
               return `${scale}-scale-${Math.min(value.count, 4)}`;
             }}
-            titleForValue={describeValue}
+            onMouseOver={showTooltip}
+            onMouseLeave={() => setTooltip(null)}
+            transformDayElement={(element, value) => cloneElement(element, {
+              "aria-label": describeValue(value) || undefined,
+              "aria-describedby": tooltip && tooltip.date === value?.date ? tooltipId : undefined,
+            }, null)}
             onClick={setSelectedDay}
           />
         </div>
@@ -207,6 +253,17 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
       <p className="overview-heatmap-mobile-detail" aria-live="polite">
         {selectedDay ? describeValue(selectedDay) : "Tap a colored day for details"}
       </p>
+      {tooltip && createPortal(
+        <div
+          id={tooltipId}
+          role="tooltip"
+          className="overview-heatmap-tooltip"
+          style={{ left: tooltip.left, top: tooltip.top, transform: tooltip.below ? "none" : "translateY(-100%)" }}
+        >
+          {tooltip.text}
+        </div>,
+        document.body
+      )}
     </Motion.div>
   );
 }

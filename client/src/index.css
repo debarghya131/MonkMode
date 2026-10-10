@@ -8209,8 +8209,62 @@ a {
   }
 }
 
+/* All phone analysis screens keep their section picker outside the scroller. */
+@media (max-width: 639px) {
+  .dashboard-main.analysis-main:has(.analytics-page) {
+    overflow: hidden;
+  }
+
+  .analysis-route:has(.analytics-page),
+  .analytics-page[data-active] {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .analytics-page[data-active],
+  .analytics-page[data-active] > :is(
+    .journal-analysis-page, .todo-analysis-page, .habit-analysis-page,
+    .goal-analysis-page, .gym-analysis-page
+  ) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .analytics-page[data-active] > :is(
+    .journal-analysis-page, .todo-analysis-page, .habit-analysis-page,
+    .goal-analysis-page, .gym-analysis-page
+  ) {
+    height: auto;
+    min-height: 0;
+    flex: 1 1 0%;
+    overflow: hidden;
+  }
+
+  .analytics-page :is(
+    .journal-analysis-mobile-nav, .todo-analysis-mobile-nav,
+    .habit-analysis-mobile-nav, .goal-analysis-mobile-nav, .gym-analysis-mobile-nav
+  ) {
+    z-index: 30;
+    flex: 0 0 auto;
+  }
+
+  .analytics-page[data-active] :is(
+    .journal-analysis-content, .todo-analysis-content, .habit-analysis-content,
+    .goal-analysis-content, .gym-analysis-content
+  ) {
+    height: auto;
+    min-height: 0;
+    flex: 1 1 0%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 /* Journal analysis: charts and insights share the usable dashboard height on
-   laptops, while narrow screens use the dashboard's page scrollbar. */
+   laptops; phones keep the section picker above one content scrollbar. */
 .journal-analysis-page,
 .journal-analysis-content,
 .journal-analysis-section,
@@ -10184,9 +10238,11 @@ a {
 /* On phones, use the dashboard as the vertical scroller. Viewport-height
    module panes clip their last cards and stretch short results into empty space. */
 @media (max-width: 639px) {
+  /* These panes already keep controls inside the viewport. Reserve only a
+     compact, safe-area-aware inset rather than a second phone-navigation gap. */
   .dashboard-main.gym-main,
-  .dashboard-main.weekly-report-main:has(.weekly-report-page[data-active="journal"]),
-  .dashboard-main.ai-guru-main:has(.ai-guru-insights-scroll) {
+  .dashboard-main.weekly-report-main,
+  .dashboard-main.ai-guru-main {
     --mobile-bottom-clearance: max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem));
   }
 
@@ -10238,6 +10294,39 @@ a {
     flex: none;
     overflow-y: visible;
     overscroll-behavior: auto;
+  }
+
+  /* Library and gallery lists need bounded ancestors so contained scroll
+     gestures reach overflowing content instead of an expanded, static list. */
+  .dashboard-main.gym-main:has(.gym-page:is([data-active="library"], [data-active="gallery"])) {
+    overflow: hidden;
+  }
+
+  .gym-main:has(.gym-page:is([data-active="library"], [data-active="gallery"])) > .gym-route,
+  .gym-page:is([data-active="library"], [data-active="gallery"]) {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .gym-page:is([data-active="library"], [data-active="gallery"])
+    :is(.gym-content, .gym-library-view, .gym-gallery-view) {
+    height: auto;
+    min-height: 0;
+    flex: 1 1 0%;
+    overflow: hidden;
+  }
+
+  .gym-page:is([data-active="library"], [data-active="gallery"])
+    :is(.gym-library-list, .gym-gallery-list) {
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    flex: 1 1 0%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Today's day and mode controls stay above the active content scroller. */
@@ -10320,15 +10409,20 @@ a {
     -webkit-overflow-scrolling: touch;
   }
 
-  .weekly-report-main:has(.weekly-report-page[data-active="journal"]) {
-    overflow-x: hidden;
-    overflow-y: auto;
+  /* Keep the mobile Journal picker outside the report's vertical scroller. */
+  .dashboard-main.weekly-report-main:has(.weekly-report-page[data-active="journal"]) {
+    overflow: hidden;
   }
 
   .weekly-report-route:has(.weekly-report-page[data-active="journal"]),
-  .weekly-report-page[data-active="journal"],
+  .weekly-report-page[data-active="journal"] {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
   .weekly-report-page[data-active="journal"] :is(
-    .weekly-report-content, .weekly-report-active-panel,
+    .weekly-report-active-panel,
     .weekly-journal-view, .weekly-journal-main, .weekly-journal-sidebar
   ) {
     height: auto;
@@ -10339,7 +10433,14 @@ a {
   }
 
   .weekly-report-page[data-active="journal"] .weekly-report-content {
+    height: auto;
+    min-height: 0;
+    flex: 1 1 0%;
     margin-top: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .weekly-report-page[data-active="journal"] .journal-scroll {
@@ -11549,13 +11650,22 @@ a {
 
 @media (max-width: 639px) {
   .ai-guru-frame {
-    border-radius: 0.875rem;
+    border-radius: 1.125rem;
   }
 
   .ai-guru-profile {
-    grid-template-columns: minmax(0, 1fr) minmax(8.75rem, auto);
-    gap: 0.5rem;
-    padding: 0.5rem 0.625rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.625rem;
+    padding: 0.75rem 0.875rem;
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.055), rgba(10, 8, 8, 0.8));
+  }
+
+  .ai-guru-identity {
+    gap: 0.625rem;
+  }
+
+  .ai-guru-identity > div:first-child {
+    flex-shrink: 0;
   }
 
   .ai-guru-avatar {
@@ -11568,50 +11678,120 @@ a {
   }
 
   .ai-guru-identity-copy h2 {
-    font-size: 1.125rem;
-    line-height: 1.35;
+    margin-top: 0;
+    font-size: 1.375rem;
+    line-height: 1.25;
   }
 
   .ai-guru-tabs {
-    width: auto;
+    width: 100%;
     min-width: 0;
-    align-self: center;
+    align-self: stretch;
     gap: 0.25rem;
+    border-radius: 0.875rem;
+    background: rgba(0, 0, 0, 0.24);
   }
 
-  .ai-guru-tabs > button,
+  .ai-guru-tabs > button {
+    min-height: 2.5rem;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid transparent;
+    border-radius: 0.625rem;
+    font-size: 0.8125rem;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+    color: #b6a9a2;
+  }
+
+  .ai-guru-tabs > button[aria-pressed="true"] {
+    border-color: rgba(251, 191, 36, 0.35);
+    background: rgba(245, 158, 11, 0.16);
+    color: #fde68a;
+  }
+
   .ai-guru-scopes > button {
     min-height: 2rem;
     padding-block: 0.375rem;
   }
 
   .ai-guru-content-header {
-    padding: 0.5rem 0.75rem;
+    padding: 0.625rem 0.875rem;
+  }
+
+  .ai-guru-heading-row {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .ai-guru-heading-copy {
+    min-width: 0;
+  }
+
+  .ai-guru-heading-eyebrow {
+    margin-bottom: 0.25rem;
+    font-size: 0.5625rem;
+    letter-spacing: 0.16em;
+    line-height: 1.25;
   }
 
   .ai-guru-content-header h3 {
-    font-size: 0.9375rem;
-    line-height: 1.3;
+    font-size: 1rem;
+    line-height: 1.375;
+  }
+
+  .ai-guru-beta-status {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.5625rem;
+    letter-spacing: 0.08em;
+    box-shadow: none !important;
+  }
+
+  .ai-guru-beta-status > .absolute {
+    display: none;
   }
 
   .ai-guru-prompts {
-    padding: 0.5rem 0.75rem;
+    padding: 0.625rem 0.875rem;
   }
 
   .ai-guru-prompt-list {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-width: thin;
+    overflow: visible;
   }
 
   .ai-guru-prompt-list > button {
-    flex: 0 0 min(12.5rem, 72vw);
-    min-height: 2.25rem;
+    display: flex;
+    min-width: 0;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.5rem;
     border-radius: 0.75rem;
-    padding: 0.375rem 0.625rem;
-    line-height: 1rem;
+    padding: 0.5rem 0.625rem;
+    background: rgba(251, 191, 36, 0.055);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  .ai-guru-prompt-icon {
+    display: inline;
+    flex-shrink: 0;
+    font-size: 1rem;
+    color: #fbbf24;
+  }
+
+  .ai-guru-prompt-short {
+    display: inline;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ai-guru-prompt-full {
+    display: none;
   }
 
   .ai-guru-messages-scroll,
@@ -11677,7 +11857,8 @@ a {
   }
 
   .ai-guru-composer {
-    padding: 0.375rem 0.625rem max(0.375rem, env(safe-area-inset-bottom));
+    /* The dashboard already reserves the bottom safe area. */
+    padding: 0.375rem 0.625rem;
   }
 
   .ai-guru-composer-row {
@@ -11704,6 +11885,42 @@ a {
     min-height: 2.5rem;
     padding-inline: 0.625rem;
     font-size: 0.75rem;
+  }
+}
+
+/* Short phones retain all suggestions without squeezing out the conversation. */
+@media (max-width: 639px) and (max-height: 650px) {
+  .ai-guru-profile {
+    gap: 0.5rem;
+    padding-block: 0.5rem;
+  }
+
+  .ai-guru-avatar {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .ai-guru-identity-copy h2 {
+    font-size: 1.25rem;
+  }
+
+  .ai-guru-content-header,
+  .ai-guru-prompts {
+    padding-block: 0.5rem;
+  }
+
+  .ai-guru-heading-eyebrow {
+    display: none;
+  }
+
+  .ai-guru-prompt-list {
+    gap: 0.375rem;
+  }
+
+  .ai-guru-prompt-list > button {
+    min-height: 2.5rem;
+    padding: 0.25rem 0.5rem;
+    line-height: 1.3;
   }
 }
 

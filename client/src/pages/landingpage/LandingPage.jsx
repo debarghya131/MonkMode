@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import api from "../../api/axios";
 import Hero from "./Hero";
 import LandingNavbar from "./LandingNavbar";
+import "./landing-mobile.css";
 
 const animatedGradientStyle = {
   background: "linear-gradient(120deg, #ff7a00, #3b82f6)",
@@ -143,7 +144,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="relative flex min-h-dvh flex-col overflow-x-hidden text-white">
+    <div className="landing-page relative flex min-h-dvh flex-col overflow-x-hidden text-white">
       <audio ref={audioRef} loop preload="auto" autoPlay>
         <source src="/meditation.mp3" type="audio/mpeg" />
       </audio>
@@ -154,10 +155,10 @@ export default function LandingPage() {
         <LandingNavbar viewCount={viewCount} viewCountFailed={viewCountFailed} />
         <Hero />
       </div>
-      <div className="relative z-20 flex items-end justify-between gap-3 px-3 pb-3 sm:px-6 sm:pb-6 md:contents">
+      <div className="landing-footer relative z-20 flex items-end justify-between gap-3 px-3 pb-3 sm:px-6 sm:pb-6 md:contents">
         {/* Crafted with focus — bottom-right */}
         <Motion.div
-          className="pointer-events-none order-2 max-w-[min(66vw,15rem)] overflow-hidden rounded-2xl border border-amber-200/10 bg-stone-950/35 px-3 py-2 text-right shadow-[0_14px_34px_rgba(0,0,0,0.28)] backdrop-blur sm:max-w-none sm:px-4 sm:py-3 md:fixed md:bottom-6 md:right-6 md:px-5"
+          className="landing-credit pointer-events-none order-2 max-w-[min(66vw,15rem)] overflow-hidden rounded-2xl border border-amber-200/10 bg-stone-950/35 px-3 py-2 text-right shadow-[0_14px_34px_rgba(0,0,0,0.28)] backdrop-blur sm:max-w-none sm:px-4 sm:py-3 md:fixed md:bottom-6 md:right-6 md:px-5"
         >
           <Motion.span
             className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/20 blur-sm"
@@ -182,7 +183,7 @@ export default function LandingPage() {
           type="button"
           onClick={toggleMusic}
           style={{ zIndex: 30 }}
-          className="order-1 inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-amber-100/55 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] text-xs font-black uppercase leading-none tracking-[0.14em] text-stone-950 shadow-[0_0_0_1px_rgba(255,236,178,0.24),0_0_26px_rgba(251,191,36,0.34),0_14px_34px_rgba(120,52,8,0.28)] transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-950 sm:w-40 sm:px-4 md:fixed md:bottom-6 md:left-6"
+          className="landing-music-control order-1 inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-amber-100/55 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] text-xs font-black uppercase leading-none tracking-[0.14em] text-stone-950 shadow-[0_0_0_1px_rgba(255,236,178,0.24),0_0_26px_rgba(251,191,36,0.34),0_14px_34px_rgba(120,52,8,0.28)] transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-950 sm:w-40 sm:px-4 md:fixed md:bottom-6 md:left-6"
           aria-label={isMusicPlaying ? "Pause background music" : "Play background music"}
           title={isMusicPlaying ? "Pause background music" : "Play background music"}
         >
