@@ -8192,7 +8192,11 @@ a {
     max-height: none;
     overflow: visible;
     overscroll-behavior: auto;
-    padding-right: 0;
+  }
+
+  /* Preserve the outer panels' padding and leave room beside list scrollbars. */
+  .gym-page[data-active="add-workout"] :is(.gym-add-list-body, .gym-add-log-list) {
+    padding-right: 0.5rem;
   }
 
   .gym-page[data-active="add-workout"] .gym-add-card-actions {
@@ -10174,6 +10178,193 @@ a {
   .goal-analysis-side-column > aside > .journal-scroll {
     flex: none;
     overflow: visible;
+  }
+}
+
+/* On phones, use the dashboard as the vertical scroller. Viewport-height
+   module panes clip their last cards and stretch short results into empty space. */
+@media (max-width: 639px) {
+  .dashboard-main.gym-main,
+  .dashboard-main.weekly-report-main:has(.weekly-report-page[data-active="journal"]),
+  .dashboard-main.ai-guru-main:has(.ai-guru-insights-scroll) {
+    --mobile-bottom-clearance: max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem));
+  }
+
+  .dashboard-main.gym-main:has(.gym-page),
+  .dashboard-main.weekly-report-main {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .gym-main > .gym-route,
+  .gym-page[data-active],
+  .gym-page[data-active] .gym-content,
+  .gym-page[data-active] :is(
+    .gym-today-view, .gym-today-layout, .gym-workout-panel,
+    .gym-add-view, .gym-add-layout, .gym-add-form, .gym-add-list,
+    .gym-add-logs, .gym-add-log-panel,
+    .gym-diet-view, .gym-diet-layout, .gym-diet-primary,
+    .gym-diet-secondary, .gym-diet-pair, .gym-diet-panel,
+    .gym-measurements-layout, .gym-measurements-form-panel,
+    .gym-measurements-saved-panel
+  ) {
+    height: auto;
+    max-height: none;
+    min-height: 0;
+  }
+
+  .gym-page[data-active] .gym-content,
+  .gym-page[data-active] :is(
+    .gym-today-view, .gym-today-layout, .gym-workout-panel,
+    .gym-add-view, .gym-add-layout, .gym-add-form, .gym-add-list,
+    .gym-add-logs, .gym-add-log-panel,
+    .gym-diet-view, .gym-diet-layout, .gym-diet-primary,
+    .gym-diet-secondary, .gym-diet-pair, .gym-diet-panel,
+    .gym-measurements-layout, .gym-measurements-form-panel,
+    .gym-measurements-saved-panel
+  ) {
+    flex: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+
+  .gym-page[data-active] :is(
+    .gym-workout-scroll, .gym-add-list-body, .gym-add-log-list,
+    .gym-measurements-form, .gym-diet-panel-body
+  ) {
+    height: auto;
+    max-height: none;
+    flex: none;
+    overflow-y: visible;
+    overscroll-behavior: auto;
+  }
+
+  /* Today's day and mode controls stay above the active content scroller. */
+  .dashboard-main.gym-main:has(.gym-page[data-active="todays-workout"]) {
+    overflow: hidden;
+  }
+
+  .gym-main:has(.gym-page[data-active="todays-workout"]) > .gym-route,
+  .gym-page[data-active="todays-workout"] {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .gym-page[data-active="todays-workout"] :is(
+    .gym-content, .gym-today-view, .gym-today-layout, .gym-workout-panel
+  ) {
+    height: auto;
+    min-height: 0;
+    flex: 1 1 0%;
+    overflow: hidden;
+  }
+
+  .gym-page[data-active="todays-workout"] :is(.gym-day-selector, .gym-today-mobile-tabs) {
+    flex: 0 0 auto;
+  }
+
+  .gym-page[data-active="todays-workout"] :is(.gym-workout-scroll, .gym-diet-panel) {
+    height: auto;
+    min-height: 0;
+    flex: 1 1 0%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Workouts and Logs have enough rows to use the remaining screen height.
+     Keep only their list scrollable, with the panel ending above the phone UI. */
+  .dashboard-main.gym-main:has(
+    .gym-add-layout:is([data-mobile-section="workouts"], [data-mobile-section="logs"])
+  ) {
+    overflow: hidden;
+  }
+
+  .gym-main:has(.gym-add-layout:is([data-mobile-section="workouts"], [data-mobile-section="logs"])) > .gym-route,
+  .gym-page[data-active="add-workout"]:has(.gym-add-layout:is([data-mobile-section="workouts"], [data-mobile-section="logs"])) {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .gym-page[data-active="add-workout"]:has(.gym-add-layout:is([data-mobile-section="workouts"], [data-mobile-section="logs"]))
+    :is(.gym-content, .gym-add-view, .gym-add-layout) {
+    display: flex;
+    flex: 1 1 0%;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-layout[data-mobile-section="workouts"] .gym-add-list,
+  .gym-page[data-active="add-workout"] .gym-add-layout[data-mobile-section="logs"] :is(.gym-add-logs, .gym-add-log-panel) {
+    display: flex;
+    height: auto;
+    min-height: 0;
+    flex: 1 1 0%;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-layout[data-mobile-section="workouts"] .gym-add-list-body,
+  .gym-page[data-active="add-workout"] .gym-add-layout[data-mobile-section="logs"] .gym-add-log-list {
+    min-height: 0;
+    flex: 1 1 0%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-padding-bottom: 1rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .weekly-report-main:has(.weekly-report-page[data-active="journal"]) {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .weekly-report-route:has(.weekly-report-page[data-active="journal"]),
+  .weekly-report-page[data-active="journal"],
+  .weekly-report-page[data-active="journal"] :is(
+    .weekly-report-content, .weekly-report-active-panel,
+    .weekly-journal-view, .weekly-journal-main, .weekly-journal-sidebar
+  ) {
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    flex: none;
+    overflow: visible;
+  }
+
+  .weekly-report-page[data-active="journal"] .weekly-report-content {
+    margin-top: 0;
+  }
+
+  .weekly-report-page[data-active="journal"] .journal-scroll {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  /* Ask Ming retains its conversation pane; only Insights uses natural height. */
+  .ai-guru-main:has(.ai-guru-insights-scroll) {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .ai-guru-main:has(.ai-guru-insights-scroll) :is(
+    .ai-guru-route, .ai-guru-page, .ai-guru-frame,
+    .ai-guru-content, .ai-guru-insights-scroll
+  ) {
+    height: auto;
+    min-height: 0;
+    flex: none;
+    overflow: visible;
+  }
+
+  .ai-guru-main:has(.ai-guru-insights-scroll) .ai-guru-frame {
+    grid-template-rows: auto auto;
   }
 }
 
