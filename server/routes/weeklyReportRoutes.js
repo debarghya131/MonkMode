@@ -53,8 +53,8 @@ const journalMissedReasonLimiter = createRateLimiterChain([
   {
     keyPrefix: "journal-missed-reason-write-daily",
     windowMs: Number(process.env.JOURNAL_MISSED_REASON_RATE_LIMIT_DAILY_WINDOW_MS || 86_400_000),
-    max: Number(process.env.JOURNAL_MISSED_REASON_RATE_LIMIT_DAILY_MAX || 1),
-    message: "You have reached the daily missed-day reason limit for this portfolio project. Please try again tomorrow.",
+    max: Number(process.env.JOURNAL_MISSED_REASON_RATE_LIMIT_DAILY_MAX || 100),
+    message: "You have reached the daily missed-day reason limit. Please try again tomorrow.",
   },
 ]);
 

@@ -6,6 +6,8 @@ import { useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import JournalRightSidebar from "./JournalRightSidebar";
+import { MOCK_HISTORY } from "../../../data/JournalDummyData";
+import { demoJournalConsistency, formatJournalDay, journalDayKey } from "./journalUtils";
 
 const MOODS = [
   { emoji: "🔥", label: "Motivated" },
@@ -92,16 +94,6 @@ const INITIAL_FORM = {
   ratingTouched:  false,
 };
 
-const JOURNAL_LOGGED_DAYS_KEY = "monkmode_journal_logged_days";
-const JOURNAL_WEEKLY_STATS_KEY = "monkmode_journal_weekly_stats";
-
-const toLocalISODate = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
 const normalizeMoodLabel = (value) => {
   if (!value || typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -142,8 +134,7 @@ const buildFormFromEntry = (entry) => ({
   ratingTouched: entry?.overallRating !== undefined && entry?.overallRating !== null,
 });
 
-const buildPayloadFromForm = (form, customFields, date) => ({
-  date,
+const buildPayloadFromForm = (form, customFields) => ({
   mood: form.mood,
   wakeUpTime: form.wakeUpTime,
   sleepTime: form.sleepTime,
@@ -174,28 +165,6 @@ const buildTemplatePayloadFromFields = (customFields) =>
       description: (item.description || "").trim()
     }))
     .filter((item) => item.title);
-
-const saveJournalProgress = (date, achievementCount, winCount) => {
-  try {
-    const stored = JSON.parse(localStorage.getItem(JOURNAL_LOGGED_DAYS_KEY));
-    const dates = Array.isArray(stored) ? stored : [];
-    localStorage.setItem(JOURNAL_LOGGED_DAYS_KEY, JSON.stringify([...new Set([...dates, date])]));
-
-    const storedStats = JSON.parse(localStorage.getItem(JOURNAL_WEEKLY_STATS_KEY));
-    const stats = Array.isArray(storedStats) ? storedStats : [];
-    const nextStats = [
-      ...stats.filter((item) => item?.date !== date),
-      { date, achievementCount, winCount },
-    ];
-    localStorage.setItem(JOURNAL_WEEKLY_STATS_KEY, JSON.stringify(nextStats));
-
-    window.dispatchEvent(new Event("monkmode:journal-logged-days-updated"));
-  } catch {
-    localStorage.setItem(JOURNAL_LOGGED_DAYS_KEY, JSON.stringify([date]));
-    localStorage.setItem(JOURNAL_WEEKLY_STATS_KEY, JSON.stringify([{ date, achievementCount, winCount }]));
-    window.dispatchEvent(new Event("monkmode:journal-logged-days-updated"));
-  }
-};
 
 /* ── shared style tokens ── */
 const inputBase =
@@ -427,6 +396,11 @@ function JournalViewModal({ form, customFields, date, onClose }) {
 }
 
 export default function Journal() {
+  const { user, isDemoMode } = useAuth();
+  return <JournalContent key={`${isDemoMode ? "demo" : "real"}:${user?.id || "guest"}`} />;
+}
+
+function JournalContent() {
   const { isDemoMode } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedMobileView = searchParams.get("journal");
@@ -452,6 +426,10 @@ export default function Journal() {
   const [loading, setLoading]           = useState(!isDemoMode);
   const [saving, setSaving]             = useState(false);
   const [submitError, setSubmitError]   = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [saveWarning, setSaveWarning] = useState("");
+  const [journalTimezone, setJournalTimezone] = useState("Asia/Kolkata");
   const [journalConsistency, setJournalConsistency] = useState({
     lifetimeConsistency: 0,
     lifetimeLoggedDays: 0,
@@ -467,21 +445,23 @@ export default function Journal() {
     previousStepRef.current = step;
   }, [step]);
 
-  const todayStr = () => toLocalISODate(new Date());
+  const todayStr = () => journalDayKey(new Date(), journalTimezone);
 
   const syncCustomFieldTemplates = async (fields) => {
-    if (isDemoMode) return;
+    if (isDemoMode) return true;
     try {
       await api.put("/journal/custom-fields", {
         templates: buildTemplatePayloadFromFields(fields)
       });
+      return true;
     } catch {
-      // Keep journaling flow smooth even if template sync fails.
+      return false;
     }
   };
 
   useEffect(() => {
     if (isDemoMode) {
+      setJournalConsistency(demoJournalConsistency(MOCK_HISTORY));
       setLoading(false);
       return;
     }
@@ -489,14 +469,17 @@ export default function Journal() {
     let cancelled = false;
     const loadJournalState = async () => {
       setLoading(true);
+      setLoadError("");
       try {
-        const today = todayStr();
         const [todayRes, summaryRes, templatesRes] = await Promise.all([
-          api.get(`/journal?from=${today}&to=${today}`),
+          api.get("/journal?today=true"),
           api.get("/journal/summary"),
           api.get("/journal/custom-fields")
         ]);
         if (cancelled) return;
+        const timezone = summaryRes?.data?.timezone || "Asia/Kolkata";
+        const today = summaryRes?.data?.date || journalDayKey(new Date(), timezone);
+        setJournalTimezone(timezone);
 
         const todayEntries = Array.isArray(todayRes?.data)
           ? todayRes.data
@@ -509,7 +492,7 @@ export default function Journal() {
           setForm(buildFormFromEntry(existingToday));
           setCustomFields(Array.isArray(existingToday.customFields) ? existingToday.customFields : []);
           setSubmitted(true);
-          setSubmittedDate(today);
+          setSubmittedDate(existingToday.dayKey || today);
         } else {
           const templates = Array.isArray(templatesRes?.data?.templates)
             ? templatesRes.data.templates
@@ -527,7 +510,7 @@ export default function Journal() {
           lifetimeExpectedDays: Number(summaryRes?.data?.lifetimeExpectedDays || 0)
         });
       } catch {
-        // Keep local defaults on transient failure.
+        if (!cancelled) setLoadError("Could not load your journal. Retry before writing so an existing entry is not overwritten.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -535,7 +518,7 @@ export default function Journal() {
 
     loadJournalState();
     return () => { cancelled = true; };
-  }, [isDemoMode]);
+  }, [isDemoMode, loadAttempt]);
 
   /* ── derived ── */
   const totalSteps  = MANDATORY_STEP_COUNT + customFields.length;
@@ -667,21 +650,18 @@ export default function Journal() {
       setSubmitError("Demo mode is preview-only. Sign in to write and save a journal entry.");
       return;
     }
-    const date = todayStr();
-    const achievementCount = form.achievement.filter((item) => item.trim()).length;
-    const winCount = form.wins.filter((item) => item.trim()).length;
     setSaving(true);
     setSubmitError("");
+    setSaveWarning("");
 
     try {
-      await api.post("/journal", buildPayloadFromForm(form, customFields, date));
-      await syncCustomFieldTemplates(customFields);
-      const summaryRes = await api.get("/journal/summary");
-      setJournalConsistency({
-        lifetimeConsistency: Number(summaryRes?.data?.lifetimeConsistency || 0),
-        lifetimeLoggedDays: Number(summaryRes?.data?.lifetimeLoggedDays || 0),
-        lifetimeExpectedDays: Number(summaryRes?.data?.lifetimeExpectedDays || 0)
-      });
+      // The server determines today's date; the browser's timezone cannot move
+      // this entry to yesterday or tomorrow.
+      const saved = await api.post("/journal", buildPayloadFromForm(form, customFields));
+      setSubmitted(true);
+      setSubmittedDate(saved.data.dayKey);
+      setRefreshSidebarKey((value) => value + 1);
+      window.dispatchEvent(new Event("monkmode:journal-logged-days-updated"));
     } catch (error) {
       const backendMessage = error?.response?.data?.message;
       setSubmitError(backendMessage || "Could not save journal entry. Please try again.");
@@ -689,17 +669,35 @@ export default function Journal() {
       return;
     }
 
-    saveJournalProgress(date, achievementCount, winCount);
-    setSubmitted(true);
-    setSubmittedDate(date);
-    setRefreshSidebarKey((value) => value + 1);
-    setSaving(false);
+    // Once POST succeeds, secondary requests must never report the save failed.
+    try {
+      const templatesSynced = await syncCustomFieldTemplates(customFields);
+      const summaryRes = await api.get("/journal/summary");
+      setJournalConsistency({
+        lifetimeConsistency: Number(summaryRes?.data?.lifetimeConsistency || 0),
+        lifetimeLoggedDays: Number(summaryRes?.data?.lifetimeLoggedDays || 0),
+        lifetimeExpectedDays: Number(summaryRes?.data?.lifetimeExpectedDays || 0)
+      });
+      if (!templatesSynced) setSaveWarning("Your entry is saved, including its custom answers. Reusable field templates could not sync; try again later.");
+    } catch {
+      setSaveWarning("Your entry is saved. Statistics could not refresh; reload later to see the latest totals.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
     return (
       <div className="flex min-h-[55vh] items-center justify-center">
         <p className="text-sm text-stone-400">Loading journal...</p>
+      </div>
+    );
+  }
+  if (loadError) {
+    return (
+      <div className="flex min-h-[55vh] flex-col items-center justify-center gap-4 px-4 text-center">
+        <p role="alert" className="max-w-md text-sm text-rose-200">{loadError}</p>
+        <button type="button" className={btnPrimary} onClick={() => setLoadAttempt(value => value + 1)}>Retry loading journal</button>
       </div>
     );
   }
@@ -728,6 +726,7 @@ export default function Journal() {
           <p className="text-sm text-stone-400 text-center max-w-sm leading-relaxed">
             Your journal entry has been saved. Come back tomorrow and keep your consistency alive.
           </p>
+          {saveWarning && <p role="status" className="max-w-md text-center text-xs text-amber-200">{saveWarning}</p>}
 
           {/* Editable-today badge */}
           <div className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold ${
@@ -757,6 +756,7 @@ export default function Journal() {
             {canEditToday && (
               <button
                 type="button"
+                disabled={saving}
                 onClick={() => { setSubmitted(false); setStep(1); }}
                 className="flex w-full items-center justify-center gap-2 rounded-full border border-amber-400/30 bg-amber-500/10 px-5 py-2.5 text-sm font-semibold text-amber-300 transition duration-200 hover:border-amber-400/60 hover:bg-amber-500/20 hover:text-amber-200 sm:w-auto"
               >
@@ -780,7 +780,7 @@ export default function Journal() {
           <JournalViewModal
             form={form}
             customFields={customFields}
-            date={new Date(submittedDate).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+            date={formatJournalDay(submittedDate, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
             onClose={() => setShowJournalView(false)}
           />
         )}
@@ -805,7 +805,7 @@ export default function Journal() {
               Consistency {journalConsistency.lifetimeConsistency}%
             </span>
             <span className="rounded-full border border-amber-100/20 bg-black/20 px-2 py-0.5 text-[11px] text-amber-100/90">
-              Lifetime {journalConsistency.lifetimeLoggedDays}/{journalConsistency.lifetimeExpectedDays}
+              {isDemoMode ? "Sample" : "Lifetime"} {journalConsistency.lifetimeLoggedDays}/{journalConsistency.lifetimeExpectedDays}
             </span>
           </div>
           <p className="journal-consistency-message text-sm leading-6 text-stone-400">Keep it up — consistency builds clarity.</p>

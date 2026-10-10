@@ -1,8 +1,9 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import { MOCK_HISTORY } from "../../../data/JournalDummyData";
+import { formatJournalDay } from "./journalUtils";
 
 const MOOD_EMOJI = {
   Motivated: "🔥",
@@ -79,8 +80,8 @@ function EntryModal({ entry, onClose }) {
     : entry.overallRating >= 40 ? "Average day 🤝"
     : "Rough day, but you showed up 💪";
 
-  const formattedDate = new Date(`${entry.dayKey ?? entry.date.slice(0, 10)}T12:00:00Z`).toLocaleDateString("en-US", {
-    weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC",
+  const formattedDate = formatJournalDay(entry.dayKey ?? entry.date.slice(0, 10), {
+    weekday: "long", month: "long", day: "numeric", year: "numeric",
   });
 
   useEffect(() => {
@@ -282,14 +283,28 @@ function JournalRightSidebar({ refreshToken = 0 }) {
   const [modalEntry, setModalEntry] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(!isDemoMode);
+  const [historyError, setHistoryError] = useState("");
+  const [historyAttempt, setHistoryAttempt] = useState(0);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const historyVersion = useRef(0);
 
   const [missedDays, setMissedDays] = useState([]);
   const [missedLoading, setMissedLoading] = useState(!isDemoMode);
   const [editingDay, setEditingDay] = useState(null);
   const [reasonDraft, setReasonDraft] = useState("");
   const [saving, setSaving] = useState(false);
+  const [missedError, setMissedError] = useState("");
+  const [missedAttempt, setMissedAttempt] = useState(0);
+  const [reasonError, setReasonError] = useState("");
 
   useEffect(() => {
+    const version = ++historyVersion.current;
+    setHistoryError("");
+    setHistoryPage(1);
+    setHasMore(false);
+    setLoadingMore(false);
     if (isDemoMode) {
       setHistory(MOCK_HISTORY.map(normalizeEntry));
       setLoading(false);
@@ -308,18 +323,44 @@ function JournalRightSidebar({ refreshToken = 0 }) {
           ? res.data
           : [];
         setHistory(entries.map(normalizeEntry));
+        setHasMore(Number(res?.data?.totalPages || 1) > 1);
       } catch {
-        if (!cancelled) setHistory([]);
+        if (!cancelled) setHistoryError("Could not load past entries. Your saved journals have not been deleted.");
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
 
     loadEntries();
-    return () => { cancelled = true; };
-  }, [isDemoMode, refreshToken]);
+    return () => { cancelled = true; if (historyVersion.current === version) historyVersion.current += 1; };
+  }, [isDemoMode, refreshToken, historyAttempt]);
+
+  const loadOlderEntries = async () => {
+    if (isDemoMode || loading || loadingMore || !hasMore) return;
+    const version = historyVersion.current;
+    setLoadingMore(true);
+    setHistoryError("");
+    try {
+      const nextPage = historyPage + 1;
+      const res = await api.get(`/journal?page=${nextPage}&limit=14`);
+      if (version !== historyVersion.current) return;
+      const nextEntries = Array.isArray(res.data?.entries) ? res.data.entries.map(normalizeEntry) : [];
+      setHistory(previous => {
+        const merged = new Map(previous.map(entry => [entry._id || entry.dayKey || entry.date, entry]));
+        nextEntries.forEach(entry => merged.set(entry._id || entry.dayKey || entry.date, entry));
+        return [...merged.values()];
+      });
+      setHistoryPage(nextPage);
+      setHasMore(nextPage < Number(res.data?.totalPages || nextPage));
+    } catch {
+      if (version === historyVersion.current) setHistoryError("Could not load older entries. Try again.");
+    } finally {
+      if (version === historyVersion.current) setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
+    setMissedError("");
     if (isDemoMode) {
       setMissedDays([]);
       setMissedLoading(false);
@@ -333,7 +374,7 @@ function JournalRightSidebar({ refreshToken = 0 }) {
         const res = await api.get("/weekly-report/journal/missed-days");
         if (!cancelled) setMissedDays(Array.isArray(res.data) ? res.data : []);
       } catch {
-        if (!cancelled) setMissedDays([]);
+        if (!cancelled) setMissedError("Could not check missed days. Please retry.");
       } finally {
         if (!cancelled) setMissedLoading(false);
       }
@@ -341,25 +382,26 @@ function JournalRightSidebar({ refreshToken = 0 }) {
 
     loadMissedDays();
     return () => { cancelled = true; };
-  }, [isDemoMode, refreshToken]);
+  }, [isDemoMode, refreshToken, missedAttempt]);
 
   const handleStartEdit = (day) => {
     if (isDemoMode) return;
     setEditingDay(day.date);
+    setReasonError("");
     setReasonDraft(day.reason || "");
   };
 
   const handleSaveReason = async (dayKey) => {
     if (isDemoMode || saving || !reasonDraft.trim()) return;
-    if (!reasonDraft.trim()) return;
     setSaving(true);
+    setReasonError("");
     try {
       const res = await api.post("/weekly-report/journal/missed-reason", { dayKey, reason: reasonDraft });
       setMissedDays(prev => prev.map(d => d.date === dayKey ? { ...d, reason: res.data.reason } : d));
       setEditingDay(null);
       setReasonDraft("");
-    } catch {
-      // silent
+    } catch (error) {
+      setReasonError(error?.response?.data?.error || error?.response?.data?.message || "Could not save the reason. Your text is still here; please retry.");
     } finally {
       setSaving(false);
     }
@@ -381,9 +423,14 @@ function JournalRightSidebar({ refreshToken = 0 }) {
           </div>
 
           {isDemoMode ? (
-            <p className="text-xs text-stone-500">No missed days this week! 🎉</p>
+            <p className="text-xs text-stone-500">Sample week — no missed days! 🎉</p>
           ) : missedLoading ? (
             <p className="text-xs text-stone-500">Loading...</p>
+          ) : missedError ? (
+            <div className="space-y-2">
+              <p role="alert" className="text-xs text-rose-200">{missedError}</p>
+              <button type="button" onClick={() => setMissedAttempt(value => value + 1)} className="text-xs font-semibold text-amber-300">Retry missed days</button>
+            </div>
           ) : missedDays.length === 0 ? (
             <p className="text-xs text-stone-400">No missed days this week! 🎉</p>
           ) : (
@@ -415,8 +462,10 @@ function JournalRightSidebar({ refreshToken = 0 }) {
                         onChange={(e) => setReasonDraft(e.target.value)}
                         placeholder="Why did you miss this day?"
                         rows={2}
+                        maxLength={1000}
                         className="w-full resize-none rounded-lg border border-amber-100/10 bg-stone-900/60 px-3 py-2 text-xs text-stone-200 placeholder-stone-600 focus:border-amber-400/30 focus:outline-none"
                       />
+                      {reasonError && <p role="alert" className="text-xs text-rose-200">{reasonError}</p>}
                       <div className="flex gap-2">
                         <button
                           type="button"
@@ -428,7 +477,8 @@ function JournalRightSidebar({ refreshToken = 0 }) {
                         </button>
                         <button
                           type="button"
-                          onClick={() => { setEditingDay(null); setReasonDraft(""); }}
+                          disabled={saving}
+                          onClick={() => { setEditingDay(null); setReasonDraft(""); setReasonError(""); }}
                           className="rounded-lg border border-stone-700 px-3 py-1 text-[10px] font-semibold text-stone-500 transition hover:text-stone-300"
                         >
                           Cancel
@@ -452,16 +502,16 @@ function JournalRightSidebar({ refreshToken = 0 }) {
           <div className="journal-history-list space-y-3 pr-1 journal-scroll">
             {loading ? (
               <p className="text-xs text-stone-500">Loading entries...</p>
-            ) : entries.length === 0 ? (
+            ) : entries.length === 0 && !historyError ? (
               <p className="text-xs text-stone-500">No journal entries yet.</p>
             ) : entries.map((item) => {
-              const formattedDate = new Date(`${item.dayKey ?? item.date.slice(0, 10)}T12:00:00Z`).toLocaleDateString("en-US", {
-                month: "short", day: "numeric", weekday: "short", timeZone: "UTC",
+              const formattedDate = formatJournalDay(item.dayKey ?? item.date.slice(0, 10), {
+                month: "short", day: "numeric", weekday: "short",
               });
 
               return (
                 <div
-                  key={item.date}
+                  key={item._id || item.dayKey || item.date}
                   className="rounded-xl border border-amber-100/10 bg-stone-950/45 p-3 transition-colors duration-200 hover:border-amber-400/20"
                 >
 
@@ -494,6 +544,17 @@ function JournalRightSidebar({ refreshToken = 0 }) {
                 </div>
               );
             })}
+            {!loading && historyError && (
+              <div className="space-y-2">
+                <p role="alert" className="text-xs text-rose-200">{historyError}</p>
+                {!hasMore && <button type="button" onClick={() => setHistoryAttempt(value => value + 1)} className="text-xs font-semibold text-amber-300">Retry past entries</button>}
+              </div>
+            )}
+            {!loading && hasMore && (
+              <button type="button" disabled={loadingMore} onClick={loadOlderEntries} className="w-full rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300 disabled:opacity-50">
+                {loadingMore ? "Loading older entries…" : "Load older entries"}
+              </button>
+            )}
           </div>
         </section>
 
