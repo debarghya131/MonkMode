@@ -1,5 +1,9 @@
-import { AnimatePresence, motion as Motion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion as Motion } from "framer-motion";
 import { useState } from "react";
+import useAuth from "../../../hooks/useAuth";
+import useMobileLowMotion from "../../../hooks/useMobileLowMotion";
+import { JournalAnalysisContext } from "./journalAnalysisContext";
+import useJournalAnalysisData from "./useJournalAnalysisData";
 import MoodAnalysis from "./MoodAnalysis";
 import OthersAnalysis from "./OthersAnalysis";
 import SleepEnergyAnalysis from "./SleepEnergyAnalysis";
@@ -11,6 +15,12 @@ const JOURNAL_ANALYSIS_SECTIONS = [
 ];
 
 export default function JournalAnalysis() {
+  const { isDemoMode, user } = useAuth();
+  return <JournalSession key={isDemoMode ? "demo" : user?.id || user?._id || "user"} isDemoMode={isDemoMode} />;
+}
+function JournalSession({ isDemoMode }) {
+  const resource = useJournalAnalysisData(isDemoMode);
+  const lowMotion = useMobileLowMotion();
   const [activeSection, setActiveSection] = useState(JOURNAL_ANALYSIS_SECTIONS[0].id);
   const [menuOpen, setMenuOpen] = useState(false);
   const activeTab =
@@ -19,12 +29,16 @@ export default function JournalAnalysis() {
   const ActiveComponent = activeTab.component;
 
   return (
-    <div className="journal-analysis-page space-y-4 sm:space-y-5">
+    <JournalAnalysisContext.Provider value={resource}>
+    <MotionConfig reducedMotion={lowMotion ? "always" : "user"}>
+    <div data-demo-allow="true" data-section={activeSection} className="journal-analysis-page space-y-4 sm:space-y-5">
       {/* Mobile: hamburger dropdown */}
       <div className="journal-analysis-mobile-nav relative sm:hidden">
         <button
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
+          aria-expanded={menuOpen}
+          aria-label="Journal Analysis section"
           className="flex w-full items-center justify-between gap-2 rounded-2xl border border-amber-100/10 bg-black/20 px-4 py-2.5 text-sm font-semibold text-amber-300 shadow-xl shadow-black/25 backdrop-blur"
         >
           <span className="flex min-w-0 items-center gap-2">
@@ -44,6 +58,7 @@ export default function JournalAnalysis() {
                   key={section.id}
                   type="button"
                   onClick={() => { setActiveSection(section.id); setMenuOpen(false); }}
+                  aria-pressed={activeSection === section.id}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
                     activeSection === section.id
                       ? "bg-amber-500/15 text-amber-300"
@@ -83,7 +98,7 @@ export default function JournalAnalysis() {
         <Motion.div
           key={activeTab.id}
           className="journal-analysis-content"
-          initial={{ opacity: 0, y: 14 }}
+          initial={lowMotion ? false : { opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.22, ease: "easeInOut" }}
@@ -92,5 +107,7 @@ export default function JournalAnalysis() {
         </Motion.div>
       </AnimatePresence>
     </div>
+    </MotionConfig>
+    </JournalAnalysisContext.Provider>
   );
 }

@@ -1,10 +1,10 @@
 import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { INITIAL_TASKS } from "../../../data/ToDoDummyData";
 import useAuth from "../../hooks/useAuth";
-import api from "../../api/axios";
+import { formatTodoTime, formatTodoDay } from "./todoUtils";
 
 const PRIORITY_ORDER = ["High", "Medium", "Low"];
 
@@ -46,31 +46,9 @@ function TaskStatusBadge({ status }) {
   );
 }
 
-const toISODate = (dateObj) => {
-  const year = dateObj.getFullYear();
-  const month = String(dateObj.getMonth() + 1).padStart(2, "0");
-  const day = String(dateObj.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
+const formatTime = formatTodoTime;
 
-const formatTime = (timeValue) => {
-  if (!timeValue) return "--";
-  const [hours, minutes] = timeValue.split(":").map(Number);
-  const date = new Date();
-  date.setHours(hours, minutes, 0, 0);
-  return date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-};
-
-// Normalize a task from the API (description → note)
-const normalizeApiTask = (task) => ({
-  ...task,
-  note: task.note ?? task.description ?? "",
-});
-
-function TaskRow({ task, onUndo, index = 0, lowMotion = false }) {
+function TaskRow({ task, onUndo, busy = false, index = 0, lowMotion = false }) {
   const Article = lowMotion ? "article" : Motion.article;
   return (
     <Article
@@ -105,11 +83,13 @@ function TaskRow({ task, onUndo, index = 0, lowMotion = false }) {
           <button
             type="button"
             onClick={onUndo}
+            disabled={busy}
+            aria-busy={busy}
             title="Undo — mark as pending"
             className="dashboard-card-action"
             data-tone="warning"
           >
-            ↶ Undo
+            {busy ? "Saving…" : "↶ Undo"}
           </button>
         )}
       </div>
@@ -215,7 +195,7 @@ function TodayOverview({ tasks, pendingTasks, completedTasks, missedTasks, class
   );
 }
 
-export default function Today({ lowMotion = false, consistency }) {
+export default function Today({ lowMotion = false, consistency, tasks: realTasks = [], clock, onUpdateStatus, busyIds = new Set() }) {
   const { isDemoMode } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTodayView = searchParams.get("today");
@@ -231,35 +211,15 @@ export default function Today({ lowMotion = false, consistency }) {
     variants: { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } },
     transition: { duration: 0.3 },
   };
-  const todayISO = toISODate(new Date());
-
-  const [tasks, setTasks] = useState(isDemoMode ? INITIAL_TASKS : []);
-  const [loading, setLoading] = useState(!isDemoMode);
+  const todayISO = clock.date;
+  const tasks = isDemoMode ? INITIAL_TASKS : realTasks;
+  const [actionError, setActionError] = useState("");
   const [allFilter, setAllFilter] = useState("All");
   const [pendingFilter, setPendingFilter] = useState("All");
   const [completedFilter, setCompletedFilter] = useState("All");
   const [latePrompt, setLatePrompt] = useState({ taskId: null, time: "" });
 
-  const todayLabel = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-  });
-
-  useEffect(() => {
-    if (isDemoMode) return;
-    const fetchTodayTasks = async () => {
-      try {
-        const { data } = await api.get(`/todos?date=${todayISO}&view=active`);
-        setTasks(data.map(normalizeApiTask));
-      } catch (err) {
-        console.error("Failed to fetch today's tasks:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchTodayTasks();
-  }, [isDemoMode, todayISO]);
+  const todayLabel = formatTodoDay(todayISO, { weekday: "long", month: "short", day: "numeric" });
 
   const pendingTasks = useMemo(() => tasks.filter((t) => t.status === "pending"), [tasks]);
   const completedTasks = useMemo(() => tasks.filter((t) => t.status === "completed"), [tasks]);
@@ -289,88 +249,21 @@ export default function Today({ lowMotion = false, consistency }) {
         if (!acc[task.category]) acc[task.category] = [];
         acc[task.category].push(task);
         return acc;
-      }, {}),
+      }, Object.create(null)),
     [tasks]
   );
 
-  const markComplete = async (id) => {
-    const prev = tasks;
-    setTasks((prevTasks) =>
-      prevTasks.map((t) => (t.id === id ? { ...t, previousStatus: t.status, status: "completed" } : t))
-    );
-    if (!isDemoMode) {
-      try {
-        const { data } = await api.patch(`/todos/${id}/toggle`, { date: todayISO });
-        setTasks((prevTasks) =>
-          prevTasks.map((t) => (t.id === id ? { ...normalizeApiTask(data), previousStatus: "pending" } : t))
-        );
-        window.dispatchEvent(new Event("monkmode:todos-updated"));
-      } catch {
-        setTasks(prev);
-      }
-    }
-  };
-
-  const undoComplete = async (id) => {
-    const prev = tasks;
-    setTasks((prevTasks) =>
-      prevTasks.map((t) => {
-        if (t.id !== id) return t;
-        const { previousStatus, ...rest } = t;
-        return { ...rest, status: previousStatus ?? "pending" };
-      })
-    );
-    if (!isDemoMode) {
-      try {
-        const { data } = await api.patch(`/todos/${id}/status`, { date: todayISO, status: "pending" });
-        setTasks((prevTasks) =>
-          prevTasks.map((t) => {
-            if (t.id !== id) return t;
-            const { previousStatus: _previousStatus, ...rest } = t;
-            return { ...rest, ...normalizeApiTask(data) };
-          })
-        );
-        window.dispatchEvent(new Event("monkmode:todos-updated"));
-      } catch {
-        setTasks(prev);
-      }
-    }
-  };
-
+  const sampleConsistency = tasks.length ? Math.round(completedTasks.length / tasks.length * 100) : 0;
+  const markComplete = id => onUpdateStatus(id, todayISO, "completed");
+  const undoComplete = id => onUpdateStatus(id, todayISO, "pending");
   const markCompleteWithTime = async (id, completedAt) => {
-    const prev = tasks;
-    setTasks((prevTasks) =>
-      prevTasks.map((t) =>
-        t.id === id
-          ? { ...t, previousStatus: t.status, status: "completed", lateCompleted: true, completedAt }
-          : t
-      )
-    );
-    setLatePrompt({ taskId: null, time: "" });
-    if (!isDemoMode) {
-      try {
-        const { data } = await api.patch(`/todos/${id}/status`, {
-          date: todayISO,
-          status: "completed",
-          completedAt,
-        });
-        setTasks((prevTasks) =>
-          prevTasks.map((t) => (t.id === id ? { ...normalizeApiTask(data), previousStatus: "pending" } : t))
-        );
-        window.dispatchEvent(new Event("monkmode:todos-updated"));
-      } catch {
-        setTasks(prev);
-      }
+    if (!completedAt || completedAt > clock.time) {
+      setActionError("Choose a completion time no later than the current app time.");
+      return;
     }
+    setActionError("");
+    if (await onUpdateStatus(id, todayISO, "completed", completedAt)) setLatePrompt({ taskId: null, time: "" });
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-sm text-stone-400">Loading today&apos;s tasks…</p>
-      </div>
-    );
-  }
 
   return (
     <div className="todo-today-view" data-mobile-view={mobileView}>
@@ -379,10 +272,10 @@ export default function Today({ lowMotion = false, consistency }) {
           <span className="today-mobile-consistency-icon" aria-hidden="true">📊</span>
           <div className="min-w-0">
             <p className="today-mobile-consistency-title">
-              Consistency {isDemoMode ? "--" : `${consistency.lifetimeConsistency}%`}
+              Consistency {isDemoMode ? `${sampleConsistency}%` : `${consistency.lifetimeConsistency}%`}
             </p>
             <p className="today-mobile-consistency-detail">
-              {isDemoMode ? "Demo mode" : `Today ${consistency.todayCompleted}/${consistency.todayTotal}`}
+              {isDemoMode ? `Sample today · ${completedTasks.length}/${tasks.length}` : `Today ${consistency.todayCompleted}/${consistency.todayTotal}`}
             </p>
           </div>
         </div>
@@ -424,10 +317,10 @@ export default function Today({ lowMotion = false, consistency }) {
               </Motion.span>
               <div className="flex min-w-0 flex-col">
                 <span className="text-lg font-bold text-amber-400">
-                  Consistency {isDemoMode ? "--" : `${consistency.lifetimeConsistency}%`}
+                  Consistency {isDemoMode ? `${sampleConsistency}%` : `${consistency.lifetimeConsistency}%`}
                 </span>
                 {isDemoMode ? (
-                  <span className="text-[11px] text-amber-200/80">Demo mode</span>
+                  <span className="text-[11px] text-amber-200/80">Sample today · {completedTasks.length}/{tasks.length}</span>
                 ) : (
                   <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
                     <span className="rounded-full border border-amber-100/20 bg-black/20 px-2 py-0.5 text-amber-100/90">
@@ -522,7 +415,7 @@ export default function Today({ lowMotion = false, consistency }) {
                   const filtered = pendingFilter === "All" ? pendingTasks : pendingTasks.filter((t) => t.priority === pendingFilter);
                   return filtered.length === 0 ? (
                     <p className="mt-3 text-xs text-stone-500">
-                      {pendingTasks.length === 0 ? "All tasks completed for today!" : "No pending tasks for this priority."}
+                      {pendingTasks.length === 0 ? (tasks.length === 0 ? "No tasks scheduled for today." : missedTasks.length ? "No pending tasks. Review missed tasks." : "All tasks completed for today!") : "No pending tasks for this priority."}
                     </p>
                   ) : (
                     filtered.map((task, i) => (
@@ -544,10 +437,12 @@ export default function Today({ lowMotion = false, consistency }) {
                           <button
                             type="button"
                             onClick={() => markComplete(task.id)}
+                            disabled={busyIds.has(task.id)}
+                            aria-busy={busyIds.has(task.id)}
                             className="dashboard-card-action"
                             data-tone="success"
                           >
-                            ✓ Complete
+                            {busyIds.has(task.id) ? "Saving…" : "✓ Complete"}
                           </button>
                         </div>
                         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-stone-300">
@@ -586,7 +481,7 @@ export default function Today({ lowMotion = false, consistency }) {
                     <p className="mt-3 text-xs text-stone-500">No completed tasks for this priority.</p>
                   ) : (
                     filtered.map((task) => (
-                      <TaskRow key={task.id} task={task} onUndo={() => undoComplete(task.id)} lowMotion={lowMotion} />
+                      <TaskRow key={task.id} task={task} busy={busyIds.has(task.id)} onUndo={() => undoComplete(task.id)} lowMotion={lowMotion} />
                     ))
                   );
                 })()}
@@ -641,18 +536,21 @@ export default function Today({ lowMotion = false, consistency }) {
                           {...(lowMotion ? {} : { initial: { opacity: 0, y: -6 }, animate: { opacity: 1, y: 0 } })}
                           className="mt-3 space-y-2"
                         >
+                          {actionError && <p role="alert" className="text-xs text-rose-300">{actionError}</p>}
                           <p className="text-[11px] text-orange-300/80">When did you actually complete this?</p>
                           <div className="flex items-center gap-2">
 <DashboardDateTimeInput
                               type="time"
                               value={latePrompt.time}
+                              max={clock.time}
+                              disabled={busyIds.has(task.id)}
                               onChange={(e) => setLatePrompt((p) => ({ ...p, time: e.target.value }))}
                               className="rounded-lg border border-orange-400/25 bg-orange-500/10 px-2 py-1 text-xs text-orange-100 outline-none focus:border-orange-400/50"
                             />
                             <Action
                               type="button"
                               onClick={() => latePrompt.time && markCompleteWithTime(task.id, latePrompt.time)}
-                              disabled={!latePrompt.time}
+                              disabled={!latePrompt.time || busyIds.has(task.id)}
                               {...(lowMotion ? {} : { whileHover: { scale: 1.04 }, whileTap: { scale: 0.95 } })}
                               className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200 disabled:opacity-40 transition hover:border-emerald-300/50 hover:bg-emerald-500/20"
                             >
@@ -660,7 +558,8 @@ export default function Today({ lowMotion = false, consistency }) {
                             </Action>
                             <button
                               type="button"
-                              onClick={() => setLatePrompt({ taskId: null, time: "" })}
+                              disabled={busyIds.has(task.id)}
+                              onClick={() => { setLatePrompt({ taskId: null, time: "" }); setActionError(""); }}
                               className="text-[11px] text-stone-500 hover:text-stone-300"
                             >
                               Cancel

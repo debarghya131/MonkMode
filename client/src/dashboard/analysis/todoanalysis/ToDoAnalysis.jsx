@@ -1,44 +1,44 @@
-import { AnimatePresence, motion as Motion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion as Motion } from "framer-motion";
 import { useState } from "react";
-import CategPrioAnalyProca from "./CategPrioAnalyProca";
+import useAuth from "../../../hooks/useAuth";
+import useMobileLowMotion from "../../../hooks/useMobileLowMotion";
+import { TodoAnalysisContext } from "./todoAnalysisContext";
+import useTodoAnalysisData from "./useTodoAnalysisData";
 import CompleteMissTime from "./CompleteMissTime";
+import CategPrioAnalyProca from "./CategPrioAnalyProca";
 import ScoreStreakAnalysis from "./ScoreStreakAnalysis";
 
 const TODO_ANALYSIS_SECTIONS = [
-  {
-    id: "completion-miss-time",
-    label: "Completion | Missed | Time Analysis",
-    icon: "⏱️",
-    component: CompleteMissTime,
-  },
-  {
-    id: "category-priority-procastination",
-    label: "Category | Priority wise Analysis & Procastination Detection",
-    icon: "📊",
-    component: CategPrioAnalyProca,
-  },
-  {
-    id: "score-streak",
-    label: "Score & Streak Analysis",
-    icon: "🔥",
-    component: ScoreStreakAnalysis,
-  },
+  { id: "completion-miss-time", label: "Completion | Missed | Time Analysis", icon: "⏱️", component: CompleteMissTime },
+  { id: "category-priority-procrastination", label: "Category | Priority-wise Analysis & Procrastination Detection", icon: "📊", component: CategPrioAnalyProca },
+  { id: "score-streak", label: "Score & Streak Analysis", icon: "🔥", component: ScoreStreakAnalysis },
 ];
 
 export default function ToDoAnalysis() {
+  const { isDemoMode, user } = useAuth();
+  return <TodoSession key={isDemoMode ? "demo" : user?.id || user?._id || "user"} isDemoMode={isDemoMode} />;
+}
+function TodoSession({ isDemoMode }) {
+  const resource = useTodoAnalysisData(isDemoMode);
+  const lowMotion = useMobileLowMotion();
   const [activeSection, setActiveSection] = useState(TODO_ANALYSIS_SECTIONS[0].id);
   const [menuOpen, setMenuOpen] = useState(false);
   const activeTab =
-    TODO_ANALYSIS_SECTIONS.find((section) => section.id === activeSection) ?? TODO_ANALYSIS_SECTIONS[0];
+    TODO_ANALYSIS_SECTIONS.find((section) => section.id === activeSection) ??
+    TODO_ANALYSIS_SECTIONS[0];
   const ActiveComponent = activeTab.component;
 
   return (
-    <div className="todo-analysis-page space-y-4 sm:space-y-5">
+    <TodoAnalysisContext.Provider value={resource}>
+    <MotionConfig reducedMotion={lowMotion ? "always" : "user"}>
+    <div data-demo-allow="true" data-section={activeSection} className="todo-analysis-page space-y-4 sm:space-y-5">
       {/* Mobile: hamburger dropdown */}
-      <div className="todo-analysis-mobile-nav relative sm:hidden">
+      <div className="todo-analysis-mobile-nav relative sm:hidden" onKeyDown={event => { if (event.key === "Escape") setMenuOpen(false); }}>
         <button
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
+          aria-expanded={menuOpen}
+          aria-label="ToDo Analysis section"
           className="flex w-full items-center justify-between gap-2 rounded-2xl border border-amber-100/10 bg-black/20 px-4 py-2.5 text-sm font-semibold text-amber-300 shadow-xl shadow-black/25 backdrop-blur"
         >
           <span className="flex min-w-0 items-center gap-2">
@@ -58,6 +58,7 @@ export default function ToDoAnalysis() {
                   key={section.id}
                   type="button"
                   onClick={() => { setActiveSection(section.id); setMenuOpen(false); }}
+                  aria-pressed={activeSection === section.id}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
                     activeSection === section.id
                       ? "bg-amber-500/15 text-amber-300"
@@ -83,12 +84,11 @@ export default function ToDoAnalysis() {
               type="button"
               onClick={() => setActiveSection(section.id)}
               whileTap={{ scale: 0.98 }}
-              title={section.label}
               aria-pressed={isActive}
               className="dashboard-section-tab flex min-w-[7rem] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold"
             >
               <span className="text-base leading-none">{section.icon}</span>
-              <span className="min-w-0 truncate">{section.label}</span>
+              <span className="min-w-0 truncate" title={section.label}>{section.label}</span>
             </Motion.button>
           );
         })}
@@ -98,7 +98,7 @@ export default function ToDoAnalysis() {
         <Motion.div
           key={activeTab.id}
           className="todo-analysis-content"
-          initial={{ opacity: 0, y: 14 }}
+          initial={lowMotion ? false : { opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.22, ease: "easeInOut" }}
@@ -107,5 +107,7 @@ export default function ToDoAnalysis() {
         </Motion.div>
       </AnimatePresence>
     </div>
+    </MotionConfig>
+    </TodoAnalysisContext.Provider>
   );
 }

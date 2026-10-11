@@ -1,8 +1,12 @@
 import Todo from "../models/Todo.js";
 import TodoLog from "../models/TodoLog.js";
+import User from "../models/User.js";
+import { normalizeTodoPreferences } from "../utils/todoPreferencesUtils.js";
 import mongoose from "mongoose";
 import { APP_TIMEZONE } from "../config/runtime.js";
 import { addCalendarDays, calendarDaysBetween } from "../utils/calendarUtils.js";
+import { journalMonthDays } from "../../shared/journalAnalysisStats.js";
+import { computeTodoAnalysis } from "../../shared/todoAnalysisStats.js";
 
 const DELETE_UNDO_WINDOW_MS = 48 * 60 * 60 * 1000;
 const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -164,14 +168,43 @@ const createAuditLog = async (userId, task, action, at = new Date()) => {
   if (!task?.title) return null;
   const actionAt = new Date(at);
 
-  return TodoLog.create({
-    todoId: task?._id || null,
-    userId,
-    title: String(task.title).trim().slice(0, 180),
-    date: toDayKey(actionAt),
-    time: toTimeKey(actionAt),
-    action
-  });
+  try {
+    return await TodoLog.create({
+      todoId: task?._id || null,
+      userId,
+      title: String(task.title).trim().slice(0, 180),
+      date: toDayKey(actionAt),
+      time: toTimeKey(actionAt),
+      action
+    });
+  } catch {
+    // The task write has already succeeded. Never report it as a failed save.
+    console.warn("Todo saved, but its audit log could not be recorded.");
+    return null;
+  }
+};
+
+const auditWarning = log => log ? {} : { auditWarning: "Task saved, but its activity log could not be recorded." };
+
+export const getTodoPreferences = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("todoPreferences").lean();
+    if (!user) return res.status(404).json({ message: "User not found" });
+    return res.json(normalizeTodoPreferences({ categories: user.todoPreferences?.categories || [], importantCategories: user.todoPreferences?.importantCategories || [] }));
+  } catch {
+    return res.status(500).json({ message: "Could not load todo preferences" });
+  }
+};
+
+export const saveTodoPreferences = async (req, res) => {
+  try {
+    const preferences = normalizeTodoPreferences(req.body);
+    const user = await User.findByIdAndUpdate(req.user.id, { $set: { todoPreferences: preferences } }, { new: true, runValidators: true });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    return res.json(preferences);
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Could not save todo preferences" });
+  }
 };
 
 const getDeleteUndoMeta = (task, now = new Date()) => {
@@ -318,10 +351,18 @@ const isLateCompletionForDay = (task, dayKey, todayKey, completedAt = "") => {
 const getTodoStatusForDay = (task, dayKey, todayKey = toDayKey(new Date())) => {
   if (!isTaskScheduledOnDay(task, dayKey)) return "not_scheduled";
   const existingState = getExistingDayState(task, dayKey);
-  if (existingState?.status) return existingState.status;
+  if (existingState?.status && existingState.status !== "pending") return existingState.status;
   if (dayKey < todayKey) return "missed";
   if (hasTaskTimePassedForToday(task, dayKey)) return "missed";
   return "pending";
+};
+
+const completionTimeForDay = (status, dayKey, todayKey, value) => {
+  if (status !== "completed") return "";
+  const time = normalizeTime(value || "");
+  if (dayKey > todayKey) throw new Error("Future tasks cannot be marked completed.");
+  if (dayKey === todayKey && time > getCurrentTimeKey()) throw new Error("Completion time cannot be later than the current app time.");
+  return time || (dayKey === todayKey ? getCurrentTimeKey() : "");
 };
 
 const applyDayStatus = (task, dayKey, status, todayKey = toDayKey(new Date()), completedAt = "") => {
@@ -461,6 +502,8 @@ const toClientTask = (task, selectedDayKey = null, todayKey = toDayKey(new Date(
   };
 
   if (selectedDayKey) {
+    const effectiveDay = item.timeChangeEffectiveFrom ? toDayKey(item.timeChangeEffectiveFrom) : null;
+    if (item.pendingTime && effectiveDay && selectedDayKey >= effectiveDay) normalized.time = item.pendingTime;
     normalized.scheduled = isTaskScheduledOnDay(normalized, selectedDayKey);
     normalized.status = getTodoStatusForDay(normalized, selectedDayKey, todayKey);
     const selectedState = getExistingDayState(normalized, selectedDayKey);
@@ -483,6 +526,7 @@ export const createTodo = async (req, res) => {
       ? (payload.date ? toDayKey(payload.date) : null)
       : (payload.startDate ? toDayKey(payload.startDate) : null);
     const startsTodayWithPastTime = anchorDateKey === todayKey && payload.time <= nowTimeKey;
+    if (anchorDateKey < todayKey) return res.status(400).json({ message: "New tasks cannot start in the past." });
 
     // Do not allow creating tasks that start today when the selected time has already passed.
     if (startsTodayWithPastTime) {
@@ -495,8 +539,8 @@ export const createTodo = async (req, res) => {
       userId: req.user.id,
       ...payload
     });
-    await createAuditLog(req.user.id, todo, "created", new Date());
-    return res.status(201).json(toClientTask(todo));
+    const log = await createAuditLog(req.user.id, todo, "created", new Date());
+    return res.status(201).json({ ...toClientTask(todo), ...auditWarning(log) });
   } catch (error) {
     return res.status(400).json({ message: error.message || "Invalid todo payload" });
   }
@@ -653,10 +697,11 @@ export const updateTodo = async (req, res) => {
 
     Object.assign(todo, payload);
     await todo.save();
-    await createAuditLog(req.user.id, todo, "edited", new Date());
+    const log = await createAuditLog(req.user.id, todo, "edited", new Date());
 
     return res.json({
       ...toClientTask(todo),
+      ...auditWarning(log),
       splitApplied: false,
       reflectFromNextDay,
       reflectsFromDate: reflectFromNextDay ? tomorrowStart.toISOString() : null,
@@ -690,7 +735,7 @@ export const toggleTodo = async (req, res) => {
 
     const currentStatus = getTodoStatusForDay(todo, dayKey, todayKey);
     const nextStatus = currentStatus === "completed" ? "pending" : "completed";
-    const completedAt = nextStatus === "completed" ? normalizeTime(req.body?.completedAt || "") : "";
+    const completedAt = completionTimeForDay(nextStatus, dayKey, todayKey, req.body?.completedAt);
 
     applyDayStatus(todo, dayKey, nextStatus, todayKey, completedAt);
     await todo.save();
@@ -723,7 +768,7 @@ export const setTodoStatus = async (req, res) => {
       return res.status(400).json({ message: "Task is not scheduled for the selected date" });
     }
 
-    const completedAt = status === "completed" ? normalizeTime(req.body?.completedAt || "") : "";
+    const completedAt = completionTimeForDay(status, dayKey, todayKey, req.body?.completedAt);
     applyDayStatus(todo, dayKey, status, todayKey, completedAt);
     await todo.save();
 
@@ -743,11 +788,12 @@ export const deleteTodo = async (req, res) => {
 
     todo.deletedAt = new Date();
     await todo.save();
-    await createAuditLog(req.user.id, todo, "deleted", todo.deletedAt);
+    const log = await createAuditLog(req.user.id, todo, "deleted", todo.deletedAt);
 
     const normalized = toClientTask(todo);
     return res.json({
       message: "Todo deleted",
+      ...auditWarning(log),
       todo: normalized,
       canUndoDelete: normalized.canUndoDelete,
       deleteUndoExpiresAt: normalized.deleteUndoExpiresAt,
@@ -776,9 +822,9 @@ export const restoreTodo = async (req, res) => {
 
     todo.deletedAt = null;
     await todo.save();
-    await createAuditLog(req.user.id, todo, "restored", new Date());
+    const log = await createAuditLog(req.user.id, todo, "restored", new Date());
 
-    return res.json(toClientTask(todo));
+    return res.json({ ...toClientTask(todo), ...auditWarning(log) });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -798,7 +844,7 @@ export const getTodoSummary = async (req, res) => {
           .filter(Boolean)
       : [];
     const importantCategorySet = new Set(
-      [...DEFAULT_IMPORTANT_TODO_CATEGORIES, ...requestedImportantCategories]
+      [...DEFAULT_IMPORTANT_TODO_CATEGORIES, ...(req.user.todoImportantCategories || requestedImportantCategories)]
         .map(normalizeCategoryKey)
         .filter(Boolean)
     );
@@ -954,6 +1000,8 @@ export const getTodoSummary = async (req, res) => {
 
     return res.json({
       date: selectedDayKey,
+      timezone: APP_TIMEZONE,
+      serverNow: new Date().toISOString(),
       today: todaySummary,
       thisWeek: week,
       completionRate,
@@ -1207,133 +1255,40 @@ export const createTodoLog = async (req, res) => {
   }
 };
 
-const IMPORTANT_CATEGORIES = new Set(["Health", "Bill & Payment"]);
-const TIME_SLOTS_ORDER = ["6 AM - 9 AM", "9 AM - 12 PM", "12 PM - 3 PM", "3 PM - 6 PM", "6 PM - 12 AM"];
-
-const getTimeSlot = (time) => {
-  if (!time) return "6 PM - 12 AM";
-  const h = parseInt(time.split(":")[0], 10);
-  if (h >= 6 && h < 9)  return "6 AM - 9 AM";
-  if (h >= 9 && h < 12) return "9 AM - 12 PM";
-  if (h >= 12 && h < 15) return "12 PM - 3 PM";
-  if (h >= 15 && h < 18) return "3 PM - 6 PM";
-  return "6 PM - 12 AM";
-};
-
 export const getTodoAnalysis = async (req, res) => {
+  let days;
   try {
-    const userId = req.user.id;
-    const y = parseInt(req.query.year, 10);
-    const m = parseInt(req.query.month, 10);
-    if (!y || !m || m < 1 || m > 12) return res.status(400).json({ message: "Invalid year or month" });
-
-    const prefix = `${y}-${String(m).padStart(2, "0")}`;
-    const daysInMonth = new Date(y, m, 0).getDate();
-    const todayKey = toDayKey(new Date());
-
-    // Fetch all todos including deleted ones — a todo deleted mid-month was still alive earlier
-    const todos = await Todo.find(
-      { userId },
-      { category: 1, priority: 1, time: 1, dayStates: 1, repeatType: 1, date: 1, startDate: 1, endDate: 1, days: 1, pendingDays: 1, daysChangeEffectiveFrom: 1, deletedAt: 1, createdAt: 1, completed: 1 }
-    ).lean();
-
-    const dayMap = new Map();
-    const categoryMap = new Map();
-    const priorityMap = {
-      High:   { total: 0, completed: 0, missed: 0, pending: 0 },
-      Medium: { total: 0, completed: 0, missed: 0, pending: 0 },
-      Low:    { total: 0, completed: 0, missed: 0, pending: 0 },
-    };
-    const slotMap = Object.fromEntries(
-      TIME_SLOTS_ORDER.map((range) => [range, { total: 0, completed: 0, pending: 0 }])
-    );
-
-    for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
-      const date = `${prefix}-${String(dayNum).padStart(2, "0")}`;
-      if (date > todayKey) break;
-
-      for (const todo of todos) {
-        if (!isTaskAliveOnDay(todo, date)) continue;
-        if (!isTaskScheduledOnDay(todo, date)) continue;
-
-        const status = getTodoStatusForDay(todo, date, todayKey);
-
-        const isCompleted = status === "completed";
-        const isPending = status === "pending";
-        const dayState = getExistingDayState(todo, date);
-        const isLate = isCompleted && Boolean(dayState?.lateCompleted);
-
-        const cat  = (todo.category || "Others").trim();
-        const pri  = todo.priority || "Medium";
-        const slot = getTimeSlot(todo.time);
-
-        if (!dayMap.has(date)) dayMap.set(date, {
-          total: 0,
-          completed: 0,
-          missed: 0,
-          pending: 0,
-          lateCompleted: 0
-        });
-        const d = dayMap.get(date);
-        d.total++;
-        if (isCompleted) d.completed++;
-        else if (isPending) d.pending++;
-        else d.missed++;
-        if (isLate) d.lateCompleted++;
-
-        if (!categoryMap.has(cat)) categoryMap.set(cat, {
-          total: 0,
-          completed: 0,
-          missed: 0,
-          pending: 0,
-          lateCompleted: 0
-        });
-        const c = categoryMap.get(cat);
-        c.total++;
-        if (isCompleted) c.completed++;
-        else if (isPending) c.pending++;
-        else c.missed++;
-        if (isLate) c.lateCompleted++;
-
-        if (priorityMap[pri]) {
-          priorityMap[pri].total++;
-          if (isCompleted) priorityMap[pri].completed++;
-          else if (isPending) priorityMap[pri].pending++;
-          else priorityMap[pri].missed++;
-        }
-
-        slotMap[slot].total++;
-        if (isCompleted) slotMap[slot].completed++;
-        else if (isPending) slotMap[slot].pending++;
-      }
-    }
-
-    const WEEK_DAYS_LOCAL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-    const days = Array.from({ length: daysInMonth }, (_, i) => {
-      const dayNum = i + 1;
-      const date   = `${prefix}-${String(dayNum).padStart(2, "0")}`;
-      const weekday = WEEK_DAYS_LOCAL[new Date(y, m - 1, dayNum).getDay()];
-      const entry  = dayMap.get(date) || {
-        total: 0,
-        completed: 0,
-        missed: 0,
-        pending: 0,
-        lateCompleted: 0
-      };
-      const score  = entry.total ? Math.round((entry.completed / entry.total) * 100) : null;
-      return { date, weekday, ...entry, score, submitted: entry.total > 0 };
-    });
-
-    const categories = [...categoryMap.entries()]
-      .map(([name, data]) => ({ name, ...data, important: IMPORTANT_CATEGORIES.has(name) }))
-      .sort((a, b) => b.total - a.total);
-
-    const priorities = ["High", "Medium", "Low"].map(name => ({ name, ...priorityMap[name] }));
-    const timeSlots  = TIME_SLOTS_ORDER.map(range => ({ range, ...slotMap[range] }));
-
-    return res.json({ year: y, month: m, days, categories, priorities, timeSlots });
-  } catch (err) {
-    return res.status(500).json({ message: err.message });
+    days = journalMonthDays(req.query.year, req.query.month);
+  } catch {
+    return res.status(400).json({ message: "Use a valid year and month (1–12)." });
+  }
+  const now = new Date();
+  const today = getAppDayKey(now), time = getAppTimeKey(now);
+  const clock = { today, time, timezone: APP_TIMEZONE, serverNow: now.toISOString() };
+  if (days[0] > today) return res.status(400).json({ message: "Future months are not available for analysis.", ...clock });
+  try {
+    const account = await User.findById(req.user.id).select("createdAt todoPreferences").lean();
+    if (!account) return res.status(404).json({ message: "Account not found." });
+    const through = days.at(-1) < today ? days.at(-1) : today;
+    // Broad timestamp boundaries only select candidates. The shared calculator
+    // applies exact application-calendar dates, deletion and stored day states.
+    const start = new Date(Date.parse(days[0]) - 2 * 86400000);
+    const end = new Date(Date.parse(through) + 2 * 86400000);
+    const tasks = await Todo.find({ userId: req.user.id, $or: [
+      { startDate: { $lte: end }, $or: [{ endDate: null }, { endDate: { $gte: start } }] },
+      { date: { $gte: start, $lte: end } },
+      { dayStates: { $elemMatch: { dayKey: { $gte: days[0], $lte: through } } } },
+      { startDate: null, date: null, createdAt: { $lte: end } },
+      { startDate: null, date: { $lte: end } },
+    ] }, { category: 1, priority: 1, time: 1, pendingTime: 1, timeChangeEffectiveFrom: 1,
+      dayStates: 1, repeatType: 1, date: 1, startDate: 1, endDate: 1, days: 1,
+      pendingDays: 1, daysChangeEffectiveFrom: 1, deletedAt: 1, createdAt: 1, updatedAt: 1, completed: 1 }).lean();
+    const importantCategories = [...DEFAULT_IMPORTANT_TODO_CATEGORIES, ...(account.todoPreferences?.importantCategories || [])];
+    const analysis = computeTodoAnalysis(tasks, { year: req.query.year, month: req.query.month, ...clock, importantCategories });
+    return res.json({ year: Number(req.query.year), month: Number(req.query.month), ...clock,
+      joinedDay: account.createdAt ? getAppDayKey(account.createdAt) : null, analysis,
+      dataNote: "Calculated from retained task schedules and saved outcomes; not AI-generated. Historical edits are not a complete audit trail." });
+  } catch {
+    return res.status(500).json({ message: "Could not load ToDo Analysis. Please retry." });
   }
 };

@@ -54,6 +54,8 @@ const getControlLabel = (element) =>
 
 const isTextEntry = (target) => {
   if (!(target instanceof HTMLElement)) return false;
+  // Only the scripted AI Guru demo accepts text; it never calls the API or saves data.
+  if (target.matches(".ai-guru-page [data-demo-chat='true']")) return false;
   if (target.isContentEditable) return true;
   if (target.tagName === "TEXTAREA") return true;
   if (target.tagName !== "INPUT") return false;

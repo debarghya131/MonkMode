@@ -2,10 +2,12 @@ import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
 
-import api from "../../api/axios";
-import useAuth from "../../hooks/useAuth";
+import { useGymEnvironment } from "./gymContext";
+import { useGymApi } from "./useGymData";
+import useGymResource from "./useGymResource";
+import GymResourceNotice from "./GymResourceNotice";
+import { createDemoEntries } from "./measurementDemoData";
 
-const STORAGE_KEY = "monkmode_gym_measurements";
 const DELETE_UNDO_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 const MEASUREMENT_GROUPS = [
@@ -60,119 +62,12 @@ const MEASUREMENT_GROUPS = [
 
 const MEASUREMENT_FIELDS = MEASUREMENT_GROUPS.flatMap((group) => group.fields);
 
-const todayISO = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const shiftISO = (baseDate, offsetDays) => {
-  const next = new Date(baseDate);
-  next.setDate(next.getDate() + offsetDays);
-  const year = next.getFullYear();
-  const month = String(next.getMonth() + 1).padStart(2, "0");
-  const day = String(next.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const createDemoEntries = () => {
-  const baseDate = new Date();
-  return [
-    {
-      id: "demo-checkin-1",
-      checkInDate: shiftISO(baseDate, -56),
-      bodyWeight: "84.2",
-      chest: "104.0",
-      upperChest: "101.0",
-      lowerChest: "103.0",
-      waist: "92.0",
-      upperWaist: "88.0",
-      lowerWaist: "94.0",
-      shoulders: "119.0",
-      neck: "39.0",
-      hips: "102.0",
-      armsBiceps: "36.0",
-      leftArm: "35.5",
-      rightArm: "36.2",
-      forearms: "30.0",
-      leftForearm: "29.8",
-      rightForearm: "30.2",
-      thighs: "58.5",
-      leftThigh: "58.0",
-      rightThigh: "58.8",
-      calves: "38.0",
-      leftCalf: "37.8",
-      rightCalf: "38.1",
-      ankle: "23.0",
-      updatedAt: `${shiftISO(baseDate, -56)}T08:10:00.000Z`,
-    },
-    {
-      id: "demo-checkin-2",
-      checkInDate: shiftISO(baseDate, -28),
-      bodyWeight: "82.6",
-      chest: "105.2",
-      upperChest: "102.0",
-      lowerChest: "104.1",
-      waist: "89.8",
-      upperWaist: "86.5",
-      lowerWaist: "91.7",
-      shoulders: "120.2",
-      neck: "39.4",
-      hips: "101.0",
-      armsBiceps: "36.9",
-      leftArm: "36.2",
-      rightArm: "37.1",
-      forearms: "30.5",
-      leftForearm: "30.2",
-      rightForearm: "30.7",
-      thighs: "59.3",
-      leftThigh: "58.9",
-      rightThigh: "59.5",
-      calves: "38.4",
-      leftCalf: "38.2",
-      rightCalf: "38.6",
-      ankle: "23.1",
-      updatedAt: `${shiftISO(baseDate, -28)}T08:10:00.000Z`,
-    },
-    {
-      id: "demo-checkin-3",
-      checkInDate: shiftISO(baseDate, -7),
-      bodyWeight: "81.4",
-      chest: "106.3",
-      upperChest: "103.1",
-      lowerChest: "105.2",
-      waist: "87.9",
-      upperWaist: "84.8",
-      lowerWaist: "89.9",
-      shoulders: "121.5",
-      neck: "39.8",
-      hips: "100.1",
-      armsBiceps: "37.6",
-      leftArm: "36.9",
-      rightArm: "37.9",
-      forearms: "30.9",
-      leftForearm: "30.6",
-      rightForearm: "31.2",
-      thighs: "60.0",
-      leftThigh: "59.6",
-      rightThigh: "60.3",
-      calves: "38.8",
-      leftCalf: "38.6",
-      rightCalf: "39.0",
-      ankle: "23.2",
-      updatedAt: `${shiftISO(baseDate, -7)}T08:10:00.000Z`,
-    },
-  ];
-};
-
-const createFormFromEntry = (entry = {}, checkInDate = todayISO()) => ({
+const createFormFromEntry = (entry = {}, checkInDate) => ({
   checkInDate,
   ...Object.fromEntries(MEASUREMENT_FIELDS.map(({ key }) => [key, entry[key] ?? ""])),
 });
 
-const createBlankForm = () => createFormFromEntry({}, todayISO());
+const createBlankForm = date => createFormFromEntry({}, date);
 const DEFAULT_GROUP_TITLE = MEASUREMENT_GROUPS[0]?.title ?? "";
 
 const hasValue = (value) => value !== "" && value !== null && value !== undefined;
@@ -269,7 +164,8 @@ function MeasurementInput({ field, value, onChange, readOnly = false, required =
         <input
           type="number"
           min="0"
-          step="0.1"
+          max="1000"
+          step="any"
           value={value}
           onChange={readOnly ? undefined : (event) => onChange(field.key, event.target.value)}
           placeholder="0.0"
@@ -288,50 +184,21 @@ function MeasurementInput({ field, value, onChange, readOnly = false, required =
 }
 
 export default function Measurements({ lowMotion = false }) {
-  const { isDemoMode } = useAuth();
-  const currentDate = todayISO();
-  const [form, setForm] = useState(createBlankForm);
-  const [entries, setEntries] = useState(() => (isDemoMode ? sortEntries(createDemoEntries()) : []));
+  const { today: currentDate, now, guard } = useGymEnvironment();
+  const api = useGymApi();
+  const resource = useGymResource("/gym/measurements", createDemoEntries(currentDate), "monkmode:gym-measurements-updated");
+  const entries = sortEntries(Array.isArray(resource.data) ? resource.data : []);
+  const { setData: setEntries, loading } = resource;
+  const [form, setForm] = useState(() => createBlankForm(currentDate));
   const [mobilePanel, setMobilePanel] = useState("add");
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  const nowMs = Number(now);
   const [selectedId, setSelectedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [activeGroupTitle, setActiveGroupTitle] = useState(DEFAULT_GROUP_TITLE);
   const [savedActiveGroupTitle, setSavedActiveGroupTitle] = useState(DEFAULT_GROUP_TITLE);
   const [updateSummary, setUpdateSummary] = useState(null);
-  const [loading, setLoading] = useState(() => !isDemoMode);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
-
-  useEffect(() => {
-    if (isDemoMode) {
-      setEntries(sortEntries(createDemoEntries()));
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    const fetch = async () => {
-      setLoading(true);
-      try {
-        const { data } = await api.get("/gym/measurements");
-        if (!cancelled) setEntries(sortEntries(Array.isArray(data) ? data : []));
-      } catch {
-        if (!cancelled) setEntries([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    fetch();
-    return () => { cancelled = true; };
-  }, [isDemoMode]);
-
-  useEffect(() => {
-    if (isDemoMode) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-      window.dispatchEvent(new Event("monkmode:gym-measurements-updated"));
-    }
-  }, [entries, isDemoMode]);
 
   const visibleEntries = entries.filter((entry) => {
     if (!entry?.deletedAt) return true;
@@ -349,19 +216,9 @@ export default function Measurements({ lowMotion = false }) {
     setSelectedId(visibleEntries[0]?.id || null);
   }, [visibleEntries, selectedId, entries.length]);
 
-  const hasDeletedEntries = entries.some((entry) => Boolean(entry?.deletedAt));
-  useEffect(() => {
-    if (!hasDeletedEntries) return undefined;
-
-    const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [hasDeletedEntries]);
-
   const selectedEntry =
     visibleEntries.find((entry) => entry.id === selectedId) || visibleEntries[0] || null;
-  const previewEntry = selectedEntry && !selectedEntry?.deletedAt
-    ? selectedEntry
-    : activeEntries[0] || null;
+  const previewEntry = selectedEntry || activeEntries[0] || null;
   const todayEntry = entries.find((entry) => entry.checkInDate === currentDate && !entry?.deletedAt) || null;
   const activeGroup =
     MEASUREMENT_GROUPS.find((group) => group.title === activeGroupTitle) || MEASUREMENT_GROUPS[0];
@@ -370,9 +227,7 @@ export default function Measurements({ lowMotion = false }) {
   const savedTodayMessage = todayEntry
     ? `Measurements saved successfully on ${formatDate(todayEntry.checkInDate)}.`
     : "";
-  const isFirstSave = !todayEntry && !editingId;
   const isTodayLocked = Boolean(todayEntry) && !editingId;
-  const allFieldsFilled = filledCount(form) === MEASUREMENT_FIELDS.length;
 
   useEffect(() => {
     if (editingId) return;
@@ -382,9 +237,8 @@ export default function Measurements({ lowMotion = false }) {
       return;
     }
 
-    setForm((current) =>
-      current.checkInDate === currentDate ? current : createBlankForm()
-    );
+    // Keep an unfinished previous-day draft visible; never silently re-date it.
+    setForm(current => filledCount(current) || current.checkInDate === currentDate ? current : createBlankForm(currentDate));
   }, [currentDate, editingId, todayEntry]);
 
   useEffect(() => {
@@ -392,25 +246,7 @@ export default function Measurements({ lowMotion = false }) {
     setStatus(savedTodayMessage);
   }, [editingId, error, savedTodayMessage, status]);
 
-  const deleteEntry = async (id) => {
-    if (isDemoMode) {
-      const deletedAt = new Date().toISOString();
-      const deleteUndoExpiresAt = new Date(Date.now() + DELETE_UNDO_WINDOW_MS).toISOString();
-      setEntries((current) => sortEntries(current.map((entry) => (
-        entry.id === id
-          ? {
-            ...entry,
-            deletedAt,
-            canUndoDelete: true,
-            deleteUndoExpiresAt,
-            deleteUndoRemainingMs: DELETE_UNDO_WINDOW_MS
-          }
-          : entry
-      ))));
-      setError("");
-      setStatus("Check-in deleted. Undo available for 48 hours.");
-      return;
-    }
+  const deleteEntry = guard(async (id) => {
     try {
       const { data } = await api.delete(`/gym/measurements/${id}`);
       const updatedEntry = data?.entry;
@@ -421,30 +257,12 @@ export default function Measurements({ lowMotion = false }) {
       }
       setError("");
       setStatus(data?.message || "Check-in deleted. Undo available for 48 hours.");
-      window.dispatchEvent(new Event("monkmode:gym-measurements-updated"));
     } catch (deleteErr) {
       setError(deleteErr?.response?.data?.message || "Failed to delete measurement.");
     }
-  };
+  });
 
-  const undoDeleteEntry = async (id) => {
-    if (isDemoMode) {
-      setEntries((current) => sortEntries(current.map((entry) => (
-        entry.id === id
-          ? {
-            ...entry,
-            deletedAt: null,
-            canUndoDelete: false,
-            deleteUndoExpiresAt: null,
-            deleteUndoRemainingMs: 0
-          }
-          : entry
-      ))));
-      setError("");
-      setStatus("Check-in restored successfully.");
-      return;
-    }
-
+  const undoDeleteEntry = guard(async (id) => {
     try {
       const { data } = await api.patch(`/gym/measurements/${id}/undo-delete`);
       const updatedEntry = data?.entry;
@@ -455,11 +273,10 @@ export default function Measurements({ lowMotion = false }) {
       }
       setError("");
       setStatus(data?.message || "Check-in restored successfully.");
-      window.dispatchEvent(new Event("monkmode:gym-measurements-updated"));
     } catch (undoErr) {
       setError(undoErr?.response?.data?.message || "Failed to restore check-in.");
     }
-  };
+  });
 
   const resetForm = () => {
     setEditingId(null);
@@ -470,7 +287,7 @@ export default function Measurements({ lowMotion = false }) {
       setStatus(savedTodayMessage);
       return;
     }
-    setForm(createBlankForm());
+    setForm(createBlankForm(currentDate));
     setStatus("");
   };
 
@@ -491,14 +308,14 @@ export default function Measurements({ lowMotion = false }) {
     setMobilePanel("add");
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
-    if (isFirstSave && !allFieldsFilled) {
-      setError(`Fill in all ${MEASUREMENT_FIELDS.length} measurements before saving for the first time.`);
-      setStatus("");
+  const handleSubmit = guard(async () => {
+    if (!resource.ready) return;
+    if (form.checkInDate !== currentDate) {
+      setError("The day changed. Review today’s check-in before saving.");
       return;
     }
+    const invalidField = MEASUREMENT_FIELDS.find(({ key }) => hasValue(form[key]) && (!/^\d+(?:\.\d+)?$/.test(String(form[key]).trim()) || !Number.isFinite(Number(form[key])) || Number(form[key]) <= 0 || Number(form[key]) > 1000));
+    if (invalidField) { setError(`${invalidField.label} must be greater than 0 and at most 1000.`); return; }
 
     if (!filledCount(form)) {
       setError("Add at least one measurement before saving.");
@@ -518,41 +335,9 @@ export default function Measurements({ lowMotion = false }) {
       ? entries.find((entry) => entry.id === editingId) || null
       : null;
 
-    if (isDemoMode) {
-      const timestamp = new Date().toISOString();
-      const nextEntry = {
-        id: editingId || `measurement-${Date.now()}`,
-        checkInDate: currentDate,
-        updatedAt: timestamp,
-        ...Object.fromEntries(
-          MEASUREMENT_FIELDS.map(({ key }) => [key, String(form[key] ?? "").trim()])
-        ),
-      };
-      setEntries((current) => {
-        const nextEntries = editingId
-          ? current.map((entry) => (entry.id === editingId ? nextEntry : entry))
-          : [nextEntry, ...current];
-        return sortEntries(nextEntries);
-      });
-      setSelectedId(nextEntry.id);
-      setStatus(editingId
-        ? `Measurements updated successfully on ${formatDate(currentDate)}.`
-        : `Measurements saved successfully on ${formatDate(currentDate)}.`
-      );
-      if (previousEntry) {
-        setUpdateSummary({ date: nextEntry.checkInDate, ...buildUpdateSummary(previousEntry, nextEntry) });
-      } else {
-        setUpdateSummary(null);
-      }
-      setError("");
-      setForm(createFormFromEntry(nextEntry, currentDate));
-      setEditingId(null);
-      setMobilePanel("saved");
-      return;
-    }
-
     const payload = {
       checkInDate: currentDate,
+      expectedToday: currentDate,
       ...Object.fromEntries(MEASUREMENT_FIELDS.map(({ key }) => [key, String(form[key] ?? "").trim()])),
     };
 
@@ -565,7 +350,7 @@ export default function Measurements({ lowMotion = false }) {
       } else {
         const { data } = await api.post("/gym/measurements", payload);
         saved = data;
-        setEntries((current) => sortEntries([saved, ...current]));
+        setEntries((current) => sortEntries([saved, ...current.filter(entry => entry.id !== saved.id)]));
       }
       setSelectedId(saved.id);
       setStatus(editingId
@@ -581,12 +366,11 @@ export default function Measurements({ lowMotion = false }) {
       setForm(createFormFromEntry(saved, currentDate));
       setEditingId(null);
       setMobilePanel("saved");
-      window.dispatchEvent(new Event("monkmode:gym-measurements-updated"));
     } catch (submitErr) {
       setError(submitErr?.response?.data?.message || "Failed to save measurements.");
       setStatus("");
     }
-  };
+  });
 
   const visibleSavedMeasurements = previewEntry
     ? savedActiveGroup.fields.filter(({ key }) => hasValue(previewEntry[key]))
@@ -594,6 +378,8 @@ export default function Measurements({ lowMotion = false }) {
 
   return (
     <>
+      <GymResourceNotice resource={resource} />
+      {form.checkInDate !== currentDate && <div role="alert" className="mb-3 rounded-xl border border-amber-300/30 p-3 text-sm text-amber-100">The app day changed. This draft is from {form.checkInDate}. <button type="button" onClick={resetForm} className="underline">Start today’s check-in</button></div>}
       <div className="gym-measurements-mobile-tabs" role="tablist" aria-label="Measurement sections">
         <button type="button" role="tab" aria-selected={mobilePanel === "add"} onClick={() => setMobilePanel("add")}>
           <span className="gym-measurements-mobile-tab-icon" aria-hidden="true">＋</span>
@@ -619,9 +405,10 @@ export default function Measurements({ lowMotion = false }) {
             </div>
           </div>
 
+          <fieldset disabled={!resource.ready} className="min-h-0 min-w-0 flex flex-1 flex-col border-0 p-0 m-0">
           <form
             className="gym-measurements-form mt-4 flex-1 space-y-3 overflow-x-hidden overflow-y-auto pr-1 sm:space-y-4"
-            onSubmit={handleSubmit}
+            onSubmit={event => { event.preventDefault(); void handleSubmit(); }}
           >
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">
@@ -629,7 +416,8 @@ export default function Measurements({ lowMotion = false }) {
               </span>
 <DashboardDateTimeInput
                 type="date"
-                value={currentDate}
+                value={form.checkInDate}
+                today={currentDate}
                 readOnly
                 className="mt-1.5 w-full rounded-2xl border border-amber-100/10 bg-black/20 px-3 py-2.5 text-xs text-stone-100 outline-none transition focus:border-amber-300/35 focus:bg-black/30"
               />
@@ -684,7 +472,7 @@ export default function Measurements({ lowMotion = false }) {
                     value={form[field.key]}
                     onChange={updateFormField}
                     readOnly={isTodayLocked}
-                    required={isFirstSave}
+                    required={false}
                   />
                 ))}
               </div>
@@ -735,6 +523,7 @@ export default function Measurements({ lowMotion = false }) {
               )}
             </div>
           </form>
+          </fieldset>
         </section>
 
         <section className="gym-measurements-saved-panel flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_42%),linear-gradient(180deg,rgba(20,14,12,0.96),rgba(10,8,8,0.98))] p-4 shadow-lg shadow-black/25 sm:rounded-[1.75rem] sm:p-6">
@@ -753,7 +542,7 @@ export default function Measurements({ lowMotion = false }) {
             <div className="mt-6 rounded-[1.5rem] border border-dashed border-amber-100/10 bg-black/20 px-6 py-10 text-center">
               <p className="text-sm font-semibold text-stone-200">Loading measurements...</p>
             </div>
-          ) : visibleEntries.length === 0 ? (
+          ) : !resource.ready ? <p className="mt-6 text-sm text-amber-100">Saved measurements could not be loaded. Use Retry above.</p> : visibleEntries.length === 0 ? (
             <div className="mt-6 rounded-[1.5rem] border border-dashed border-amber-100/10 bg-black/20 px-6 py-10 text-center">
               <p className="text-sm font-semibold text-stone-200">No measurements saved yet.</p>
               <p className="mt-2 text-sm text-stone-500">
@@ -769,7 +558,8 @@ export default function Measurements({ lowMotion = false }) {
                       <h4 className="text-lg font-semibold text-stone-100">
                         {formatDate(previewEntry?.checkInDate)}
                       </h4>
-                      {previewEntry && activeEntries[0]?.id === previewEntry.id && (
+                      {previewEntry?.deletedAt && <span className="dashboard-card-status" data-tone="danger">Deleted — use Undo in history</span>}
+                      {previewEntry && !previewEntry.deletedAt && activeEntries[0]?.id === previewEntry.id && (
                         <span className="dashboard-card-status" data-tone="success">
                           Latest
                         </span>

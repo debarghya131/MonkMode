@@ -1,5 +1,9 @@
 import Habit from "../models/Habit.js";
 import HabitLog from "../models/HabitLog.js";
+import User from "../models/User.js";
+import { journalMonthDays } from "../../shared/journalAnalysisStats.js";
+import { computeHabitAnalysis } from "../../shared/habitAnalysisStats.js";
+import { todoReportDay } from "../../shared/todoWeeklyStats.js";
 import mongoose from "mongoose";
 import { calculateStreak } from "../utils/streakUtils.js";
 import { APP_TIMEZONE } from "../config/runtime.js";
@@ -489,6 +493,9 @@ export const completeHabit = async (req, res) => {
 
     const now = new Date();
     const today = getUtcStartOfDay(now);
+    if (req.body?.date != null && req.body.date !== toDayKey(today)) {
+      return res.status(400).json({ message: "The app day has changed. Refresh Today before completing this habit." });
+    }
     await applyDeferredTimeIfDue(habit, today);
 
     if (getArchiveState(habit, today).isArchived) {
@@ -525,6 +532,8 @@ export const completeHabit = async (req, res) => {
 
     res.status(201).json(log);
   } catch (error) {
+    // Another request may win the unique (habitId, dayKey) upsert race.
+    if (error.code === 11000) return res.json({ message: "Already completed today" });
     res.status(500).json({ message: error.message });
   }
 };
@@ -538,6 +547,10 @@ export const undoCompleteHabit = async (req, res) => {
 
     const { start: dayStart, end: dayEnd } = getUtcDayBounds();
     const dayKey = toDayKey(dayStart);
+
+    if (req.body?.date != null && req.body.date !== dayKey) {
+      return res.status(400).json({ message: "The app day has changed. Refresh Today before undoing this habit." });
+    }
 
     await HabitLog.deleteOne({
       habitId: id,
@@ -603,6 +616,10 @@ export const deleteHabit = async (req, res) => {
     });
     if (!existingHabit) {
       return res.status(404).json({ message: "Habit not found" });
+    }
+
+    if (existingHabit.deletedAt && existingHabit.archivedReason === "deleted") {
+      return res.json({ message: "Habit already deleted", habit: existingHabit, ...getDeleteUndoMeta(existingHabit.deletedAt) });
     }
 
     const deletedAt = new Date();
@@ -934,7 +951,10 @@ export const toggleImportant = async (req, res) => {
     const { id } = req.params;
     const habit = await Habit.findOne({ _id: id, userId: req.user.id });
     if (!habit) return res.status(404).json({ message: "Habit not found" });
-    habit.isImportant = !habit.isImportant;
+    if (req.body?.isImportant != null && typeof req.body.isImportant !== "boolean") {
+      return res.status(400).json({ message: "isImportant must be a boolean" });
+    }
+    habit.isImportant = req.body?.isImportant ?? !habit.isImportant;
     await habit.save();
     res.json({ isImportant: habit.isImportant });
   } catch (error) {
@@ -1048,6 +1068,9 @@ export const getHabitConsistency = async (req, res) => {
 
     if (!allHabits.length) {
       return res.json({
+        timezone: APP_TIMEZONE,
+        serverNow: new Date().toISOString(),
+        date: todayKey,
         completedToday: 0,
         expectedToday: 0,
         totalCompletedLifetime: 0,
@@ -1237,6 +1260,9 @@ export const getHabitConsistency = async (req, res) => {
       : 0;
 
     res.json({
+      timezone: APP_TIMEZONE,
+      serverNow: new Date().toISOString(),
+      date: todayKey,
       completedToday,
       expectedToday,
       totalCompletedLifetime,
@@ -1467,218 +1493,34 @@ export const getHabitHeatmap = async (req, res) => {
   }
 };
 
-const WEEK_DAYS_LABEL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
 export const getHabitAnalysis = async (req, res) => {
+  let days;
+  try { days = journalMonthDays(req.query.year, req.query.month); }
+  catch { return res.status(400).json({ message: "Use a valid year and month (1–12)." }); }
+  const now = new Date(), today = todoReportDay(now, APP_TIMEZONE);
+  const clock = { today, timezone: APP_TIMEZONE, serverNow: now.toISOString() };
+  if (days[0] > today) return res.status(400).json({ message: "Future months are not available for analysis.", ...clock });
   try {
-    const userId = req.user.id;
-    const y = parseInt(req.query.year, 10);
-    const m = parseInt(req.query.month, 10);
-    if (!y || !m || m < 1 || m > 12) return res.status(400).json({ message: "Invalid year or month" });
-
-    const prefix = `${y}-${String(m).padStart(2, "0")}`;
-    const daysInMonth = new Date(y, m, 0).getDate();
-    const todayKey = toDayKey(new Date());
-
-    const habits = await Habit.find({ userId }).lean();
-    const habitIds = habits.map(h => h._id);
-
-    const nextMonthDate = new Date(y, m, 1);
-    const nextPrefix = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}-`;
-
-    const logs = await HabitLog.find({
-      habitId: { $in: habitIds },
-      completed: true,
-      $or: [
-        { dayKey: { $gte: `${prefix}-01`, $lt: nextPrefix } },
-        { dayKey: { $exists: false }, date: { $gte: new Date(y, m - 1, 1), $lt: new Date(y, m, 1) } }
-      ]
-    }).select("habitId dayKey date").lean();
-
-    const completedSet = new Set();
-    for (const log of logs) {
-      const dk = log.dayKey || toDayKey(log.date);
-      if (dk && dk.startsWith(prefix)) completedSet.add(`${log.habitId}_${dk}`);
-    }
-
-    const dayMap = new Map();
-    const categoryMap = new Map();
-    const priorityMap = {
-      High:   { total: 0, completed: 0, missed: 0, pending: 0 },
-      Medium: { total: 0, completed: 0, missed: 0, pending: 0 },
-      Low:    { total: 0, completed: 0, missed: 0, pending: 0 },
-    };
-    const timeMap = {
-      Morning:   { total: 0, completed: 0, missed: 0, pending: 0 },
-      Afternoon: { total: 0, completed: 0, missed: 0, pending: 0 },
-      Evening:   { total: 0, completed: 0, missed: 0, pending: 0 },
-      Night:     { total: 0, completed: 0, missed: 0, pending: 0 },
-    };
-    const habitMap = new Map();
-    const habitStreakMap = new Map(habits.map((habit) => [
-      habit._id.toString(),
-      {
-        name: habit.title,
-        current: 0,
-        longest: 0,
-        breaks: [],
-        expected: 0,
-        completed: 0,
-        missed: 0,
-        pending: 0
-      }
-    ]));
-    const streakByDay = [];
-
-    for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
-      const date = `${prefix}-${String(dayNum).padStart(2, "0")}`;
-      if (date > todayKey) break;
-
-      for (const habit of habits) {
-        if (!isHabitExpectedOnDate(habit, date)) continue;
-
-        const isCompleted = completedSet.has(`${habit._id}_${date}`);
-        const isPast = date < todayKey;
-        const isPending = !isCompleted && !isPast;
-        const streakStats = habitStreakMap.get(habit._id.toString());
-        if (streakStats) {
-          streakStats.expected++;
-          if (isCompleted) {
-            streakStats.completed++;
-            streakStats.current++;
-            streakStats.longest = Math.max(streakStats.longest, streakStats.current);
-          } else if (isPending) {
-            streakStats.pending++;
-          } else {
-            streakStats.missed++;
-            if (streakStats.current > 0) streakStats.breaks.push(streakStats.current);
-            streakStats.current = 0;
-          }
-        }
-
-        const cat = (habit.category || "General").trim();
-        const pri = habit.priority || "Medium";
-        const tod = habit.timeOfDay || null;
-        const name = habit.title;
-
-        if (!dayMap.has(date)) dayMap.set(date, { total: 0, completed: 0, missed: 0, pending: 0 });
-        const d = dayMap.get(date);
-        d.total++;
-        if (isCompleted) d.completed++;
-        else if (isPending) d.pending++;
-        else d.missed++;
-
-        if (!categoryMap.has(cat)) categoryMap.set(cat, { total: 0, completed: 0, missed: 0, pending: 0 });
-        const c = categoryMap.get(cat);
-        c.total++;
-        if (isCompleted) c.completed++;
-        else if (isPending) c.pending++;
-        else c.missed++;
-
-        if (priorityMap[pri]) {
-          priorityMap[pri].total++;
-          if (isCompleted) priorityMap[pri].completed++;
-          else if (isPending) priorityMap[pri].pending++;
-          else priorityMap[pri].missed++;
-        }
-
-        if (tod && timeMap[tod]) {
-          timeMap[tod].total++;
-          if (isCompleted) timeMap[tod].completed++;
-          else if (isPending) timeMap[tod].pending++;
-          else timeMap[tod].missed++;
-        }
-
-        if (!habitMap.has(name)) habitMap.set(name, { total: 0, completed: 0, missed: 0, pending: 0 });
-        const h = habitMap.get(name);
-        h.total++;
-        if (isCompleted) h.completed++;
-        else if (isPending) h.pending++;
-        else h.missed++;
-      }
-
-      const activeStreakValues = [...habitStreakMap.values()]
-        .filter((stats) => stats.expected > 0)
-        .map((stats) => stats.current);
-      streakByDay.push({
-        day: dayNum,
-        value: activeStreakValues.length ? Math.max(...activeStreakValues) : 0
-      });
-    }
-
-    const days = Array.from({ length: daysInMonth }, (_, i) => {
-      const dayNum = i + 1;
-      const date = `${prefix}-${String(dayNum).padStart(2, "0")}`;
-      const weekday = WEEK_DAYS_LABEL[new Date(y, m - 1, dayNum).getDay()];
-      const entry = dayMap.get(date) || { total: 0, completed: 0, missed: 0, pending: 0 };
-      const score = entry.total ? Math.round((entry.completed / entry.total) * 100) : null;
-      return { date, weekday, ...entry, score, submitted: entry.completed > 0 };
-    });
-
-    const habitStreaks = [...habitStreakMap.values()]
-      .filter((stats) => stats.expected > 0)
-      .map((stats) => ({
-        name: stats.name,
-        current: stats.current,
-        longest: stats.longest,
-        expected: stats.expected,
-        completed: stats.completed,
-        missed: stats.missed,
-        pending: stats.pending,
-        breaks: stats.breaks
-      }));
-    const breakLengths = habitStreaks.flatMap((stats) => stats.breaks);
-    const breakLengthCounts = breakLengths.reduce((counts, length) => {
-      counts.set(length, (counts.get(length) || 0) + 1);
-      return counts;
-    }, new Map());
-    const [commonBreakLength = 0, commonBreakCount = 0] = [...breakLengthCounts.entries()]
-      .sort((left, right) => right[1] - left[1] || left[0] - right[0])[0] || [];
-    const completedDays = days.filter((day) =>
-      day.date <= todayKey && day.total > 0 && day.completed >= day.total
-    ).length;
-    const longestHabitStreak = habitStreaks.reduce(
-      (longest, stats) => Math.max(longest, stats.longest),
-      0
-    );
-    const averageHabitStreakLength = habitStreaks.length
-      ? Number((habitStreaks.reduce((sum, stats) => sum + stats.longest, 0) / habitStreaks.length).toFixed(1))
-      : 0;
-    const maintainedHabitCount = habitStreaks.filter((stats) => stats.missed === 0).length;
-    const brokenHabitCount = habitStreaks.filter((stats) => stats.missed > 0).length;
-    const streakSummary = {
-      fullCompletionDays: completedDays,
-      commonBreakLength,
-      commonBreakCount,
-      longestHabitStreak,
-      maintainedHabitCount,
-      brokenHabitCount,
-      averageHabitStreakLength
-    };
-
-    const categories = [...categoryMap.entries()]
-      .map(([name, data]) => ({ name, ...data }))
-      .sort((a, b) => b.total - a.total);
-
-    const priorities = ["High", "Medium", "Low"].map(name => ({ name, ...priorityMap[name] }));
-    const times = ["Morning", "Afternoon", "Evening", "Night"].map(name => ({ name, ...timeMap[name] }));
-    const habitsList = [...habitMap.entries()]
-      .map(([name, data]) => ({ name, ...data }))
-      .sort((a, b) => b.total - a.total);
-
-    return res.json({
-      year: y,
-      month: m,
-      days,
-      habits: habitsList,
-      categories,
-      priorities,
-      times,
-      streakByDay,
-      habitStreaks,
-      streakSummary
-    });
-  } catch (err) {
-    return res.status(500).json({ message: err.message });
+    const account = await User.findById(req.user.id).select("createdAt").lean();
+    if (!account) return res.status(404).json({ message: "Account not found." });
+    const through = days.at(-1) < today ? days.at(-1) : today;
+    const end = new Date(Date.parse(through) + 2 * 86400000);
+    const habits = await Habit.find({ userId: req.user.id, $or: [{ createdAt: { $lte: end } }, { createdAt: null }] },
+      { title: 1, category: 1, priority: 1, time: 1, pendingTime: 1, timeChangeEffectiveFrom: 1,
+        pendingDays: 1, daysChangeEffectiveFrom: 1, targetStreak: 1, timeOfDay: 1, frequency: 1,
+        repeatType: 1, startDate: 1, endDate: 1, createdAt: 1, updatedAt: 1, days: 1,
+        deletedAt: 1, archivedReason: 1, isImportant: 1 }).lean();
+    // HabitLog has no owner field: only IDs from the owner-scoped Habit read may be queried.
+    // Include false logs, so a later undo wins over an old duplicate true log.
+    const logs = habits.length ? await HabitLog.find({ habitId: { $in: habits.map(row => row._id) }, $or: [
+      { dayKey: { $gte: days[0], $lte: through } },
+      { dayKey: { $in: [null, ""] }, date: { $gte: new Date(Date.parse(days[0]) - 2 * 86400000), $lte: end } },
+    ] }).select("habitId dayKey date updatedAt completed").lean() : [];
+    const analysis = computeHabitAnalysis(habits, logs, { year: req.query.year, month: req.query.month, ...clock });
+    return res.json({ year: Number(req.query.year), month: Number(req.query.month), ...clock,
+      joinedDay: account.createdAt ? todoReportDay(account.createdAt, APP_TIMEZONE) : null, analysis,
+      dataNote: "Calculated from retained habit schedules and check-ins; not AI-generated. Historical edits are not a complete audit trail." });
+  } catch {
+    return res.status(500).json({ message: "Could not load Habit Analysis. Please retry." });
   }
 };

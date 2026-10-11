@@ -1,6 +1,8 @@
 import Journal from "../models/Journal.js";
 import User from "../models/User.js";
 import mongoose from "mongoose";
+import { canonicalJournalAnalysisEntries, journalMonthDays, computeJournalAnalysis } from "../../shared/journalAnalysisStats.js";
+import { todoReportDay } from "../../shared/todoWeeklyStats.js";
 import { APP_TIMEZONE } from "../config/runtime.js";
 import { addCalendarDays, calendarDaysBetween } from "../utils/calendarUtils.js";
 
@@ -726,43 +728,31 @@ export const getJournalCustomFields = async (req, res) => {
 };
 
 export const getJournalAnalysis = async (req, res) => {
+  let days;
+  try { days = journalMonthDays(req.query.year, req.query.month); }
+  catch { return res.status(400).json({ message: "Valid year and month (1–12) are required" }); }
+  const now = new Date(), today = todoReportDay(now, APP_TIMEZONE);
+  if (days[0] > today) return res.status(400).json({ message: "Future analysis periods are not available", today, timezone: APP_TIMEZONE, serverNow: now.toISOString() });
   try {
-    const userId = new mongoose.Types.ObjectId(req.user.id);
-    const { year, month } = req.query;
-
-    const y = parseInt(year, 10);
-    const m = parseInt(month, 10);
-    if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) {
-      return res.status(400).json({ message: "Valid year and month (1-12) are required" });
-    }
-
-    const start = new Date(y, m - 1, 1);
-    const end   = new Date(y, m, 1);
-
-    const entries = await Journal.find(
-      { userId, date: { $gte: start, $lt: end } },
-      { dayKey: 1, mood: 1, energyLevel: 1, overallRating: 1, sleepTime: 1, wakeUpTime: 1,
-        wins: 1, mistakes: 1, gratitude: 1, achievement: 1, distractions: 1 }
-    ).sort({ dayKey: 1 }).lean();
-
-    const data = entries.map(e => ({
-      date:            e.dayKey,
-      mood:            e.mood || "Neutral",
-      energy:          e.energyLevel  ?? 50,
-      rating:          e.overallRating ?? 50,
-      sleepTime:       e.sleepTime    || "",
-      wakeUpTime:      e.wakeUpTime   || "",
-      wins:            (e.wins        || []).length,
-      gratitude:       (e.gratitude   || []).length,
-      mistakes:        (e.mistakes    || []).length,
-      achievement:     (e.achievement || []).length,
-      mistakeTags:     e.mistakes     || [],
-      distractionTags: e.distractions || [],
-    }));
-
-    return res.json({ year: y, month: m, entries: data });
-  } catch (err) {
-    return res.status(500).json({ message: err.message });
+    const userId = req.user.id;
+    const end = days.at(-1) < today ? days.at(-1) : today;
+    const [docs, account] = await Promise.all([
+      Journal.find({ userId, $or: [
+        { dayKey: { $gte: days[0], $lte: end } },
+        { dayKey: null, date: { $gte: new Date(`${days[0]}T00:00:00`), $lte: new Date(`${end}T23:59:59.999`) } },
+      ] }, { dayKey: 1, date: 1, createdAt: 1, updatedAt: 1, mood: 1, energyLevel: 1, overallRating: 1, sleepTime: 1,
+        wakeUpTime: 1, wins: 1, mistakes: 1, gratitude: 1, achievement: 1, distractions: 1 }).lean(),
+      User.findById(userId).select("createdAt").lean(),
+    ]);
+    if (!account) return res.status(404).json({ message: "Account not found" });
+    const entries = canonicalJournalAnalysisEntries(docs, days, { today, timezone: APP_TIMEZONE });
+    const joinedDay = todoReportDay(account.createdAt, APP_TIMEZONE) || null;
+    const year = Number(req.query.year), month = Number(req.query.month);
+    return res.json({ year, month, entries, analysis: computeJournalAnalysis(entries, { year, month, today, joinedDay }),
+      joinedDay, today, timezone: APP_TIMEZONE, serverNow: now.toISOString(),
+      dataNote: "Calculated from retained journal records, not AI-generated. Missing scores and sleep times are unknown; no-log days do not prove mood, energy or health. Streaks are within this month." });
+  } catch {
+    return res.status(500).json({ message: "Could not load Journal Analysis. Please retry." });
   }
 };
 

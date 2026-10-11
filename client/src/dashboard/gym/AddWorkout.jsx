@@ -3,10 +3,13 @@ import { motion as Motion } from "framer-motion";
 import DashboardSelect from "../../components/DashboardSelect";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import api from "../../api/axios";
-import useAuth from "../../hooks/useAuth";
+import { useGymEnvironment } from "./gymContext";
+import { useGymApi } from "./useGymData";
+import GymNotice from "./GymNotice";
+import { gymDay, gymStorageKey, gymTime } from "./gymUtils";
+import { formatGoalTime } from "../goal/goalUtils";
 import { BODY_PART_GROUPS, EXERCISE_LIBRARY, WORKOUT_SPLITS } from "./workoutLibraryData";
-import { createDummyWorkouts, RETIRED_DEMO_WORKOUT_IDS, createDummyLogs } from "../../../data/GymDummyData";
+import { createDummyLogs } from "../../../data/GymDummyData";
 
 const GOAL_TYPES = [
   { value: "muscle-gain",  label: "💪 Muscle Gain"  },
@@ -14,8 +17,7 @@ const GOAL_TYPES = [
   { value: "strength",     label: "🏋️ Strength"      },
   { value: "endurance",    label: "🏃 Endurance"     },
 ];
-const CUSTOM_GOAL_TYPES_STORAGE_KEY = "monkmode_gym_custom_goal_types_v1";
-const CUSTOM_WORKOUT_SPLITS_STORAGE_KEY = "monkmode_gym_custom_workout_splits_v1";
+
 
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -42,13 +44,6 @@ const parseBodyPart = (bodyPart = "") => {
 const BLANK_EXERCISE = {
   id: "", name: "", sets: "", reps: "", weight: "",
   duration: "", restTime: "", bodyPart: "", bodyPartGroup: "", bodyPartSection: "",
-};
-
-const toISO = (d) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 };
 
 const toGoalOption = (value, label = "") => {
@@ -81,9 +76,9 @@ const mergeGoalOptions = (...groups) => {
   return [...byValue.values()];
 };
 
-const readStoredCustomGoalOptions = () => {
+const readStoredCustomGoalOptions = (storageKey) => {
   try {
-    const raw = localStorage.getItem(CUSTOM_GOAL_TYPES_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     const parsed = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) return [];
     return parsed
@@ -94,21 +89,21 @@ const readStoredCustomGoalOptions = () => {
   }
 };
 
-const persistCustomGoalOptions = (options = []) => {
+const persistCustomGoalOptions = (storageKey, options = []) => {
   try {
     const baseValues = new Set(GOAL_TYPES.map((item) => item.value));
     const customOnly = (Array.isArray(options) ? options : [])
       .map((item) => toGoalOption(item?.value, item?.label))
       .filter((item) => item && !baseValues.has(item.value));
-    localStorage.setItem(CUSTOM_GOAL_TYPES_STORAGE_KEY, JSON.stringify(customOnly));
+    localStorage.setItem(storageKey, JSON.stringify(customOnly));
   } catch {
     // ignore storage errors
   }
 };
 
-const readStoredCustomSplitOptions = () => {
+const readStoredCustomSplitOptions = (storageKey) => {
   try {
-    const raw = localStorage.getItem(CUSTOM_WORKOUT_SPLITS_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     const parsed = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) return [];
     return parsed
@@ -119,30 +114,19 @@ const readStoredCustomSplitOptions = () => {
   }
 };
 
-const persistCustomSplitOptions = (options = []) => {
+const persistCustomSplitOptions = (storageKey, options = []) => {
   try {
     const baseValues = new Set(WORKOUT_SPLITS.map((item) => item.value));
     const customOnly = (Array.isArray(options) ? options : [])
       .map((item) => toGoalOption(item?.value, item?.label))
       .filter((item) => item && !baseValues.has(item.value));
-    localStorage.setItem(CUSTOM_WORKOUT_SPLITS_STORAGE_KEY, JSON.stringify(customOnly));
+    localStorage.setItem(storageKey, JSON.stringify(customOnly));
   } catch {
     // ignore storage errors
   }
 };
 
-const nowTime = () => {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-};
-
-const fmtTime = (t) => {
-  if (!t) return "--";
-  const [h, m] = t.split(":").map(Number);
-  const d = new Date();
-  d.setHours(h, m);
-  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-};
+const fmtTime = formatGoalTime;
 
 const toNonNegativeNumber = (value) => {
   const parsed = Number.parseFloat(String(value || "").trim());
@@ -223,38 +207,6 @@ const BLANK_FORM = {
   neverEnds: true, endDate: "", difficulty: "",
 };
 
-const WORKOUTS_STORAGE_KEY = "monkmode_workouts";
-
-const DEMO_ACTIVE_WORKOUT_BY_DAY = {
-  Mon: "demo-push-strength",
-  Tue: "demo-upper-primer",
-  Wed: "demo-pull-builder",
-};
-
-
-const mergeWithDemoWorkouts = (storedWorkouts, baseDate) => {
-  const stored = (Array.isArray(storedWorkouts) ? storedWorkouts : []).filter(
-    (workout) => !RETIRED_DEMO_WORKOUT_IDS.has(workout?.id)
-  );
-  const demos = createDummyWorkouts(baseDate);
-  const demoById = new Map(demos.map((demo) => [demo.id, demo]));
-
-  const refreshedStored = stored.map((workout) => {
-    const demo = demoById.get(workout.id);
-    if (!demo) return workout;
-    return {
-      ...demo,
-      isActive: workout.isActive ?? demo.isActive,
-      startDate: workout.startDate ?? demo.startDate,
-      neverEnds: workout.neverEnds ?? demo.neverEnds,
-      endDate: workout.endDate ?? demo.endDate,
-    };
-  });
-
-  const storedIds = new Set(refreshedStored.map((w) => w.id));
-  return [...refreshedStored, ...demos.filter((demo) => !storedIds.has(demo.id))];
-};
-
 const normalizeActiveByDay = (items) => {
   const usedDays = new Set();
   return (Array.isArray(items) ? items : []).map((item) => {
@@ -267,50 +219,14 @@ const normalizeActiveByDay = (items) => {
   });
 };
 
-const enforceDemoActiveWorkouts = (items) =>
-  (Array.isArray(items) ? items : []).map((item) => {
-    const day = Array.isArray(item?.days) ? item.days[0] : null;
-    const preferredId = day ? DEMO_ACTIVE_WORKOUT_BY_DAY[day] : null;
-
-    if (!preferredId || !String(item?.id || "").startsWith("demo-")) {
-      return item;
-    }
-
-    return {
-      ...item,
-      isActive: item.id === preferredId,
-    };
-  });
-
-const loadDemoStoredWorkouts = (baseDate) => {
-  try {
-    const stored = localStorage.getItem(WORKOUTS_STORAGE_KEY);
-    if (!stored) {
-      return enforceDemoActiveWorkouts(normalizeActiveByDay(createDummyWorkouts(baseDate)));
-    }
-
-    const parsed = JSON.parse(stored);
-    return normalizeActiveByDay(mergeWithDemoWorkouts(parsed, baseDate));
-  } catch {
-    return enforceDemoActiveWorkouts(normalizeActiveByDay(createDummyWorkouts(baseDate)));
-  }
-};
-
-const persistDemoWorkouts = (workouts) => {
-  try {
-    localStorage.setItem(WORKOUTS_STORAGE_KEY, JSON.stringify(workouts));
-    window.dispatchEvent(new Event("monkmode:gym-workouts-updated"));
-  } catch {
-    // Demo mode remains usable even when storage is unavailable.
-  }
-};
-
-
 export default function AddWorkout({ lowMotion = false }) {
-  const { isDemoMode } = useAuth();
+  const { isDemoMode, userId, today, now, timezone, plans: workouts, setPlans: setWorkouts, loading, guard, busy } = useGymEnvironment();
+  const api = useGymApi();
+  const nowTime = () => gymTime(now, timezone);
+  const goalStorageKey = gymStorageKey(isDemoMode ? "demo" : userId, "goal-types");
+  const splitStorageKey = gymStorageKey(isDemoMode ? "demo" : userId, "splits");
   const WorkoutCard = lowMotion ? "article" : Motion.article;
   const LogRow = lowMotion ? "div" : Motion.div;
-  const today = useMemo(() => toISO(new Date()), []);
   const searchRef = useRef(null);
   const splitDropRef = useRef(null);
   const goalDropRef = useRef(null);
@@ -324,9 +240,9 @@ export default function AddWorkout({ lowMotion = false }) {
   const [showExForm, setShowExForm] = useState(false);
   const [viewWorkout, setViewWorkout] = useState(null);
   const [exError, setExError] = useState("");
-  const [splitOptions, setSplitOptions] = useState(() => mergeGoalOptions(WORKOUT_SPLITS, readStoredCustomSplitOptions()));
+  const [splitOptions, setSplitOptions] = useState(() => mergeGoalOptions(WORKOUT_SPLITS, isDemoMode ? [] : readStoredCustomSplitOptions(splitStorageKey)));
   const [showGoalDrop, setShowGoalDrop] = useState(false);
-  const [goalOptions, setGoalOptions] = useState(() => mergeGoalOptions(GOAL_TYPES, readStoredCustomGoalOptions()));
+  const [goalOptions, setGoalOptions] = useState(() => mergeGoalOptions(GOAL_TYPES, isDemoMode ? [] : readStoredCustomGoalOptions(goalStorageKey)));
   const [showCustomGoal, setShowCustomGoal] = useState(false);
   const [customGoal, setCustomGoal] = useState("");
   const [showSplitDrop, setShowSplitDrop] = useState(false);
@@ -334,16 +250,10 @@ export default function AddWorkout({ lowMotion = false }) {
   const [customSplit, setCustomSplit] = useState("");
   const [customLibraryExercises, setCustomLibraryExercises] = useState([]);
   const [error, setError] = useState("");
-  const [workouts, setWorkouts] = useState(() =>
-    isDemoMode
-      ? loadDemoStoredWorkouts(new Date())
-      : []
-  );
-  const [loading, setLoading] = useState(!isDemoMode);
   const [workoutsView, setWorkoutsView] = useState("active");
   const [workoutDayFilter, setWorkoutDayFilter] = useState("all");
   const [mobileSection, setMobileSection] = useState("form");
-  const [logs, setLogs] = useState(() => isDemoMode ? createDummyLogs(new Date()) : []);
+  const [logs, setLogs] = useState(() => isDemoMode ? createDummyLogs(new Date(`${today}T12:00:00`)) : []);
   const [editingId, setEditingId] = useState(null);
   const [copyWorkout, setCopyWorkout] = useState(null);
   const [copyDays, setCopyDays] = useState([]);
@@ -378,11 +288,6 @@ export default function AddWorkout({ lowMotion = false }) {
   }, [logs]);
 
   useEffect(() => {
-    if (!isDemoMode) return;
-    persistDemoWorkouts(workouts);
-  }, [isDemoMode, workouts]);
-
-  useEffect(() => {
     if (isDemoMode) {
       setCustomLibraryExercises([]);
       return;
@@ -411,34 +316,14 @@ export default function AddWorkout({ lowMotion = false }) {
       window.removeEventListener("focus", refreshCustomLibrary);
       window.removeEventListener("monkmode:gym-library-updated", refreshCustomLibrary);
     };
-  }, [isDemoMode]);
+  }, [api, isDemoMode]);
 
   useEffect(() => {
-    if (isDemoMode) return;
-    let cancelled = false;
-    const run = async () => {
-      try {
-        const { data } = await api.get("/gym/plans");
-        if (cancelled) return;
-        const plans = Array.isArray(data) ? data : [];
-        setWorkouts(plans);
-        const planGoalOptions = plans
-          .map((plan) => toGoalOption(plan?.goalType))
-          .filter(Boolean);
-        const planSplitOptions = plans
-          .map((plan) => toGoalOption(plan?.workoutSplit))
-          .filter(Boolean);
-        setGoalOptions((prev) => mergeGoalOptions(GOAL_TYPES, prev, planGoalOptions));
-        setSplitOptions((prev) => mergeGoalOptions(WORKOUT_SPLITS, prev, planSplitOptions));
-      } catch {
-        // keep empty on failure
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    run();
-    return () => { cancelled = true; };
-  }, [isDemoMode]);
+    const goals = workouts.map(plan => toGoalOption(plan.goalType)).filter(Boolean);
+    const splits = workouts.map(plan => toGoalOption(plan.workoutSplit)).filter(Boolean);
+    setGoalOptions(prev => mergeGoalOptions(GOAL_TYPES, prev, goals));
+    setSplitOptions(prev => mergeGoalOptions(WORKOUT_SPLITS, prev, splits));
+  }, [workouts]);
 
   useEffect(() => {
     if (isDemoMode) return;
@@ -447,11 +332,12 @@ export default function AddWorkout({ lowMotion = false }) {
       .then(({ data }) => { if (!cancelled) setLogs(Array.isArray(data) ? data : []); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [isDemoMode]);
+  }, [api, isDemoMode]);
 
-  const persistLog = (entry) => {
+  const persistLog = async (entry) => {
     if (isDemoMode) return;
-    api.post("/gym/plans/logs", {
+    try {
+    const { data } = await api.post("/gym/plans/logs", {
       planId: entry.planId || "",
       title: entry.title,
       action: entry.action,
@@ -460,7 +346,11 @@ export default function AddWorkout({ lowMotion = false }) {
       time: entry.time,
       deletedItem: entry.deletedItem && typeof entry.deletedItem === "object" ? entry.deletedItem : null,
       restoredFromLogId: entry.restoredFromLogId || "",
-    }).catch(() => {});
+    });
+    setLogs(previous => previous.map(log => log.id === entry.id ? data : log));
+    } catch {
+      setLogs(previous => previous.map(log => log.id === entry.id ? { ...log, deletedItem: null, note: "History entry not saved — reload before undo." } : log));
+    }
   };
 
   const libraryExercises = useMemo(
@@ -564,8 +454,6 @@ export default function AddWorkout({ lowMotion = false }) {
         bodyGroup: currentEx.bodyPartGroup,
         bodySection: currentEx.bodyPartSection,
         bodyPart: resolvedBodyPart,
-      }).then(() => {
-        window.dispatchEvent(new Event("monkmode:gym-library-updated"));
       }).catch(() => {});
     }
     setCurrentEx({ ...BLANK_EXERCISE });
@@ -575,25 +463,17 @@ export default function AddWorkout({ lowMotion = false }) {
   };
 
 
-  const handleRemoveFromView = async (exId) => {
-    const updated = viewWorkout.exercises.filter((e) => e.id !== exId);
+  const handleRemoveFromView = guard(async (exId) => {
+    const updated = viewWorkout.exercises.filter(exercise => exercise.id !== exId);
     if (!viewWorkout.id) {
       setExercises(updated);
-    } else {
-      setWorkouts((prev) =>
-        prev.map((w) => w.id === viewWorkout.id ? { ...w, exercises: updated } : w)
-      );
-      if (!isDemoMode && viewWorkout.id) {
-        try {
-          const { data } = await api.patch(`/gym/plans/${viewWorkout.id}`, { exercises: updated });
-          setWorkouts((prev) => prev.map((w) => w.id === viewWorkout.id ? data : w));
-        } catch {
-          // local update already applied above
-        }
-      }
+      setViewWorkout(prev => ({ ...prev, exercises: updated }));
+      return;
     }
-    setViewWorkout((prev) => ({ ...prev, exercises: updated }));
-  };
+    const { data } = await api.patch(`/gym/plans/${viewWorkout.id}`, { exercises: updated });
+    setWorkouts(prev => prev.map(plan => plan.id === viewWorkout.id ? data : plan));
+    setViewWorkout(data);
+  });
 
   const handleAddGoal = () => {
     if (!customGoal.trim()) return;
@@ -603,7 +483,7 @@ export default function AddWorkout({ lowMotion = false }) {
     };
     setGoalOptions((prev) => {
       const next = mergeGoalOptions(GOAL_TYPES, prev, [newGoal]);
-      persistCustomGoalOptions(next);
+      if (!isDemoMode) persistCustomGoalOptions(goalStorageKey, next);
       return next;
     });
     setField("goalType", newGoal.value);
@@ -619,7 +499,7 @@ export default function AddWorkout({ lowMotion = false }) {
     };
     setSplitOptions((prev) => {
       const next = mergeGoalOptions(WORKOUT_SPLITS, prev, [newSplit]);
-      persistCustomSplitOptions(next);
+      if (!isDemoMode) persistCustomSplitOptions(splitStorageKey, next);
       return next;
     });
     setField("workoutSplit", newSplit.value);
@@ -634,10 +514,11 @@ export default function AddWorkout({ lowMotion = false }) {
     if (exercises.length === 0) return "Add at least one exercise.";
     if (!form.totalEstimatedTime) return "Total estimated time is required.";
     if (form.days.length === 0) return "Select a day.";
-    if (!form.startDate) return "Start date is required.";
+    if (!gymDay(form.startDate)) return "A valid start date is required.";
+    if (!form.neverEnds && !gymDay(form.endDate)) return "A valid end date is required.";
     if (!form.neverEnds && !form.endDate) return "End date is required or select Never End.";
-    if (!form.neverEnds && form.endDate && form.endDate <= today) return "End date must be after today.";
-    if (!form.neverEnds && form.endDate && form.endDate <= form.startDate) return "End date must be after the start date.";
+    if (!form.neverEnds && form.endDate && form.endDate < today) return "End date cannot be before today.";
+    if (!form.neverEnds && form.endDate && form.endDate < form.startDate) return "End date cannot be before the start date.";
     if (!form.difficulty) return "Difficulty level is required.";
     return "";
   };
@@ -670,13 +551,13 @@ export default function AddWorkout({ lowMotion = false }) {
     setMobileSection("form");
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = guard(async (id) => {
     const w = workouts.find((x) => x.id === id);
     if (!w) return;
     if (isDemoMode) {
       setWorkouts((prev) => prev.filter((x) => x.id !== id));
       setLogs((prev) => [
-        { id: `${id}-del-${Date.now()}`, action: "deleted", title: w.title, date: toISO(new Date()), time: nowTime(), deletedItem: w },
+        { id: `${id}-del-${Date.now()}`, action: "deleted", title: w.title, date: today, time: nowTime(), deletedItem: w },
         ...prev,
       ]);
       if (editingId === id) resetForm();
@@ -685,16 +566,16 @@ export default function AddWorkout({ lowMotion = false }) {
     try {
       await api.delete(`/gym/plans/${id}`);
       setWorkouts((prev) => prev.filter((x) => x.id !== id));
-      const logEntry = { id: `${id}-del-${Date.now()}`, action: "deleted", title: w.title, date: toISO(new Date()), time: nowTime(), deletedItem: w };
+      const logEntry = { id: `${id}-del-${Date.now()}`, action: "deleted", title: w.title, date: today, time: nowTime(), deletedItem: w };
       setLogs((prev) => [logEntry, ...prev]);
-      persistLog({ ...logEntry, planId: id });
+      await persistLog({ ...logEntry, planId: id });
       if (editingId === id) resetForm();
     } catch {
-      // silently fail
+      // The request helper displays the failure; saved state is unchanged.
     }
-  };
+  });
 
-  const handleToggleWorkoutActive = async (id) => {
+  const handleToggleWorkoutActive = guard(async (id) => {
     const target = workouts.find((item) => item.id === id);
     if (!target) return;
 
@@ -717,7 +598,7 @@ export default function AddWorkout({ lowMotion = false }) {
           action: nextIsActive ? "activated" : "deactivated",
           title: target.title,
           note: targetDays.length > 0 ? `for ${targetDays.join(", ")}` : "",
-          date: toISO(new Date()),
+          date: today,
           time: nowTime(),
         },
         ...prev,
@@ -726,7 +607,7 @@ export default function AddWorkout({ lowMotion = false }) {
     }
 
     try {
-      const { data } = await api.patch(`/gym/plans/${id}/active`);
+      const { data } = await api.patch(`/gym/plans/${id}/active`, { isActive: nextIsActive });
       setWorkouts(data);
       if (viewWorkout?.id === id) {
         setViewWorkout((prev) => (prev ? { ...prev, isActive: nextIsActive } : prev));
@@ -736,15 +617,15 @@ export default function AddWorkout({ lowMotion = false }) {
         action: nextIsActive ? "activated" : "deactivated",
         title: target.title,
         note: targetDays.length > 0 ? `for ${targetDays.join(", ")}` : "",
-        date: toISO(new Date()),
+        date: today,
         time: nowTime(),
       };
       setLogs((prev) => [logEntry, ...prev]);
-      persistLog({ ...logEntry, planId: id });
+      await persistLog({ ...logEntry, planId: id });
     } catch {
-      // silently fail
+      // The request helper displays the failure; saved state is unchanged.
     }
-  };
+  });
 
   const openCopyWorkout = (id) => {
     const w = workouts.find((x) => x.id === id);
@@ -761,7 +642,7 @@ export default function AddWorkout({ lowMotion = false }) {
     if (copyError) setCopyError("");
   };
 
-  const handleCopyWorkout = async () => {
+  const handleCopyWorkout = guard(async () => {
     if (!copyWorkout) return;
     if (copyDays.length === 0) {
       setCopyError("Select at least one remaining day.");
@@ -786,7 +667,7 @@ export default function AddWorkout({ lowMotion = false }) {
           action: "copied",
           title: copyWorkout.title,
           note: `to ${copyDays.join(", ")}`,
-          date: toISO(new Date()),
+          date: today,
           time: nowTime(),
         },
         ...prev,
@@ -799,32 +680,39 @@ export default function AddWorkout({ lowMotion = false }) {
 
     try {
       const { id: _ignored, ...planData } = copyWorkout;
-      const newPlans = await Promise.all(
-        copyDays.map((day) =>
-          api.post("/gym/plans", { ...planData, copiedFromId: sourceId, isActive: false, days: [day] })
-            .then((res) => res.data)
-        )
-      );
-      setWorkouts((prev) => [...newPlans, ...prev]);
+      const successful = [], failed = [];
+      // Keep each confirmed copy even if another day fails; retries target only failed days.
+      for (const day of copyDays) {
+        try {
+          const { data } = await api.post("/gym/plans", { ...planData, copiedFromId: sourceId, isActive: false, days: [day] });
+          successful.push(day);
+          setWorkouts(prev => [data, ...prev.filter(plan => plan.id !== data.id)]);
+        } catch (failure) { if (failure.code === "ERR_CANCELED") throw failure; failed.push(day); }
+      }
+      if (failed.length) {
+        setCopyDays(failed);
+        setCopyError(`${successful.length ? `Saved ${successful.join(", ")}. ` : ""}Could not copy ${failed.join(", ")}. Retry copies only these days.`);
+        return false;
+      }
       const logEntry = {
         id: `${copyWorkout.id}-cpy-${stamp}`,
         action: "copied",
         title: copyWorkout.title,
         note: `to ${copyDays.join(", ")}`,
-        date: toISO(new Date()),
+        date: today,
         time: nowTime(),
       };
       setLogs((prev) => [logEntry, ...prev]);
-      persistLog({ ...logEntry, planId: copyWorkout.id });
+      await persistLog({ ...logEntry, planId: copyWorkout.id });
       setCopyWorkout(null);
       setCopyDays([]);
       setCopyError("");
     } catch {
       setCopyError("Failed to copy workout. Please try again.");
     }
-  };
+  });
 
-  const handleUndo = async (logId) => {
+  const handleUndo = guard(async (logId) => {
     const log = logs.find((l) => l.id === logId);
     if (!log?.deletedItem) return;
     const undoMeta = getDeleteUndoMeta(log);
@@ -850,7 +738,7 @@ export default function AddWorkout({ lowMotion = false }) {
           title: restored.title,
           note: restoredDays.length > 0 ? `restored for ${restoredDays.join(", ")}` : "restored",
           restoredFromLogId: log.id,
-          date: toISO(new Date()),
+          date: today,
           time: nowTime(),
         },
         ...prev.filter((l) => l.id !== logId),
@@ -859,7 +747,7 @@ export default function AddWorkout({ lowMotion = false }) {
     }
 
     try {
-      const { id: _ignored, ...planData } = restored;
+      const { id: _ignored, copiedFromId: _source, ...planData } = restored;
       const { data } = await api.post("/gym/plans", planData);
       setWorkouts((prev) => [data, ...prev]);
       setWorkoutsView("active");
@@ -869,17 +757,17 @@ export default function AddWorkout({ lowMotion = false }) {
         title: data.title,
         note: restoredDays.length > 0 ? `restored for ${restoredDays.join(", ")}` : "restored",
         restoredFromLogId: log.id,
-        date: toISO(new Date()),
+        date: today,
         time: nowTime(),
       };
       setLogs((prev) => [logEntry, ...prev.filter((l) => l.id !== logId)]);
-      persistLog({ ...logEntry, planId: data.id });
+      await persistLog({ ...logEntry, planId: data.id });
     } catch {
-      // silently fail
+      // The request helper displays the failure; saved state is unchanged.
     }
-  };
+  });
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = guard(async (e) => {
     e.preventDefault();
     const err = validate();
     if (err) { setError(err); return; }
@@ -898,14 +786,14 @@ export default function AddWorkout({ lowMotion = false }) {
           normalizeActiveByDay(prev.map((w) => (w.id === editingId ? { ...demoPayload, id: editingId } : w)))
         );
         setLogs((prev) => [
-          { id: `${editingId}-upd-${Date.now()}`, action: "updated", title: demoPayload.title, date: toISO(new Date()), time: nowTime() },
+          { id: `${editingId}-upd-${Date.now()}`, action: "updated", title: demoPayload.title, date: today, time: nowTime() },
           ...prev,
         ]);
       } else {
         const newWorkout = { ...demoPayload, id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, isActive: false };
         setWorkouts((prev) => [newWorkout, ...prev]);
         setLogs((prev) => [
-          { id: `${newWorkout.id}-cre`, action: "created", title: newWorkout.title, date: toISO(new Date()), time: nowTime() },
+          { id: `${newWorkout.id}-cre`, action: "created", title: newWorkout.title, date: today, time: nowTime() },
           ...prev,
         ]);
       }
@@ -917,23 +805,23 @@ export default function AddWorkout({ lowMotion = false }) {
     try {
       if (editingId) {
         const { data } = await api.patch(`/gym/plans/${editingId}`, payload);
-        setWorkouts((prev) => prev.map((w) => w.id === editingId ? data : w));
-        const logEntry = { id: `${editingId}-upd-${Date.now()}`, action: "updated", title: data.title, date: toISO(new Date()), time: nowTime() };
+        setWorkouts(prev => prev.map(plan => plan.id === editingId ? data : data.isActive && plan.days?.some(day => data.days.includes(day)) ? { ...plan, isActive: false } : plan));
+        const logEntry = { id: `${editingId}-upd-${Date.now()}`, action: "updated", title: data.title, date: today, time: nowTime() };
         setLogs((prev) => [logEntry, ...prev]);
-        persistLog({ ...logEntry, planId: editingId });
+        await persistLog({ ...logEntry, planId: editingId });
       } else {
         const { data } = await api.post("/gym/plans", payload);
         setWorkouts((prev) => [data, ...prev]);
-        const logEntry = { id: `${data.id}-cre`, action: "created", title: data.title, date: toISO(new Date()), time: nowTime() };
+        const logEntry = { id: `${data.id}-cre`, action: "created", title: data.title, date: today, time: nowTime() };
         setLogs((prev) => [logEntry, ...prev]);
-        persistLog({ ...logEntry, planId: data.id });
+        await persistLog({ ...logEntry, planId: data.id });
       }
       resetForm();
       setMobileSection("workouts");
     } catch (submitErr) {
       setError(submitErr?.response?.data?.message || "Failed to save workout.");
     }
-  };
+  });
 
   const activeWorkouts  = workouts.filter((w) => w.neverEnds || !w.endDate || w.endDate >= today);
   const archivedByDateWorkouts = workouts.filter((w) => !w.neverEnds && w.endDate && w.endDate < today);
@@ -1047,6 +935,7 @@ export default function AddWorkout({ lowMotion = false }) {
 
   return (
     <div className="gym-add-view">
+      <GymNotice />
       <div className="gym-add-mobile-tabs" role="tablist" aria-label="Add workout sections">
         <button type="button" role="tab" aria-selected={mobileSection === "form"} onClick={() => setMobileSection("form")}>
           <span>＋ New</span>
@@ -1071,7 +960,7 @@ export default function AddWorkout({ lowMotion = false }) {
             {editingId ? "Edit Workout" : "New Workout"}
           </h3>
 
-          <form className="space-y-3" onSubmit={handleSubmit}>
+          <form className="space-y-3" onSubmit={event => { event.preventDefault(); void handleSubmit(event); }}>
 
             {/* Title */}
             <div>
@@ -1445,6 +1334,7 @@ export default function AddWorkout({ lowMotion = false }) {
                   <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Start *</label>
 <DashboardDateTimeInput
                     type="date"
+                    today={today}
                     value={form.startDate}
                     disabled={!!(editingId && form.startDate && form.startDate <= today)}
                     onChange={(e) => setField("startDate", e.target.value)}
@@ -1457,7 +1347,7 @@ export default function AddWorkout({ lowMotion = false }) {
                 {!form.neverEnds && (
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">End</label>
-<DashboardDateTimeInput type="date" value={form.endDate} min={toISO(new Date(new Date(form.startDate > today ? form.startDate : today).getTime() + 86400000))}
+<DashboardDateTimeInput type="date" today={today} value={form.endDate} min={form.startDate > today ? form.startDate : today}
                       onChange={(e) => setField("endDate", e.target.value)}
                       className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none focus:border-amber-300/35" />
                   </div>
@@ -1496,6 +1386,7 @@ export default function AddWorkout({ lowMotion = false }) {
 
             <button
               type="submit"
+              disabled={busy}
               className="w-full rounded-lg border border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 px-4 py-2 text-xs font-semibold text-amber-200 transition hover:from-amber-400/25 hover:to-orange-400/20"
             >
               {editingId ? "Update Workout" : "Add Workout"}
@@ -1788,6 +1679,7 @@ export default function AddWorkout({ lowMotion = false }) {
               </button>
             </div>
 
+            <GymNotice />
             {!viewWorkout.exercises?.length ? (
               <p className="text-center text-xs text-stone-500">No exercises in this workout.</p>
             ) : (
@@ -1865,6 +1757,7 @@ export default function AddWorkout({ lowMotion = false }) {
               </button>
             </div>
 
+            <GymNotice />
             {remainingCopyDays.length === 0 ? (
               <p className="rounded-xl border border-amber-100/10 bg-white/5 px-3 py-3 text-sm text-stone-400">
                 This workout is already copied to all days.

@@ -12,6 +12,7 @@ const goalWeeklySummarySchema = new mongoose.Schema({
     required: true,
     match: /^\d{4}-\d{2}-\d{2}$/,
   },
+  sourceHash: { type: String, default: null, match: /^[a-f0-9]{64}$/ },
   aiSummary: {
     type: String,
     required: true,

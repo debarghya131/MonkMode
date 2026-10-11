@@ -1,10 +1,12 @@
 import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { DEMO_DIETS, DEMO_WORKOUT_NUTRITION, DEMO_SUPP_PLANS, DEMO_MACRO_PLANS } from "../../../data/GymDummyData";
-import api from "../../api/axios";
-import useAuth from "../../hooks/useAuth";
+import { useGymEnvironment } from "./gymContext";
+import { useGymApi } from "./useGymData";
+import { gymStorageKey } from "./gymUtils";
+import { formatGoalTime } from "../goal/goalUtils";
+import GymNotice from "./GymNotice";
 
 const MEAL_SECTIONS = [
   { key: "morning",   label: "Morning"   },
@@ -26,9 +28,7 @@ const PLAN_TYPES = {
   SUPPLEMENTS: "supplements",
   MACROS: "macros"
 };
-const DIET_PLANS_CACHE_KEY = "monkmode_gym_diet_plans_cache_v1";
-const DIET_DRAFT_CACHE_KEY = "monkmode_gym_diet_draft_cache_v1";
-const notifyGymDietUpdated = () => window.dispatchEvent(new Event("monkmode:gym-diet-updated"));
+
 
 const MACRO_FIELDS = [
   { key: "protein",  label: "Protein",      unit: "g"    },
@@ -45,13 +45,7 @@ const makeMealState  = (sections) => Object.fromEntries(sections.map(({ key }) =
 const makeInputState = (sections) => Object.fromEntries(sections.map(({ key }) => [key, { name: "", time: "" }]));
 const BLANK_MACROS   = Object.fromEntries(MACRO_FIELDS.map(({ key }) => [key, ""]));
 
-const fmtTime = (t) => {
-  if (!t) return "";
-  const [h, m] = t.split(":").map(Number);
-  const d = new Date();
-  d.setHours(h, m);
-  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-};
+const fmtTime = formatGoalTime;
 
 function ModalPortal({ children }) {
   if (typeof document === "undefined") return null;
@@ -60,6 +54,7 @@ function ModalPortal({ children }) {
 
 /* ── Shared Plan View Modal ──────────────────────────────── */
 function PlanViewModal({ title, plans, dayFilter, setDayFilter, copyingId, setCopyingId, onToggleActive, onDelete, onCopy, onEdit, onClose, getRemainingDays, renderPlanContent }) {
+  const { busy } = useGymEnvironment();
   const filtered = dayFilter === "all" ? plans : plans.filter((p) => p.day === dayFilter);
 
   return (
@@ -68,6 +63,7 @@ function PlanViewModal({ title, plans, dayFilter, setDayFilter, copyingId, setCo
       <div
         className="flex w-full max-w-2xl flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.97),rgba(12,8,8,0.98))] shadow-2xl shadow-black/60 max-h-[calc(100dvh-1.5rem)] sm:max-h-[85vh]"
       >
+        <fieldset disabled={busy} className="contents min-w-0 border-0 p-0 m-0" aria-busy={busy}>
         {/* Header */}
         <div className="shrink-0 border-b border-amber-100/10 px-5 pb-4 pt-5">
           <div className="flex items-start justify-between gap-3">
@@ -83,6 +79,7 @@ function PlanViewModal({ title, plans, dayFilter, setDayFilter, copyingId, setCo
               Close
             </button>
           </div>
+          <GymNotice />
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             {["all", ...WEEK_DAYS].map((day) => (
               <button
@@ -151,7 +148,7 @@ function PlanViewModal({ title, plans, dayFilter, setDayFilter, copyingId, setCo
                         ) : (
                           <div className="flex flex-wrap gap-1.5">
                             {remaining.map((day) => (
-                              <button key={day} type="button" onClick={() => { onCopy(plan, day); setCopyingId(null); }}
+                              <button key={day} type="button" onClick={async () => { if (await onCopy(plan, day)) setCopyingId(null); }}
                                 className="rounded-full border border-sky-300/30 bg-sky-500/10 px-3 py-1 text-[11px] font-semibold text-sky-200 transition hover:bg-sky-500/25">
                                 {day}
                               </button>
@@ -168,6 +165,7 @@ function PlanViewModal({ title, plans, dayFilter, setDayFilter, copyingId, setCo
             </div>
           )}
         </div>
+        </fieldset>
       </div>
     </div>
     </ModalPortal>
@@ -341,34 +339,9 @@ const stripPlanType = (plan) => {
   return rest;
 };
 
-const loadDietPlansCache = () => {
+const loadDietDraftCache = (storageKey) => {
   try {
-    const stored = localStorage.getItem(DIET_PLANS_CACHE_KEY);
-    if (!stored) return null;
-    const parsed = JSON.parse(stored);
-    if (!parsed || typeof parsed !== "object") return null;
-    return {
-      diets: Array.isArray(parsed.diets) ? parsed.diets : [],
-      workoutNutrition: Array.isArray(parsed.workoutNutrition) ? parsed.workoutNutrition : [],
-      supplements: Array.isArray(parsed.supplements) ? parsed.supplements : [],
-      macros: Array.isArray(parsed.macros) ? parsed.macros : []
-    };
-  } catch {
-    return null;
-  }
-};
-
-const persistDietPlansCache = (value) => {
-  try {
-    localStorage.setItem(DIET_PLANS_CACHE_KEY, JSON.stringify(value));
-  } catch {
-    // ignore storage quota/private mode issues
-  }
-};
-
-const loadDietDraftCache = () => {
-  try {
-    const stored = localStorage.getItem(DIET_DRAFT_CACHE_KEY);
+    const stored = localStorage.getItem(storageKey);
     if (!stored) return null;
     const parsed = JSON.parse(stored);
     return parsed && typeof parsed === "object" ? parsed : null;
@@ -377,9 +350,9 @@ const loadDietDraftCache = () => {
   }
 };
 
-const persistDietDraftCache = (value) => {
+const persistDietDraftCache = (storageKey, value) => {
   try {
-    localStorage.setItem(DIET_DRAFT_CACHE_KEY, JSON.stringify(value));
+    localStorage.setItem(storageKey, JSON.stringify(value));
   } catch {
     // ignore storage quota/private mode issues
   }
@@ -440,8 +413,19 @@ function SaveBtn({ label, selectedDay, onClick, disabled }) {
 
 /* ── Main Component ──────────────────────────────────────── */
 export default function DietChart() {
-  const { isDemoMode } = useAuth();
-  const draftCache = useMemo(() => loadDietDraftCache(), []);
+  const { isDemoMode, userId, diets, setDiets, guard } = useGymEnvironment();
+  const api = useGymApi();
+  const draftKey = gymStorageKey(userId, "diet-draft");
+  const draftCache = useMemo(() => isDemoMode ? null : loadDietDraftCache(draftKey), [draftKey, isDemoMode]);
+  const setTypePlans = (planType, updater) => setDiets(previous => {
+    const current = previous.filter(plan => plan.planType === planType).map(stripPlanType);
+    const next = typeof updater === "function" ? updater(current) : updater;
+    return [...previous.filter(plan => plan.planType !== planType), ...next.map(plan => ({ ...plan, planType }))];
+  });
+  const setSavedDiets = updater => setTypePlans(PLAN_TYPES.DIET, updater);
+  const setSavedWn = updater => setTypePlans(PLAN_TYPES.WORKOUT_NUTRITION, updater);
+  const setSavedSupps = updater => setTypePlans(PLAN_TYPES.SUPPLEMENTS, updater);
+  const setSavedMacros = updater => setTypePlans(PLAN_TYPES.MACROS, updater);
   const [mobilePanel, setMobilePanel] = useState("diet");
 
   /* Full Day Diet */
@@ -466,11 +450,11 @@ export default function DietChart() {
       })
     );
   });
-  const [savedDiets, setSavedDiets]             = useState(() => (isDemoMode ? DEMO_DIETS : []));
+  const savedDiets = diets.filter(plan => plan.planType === PLAN_TYPES.DIET).map(stripPlanType);
   const [showDietView, setShowDietView]         = useState(false);
   const [dietDayFilter, setDietDayFilter]       = useState("all");
   const [copyingDietId, setCopyingDietId]       = useState(null);
-  const [editingDietId, setEditingDietId]       = useState(null);
+  const [editingDietId, setEditingDietId]       = useState(() => draftCache?.editingDietId || null);
 
   /* Workout Nutrition */
   const [selectedWnDay, setSelectedWnDay]       = useState(() => String(draftCache?.selectedWnDay || ""));
@@ -494,11 +478,11 @@ export default function DietChart() {
       })
     );
   });
-  const [savedWn, setSavedWn]                   = useState(() => (isDemoMode ? DEMO_WORKOUT_NUTRITION : []));
+  const savedWn = diets.filter(plan => plan.planType === PLAN_TYPES.WORKOUT_NUTRITION).map(stripPlanType);
   const [showWnView, setShowWnView]             = useState(false);
   const [wnDayFilter, setWnDayFilter]           = useState("all");
   const [copyingWnId, setCopyingWnId]           = useState(null);
-  const [editingWnId, setEditingWnId]           = useState(null);
+  const [editingWnId, setEditingWnId]           = useState(() => draftCache?.editingWnId || null);
 
   /* Supplements */
   const [selectedSuppDay, setSelectedSuppDay]   = useState(() => String(draftCache?.selectedSuppDay || ""));
@@ -507,12 +491,12 @@ export default function DietChart() {
     name: typeof draftCache?.suppInput?.name === "string" ? draftCache.suppInput.name : "",
     time: typeof draftCache?.suppInput?.time === "string" ? draftCache.suppInput.time : ""
   }));
-  const [savedSupps, setSavedSupps]             = useState(() => (isDemoMode ? DEMO_SUPP_PLANS : []));
+  const savedSupps = diets.filter(plan => plan.planType === PLAN_TYPES.SUPPLEMENTS).map(stripPlanType);
   const [showSuppView, setShowSuppView]         = useState(false);
   const [suppDayFilter, setSuppDayFilter]       = useState("all");
   const [copyingSuppId, setCopyingSuppId]       = useState(null);
   const [showSuppDraftView, setShowSuppDraftView] = useState(false);
-  const [editingSuppId, setEditingSuppId]       = useState(null);
+  const [editingSuppId, setEditingSuppId]       = useState(() => draftCache?.editingSuppId || null);
 
   /* Macros */
   const [selectedMacroDay, setSelectedMacroDay] = useState(() => String(draftCache?.selectedMacroDay || ""));
@@ -520,56 +504,16 @@ export default function DietChart() {
     ...BLANK_MACROS,
     ...(draftCache?.macros && typeof draftCache.macros === "object" ? draftCache.macros : {})
   }));
-  const [savedMacros, setSavedMacros]           = useState(() => (isDemoMode ? DEMO_MACRO_PLANS : []));
+  const savedMacros = diets.filter(plan => plan.planType === PLAN_TYPES.MACROS).map(stripPlanType);
   const [showMacrosView, setShowMacrosView]     = useState(false);
   const [macrosDayFilter, setMacrosDayFilter]   = useState("all");
   const [copyingMacroId, setCopyingMacroId]     = useState(null);
-  const [editingMacroId, setEditingMacroId]     = useState(null);
-
-  const refreshPlans = useCallback(async () => {
-    if (isDemoMode) {
-      setSavedDiets(DEMO_DIETS);
-      setSavedWn(DEMO_WORKOUT_NUTRITION);
-      setSavedSupps(DEMO_SUPP_PLANS);
-      setSavedMacros(DEMO_MACRO_PLANS);
-      return;
-    }
-
-    try {
-      const { data } = await api.get("/gym/diet-plans");
-      const plans = Array.isArray(data) ? data : [];
-      setSavedDiets(plans.filter((plan) => plan.planType === PLAN_TYPES.DIET).map(stripPlanType));
-      setSavedWn(plans.filter((plan) => plan.planType === PLAN_TYPES.WORKOUT_NUTRITION).map(stripPlanType));
-      setSavedSupps(plans.filter((plan) => plan.planType === PLAN_TYPES.SUPPLEMENTS).map(stripPlanType));
-      setSavedMacros(plans.filter((plan) => plan.planType === PLAN_TYPES.MACROS).map(stripPlanType));
-    } catch (error) {
-      console.error("Failed to fetch diet plans:", error);
-      const cached = loadDietPlansCache();
-      if (cached) {
-        setSavedDiets(cached.diets);
-        setSavedWn(cached.workoutNutrition);
-        setSavedSupps(cached.supplements);
-        setSavedMacros(cached.macros);
-      }
-    }
-  }, [isDemoMode]);
-
-  useEffect(() => {
-    void refreshPlans();
-  }, [refreshPlans]);
+  const [editingMacroId, setEditingMacroId]     = useState(() => draftCache?.editingMacroId || null);
 
   useEffect(() => {
     if (isDemoMode) return;
-    persistDietPlansCache({
-      diets: savedDiets,
-      workoutNutrition: savedWn,
-      supplements: savedSupps,
-      macros: savedMacros
-    });
-  }, [isDemoMode, savedDiets, savedWn, savedSupps, savedMacros]);
-
-  useEffect(() => {
-    persistDietDraftCache({
+    persistDietDraftCache(draftKey, {
+      editingDietId, editingWnId, editingSuppId, editingMacroId,
       selectedDietDay,
       meals,
       mealInputs,
@@ -583,6 +527,7 @@ export default function DietChart() {
       macros
     });
   }, [
+    isDemoMode, draftKey, editingDietId, editingWnId, editingSuppId, editingMacroId,
     selectedDietDay, meals, mealInputs,
     selectedWnDay, workoutMeals, workoutInputs,
     selectedSuppDay, suppItems, suppInput,
@@ -597,30 +542,27 @@ export default function DietChart() {
     if (planType === PLAN_TYPES.MACROS) apply(setSavedMacros);
   };
 
-  const handleTogglePlan = async (planType, id) => {
+  const handleTogglePlan = guard(async (planType, id) => {
     if (isDemoMode) {
       setPlansByType(planType, (prev) => prev.map((plan) => (
         plan.id === id ? { ...plan, isActive: !plan.isActive } : plan
       )));
-      notifyGymDietUpdated();
       return;
     }
 
     try {
-      const { data } = await api.patch(`/gym/diet-plans/${id}/active`);
+      const { data } = await api.patch(`/gym/diet-plans/${id}/active`, { isActive: !diets.find(plan => plan.id === id)?.isActive });
       const plans = Array.isArray(data) ? data.map(stripPlanType) : [];
       setPlansByType(planType, plans);
-      notifyGymDietUpdated();
     } catch (error) {
       console.error("Failed to toggle diet plan:", error);
     }
-  };
+  });
 
-  const handleDeletePlan = async (planType, id, setCopying) => {
+  const handleDeletePlan = guard(async (planType, id, setCopying) => {
     if (isDemoMode) {
       setPlansByType(planType, (prev) => prev.filter((plan) => plan.id !== id));
       setCopying((current) => (current === id ? null : current));
-      notifyGymDietUpdated();
       return;
     }
 
@@ -628,30 +570,28 @@ export default function DietChart() {
       await api.delete(`/gym/diet-plans/${id}`);
       setPlansByType(planType, (prev) => prev.filter((plan) => plan.id !== id));
       setCopying((current) => (current === id ? null : current));
-      notifyGymDietUpdated();
     } catch (error) {
       console.error("Failed to delete diet plan:", error);
     }
-  };
+  });
 
-  const handleCopyPlan = async (planType, plan, targetDay) => {
+  const handleCopyPlan = guard(async (planType, plan, targetDay) => {
     if (isDemoMode) {
       setPlansByType(planType, (prev) => [
         { ...plan, id: `plan-${Date.now()}-copy`, day: targetDay, isActive: false, copiedFromId: plan.copiedFromId || plan.id },
         ...prev
       ]);
-      notifyGymDietUpdated();
       return;
     }
 
     try {
       const { data } = await api.post(`/gym/diet-plans/${plan.id}/copy`, { day: targetDay });
-      setPlansByType(planType, (prev) => [stripPlanType(data), ...prev]);
-      notifyGymDietUpdated();
+      setPlansByType(planType, (prev) => [stripPlanType(data), ...prev.filter(item => item.id !== data.id)]);
+      return true;
     } catch (error) {
       console.error("Failed to copy diet plan:", error);
     }
-  };
+  });
 
   /* ── Diet handlers ── */
   const startEditDiet = (plan) => {
@@ -667,7 +607,7 @@ export default function DietChart() {
     setMobilePanel("diet");
   };
 
-  const saveDiet = async () => {
+  const saveDiet = guard(async () => {
     if (!selectedDietDay) return;
 
     const payload = {
@@ -687,7 +627,6 @@ export default function DietChart() {
       } else {
         makeSavePlan(setSavedDiets, { day: selectedDietDay, meals: JSON.parse(JSON.stringify(meals)) });
       }
-      notifyGymDietUpdated();
       setMeals(makeMealState(MEAL_SECTIONS));
       setMealInputs(makeInputState(MEAL_SECTIONS));
       setSelectedDietDay("");
@@ -705,8 +644,7 @@ export default function DietChart() {
             : [saved, ...prev]
         ));
         setEditingDietId(null);
-        notifyGymDietUpdated();
-      } catch (error) {
+        } catch (error) {
         console.error("Failed to save full day diet:", error);
         return;
       }
@@ -715,7 +653,7 @@ export default function DietChart() {
     setMeals(makeMealState(MEAL_SECTIONS));
     setMealInputs(makeInputState(MEAL_SECTIONS));
     setSelectedDietDay("");
-  };
+  });
 
   /* ── Workout Nutrition handlers ── */
   const startEditWn = (plan) => {
@@ -731,7 +669,7 @@ export default function DietChart() {
     setMobilePanel("nutrition");
   };
 
-  const saveWn = async () => {
+  const saveWn = guard(async () => {
     if (!selectedWnDay) return;
 
     const payload = {
@@ -751,7 +689,6 @@ export default function DietChart() {
       } else {
         makeSavePlan(setSavedWn, { day: selectedWnDay, meals: JSON.parse(JSON.stringify(workoutMeals)) });
       }
-      notifyGymDietUpdated();
       setWorkoutMeals(makeMealState(WORKOUT_SECTIONS));
       setWorkoutInputs(makeInputState(WORKOUT_SECTIONS));
       setSelectedWnDay("");
@@ -769,8 +706,7 @@ export default function DietChart() {
             : [saved, ...prev]
         ));
         setEditingWnId(null);
-        notifyGymDietUpdated();
-      } catch (error) {
+        } catch (error) {
         console.error("Failed to save workout nutrition:", error);
         return;
       }
@@ -779,7 +715,7 @@ export default function DietChart() {
     setWorkoutMeals(makeMealState(WORKOUT_SECTIONS));
     setWorkoutInputs(makeInputState(WORKOUT_SECTIONS));
     setSelectedWnDay("");
-  };
+  });
 
   /* ── Supplement handlers ── */
   const startEditSupp = (plan) => {
@@ -807,7 +743,7 @@ export default function DietChart() {
     });
   };
 
-  const saveSupp = async () => {
+  const saveSupp = guard(async () => {
     if (!selectedSuppDay || suppItems.length === 0) return;
 
     const payload = {
@@ -827,7 +763,6 @@ export default function DietChart() {
       } else {
         makeSavePlan(setSavedSupps, { day: selectedSuppDay, items: [...suppItems] });
       }
-      notifyGymDietUpdated();
       setShowSuppView(false);
       setShowSuppDraftView(false);
       setSuppItems([]);
@@ -847,8 +782,7 @@ export default function DietChart() {
             : [saved, ...prev]
         ));
         setEditingSuppId(null);
-        notifyGymDietUpdated();
-      } catch (error) {
+        } catch (error) {
         console.error("Failed to save supplements plan:", error);
         return;
       }
@@ -859,7 +793,7 @@ export default function DietChart() {
     setSuppItems([]);
     setSuppInput({ name: "", time: "" });
     setSelectedSuppDay("");
-  };
+  });
 
   /* ── Macro handlers ── */
   const startEditMacro = (plan) => {
@@ -871,7 +805,7 @@ export default function DietChart() {
     setMobilePanel("macros");
   };
 
-  const saveMacro = async () => {
+  const saveMacro = guard(async () => {
     if (!selectedMacroDay) return;
 
     const payload = {
@@ -891,7 +825,6 @@ export default function DietChart() {
       } else {
         makeSavePlan(setSavedMacros, { day: selectedMacroDay, values: { ...macros } });
       }
-      notifyGymDietUpdated();
       setMacros(BLANK_MACROS);
       setSelectedMacroDay("");
       return;
@@ -908,8 +841,7 @@ export default function DietChart() {
             : [saved, ...prev]
         ));
         setEditingMacroId(null);
-        notifyGymDietUpdated();
-      } catch (error) {
+        } catch (error) {
         console.error("Failed to save macro plan:", error);
         return;
       }
@@ -917,7 +849,7 @@ export default function DietChart() {
 
     setMacros(BLANK_MACROS);
     setSelectedMacroDay("");
-  };
+  });
 
   /* card shell shared classes */
   const card = "flex flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 shadow-xl shadow-black/20 sm:rounded-2xl";
@@ -925,6 +857,7 @@ export default function DietChart() {
   return (
     /* Full-height wrapper on larger screens */
     <div className="gym-diet-view">
+      <GymNotice />
 
       <div className="gym-diet-mobile-tabs" role="tablist" aria-label="Diet chart sections">
         {[
@@ -1192,7 +1125,7 @@ export default function DietChart() {
           copyingId={copyingDietId} setCopyingId={setCopyingDietId}
           onToggleActive={(id) => { void handleTogglePlan(PLAN_TYPES.DIET, id); }}
           onDelete={(id) => { void handleDeletePlan(PLAN_TYPES.DIET, id, setCopyingDietId); }}
-          onCopy={(plan, day) => { void handleCopyPlan(PLAN_TYPES.DIET, plan, day); }}
+          onCopy={(plan, day) => handleCopyPlan(PLAN_TYPES.DIET, plan, day)}
           onEdit={startEditDiet}
           onClose={() => setShowDietView(false)}
           getRemainingDays={makeGetRemaining(savedDiets)}
@@ -1231,7 +1164,7 @@ export default function DietChart() {
           copyingId={copyingWnId} setCopyingId={setCopyingWnId}
           onToggleActive={(id) => { void handleTogglePlan(PLAN_TYPES.WORKOUT_NUTRITION, id); }}
           onDelete={(id) => { void handleDeletePlan(PLAN_TYPES.WORKOUT_NUTRITION, id, setCopyingWnId); }}
-          onCopy={(plan, day) => { void handleCopyPlan(PLAN_TYPES.WORKOUT_NUTRITION, plan, day); }}
+          onCopy={(plan, day) => handleCopyPlan(PLAN_TYPES.WORKOUT_NUTRITION, plan, day)}
           onEdit={startEditWn}
           onClose={() => setShowWnView(false)}
           getRemainingDays={makeGetRemaining(savedWn)}
@@ -1266,7 +1199,7 @@ export default function DietChart() {
           copyingId={copyingSuppId} setCopyingId={setCopyingSuppId}
           onToggleActive={(id) => { void handleTogglePlan(PLAN_TYPES.SUPPLEMENTS, id); }}
           onDelete={(id) => { void handleDeletePlan(PLAN_TYPES.SUPPLEMENTS, id, setCopyingSuppId); }}
-          onCopy={(plan, day) => { void handleCopyPlan(PLAN_TYPES.SUPPLEMENTS, plan, day); }}
+          onCopy={(plan, day) => handleCopyPlan(PLAN_TYPES.SUPPLEMENTS, plan, day)}
           onEdit={startEditSupp}
           onClose={() => setShowSuppView(false)}
           getRemainingDays={makeGetRemaining(savedSupps)}
@@ -1304,7 +1237,7 @@ export default function DietChart() {
           copyingId={copyingMacroId} setCopyingId={setCopyingMacroId}
           onToggleActive={(id) => { void handleTogglePlan(PLAN_TYPES.MACROS, id); }}
           onDelete={(id) => { void handleDeletePlan(PLAN_TYPES.MACROS, id, setCopyingMacroId); }}
-          onCopy={(plan, day) => { void handleCopyPlan(PLAN_TYPES.MACROS, plan, day); }}
+          onCopy={(plan, day) => handleCopyPlan(PLAN_TYPES.MACROS, plan, day)}
           onEdit={startEditMacro}
           onClose={() => setShowMacrosView(false)}
           getRemainingDays={makeGetRemaining(savedMacros)}

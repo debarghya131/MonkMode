@@ -10,6 +10,11 @@ const userSchema = new mongoose.Schema({
   name: String,
   email: { type: String, unique: true },
   password: String,
+  gymMutationVersion: { type: Number, default: 0, select: false },
+  todoPreferences: {
+    categories: { type: [String], default: [] },
+    importantCategories: { type: [String], default: [] },
+  },
   journalCustomFieldTemplates: {
     type: [journalCustomFieldTemplateSchema],
     default: []

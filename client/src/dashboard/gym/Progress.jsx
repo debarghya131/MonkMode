@@ -1,21 +1,10 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { createDemoWorkoutProgressMap } from "../../../data/GymDummyData";
-import api from "../../api/axios";
-import useAuth from "../../hooks/useAuth";
-
-/* ─── Workouts data ─────────────────────────────────────────── */
-const loadWorkouts = () => {
-  try {
-    const stored = localStorage.getItem("monkmode_workouts");
-    const parsed = stored ? JSON.parse(stored) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch { return []; }
-};
-
-const WORKOUT_PROGRESS_KEY = "monkmode_exercise_progress";
-const WORKOUT_PROGRESS_SEED_KEY = "monkmode_exercise_progress_seed";
-const WORKOUT_PROGRESS_SEED_VERSION = "meaningful_v2";
+import { useGymEnvironment } from "./gymContext";
+import useGymResource from "./useGymResource";
+import GymResourceNotice from "./GymResourceNotice";
+import { createDemoEntries } from "./measurementDemoData";
 
 /* ─── Measurements data ─────────────────────────────────────── */
 const MEAS_FIELDS = [
@@ -46,18 +35,6 @@ const MEAS_FIELDS = [
 
 const MEAS_GROUPS = ["All", "Core", "Upper Body", "Arms", "Lower Body"];
 
-const loadEntries = () => {
-  try {
-    const stored = localStorage.getItem("monkmode_gym_measurements");
-    if (!stored) return [];
-    const parsed = JSON.parse(stored);
-    if (!Array.isArray(parsed)) return [];
-    return [...parsed]
-      .filter((entry) => !entry?.deletedAt)
-      .sort((a, b) => (a.checkInDate || "").localeCompare(b.checkInDate || ""));
-  } catch { return []; }
-};
-
 const fmtDate = (iso) =>
   iso ? new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
@@ -85,27 +62,6 @@ const stableExerciseKey = (exercise = {}) => {
   const id = exercise?.id || "";
   if (id && !id.startsWith("custom-") && !id.startsWith("ex-")) return id;
   return (exercise?.name || "").toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-};
-
-const mergeDemoWorkoutProgressSource = (source = {}) => {
-  const storedSource = source && typeof source === "object" && !Array.isArray(source) ? source : {};
-  return { ...createDemoWorkoutProgressMap(), ...storedSource };
-};
-
-const ensureWorkoutProgressSeed = () => {
-  try {
-    const seed = localStorage.getItem(WORKOUT_PROGRESS_SEED_KEY);
-    if (seed === WORKOUT_PROGRESS_SEED_VERSION) return;
-    const stored = localStorage.getItem(WORKOUT_PROGRESS_KEY);
-    const parsed = stored ? JSON.parse(stored) : {};
-    localStorage.setItem(
-      WORKOUT_PROGRESS_KEY,
-      JSON.stringify(mergeDemoWorkoutProgressSource(parsed))
-    );
-    localStorage.setItem(WORKOUT_PROGRESS_SEED_KEY, WORKOUT_PROGRESS_SEED_VERSION);
-  } catch {
-    // Ignore storage failures in private/incognito contexts.
-  }
 };
 
 const buildExerciseMetaMap = (workouts) => {
@@ -156,48 +112,10 @@ const mapWorkoutProgressEntries = (source, workouts = []) => {
     .sort((a, b) => a.date.localeCompare(b.date));
 };
 
-const loadWorkoutProgressEntries = (workouts = []) => {
-  try {
-    ensureWorkoutProgressSeed();
-    const stored = localStorage.getItem(WORKOUT_PROGRESS_KEY);
-    const parsed = stored ? JSON.parse(stored) : {};
-    const source = mergeDemoWorkoutProgressSource(parsed);
-    return mapWorkoutProgressEntries(source, workouts);
-  } catch {
-    return [];
-  }
-};
-
-const loadStoredWorkoutProgressSource = ({ includeDemoEntries = true } = {}) => {
-  try {
-    const stored = localStorage.getItem(WORKOUT_PROGRESS_KEY);
-    const parsed = stored ? JSON.parse(stored) : {};
-    const source = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-    if (includeDemoEntries) return source;
-
-    return Object.fromEntries(
-      Object.entries(source).filter(([entryKey, raw]) => {
-        const exerciseIdFromKey = typeof entryKey === "string" && entryKey.length > 11
-          ? entryKey.slice(11)
-          : "";
-        const exerciseId = String(raw?.exerciseId || exerciseIdFromKey || "");
-        return !exerciseId.startsWith("demo-");
-      })
-    );
-  } catch {
-    return {};
-  }
-};
-
-const mapApiWorkoutProgressEntries = (payload, workouts = []) => {
-  const source = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
-  return mapWorkoutProgressEntries({ ...source, ...loadStoredWorkoutProgressSource({ includeDemoEntries: false }) }, workouts);
-};
-
 const buildExerciseProgressRows = (entries) => {
   const grouped = {};
   entries.forEach((entry) => {
-    const nameKey = (entry.name || entry.exerciseId).toLowerCase().trim();
+    const nameKey = entry.exerciseId;
     if (!grouped[nameKey]) {
       grouped[nameKey] = {
         exerciseId: entry.exerciseId,
@@ -276,52 +194,11 @@ const WORKOUT_METRICS = [
 ];
 
 function WorkoutProgress({ workouts, lowMotion = false }) {
-  const { isDemoMode } = useAuth();
-  const [progressEntries, setProgressEntries] = useState(() => (isDemoMode ? loadWorkoutProgressEntries(workouts) : []));
+  const { today } = useGymEnvironment();
+  const resource = useGymResource("/gym/exercise-progress", createDemoWorkoutProgressMap(new Date(`${today}T12:00:00`)), "monkmode:exercise-progress-updated", {});
+  const progressEntries = useMemo(() => mapWorkoutProgressEntries(resource.data || {}, workouts), [resource.data, workouts]);
   const [groupFilter, setGroupFilter] = useState("All");
   const [selectedExerciseId, setSelectedExerciseId] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const syncDemo = () => {
-      if (cancelled) return;
-      setProgressEntries(loadWorkoutProgressEntries(loadWorkouts()));
-    };
-
-    const syncReal = async () => {
-      try {
-        const { data } = await api.get("/gym/exercise-progress");
-        if (!cancelled) setProgressEntries(mapApiWorkoutProgressEntries(data, workouts));
-      } catch {
-        if (!cancelled) setProgressEntries([]);
-      }
-    };
-
-    if (isDemoMode) {
-      syncDemo();
-    } else {
-      void syncReal();
-    }
-
-    const sync = () => {
-      if (isDemoMode) {
-        syncDemo();
-      } else {
-        void syncReal();
-      }
-    };
-
-    window.addEventListener("storage", sync);
-    window.addEventListener("focus", sync);
-    window.addEventListener("monkmode:exercise-progress-updated", sync);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("storage", sync);
-      window.removeEventListener("focus", sync);
-      window.removeEventListener("monkmode:exercise-progress-updated", sync);
-    };
-  }, [isDemoMode, workouts]);
 
   const exerciseRows = useMemo(() => buildExerciseProgressRows(progressEntries), [progressEntries]);
   const groups = useMemo(
@@ -345,9 +222,12 @@ function WorkoutProgress({ workouts, lowMotion = false }) {
 
   const selectedExercise = visibleExercises.find((row) => row.exerciseId === selectedExerciseId) || null;
 
+  if (!resource.ready) return <GymResourceNotice resource={resource} />;
+
   if (!exerciseRows.length) {
     return (
       <div className="rounded-2xl border border-dashed border-amber-100/10 bg-black/15 py-14 text-center">
+        <GymResourceNotice resource={resource} />
         <p className="text-sm font-semibold text-stone-300">No workout progress logged yet</p>
         <p className="mt-1 text-xs text-stone-500">Use Update Progress in Today tab to see trends here.</p>
       </div>
@@ -356,6 +236,7 @@ function WorkoutProgress({ workouts, lowMotion = false }) {
 
   return (
     <div className="gym-progress-workouts grid min-w-0 gap-4">
+      <GymResourceNotice resource={resource} />
       <div className="gym-progress-workout-panel min-w-0 rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">Exercises</p>
@@ -466,34 +347,11 @@ function WorkoutProgress({ workouts, lowMotion = false }) {
 
 /* ─── Measurements Progress tab ────────────────────────────── */
 function MeasurementsProgress({ lowMotion = false }) {
-  const { isDemoMode } = useAuth();
-  const [entries, setEntries] = useState(() => (isDemoMode ? loadEntries() : []));
+  const { today } = useGymEnvironment();
+  const resource = useGymResource("/gym/measurements", createDemoEntries(today), "monkmode:gym-measurements-updated");
+  const entries = useMemo(() => (Array.isArray(resource.data) ? resource.data : []).filter(entry => !entry.deletedAt).sort((a, b) => a.checkInDate.localeCompare(b.checkInDate)), [resource.data]);
   const [groupFilter, setGroupFilter] = useState("All");
   const [selectedField, setSelectedField] = useState(MEAS_FIELDS[0].key);
-
-  useEffect(() => {
-    if (isDemoMode) {
-      setEntries(loadEntries());
-      return;
-    }
-    let cancelled = false;
-    const fetch = async () => {
-      try {
-        const { data } = await api.get("/gym/measurements");
-        if (!cancelled) {
-          const sorted = (Array.isArray(data) ? data : [])
-            .filter((entry) => !entry?.deletedAt)
-            .slice()
-            .sort((a, b) => (a.checkInDate || "").localeCompare(b.checkInDate || ""));
-          setEntries(sorted);
-        }
-      } catch { if (!cancelled) setEntries([]); }
-    };
-    fetch();
-    const onUpdate = () => fetch();
-    window.addEventListener("monkmode:gym-measurements-updated", onUpdate);
-    return () => { cancelled = true; window.removeEventListener("monkmode:gym-measurements-updated", onUpdate); };
-  }, [isDemoMode]);
 
   const visibleFields = groupFilter === "All" ? MEAS_FIELDS : MEAS_FIELDS.filter((f) => f.group === groupFilter);
 
@@ -506,9 +364,12 @@ function MeasurementsProgress({ lowMotion = false }) {
     return { field, points: pts };
   }, [entries, selectedField]);
 
+  if (!resource.ready) return <GymResourceNotice resource={resource} />;
+
   if (entries.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-amber-100/10 bg-black/15 py-14 text-center">
+        <GymResourceNotice resource={resource} />
         <p className="text-sm font-semibold text-stone-300">No check-ins yet</p>
         <p className="mt-1 text-xs text-stone-500">Add measurements in the Measurements section to see progress here.</p>
       </div>
@@ -517,6 +378,7 @@ function MeasurementsProgress({ lowMotion = false }) {
 
   return (
     <div className="gym-progress-measurements space-y-4">
+      <GymResourceNotice resource={resource} />
       {/* Group filter */}
       <div className="gym-progress-group-filters flex gap-1.5 overflow-x-auto">
         {MEAS_GROUPS.map((g) => (
@@ -643,21 +505,11 @@ function MeasurementsProgress({ lowMotion = false }) {
 /* ─── Main component ────────────────────────────────────────── */
 export default function Progress({ initialTab = "measurements", lowMotion = false }) {
   const [tab, setTab] = useState(initialTab);
-  const [workouts, setWorkouts] = useState(loadWorkouts);
+  const { plans: workouts } = useGymEnvironment();
 
   useEffect(() => {
     setTab(initialTab);
   }, [initialTab]);
-
-  useEffect(() => {
-    const sync = () => setWorkouts(loadWorkouts());
-    window.addEventListener("storage", sync);
-    window.addEventListener("monkmode:gym-workouts-updated", sync);
-    return () => {
-      window.removeEventListener("storage", sync);
-      window.removeEventListener("monkmode:gym-workouts-updated", sync);
-    };
-  }, []);
 
   return (
     <div className="gym-progress-view space-y-4">

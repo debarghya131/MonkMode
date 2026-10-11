@@ -96,7 +96,16 @@ export default function DashboardSelect({
   }, [open]);
 
   useEffect(() => {
-    if (open) menuRef.current?.children[activeIndex]?.scrollIntoView({ block: "nearest" });
+    if (!open) return;
+    const menu = menuRef.current;
+    const option = menu?.children[activeIndex];
+    if (!menu || !option) return;
+    // Scroll only the portal menu. scrollIntoView can also move an ancestor
+    // page/pane, whose scroll listener then closes the dropdown mid-selection.
+    const top = option.offsetTop, bottom = top + option.offsetHeight;
+    if (top < menu.scrollTop) menu.scrollTo({ top, behavior: "instant" });
+    else if (bottom > menu.scrollTop + menu.clientHeight)
+      menu.scrollTo({ top: bottom - menu.clientHeight, behavior: "instant" });
   }, [activeIndex, open]);
 
   const onKeyDown = (event) => {

@@ -1,9 +1,11 @@
 import DashboardSelect from "../../components/DashboardSelect";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
-import api from "../../api/axios";
-import useAuth from "../../hooks/useAuth";
+import { useGymEnvironment } from "./gymContext";
+import { useGymApi } from "./useGymData";
+import useGymResource from "./useGymResource";
+import GymResourceNotice from "./GymResourceNotice";
 import { BODY_PART_GROUPS, EXERCISE_LIBRARY } from "./workoutLibraryData";
 
 const getBodyGroup = (bodyPart = "") => {
@@ -16,20 +18,8 @@ const getBodySection = (bodyPart = "") => {
   return bodyPart.split(" - ")[1]?.trim() || "";
 };
 
-const STORAGE_KEY = "monkmode_custom_exercises";
-
-const loadCustom = () => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch { return []; }
-};
-
-const emitGymLibraryUpdated = () => {
-  window.dispatchEvent(new Event("monkmode:gym-library-updated"));
-};
-
 function AddWorkoutModal({ onAdd, onClose }) {
+  const { busy } = useGymEnvironment();
   const [name, setName] = useState("");
   const [group, setGroup] = useState(BODY_PART_GROUPS[0].group);
   const [section, setSection] = useState(BODY_PART_GROUPS[0].sections[0]);
@@ -42,11 +32,13 @@ function AddWorkoutModal({ onAdd, onClose }) {
     setSection(BODY_PART_GROUPS.find((x) => x.group === g)?.sections[0] || "");
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim()) { setError("Enter a workout name."); return; }
-    onAdd({ name: name.trim(), group, section });
-    onClose();
+    if (busy) return;
+    const saved = await onAdd({ name: name.trim(), group, section });
+    if (saved) onClose();
+    else setError("Could not save. Your entries are kept; retry when ready.");
   };
 
   return createPortal(
@@ -54,17 +46,19 @@ function AddWorkoutModal({ onAdd, onClose }) {
       <div className="gym-library-modal-panel w-full max-w-md rounded-[1.4rem] border border-amber-100/10 bg-[linear-gradient(180deg,rgba(30,18,14,0.98),rgba(12,8,8,0.99))] p-4 shadow-2xl shadow-black/60 sm:rounded-2xl sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-base font-semibold text-amber-100">Add Workout</h3>
-          <button type="button" onClick={onClose}
+          <button type="button" disabled={busy} onClick={onClose}
             className="rounded border border-amber-100/15 bg-white/5 px-2.5 py-1 text-xs font-semibold text-stone-300 transition hover:text-stone-100">
             Close
           </button>
         </div>
 
+        <fieldset disabled={busy} className="border-0 m-0 min-w-0 p-0">
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <label className="block">
             <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">Workout Name</span>
             <input
               type="text"
+              maxLength={180}
               value={name}
               onChange={(e) => { setName(e.target.value); setError(""); }}
               placeholder="e.g. Cable Crossover"
@@ -105,12 +99,13 @@ function AddWorkoutModal({ onAdd, onClose }) {
               className="flex-1 rounded-xl border border-amber-300/30 bg-amber-500/15 py-2 text-sm font-semibold text-amber-100 transition hover:bg-amber-500/25">
               Add to Library
             </button>
-            <button type="button" onClick={onClose}
+            <button type="button" disabled={busy} onClick={onClose}
               className="rounded-xl border border-stone-500/20 bg-white/5 px-4 py-2 text-sm font-semibold text-stone-300 transition hover:text-stone-100">
               Cancel
             </button>
           </div>
         </form>
+        </fieldset>
       </div>
     </div>,
     document.body
@@ -118,54 +113,20 @@ function AddWorkoutModal({ onAdd, onClose }) {
 }
 
 export default function ExerciseLibrary() {
-  const { isDemoMode } = useAuth();
+  const { guard, isDemoMode } = useGymEnvironment();
+  const api = useGymApi();
+  const resource = useGymResource("/gym/library", [], "monkmode:gym-library-updated");
+  const customExercises = useMemo(() => Array.isArray(resource.data) ? resource.data : [], [resource.data]);
+  const { setData: setCustomExercises, loading } = resource;
   const [selectedGroup, setSelectedGroup] = useState("all");
-  const [customExercises, setCustomExercises] = useState(() => (isDemoMode ? loadCustom() : []));
   const [showAddModal, setShowAddModal] = useState(false);
-  const [loading, setLoading] = useState(() => !isDemoMode);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (isDemoMode) {
-      setCustomExercises(loadCustom());
-      setLoading(false);
-      return;
-    }
-
-    let isMounted = true;
-
-    const refreshCustomExercises = async () => {
-      try {
-        const { data } = await api.get("/gym/library");
-        if (!isMounted) return;
-        setCustomExercises(Array.isArray(data) ? data : []);
-        setError("");
-      } catch (fetchError) {
-        if (!isMounted) return;
-        console.error("Failed to fetch custom workout library:", fetchError);
-        setCustomExercises([]);
-        setError(fetchError?.response?.data?.message || "Failed to load your custom workouts.");
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    refreshCustomExercises();
-    window.addEventListener("focus", refreshCustomExercises);
-    window.addEventListener("monkmode:gym-library-updated", refreshCustomExercises);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener("focus", refreshCustomExercises);
-      window.removeEventListener("monkmode:gym-library-updated", refreshCustomExercises);
-    };
-  }, [isDemoMode]);
 
   const allExercises = useMemo(() => [...EXERCISE_LIBRARY, ...customExercises], [customExercises]);
 
   const groupCounts = useMemo(
     () =>
-      BODY_PART_GROUPS.map(({ group }) => ({
+      [...new Set([...BODY_PART_GROUPS.map(({ group }) => group), ...allExercises.map(exercise => getBodyGroup(exercise.bodyPart))])].filter(Boolean).map(group => ({
         group,
         count: allExercises.filter((exercise) => getBodyGroup(exercise.bodyPart) === group).length,
       })).filter(({ count }) => count > 0),
@@ -187,7 +148,7 @@ export default function ExerciseLibrary() {
 
   const totalVisibleExercises = visibleGroups.reduce((sum, group) => sum + group.exercises.length, 0);
 
-  const handleAdd = async ({ name, group, section }) => {
+  const handleAdd = guard(async ({ name, group, section }) => {
     const newExercise = {
       name,
       bodyPart: section ? `${group} - ${section}` : group,
@@ -196,15 +157,6 @@ export default function ExerciseLibrary() {
       custom: true,
     };
 
-    if (isDemoMode) {
-      const demoExercise = { ...newExercise, id: `custom-${Date.now()}` };
-      const updated = [...customExercises, demoExercise];
-      setCustomExercises(updated);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      emitGymLibraryUpdated();
-      return;
-    }
-
     try {
       const { data } = await api.post("/gym/library", {
         name: newExercise.name,
@@ -212,37 +164,29 @@ export default function ExerciseLibrary() {
         bodySection: newExercise.bodySection,
         bodyPart: newExercise.bodyPart
       });
-      setCustomExercises((prev) => [data, ...prev]);
+      setCustomExercises((prev) => [data, ...prev.filter(exercise => exercise.id !== data.id)]);
       setError("");
-      emitGymLibraryUpdated();
+      return true;
     } catch (saveError) {
-      console.error("Failed to save custom workout:", saveError);
       setError(saveError?.response?.data?.message || "Failed to save custom workout.");
+      return false;
     }
-  };
+  });
 
-  const handleDelete = async (id) => {
-    if (isDemoMode) {
-      const updated = customExercises.filter((exercise) => exercise.id !== id);
-      setCustomExercises(updated);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      emitGymLibraryUpdated();
-      return;
-    }
-
+  const handleDelete = guard(async (id) => {
     try {
       await api.delete(`/gym/library/${id}`);
       setCustomExercises((prev) => prev.filter((exercise) => exercise.id !== id));
       setError("");
-      emitGymLibraryUpdated();
+      return true;
     } catch (deleteError) {
-      console.error("Failed to delete custom workout:", deleteError);
       setError(deleteError?.response?.data?.message || "Failed to delete custom workout.");
     }
-  };
+  });
 
   return (
     <>
+      <GymResourceNotice resource={resource} />
       <div className="gym-library-view rounded-[1.5rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_38%),linear-gradient(180deg,rgba(30,18,14,0.96),rgba(12,8,8,0.98))] p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-[2rem] sm:p-6 lg:p-8">
         <div className="gym-library-header flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-3xl xl:max-w-sm">
@@ -274,6 +218,7 @@ export default function ExerciseLibrary() {
               <div className="gym-library-actions flex flex-col gap-2 sm:flex-row sm:items-center">
                 <button
                   type="button"
+                  disabled={isDemoMode || !resource.ready}
                   onClick={() => setShowAddModal(true)}
                   className="w-full whitespace-nowrap rounded-full border border-amber-300/40 bg-amber-500/15 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 sm:w-auto"
                 >
@@ -339,6 +284,7 @@ export default function ExerciseLibrary() {
                               </span>
                               <button
                                 type="button"
+                                aria-label={`Remove ${exercise.name} from library`}
                                 onClick={() => handleDelete(exercise.id)}
                                 className="ml-1 rounded-full border border-rose-400/25 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
                               >

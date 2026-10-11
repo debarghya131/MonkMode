@@ -2,269 +2,14 @@ import { useState, useEffect } from "react";
 import { motion as Motion, AnimatePresence } from "framer-motion";
 import littleMonkLogo from "../../assets/littlemonklogo.webp";
 import useAuth from "../../hooks/useAuth";
-import api from "../../api/axios";
+import useTodoWeeklyData from "./useTodoWeeklyData";
 
-const DEMO_TODO_DATA = [
-  {
-    id: "2026-04-13",
-    date: "Apr 13 - Apr 19",
-    signal: "6 Active days",
-    totalTasks: 42,
-    completed: 28,
-    pending: 6,
-    missed: 8,
-    completionRate: 67,
-    weeklyScore: 70,
-    longestStreak: 3,
-    completionTiming: [
-      { range: "6 AM – 9 AM",  count: 8,  total: 9  },
-      { range: "9 AM – 12 PM", count: 11, total: 13 },
-      { range: "12 PM – 3 PM", count: 5,  total: 7  },
-      { range: "3 PM – 6 PM",  count: 3,  total: 5  },
-      { range: "6 PM – 12 AM", count: 1,  total: 2  },
-    ],
-    missedTiming: [
-      { range: "6 AM – 9 AM",  count: 1, total: 9  },
-      { range: "9 AM – 12 PM", count: 2, total: 13 },
-      { range: "12 PM – 3 PM", count: 2, total: 7  },
-      { range: "3 PM – 6 PM",  count: 2, total: 5  },
-      { range: "6 PM – 12 AM", count: 1, total: 2  },
-    ],
-    aiSummary:
-      "Your task completion rate this week sat at 67%, with 28 out of 42 tasks closed. Study and Work categories performed best — nearly every high-priority item was cleared. The biggest drag came from Health and Personal tasks: vitamins, journaling, and sleep routines were the most frequently skipped. Missed tasks clustered on Wednesday and Thursday, both days with heavy Work loads. The fix is structural: batch your low-effort personal tasks into a single 10-minute morning block so they don't compete with deep-work hours. Next week, front-load your Health tasks before 9 AM.",
-    categories: [
-      { name: "Study",          total: 9,  completed: 8, missed: 1 },
-      { name: "Work",           total: 10, completed: 8, missed: 1 },
-      { name: "Fitness",        total: 8,  completed: 5, missed: 2 },
-      { name: "Health",         total: 6,  completed: 3, missed: 2 },
-      { name: "Bill & Payment", total: 4,  completed: 2, missed: 1 },
-      { name: "Personal",       total: 3,  completed: 1, missed: 1 },
-      { name: "Shopping",       total: 2,  completed: 1, missed: 0 },
-    ],
-    priorityStats: [
-      { priority: "High",   total: 14, completed: 10, missed: 2 },
-      { priority: "Medium", total: 16, completed: 11, missed: 3 },
-      { priority: "Low",    total: 12, completed: 7,  missed: 3 },
-    ],
-    importantCategories: [
-      { name: "Bill & Payment", total: 4, completed: 2, missed: 1 },
-      { name: "Health",         total: 6, completed: 3, missed: 2 },
-    ],
-    dailyStats: [
-      { day: "Mon", completed: 4, total: 6  },
-      { day: "Tue", completed: 5, total: 7  },
-      { day: "Wed", completed: 6, total: 8  },
-      { day: "Thu", completed: 7, total: 7  },
-      { day: "Fri", completed: 4, total: 7  },
-      { day: "Sat", completed: 2, total: 5  },
-      { day: "Sun", completed: 0, total: 2  },
-    ],
-    missedTasks: [
-      { title: "Take Mock Interview",      category: "Study",   priority: "High",   day: "Mon, Apr 14" },
-      { title: "Evening Run",              category: "Fitness", priority: "Medium", day: "Tue, Apr 15" },
-      { title: "Take Vitamins",            category: "Health",  priority: "Low",    day: "Wed, Apr 16" },
-      { title: "Morning Stretch",          category: "Fitness", priority: "Low",    day: "Thu, Apr 17" },
-      { title: "Pay Electricity Bill",     category: "Bill & Payment", priority: "High", day: "Thu, Apr 17" },
-      { title: "Write Journal Entry",      category: "Personal", priority: "Low",   day: "Fri, Apr 18" },
-      { title: "Order Groceries",          category: "Shopping", priority: "Low",   day: "Sat, Apr 19" },
-      { title: "Sleep by 11 PM",           category: "Health",  priority: "Medium", day: "Sun, Apr 13" },
-    ],
-  },
-  {
-    id: "2026-04-06",
-    date: "Apr 6 - Apr 12",
-    signal: "5 Active days",
-    totalTasks: 38,
-    completed: 22,
-    pending: 9,
-    missed: 7,
-    completionRate: 58,
-    weeklyScore: 63,
-    longestStreak: 3,
-    completionTiming: [
-      { range: "6 AM – 9 AM",  count: 5,  total: 6  },
-      { range: "9 AM – 12 PM", count: 9,  total: 10 },
-      { range: "12 PM – 3 PM", count: 4,  total: 7  },
-      { range: "3 PM – 6 PM",  count: 3,  total: 4  },
-      { range: "6 PM – 12 AM", count: 1,  total: 2  },
-    ],
-    missedTiming: [
-      { range: "6 AM – 9 AM",  count: 1, total: 6  },
-      { range: "9 AM – 12 PM", count: 1, total: 10 },
-      { range: "12 PM – 3 PM", count: 3, total: 7  },
-      { range: "3 PM – 6 PM",  count: 1, total: 4  },
-      { range: "6 PM – 12 AM", count: 1, total: 2  },
-    ],
-    aiSummary:
-      "58% completion this week — below your typical pace. Work tasks held up well but Study slipped mid-week with two missed deep-work sessions. The pending pile grew because of carryover tasks that were never explicitly deferred. A simple rule helps here: if a task stays pending for two days in a row, either do it first thing or delete it. The 7 missed tasks were all low-to-medium priority, which suggests avoidance rather than overload. Tighten your daily review habit to catch these before they stack.",
-    categories: [
-      { name: "Study",          total: 8,  completed: 4, missed: 2 },
-      { name: "Work",           total: 9,  completed: 7, missed: 1 },
-      { name: "Fitness",        total: 6,  completed: 3, missed: 2 },
-      { name: "Health",         total: 5,  completed: 3, missed: 1 },
-      { name: "Bill & Payment", total: 4,  completed: 3, missed: 0 },
-      { name: "Personal",       total: 4,  completed: 1, missed: 1 },
-      { name: "Shopping",       total: 2,  completed: 1, missed: 0 },
-    ],
-    priorityStats: [
-      { priority: "High",   total: 13, completed: 8, missed: 2 },
-      { priority: "Medium", total: 15, completed: 9, missed: 3 },
-      { priority: "Low",    total: 10, completed: 5, missed: 2 },
-    ],
-    importantCategories: [
-      { name: "Bill & Payment", total: 4, completed: 3, missed: 0 },
-      { name: "Health",         total: 5, completed: 3, missed: 1 },
-    ],
-    dailyStats: [
-      { day: "Mon", completed: 3, total: 6 },
-      { day: "Tue", completed: 4, total: 6 },
-      { day: "Wed", completed: 5, total: 7 },
-      { day: "Thu", completed: 4, total: 7 },
-      { day: "Fri", completed: 4, total: 6 },
-      { day: "Sat", completed: 2, total: 4 },
-      { day: "Sun", completed: 0, total: 2 },
-    ],
-    missedTasks: [
-      { title: "Read OS Concepts",         category: "Study",   priority: "Medium", day: "Tue, Apr 8"  },
-      { title: "Take Mock Interview",      category: "Study",   priority: "High",   day: "Wed, Apr 9"  },
-      { title: "Morning Stretch",          category: "Fitness", priority: "Low",    day: "Mon, Apr 7"  },
-      { title: "Evening Run",              category: "Fitness", priority: "Medium", day: "Thu, Apr 10" },
-      { title: "Take Vitamins",            category: "Health",  priority: "Low",    day: "Fri, Apr 11" },
-      { title: "Clean Workspace",          category: "Personal", priority: "Low",   day: "Sat, Apr 12" },
-      { title: "Deploy to Staging",        category: "Work",    priority: "Medium", day: "Wed, Apr 9"  },
-    ],
-  },
-  {
-    id: "2026-03-30",
-    date: "Mar 30 - Apr 5",
-    signal: "7 Active days",
-    totalTasks: 45,
-    completed: 36,
-    pending: 4,
-    missed: 5,
-    completionRate: 80,
-    weeklyScore: 88,
-    longestStreak: 5,
-    completionTiming: [
-      { range: "6 AM – 9 AM",  count: 12, total: 12 },
-      { range: "9 AM – 12 PM", count: 14, total: 15 },
-      { range: "12 PM – 3 PM", count: 6,  total: 8  },
-      { range: "3 PM – 6 PM",  count: 3,  total: 4  },
-      { range: "6 PM – 12 AM", count: 1,  total: 2  },
-    ],
-    missedTiming: [
-      { range: "6 AM – 9 AM",  count: 0, total: 12 },
-      { range: "9 AM – 12 PM", count: 1, total: 15 },
-      { range: "12 PM – 3 PM", count: 2, total: 8  },
-      { range: "3 PM – 6 PM",  count: 1, total: 4  },
-      { range: "6 PM – 12 AM", count: 1, total: 2  },
-    ],
-    aiSummary:
-      "Your best task week in the past month — 80% completion with all seven days active. Every high-priority item was resolved. The 5 missed tasks were all low-priority and non-urgent, which is an acceptable trade-off when the important things got done. Wednesday April 2nd was your standout day: 8 tasks completed, zero missed, and the earliest start time of the week. The pattern that drove this was a pre-written task list the night before. Replicate that Sunday planning habit and you should hold this completion rate into next week.",
-    categories: [
-      { name: "Study",          total: 9,  completed: 8, missed: 0 },
-      { name: "Work",           total: 10, completed: 9, missed: 0 },
-      { name: "Fitness",        total: 7,  completed: 6, missed: 1 },
-      { name: "Health",         total: 7,  completed: 6, missed: 1 },
-      { name: "Bill & Payment", total: 4,  completed: 3, missed: 1 },
-      { name: "Personal",       total: 5,  completed: 3, missed: 1 },
-      { name: "Shopping",       total: 3,  completed: 1, missed: 1 },
-    ],
-    priorityStats: [
-      { priority: "High",   total: 15, completed: 13, missed: 1 },
-      { priority: "Medium", total: 18, completed: 14, missed: 2 },
-      { priority: "Low",    total: 12, completed: 9,  missed: 2 },
-    ],
-    importantCategories: [
-      { name: "Bill & Payment", total: 4, completed: 3, missed: 1 },
-      { name: "Health",         total: 7, completed: 6, missed: 1 },
-    ],
-    dailyStats: [
-      { day: "Mon", completed: 5, total: 6 },
-      { day: "Tue", completed: 6, total: 7 },
-      { day: "Wed", completed: 8, total: 8 },
-      { day: "Thu", completed: 7, total: 7 },
-      { day: "Fri", completed: 6, total: 7 },
-      { day: "Sat", completed: 3, total: 5 },
-      { day: "Sun", completed: 1, total: 5 },
-    ],
-    missedTasks: [
-      { title: "Evening Run",              category: "Fitness", priority: "Medium", day: "Mon, Mar 30" },
-      { title: "Sleep by 11 PM",           category: "Health",  priority: "Medium", day: "Wed, Apr 2"  },
-      { title: "Cancel Unused Subscription", category: "Bill & Payment", priority: "Low", day: "Thu, Apr 3" },
-      { title: "Write Journal Entry",      category: "Personal", priority: "Low",   day: "Sat, Apr 5"  },
-      { title: "Buy Earphones",            category: "Shopping", priority: "Medium", day: "Fri, Apr 4" },
-    ],
-  },
-  {
-    id: "2026-03-23",
-    date: "Mar 23 - Mar 29",
-    signal: "4 Active days",
-    totalTasks: 35,
-    completed: 17,
-    pending: 8,
-    missed: 10,
-    completionRate: 49,
-    weeklyScore: 52,
-    longestStreak: 2,
-    completionTiming: [
-      { range: "6 AM – 9 AM",  count: 3, total: 5  },
-      { range: "9 AM – 12 PM", count: 7, total: 10 },
-      { range: "12 PM – 3 PM", count: 4, total: 6  },
-      { range: "3 PM – 6 PM",  count: 2, total: 4  },
-      { range: "6 PM – 12 AM", count: 1, total: 2  },
-    ],
-    missedTiming: [
-      { range: "6 AM – 9 AM",  count: 2, total: 5  },
-      { range: "9 AM – 12 PM", count: 3, total: 10 },
-      { range: "12 PM – 3 PM", count: 2, total: 6  },
-      { range: "3 PM – 6 PM",  count: 2, total: 4  },
-      { range: "6 PM – 12 AM", count: 1, total: 2  },
-    ],
-    aiSummary:
-      "49% completion is the lowest of the past four weeks. Only 4 active days with significant gaps on Tuesday and Friday. The missed task count of 10 is high, and unlike other weeks, several high-priority items were in that group — two Study tasks and a Work deadline. The root cause appears to be an overloaded task list: 35 tasks across 4 active days is an unrealistic pace. For weeks with fewer active days, cut the list to match your actual capacity. Better to complete 80% of 20 tasks than 49% of 35.",
-    categories: [
-      { name: "Study",          total: 8,  completed: 3, missed: 3 },
-      { name: "Work",           total: 8,  completed: 4, missed: 2 },
-      { name: "Fitness",        total: 5,  completed: 2, missed: 2 },
-      { name: "Health",         total: 5,  completed: 3, missed: 2 },
-      { name: "Bill & Payment", total: 3,  completed: 2, missed: 1 },
-      { name: "Personal",       total: 4,  completed: 2, missed: 0 },
-      { name: "Shopping",       total: 2,  completed: 1, missed: 0 },
-    ],
-    priorityStats: [
-      { priority: "High",   total: 12, completed: 5, missed: 4 },
-      { priority: "Medium", total: 13, completed: 7, missed: 4 },
-      { priority: "Low",    total: 10, completed: 5, missed: 2 },
-    ],
-    importantCategories: [
-      { name: "Bill & Payment", total: 3, completed: 2, missed: 1 },
-      { name: "Health",         total: 5, completed: 3, missed: 2 },
-    ],
-    dailyStats: [
-      { day: "Mon", completed: 0, total: 0 },
-      { day: "Tue", completed: 2, total: 6 },
-      { day: "Wed", completed: 5, total: 8 },
-      { day: "Thu", completed: 3, total: 6 },
-      { day: "Fri", completed: 0, total: 0 },
-      { day: "Sat", completed: 5, total: 7 },
-      { day: "Sun", completed: 2, total: 8 },
-    ],
-    missedTasks: [
-      { title: "Revise Graph Algorithms",  category: "Study",   priority: "High",   day: "Mon, Mar 23" },
-      { title: "Take Mock Interview",      category: "Study",   priority: "High",   day: "Tue, Mar 24" },
-      { title: "Read OS Concepts",         category: "Study",   priority: "Medium", day: "Thu, Mar 26" },
-      { title: "Deploy to Staging",        category: "Work",    priority: "Medium", day: "Wed, Mar 25" },
-      { title: "Frontend Team Sync",       category: "Work",    priority: "High",   day: "Mon, Mar 23" },
-      { title: "Morning Stretch",          category: "Fitness", priority: "Low",    day: "Fri, Mar 27" },
-      { title: "Evening Run",              category: "Fitness", priority: "Medium", day: "Sat, Mar 28" },
-      { title: "Take Vitamins",            category: "Health",  priority: "Low",    day: "Mon, Mar 23" },
-      { title: "Track Water Intake",       category: "Health",  priority: "Low",    day: "Wed, Mar 25" },
-      { title: "Pay Electricity Bill",     category: "Bill & Payment", priority: "High", day: "Thu, Mar 26" },
-    ],
-  },
-];
-
+function LoadError({ message, retry }) {
+  return <div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/5 p-3 text-sm text-rose-200">
+    <p>{message}</p>
+    <button type="button" onClick={retry} className="mt-2 rounded-lg border border-amber-400/30 px-3 py-1 text-xs font-semibold text-amber-300">Retry</button>
+  </div>;
+}
 
 function completionColor(rate) {
   if (rate >= 75) return "text-emerald-300";
@@ -289,104 +34,29 @@ function ReportCard({ children, className = "" }) {
 
 export default function ToDoWeeklyReport({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
-  const [selectedWeekId, setSelectedWeekId] = useState(null);
-  const [summaries, setSummaries] = useState([]);
-  const [loadingSummaries, setLoadingSummaries] = useState(true);
-  const [weekData, setWeekData] = useState(null);
-  const [loadingWeekData, setLoadingWeekData] = useState(false);
-  const [aiSummary, setAiSummary] = useState(null);
-  const [loadingAi, setLoadingAi] = useState(false);
+  const { selectedWeekId, setSelectedWeekId, summaries, loadingSummaries, summariesError, retrySummaries,
+    weekData, loadingWeekData, weekError, retryWeek, analysis, generate } = useTodoWeeklyData(isDemoMode);
+  const aiSummary = analysis.text, loadingAi = analysis.loading;
   const [timingFilter, setTimingFilter] = useState("completed");
   const [priorityFilter, setPriorityFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("completion");
   const [keyCategoryFilter, setKeyCategoryFilter] = useState("All");
 
-  // Load weeks list on mount
   useEffect(() => {
-    let active = true;
-
-    if (isDemoMode) {
-      const demoSummaries = DEMO_TODO_DATA.map(w => ({ id: w.id, date: w.date, signal: w.signal }));
-      if (active) {
-        setSummaries(demoSummaries);
-        setSelectedWeekId(demoSummaries[0]?.id ?? null);
-        setLoadingSummaries(false);
-      }
-      return () => {
-        active = false;
-      };
-    }
-
-    api.get("/weekly-report/todos/summaries")
-      .then(res => {
-        if (!active) return;
-        setSummaries(res.data);
-        if (res.data.length > 0) setSelectedWeekId(res.data[0].id);
-      })
-      .catch(err => console.error("Failed to load weeks:", err))
-      .finally(() => {
-        if (active) setLoadingSummaries(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [isDemoMode]);
-
-  // Load week data when selection changes
-  useEffect(() => {
-    let active = true;
-
-    if (!selectedWeekId) {
-      setWeekData(null);
-      setAiSummary(null);
-      setLoadingWeekData(false);
-      setLoadingAi(false);
-      return;
-    }
-    if (isDemoMode) {
-      const demo = DEMO_TODO_DATA.find(w => w.id === selectedWeekId) ?? null;
-      setWeekData(demo);
-      setAiSummary(demo?.aiSummary ?? null);
-      return;
-    }
-    setLoadingWeekData(true);
-    setLoadingAi(true);
-    setAiSummary(null);
-    api.get(`/weekly-report/todos?week=${selectedWeekId}`)
-      .then(res => {
-        if (active) setWeekData(res.data);
-      })
-      .catch(err => {
-        console.error("Failed to load week data:", err);
-        if (active) setWeekData(null);
-      })
-      .finally(() => {
-        if (active) setLoadingWeekData(false);
-      });
-    api.get(`/weekly-report/todos/ai-summary?week=${selectedWeekId}`)
-      .then(res => {
-        if (active) setAiSummary(res.data.aiSummary ?? null);
-      })
-      .catch(err => console.error("Failed to load AI summary:", err))
-      .finally(() => {
-        if (active) setLoadingAi(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [selectedWeekId, isDemoMode]);
+    setPriorityFilter("All"); setKeyCategoryFilter("All"); setTimingFilter("completed");
+  }, [selectedWeekId]);
 
   return (
-    <div className="weekly-todo-view flex flex-col gap-4 lg:flex-row lg:items-start">
+    <div className="weekly-todo-view flex flex-col gap-4 lg:flex-row lg:items-start" data-demo-allow="true">
 
       <div className="weekly-todo-quick-weeks rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-3" data-demo-allow="true">
         <p className="text-label-md">Little Monk's Analysis</p>
         {loadingSummaries ? (
           <p className="mt-2 text-xs text-stone-500">Loading weeks...</p>
+        ) : summariesError ? (
+          <LoadError message={summariesError} retry={retrySummaries} />
         ) : summaries.length === 0 ? (
-          <p className="mt-2 text-xs text-stone-500">No weekly summaries yet.</p>
+          <p className="mt-2 text-xs text-stone-500">Completed weeks with scheduled tasks appear here (last 12 weeks).</p>
         ) : (
           <div className="weekly-todo-quick-list mt-2 flex gap-2 overflow-x-auto pb-1">
             {summaries.map((week) => (
@@ -423,6 +93,8 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
               <p className="text-xs text-stone-500">Loading week data…</p>
             </Motion.div>
+          ) : weekError ? (
+            <div key="error" className="weekly-todo-main-body"><LoadError message={weekError} retry={retryWeek} /></div>
           ) : weekData ? (
             <Motion.div
               key={weekData.id}
@@ -435,9 +107,10 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
               {/* Heading */}
               <div className="weekly-todo-overview dashboard-glow-card rounded-[1.4rem] border border-amber-100/10 bg-white/6 px-4 py-3 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:px-5 sm:py-2.5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex flex-wrap items-baseline gap-2">
                     <p className="text-label-md">Weekly Summary</p>
                     <p className="text-[11px] font-semibold text-stone-500">{weekData.date}</p>
+                    <p className="w-full text-[11px] text-stone-400">{weekData.totalTasks} total · {weekData.completed} completed · {weekData.missed} missed · {weekData.pending} pending</p>
                   </div>
                   <div className="weekly-todo-heading-actions flex flex-wrap items-center gap-2 sm:justify-end">
                     <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
@@ -489,7 +162,7 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
                   {/* Longest Streak */}
                   <div className="flex items-center gap-1.5 rounded-full border border-orange-400/20 bg-orange-500/10 px-3 py-1">
                     <span className="text-sm leading-none">🔥</span>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Longest Streak</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Active-day Streak</p>
                     <span className="text-xs font-bold text-orange-300">
                       {weekData.longestStreak}
                       <span className="text-[10px] font-semibold text-stone-500"> days</span>
@@ -497,8 +170,8 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
                   </div>
                   {/* Consistency Score */}
                   {(() => {
-                    const activeDays = parseInt(weekData.signal);
-                    const consistencyPct = Math.round((activeDays / 7) * 100);
+                    const activeDays = weekData.activeDays;
+                    const consistencyPct = weekData.consistency;
                     return (
                       <Motion.div
                         className={`relative flex items-center gap-1.5 overflow-hidden rounded-full border px-3 py-1 ${
@@ -529,7 +202,7 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
                           "text-rose-300"
                         }`}>
                           {consistencyPct}%
-                          <span className="text-[10px] font-semibold text-stone-500"> ({activeDays}/7d)</span>
+                          <span className="text-[10px] font-semibold text-stone-500"> ({activeDays}/{weekData.scheduledDays}d)</span>
                         </span>
                       </Motion.div>
                     );
@@ -560,7 +233,7 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
                 transition={{ delay: 0.1 }}
                 className="weekly-todo-ai dashboard-glow-card flex min-h-[15rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5 lg:h-[24vh]"
               >
-                <div className="mb-3 flex items-center gap-2">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
                   <Motion.img
                     src={littleMonkLogo}
                     alt="Little Monk"
@@ -570,11 +243,15 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
                   />
                   <div>
                     <p className="text-label-md">Little Monk's Analysis</p>
-                    <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-amber-300/70">AI Generated</p>
+                    <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-amber-300/70">{isDemoMode ? "Sample analysis · Demo" : aiSummary ? "AI Generated · Verify insights" : "On-demand AI"}</p>
                   </div>
+                  {!isDemoMode && <button type="button" disabled={loadingAi || !weekData.totalTasks} onClick={generate}
+                    className="ml-auto rounded-lg border border-amber-400/30 px-3 py-1.5 text-xs font-semibold text-amber-300 disabled:opacity-40">
+                    {loadingAi ? "Please wait…" : aiSummary ? "↻ Regenerate" : "Generate analysis"}
+                  </button>}
                 </div>
                 <div className="journal-scroll min-h-0 flex-1 overflow-y-auto pr-1">
-                  {loadingAi ? (
+                  {loadingAi && !aiSummary ? (
                     <div className="flex h-full items-center justify-center">
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
                     </div>
@@ -582,9 +259,13 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
                     <p className="text-sm leading-relaxed text-stone-300">{aiSummary}</p>
                   ) : (
                     <p className="text-sm leading-relaxed text-stone-500 italic">
-                      AI analysis will be available here once generated.
+                      Generate an optional AI analysis. Opening this report does not use your AI allowance.
                     </p>
                   )}
+                  {analysis.stale && <p role="status" className="mt-2 text-xs text-amber-300">Task data changed. Regenerate to update this saved analysis.</p>}
+                  {analysis.error && <div className="mt-2"><LoadError message={analysis.error} retry={analysis.retryWith === "generate" ? generate : retryWeek} /></div>}
+                  {analysis.warning && <p role="status" className="mt-2 text-xs text-amber-300">{analysis.warning}</p>}
+                  {loadingAi && aiSummary && <p role="status" className="mt-2 text-xs text-stone-400">Updating analysis…</p>}
                 </div>
               </Motion.div>
 
@@ -599,7 +280,7 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">By Priority</p>
                     <div className="weekly-todo-card-filter flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
                       {["All", "High", "Medium", "Low"].map((p) => (
-                        <button key={p} type="button" onClick={() => setPriorityFilter(p)}
+                        <button key={p} type="button" aria-pressed={priorityFilter === p} onClick={() => setPriorityFilter(p)}
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
                             priorityFilter === p ? "bg-amber-500/20 text-amber-300" : "text-stone-500 hover:text-stone-300"
                           }`}
@@ -676,7 +357,7 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
                     {(weekData.importantCategories || []).length > 0 && (
                       <div className="weekly-todo-card-filter flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
                         {["All", ...(weekData.importantCategories || []).map((c) => c.name)].map((opt) => (
-                          <button key={opt} type="button" onClick={() => setKeyCategoryFilter(opt)}
+                          <button key={opt} type="button" aria-pressed={keyCategoryFilter === opt} onClick={() => setKeyCategoryFilter(opt)}
                             className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
                               keyCategoryFilter === opt ? "bg-amber-500/20 text-amber-300" : "text-stone-500 hover:text-stone-300"
                             }`}
@@ -769,13 +450,13 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
                       return stats.map((d, i) => {
                         const pct = d.total > 0 ? Math.round((d.completed / d.total) * 100) : null;
                         const rate = d.total > 0 ? d.completed / d.total : -1;
-                        const isBest  = rate === bestRate && rate >= 0;
+                        const isBest  = rate === bestRate && d.completed > 0;
                         const isWorst = rate === worstRate && rate >= 0 && bestRate !== worstRate;
                         return (
                           <div key={d.day} className="flex items-center gap-2">
                             <span className="w-7 shrink-0 text-[11px] font-semibold text-stone-400">{d.day}</span>
                             {d.total === 0 ? (
-                              <span className="text-[10px] text-stone-600">— no tasks</span>
+                              <span className="text-[10px] text-stone-600">{d.future ? "— future day" : "— no tasks"}</span>
                             ) : (
                               <>
                                 <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-stone-800/60">
@@ -800,10 +481,10 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
                   className="weekly-todo-stat-card dashboard-glow-card flex min-h-[13rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[23vh]"
                 >
                   <div className="mb-3 flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Task Timing Report</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">By Scheduled Time</p>
                     <div className="weekly-todo-card-filter flex w-full flex-wrap items-center rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
                       {["completed", "missed"].map((f) => (
-                        <button key={f} type="button" onClick={() => setTimingFilter(f)}
+                        <button key={f} type="button" aria-pressed={timingFilter === f} onClick={() => setTimingFilter(f)}
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
                             timingFilter === f
                               ? f === "completed" ? "bg-emerald-500/20 text-emerald-300" : "bg-rose-500/20 text-rose-300"
@@ -848,6 +529,16 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
 
 
               </div>
+              {weekData.missed > 0 && <details className="weekly-todo-missed rounded-2xl border border-rose-400/15 bg-stone-950/30 p-4">
+                <summary className="cursor-pointer text-sm font-semibold text-rose-200">Missed tasks · {weekData.missed}</summary>
+                <div className="mt-3 space-y-2">
+                  {(weekData.missedTasks || []).map(task => <div key={task.id} className="rounded-xl border border-stone-700/40 px-3 py-2">
+                    <p className="break-words text-xs font-semibold text-stone-200">{task.title}</p>
+                    <p className="mt-1 break-words text-[11px] text-stone-400">{task.day} · {task.category} · {task.priority}{task.time ? ` · ${task.time}` : ""}</p>
+                  </div>)}
+                  {weekData.missedTasksTruncated && <p className="text-xs text-stone-500">Showing the first {weekData.missedTasks.length} of {weekData.missedTasksTotal} missed occurrences. All are included in totals.</p>}
+                </div>
+              </details>}
             </Motion.div>
           ) : (
             <Motion.div
@@ -858,7 +549,7 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
               className="flex h-64 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-amber-100/10 text-center"
             >
               <span className="text-3xl opacity-30">✅</span>
-              <p className="text-sm font-semibold text-stone-500">Select a week to view task analysis</p>
+              <p className="text-sm font-semibold text-stone-500">{loadingSummaries ? "Loading task weeks…" : summariesError ? "Task weeks could not be loaded" : summaries.length ? "Select a week to view task analysis" : "No completed task week yet"}</p>
               <p className="text-xs text-stone-600">Click <span className="text-amber-400/70">View</span> on any weekly summary →</p>
             </Motion.div>
           )}
@@ -902,7 +593,9 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
               <div className="flex h-full items-center justify-center">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
               </div>
-            ) : summaries.length === 0 ? (
+            ) : summariesError ? (
+          <LoadError message={summariesError} retry={retrySummaries} />
+        ) : summaries.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
                 <span className="text-2xl opacity-20">✅</span>
                 <p className="text-xs text-stone-600">No completed weeks yet</p>
@@ -931,6 +624,7 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
                       </div>
                       <button
                         type="button"
+                        aria-pressed={isSelected}
                         onClick={() => setSelectedWeekId(isSelected ? null : week.id)}
                         className={`w-full rounded-full border px-3 py-1 text-xs font-semibold transition-colors sm:w-fit ${
                           isSelected
@@ -965,6 +659,7 @@ export default function ToDoWeeklyReport({ lowMotion = false }) {
                 <button
                   key={f}
                   type="button"
+                  aria-pressed={categoryFilter === f}
                   onClick={() => setCategoryFilter(f)}
                   className={`flex-1 rounded-full py-1 text-[11px] font-semibold transition-colors ${
                     categoryFilter === f

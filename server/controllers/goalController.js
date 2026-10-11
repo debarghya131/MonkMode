@@ -1,7 +1,12 @@
 import Goal from "../models/Goal.js";
 import GoalProgressLog from "../models/GoalProgressLog.js";
 import mongoose from "mongoose";
-import "../config/runtime.js";
+import User from "../models/User.js";
+import { journalMonthDays } from "../../shared/journalAnalysisStats.js";
+import { todoReportDay } from "../../shared/todoWeeklyStats.js";
+import { computeGoalAnalysis, GOAL_ANALYSIS_NOTE } from "../../shared/goalAnalysisStats.js";
+import { GOAL_REPORT_FIELDS, goalProgressFilter } from "../utils/goalWeeklyReportUtils.js";
+import { APP_TIMEZONE } from "../config/runtime.js";
 import { retainGoalActivityLogs } from "../utils/goalActivityUtils.js";
 import {
   buildSubgoalActivityTitle,
@@ -159,6 +164,7 @@ const serializeGoal = (goal, today = getStartOfDay(new Date())) => {
   return {
     ...raw,
     activityLogs: (raw.activityLogs || []).slice(-MAX_ACTIVITY_LOGS),
+    ...(goal.progressLogWarning ? { warning: goal.progressLogWarning } : {}),
     status: getGoalStatus(raw, today),
     milestones,
     subgoalProgress,
@@ -167,9 +173,19 @@ const serializeGoal = (goal, today = getStartOfDay(new Date())) => {
   };
 };
 
+// Goal and its embedded activity are already durable; a secondary audit failure
+// must not report the successful mutation as failed (and invite duplicate retries).
+const recordProgressLog = async (goal, payload) => {
+  try { await GoalProgressLog.create(payload); }
+  catch {
+    goal.progressLogWarning = "Goal saved, but its progress audit log could not be recorded.";
+    console.warn(goal.progressLogWarning);
+  }
+};
+
 const isValidGoalId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-const applySubgoalProgressToGoal = (goal) => {
+const applySubgoalProgressToGoal = (goal, wasCompleted) => {
   const summary = buildSubgoalProgressSummary(goal);
   const previousValue = Number(goal.currentValue) || 0;
   const previousTargetValue = Number(goal.targetValue) || 0;
@@ -180,15 +196,13 @@ const applySubgoalProgressToGoal = (goal) => {
   }
 
   const nextValue = Number(goal.currentValue) || 0;
-  const nextTargetValue = Number(goal.targetValue) || 0;
-  const wasCompleted = previousTargetValue > 0 && previousValue >= previousTargetValue;
-  const isCompleted = nextTargetValue > 0 && nextValue >= nextTargetValue;
+  const isCompleted = isGoalCompleted(goal);
 
   return {
     previousValue,
     nextValue,
-    changed: previousValue !== nextValue,
-    wasCompleted,
+    changed: previousValue !== nextValue || (wasCompleted !== undefined && wasCompleted !== isCompleted),
+    wasCompleted: Boolean(wasCompleted),
     isCompleted
   };
 };
@@ -560,16 +574,14 @@ export const updateGoalProgress = async (req, res) => {
     }
 
     const previousValue = Number(goal.currentValue) || 0;
+    const wasCompleted = isGoalCompleted(goal);
     goal.currentValue = parsedCurrentValue;
-
-    const targetValue = Number(goal.targetValue) || 0;
-    const wasCompleted = targetValue > 0 && previousValue >= targetValue;
-    const isCompleted = targetValue > 0 && parsedCurrentValue >= targetValue;
+    const isCompleted = isGoalCompleted(goal);
 
     appendActivityLog(goal, buildActivityLogEntry("progress_updated", goal.title, resolvedDate));
     await goal.save();
 
-    await GoalProgressLog.create({
+    await recordProgressLog(goal, {
       userId: req.user.id,
       goalId: goal._id,
       previousValue,
@@ -661,6 +673,9 @@ export const updateGoalSubgoalProgress = async (req, res) => {
       return res.status(404).json({ message: "Subgoal not found" });
     }
 
+    if (req.body?.completed !== undefined && typeof req.body.completed !== "boolean") {
+      return res.status(400).json({ message: "completed must be a boolean" });
+    }
     let nextCompleted;
     if (typeof req.body?.completed === "boolean") {
       nextCompleted = req.body.completed;
@@ -672,6 +687,7 @@ export const updateGoalSubgoalProgress = async (req, res) => {
       return res.json(serializeGoal(goal));
     }
 
+    const wasCompleted = isGoalCompleted(goal);
     const actionAt = new Date();
     subgoal.completed = nextCompleted;
     subgoal.completedAt = nextCompleted ? actionAt : null;
@@ -685,11 +701,11 @@ export const updateGoalSubgoalProgress = async (req, res) => {
       )
     );
 
-    const progressChange = applySubgoalProgressToGoal(goal);
+    const progressChange = applySubgoalProgressToGoal(goal, wasCompleted);
     await goal.save();
 
     if (progressChange.changed) {
-      await GoalProgressLog.create({
+      await recordProgressLog(goal, {
         userId: req.user.id,
         goalId: goal._id,
         previousValue: progressChange.previousValue,
@@ -726,6 +742,7 @@ export const deleteGoalSubgoal = async (req, res) => {
       return res.status(404).json({ message: "Subgoal not found" });
     }
 
+    const wasCompleted = isGoalCompleted(goal);
     const removedSubgoalTitle = subgoal.title;
     const actionAt = new Date();
     subgoal.deleteOne();
@@ -740,11 +757,11 @@ export const deleteGoalSubgoal = async (req, res) => {
       )
     );
 
-    const progressChange = applySubgoalProgressToGoal(goal);
+    const progressChange = applySubgoalProgressToGoal(goal, wasCompleted);
     await goal.save();
 
     if (progressChange.changed) {
-      await GoalProgressLog.create({
+      await recordProgressLog(goal, {
         userId: req.user.id,
         goalId: goal._id,
         previousValue: progressChange.previousValue,
@@ -774,7 +791,12 @@ export const toggleGoalImportant = async (req, res) => {
       return res.status(404).json({ message: "Goal not found" });
     }
 
-    goal.isImportant = !goal.isImportant;
+    if (req.body?.isImportant !== undefined && typeof req.body.isImportant !== "boolean") {
+      return res.status(400).json({ message: "isImportant must be a boolean" });
+    }
+    const nextImportant = typeof req.body?.isImportant === "boolean" ? req.body.isImportant : !goal.isImportant;
+    if (Boolean(goal.isImportant) === nextImportant) return res.json(serializeGoal(goal));
+    goal.isImportant = nextImportant;
     appendActivityLog(goal, buildActivityLogEntry("important_toggled", goal.title));
     await goal.save();
 
@@ -969,7 +991,9 @@ export const getGoalSummary = async (req, res) => {
       ...summary,
       goalCompletionRate,
       subgoalCompletionRate,
-      date: toDayKey(today)
+      date: toDayKey(today),
+      timezone: APP_TIMEZONE,
+      serverNow: new Date().toISOString()
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -1075,105 +1099,27 @@ export const getGoalHeatmap = async (req, res) => {
 };
 
 export const getGoalAnalysis = async (req, res) => {
+  let days;
+  try { days = journalMonthDays(req.query.year, req.query.month); }
+  catch { return res.status(400).json({ message: "Use a valid year and month (1–12)." }); }
+  const now = new Date(), today = todoReportDay(now, APP_TIMEZONE);
+  const clock = { today, timezone: APP_TIMEZONE, serverNow: now.toISOString() };
+  if (days[0] > today) return res.status(400).json({ message: "Future months are not available for analysis.", ...clock });
   try {
-    const userId = req.user.id;
-    const y = parseInt(req.query.year, 10);
-    const m = parseInt(req.query.month, 10);
-    if (!y || !m || m < 1 || m > 12) return res.status(400).json({ message: "Invalid year or month" });
-
-    const monthStart = new Date(y, m - 1, 1);
-    const monthEnd = new Date(y, m, 1);
-    const today = new Date();
-    const effectiveEnd = monthEnd < today ? monthEnd : today;
-    const daysInMonth = new Date(y, m, 0).getDate();
-
-    const goals = await Goal.find({ userId, deletedAt: null }).lean();
-
-    const ACTIVITY_ACTIONS = new Set(["progress_updated", "subgoal_completed"]);
-
-    const goalData = goals.map((goal) => {
-      const totalSubgoalsCount = goal.subgoals.length;
-      const completedSubgoalsCount = goal.subgoals.filter((s) => s.completed).length;
-      // Use subgoal completion ratio when subgoals exist (matches Goal Progress page),
-      // fall back to currentValue/targetValue when no subgoals are defined.
-      const progress = totalSubgoalsCount > 0
-        ? Math.round((completedSubgoalsCount / totalSubgoalsCount) * 100)
-        : goal.targetValue > 0
-          ? Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100))
-          : 0;
-      const type = goal.goalType === "long-term" ? "Long Term" : "Short Term";
-      const totalSubgoals = goal.subgoals.length;
-      const completedSubgoals = goal.subgoals.filter((s) => s.completed).length;
-      const lateCompletedSubgoals = goal.subgoals.filter(
-        (s) => s.completed && s.completedAt && s.deadline && new Date(s.completedAt) > new Date(s.deadline)
-      ).length;
-
-      const activeDaysInMonth = new Set(
-        (goal.activityLogs || [])
-          .filter((log) => {
-            const at = new Date(log.at);
-            return at >= monthStart && at < monthEnd && ACTIVITY_ACTIONS.has(log.action);
-          })
-          .map((log) => new Date(log.at).getDate())
-      );
-      const daysElapsed = Math.max(1, Math.ceil((effectiveEnd - monthStart) / 86400000));
-      const consistency = Math.min(100, Math.round((activeDaysInMonth.size / daysElapsed) * 100));
-
-      let expected = progress;
-      if (goal.startDate && goal.deadline) {
-        const start = new Date(goal.startDate);
-        const deadline = new Date(goal.deadline);
-        const totalMs = Math.max(1, deadline.getTime() - start.getTime());
-        const checkpoint = new Date(Math.min(effectiveEnd.getTime(), deadline.getTime()));
-        const elapsedMs = Math.max(0, checkpoint.getTime() - start.getTime());
-        expected = Math.min(100, Math.round((elapsedMs / totalMs) * 100));
-      }
-
-      const deadlineDays = goal.deadline
-        ? Math.max(0, Math.ceil((new Date(goal.deadline).getTime() - today.getTime()) / 86400000))
-        : null;
-
-      const isCompleted = progress >= 100 || (totalSubgoals > 0 && completedSubgoals === totalSubgoals);
-
-      return { title: goal.title, type, priority: goal.priority, progress, totalSubgoals, completedSubgoals, lateCompletedSubgoals, consistency, expected, deadlineDays, isCompleted };
-    });
-
-    const dayCount = new Map();
-    for (const goal of goals) {
-      for (const sub of goal.subgoals) {
-        if (sub.completed && sub.completedAt) {
-          const at = new Date(sub.completedAt);
-          if (at >= monthStart && at < monthEnd) {
-            const d = at.getDate();
-            dayCount.set(d, (dayCount.get(d) || 0) + 1);
-          }
-        }
-      }
-    }
-    let cumulative = 0;
-    const subgoalByDay = Array.from({ length: daysInMonth }, (_, i) => {
-      const day = i + 1;
-      cumulative += dayCount.get(day) || 0;
-      return { day, completed: cumulative };
-    });
-
-    const weeks = [[1, 7], [8, 14], [15, 21], [22, daysInMonth]];
-    const weeklyScores = weeks.map(([wStart, wEnd]) => {
-      const wS = new Date(y, m - 1, wStart);
-      const wE = new Date(y, m - 1, wEnd + 1);
-      if (goals.length === 0) return 0;
-      const active = goals.filter((goal) =>
-        (goal.activityLogs || []).some((log) => {
-          const at = new Date(log.at);
-          return at >= wS && at < wE && ACTIVITY_ACTIONS.has(log.action);
-        })
-      ).length;
-      return Math.round((active / goals.length) * 100);
-    });
-
-    return res.json({ year: y, month: m, goals: goalData, subgoalByDay, weeklyScores });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+    const account = await User.findById(req.user.id).select("createdAt").lean();
+    if (!account) return res.status(404).json({ message: "Account not found." });
+    const through = days.at(-1)<today ? days.at(-1) : today;
+    // Broad timestamp bounds are candidates only; exact days use the app timezone.
+    // Include retained deletions and earlier snapshots, not only today's active goals.
+    const goals = await Goal.find({ userId:req.user.id,
+      $or:[{createdAt:{$lt:new Date(Date.parse(through)+2*86400000)}},{createdAt:null}] }, GOAL_REPORT_FIELDS).lean();
+    const logs = goals.length ? await GoalProgressLog.find({ ...goalProgressFilter(req.user.id,goals.map(row=>row._id)),date:{$lte:now} })
+      .select("goalId previousValue currentValue date").lean() : [];
+    return res.json({ year:Number(req.query.year),month:Number(req.query.month),...clock,
+      joinedDay:account.createdAt ? todoReportDay(account.createdAt,APP_TIMEZONE) : null,
+      analysis:computeGoalAnalysis(goals,logs,{year:req.query.year,month:req.query.month,...clock,now:now.getTime()}),
+      dataNote:GOAL_ANALYSIS_NOTE });
+  } catch {
+    return res.status(500).json({ message:"Could not load Goal Analysis. Please retry." });
   }
 };
-

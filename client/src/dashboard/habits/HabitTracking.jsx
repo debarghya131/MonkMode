@@ -4,103 +4,35 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
+import { useHabitEnvironment } from "./habitContext";
+import { demoHabitTracking, habitDayKey, isHabitArchived } from "./habitUtils";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
-const CURRENT_YEAR = new Date().getFullYear();
-const CURRENT_MONTH = new Date().getMonth();
-const DEMO_YEAR_OPTIONS = Array.from({ length: 7 }, (_, i) => CURRENT_YEAR - 6 + i);
-const TARGET_STREAKS = {
-  h1: 21,
-  h2: 14,
-  h3: 30,
-  h4: 21,
-  h5: 60,
-  h6: 30,
-  h7: 14,
-  h8: 21,
-  h9: 14,
-  h10: 45,
-  h11: 30,
-  h12: 30,
-  h13: 21,
-  h14: 14,
-  h15: 21,
-  h16: 14,
-  h17: 21,
-  h18: 14,
-  h19: 30,
-  h20: 14,
-  h21: 21,
-  h22: 30,
-};
-
-const toISODate = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const addDaysISO = (offsetDays) => {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  return toISODate(date);
-};
-
-const isHabitArchived = (habit, today) => {
-  if (habit.deletedAt) return true;
-  if (habit.archivedReason === "ended") return true;
-  const endDate = habit.endDate
-    ? (typeof habit.endDate === "string" ? habit.endDate.slice(0, 10) : toISODate(new Date(habit.endDate)))
-    : null;
-  return Boolean(endDate && endDate <= today);
-};
-
-const getArchiveLabel = (habit, today) => {
-  if (habit.deletedAt) return "Deleted";
-  if (habit.archivedReason === "ended") return "Ended";
-  const endDate = habit.endDate
-    ? (typeof habit.endDate === "string" ? habit.endDate.slice(0, 10) : toISODate(new Date(habit.endDate)))
-    : null;
-  if (endDate && endDate <= today) return "Ended";
-  return null;
-};
-
-const INITIAL_HABITS = [
-  { id: "h1", title: "Morning Meditation", isImportant: true, completedDays: [2, 6, 11, 16, 27, 28, 29, 30], endDate: null, deletedAt: null },
-  { id: "h2", title: "Workout", isImportant: false, completedDays: [3, 7, 12, 18, 24, 30], endDate: null, deletedAt: null },
-  { id: "h3", title: "Read 20 Pages", isImportant: false, completedDays: [1, 3, 4, 6, 9, 11, 15], endDate: addDaysISO(18), deletedAt: null },
-  { id: "h4", title: "Deep Work Sprint", isImportant: true, completedDays: [3, 8, 12, 25, 26, 27, 28, 29, 30], endDate: addDaysISO(10), deletedAt: null },
-  { id: "h5", title: "Drink 3L Water", isImportant: false, completedDays: [1, 2, 3, 4, 5, 6, 7, 8], endDate: null, deletedAt: null },
-  { id: "h6", title: "Night Journal", isImportant: false, completedDays: [3, 7, 11, 18, 23, 29], endDate: addDaysISO(14), deletedAt: null },
-  { id: "h7", title: "Sleep by 11 PM", isImportant: false, completedDays: [1, 2, 4, 5, 8, 13, 20, 27], endDate: null, deletedAt: null },
-  { id: "h8", title: "No Sugar", isImportant: false, completedDays: [2, 3, 4, 5, 9, 14, 19], endDate: addDaysISO(7), deletedAt: null },
-  { id: "h9", title: "Stretching", isImportant: false, completedDays: [1, 6, 11, 16, 21, 26, 31], endDate: null, deletedAt: null },
-  { id: "h10", title: "Code Practice", isImportant: true, completedDays: [2, 5, 9, 23, 24, 25, 26, 27, 28, 29, 30], endDate: addDaysISO(21), deletedAt: null },
-  { id: "h11", title: "Walk 8k Steps", isImportant: false, completedDays: [1, 2, 4, 6, 7, 9, 12, 16, 20], endDate: null, deletedAt: null },
-  { id: "h12", title: "Protein Intake", isImportant: false, completedDays: [2, 3, 5, 8, 10, 11, 14, 18, 24], endDate: addDaysISO(12), deletedAt: null },
-  { id: "h13", title: "Language Practice", isImportant: false, completedDays: [1, 5, 6, 9, 13, 15, 19, 22, 28], endDate: addDaysISO(30), deletedAt: null },
-  { id: "h14", title: "Digital Detox", isImportant: false, completedDays: [3, 4, 7, 11, 12, 16, 20, 23, 27], endDate: addDaysISO(-5), deletedAt: null },
-  { id: "h15", title: "Gratitude Note", isImportant: false, completedDays: [1, 2, 3, 10, 11, 12, 18, 25, 30], endDate: null, deletedAt: null },
-  { id: "h16", title: "Breathing Exercise", isImportant: false, completedDays: [2, 6, 8, 10, 13, 17, 19, 21, 26], endDate: addDaysISO(9), deletedAt: null },
-  { id: "h17", title: "No Social Media", isImportant: false, completedDays: [1, 4, 5, 8, 9, 14, 17, 20, 29], endDate: addDaysISO(25), deletedAt: null },
-  { id: "h18", title: "Plan Tomorrow", isImportant: false, completedDays: [2, 3, 6, 7, 10, 13, 16, 22, 27], endDate: null, deletedAt: addDaysISO(-2) },
-  { id: "h19", title: "Vitamin Routine", isImportant: false, completedDays: [1, 2, 3, 4, 5, 8, 12, 16, 20], endDate: null, deletedAt: null },
-  { id: "h20", title: "Posture Check", isImportant: false, completedDays: [3, 7, 9, 11, 15, 18, 22, 24, 30], endDate: addDaysISO(16), deletedAt: null },
-  { id: "h21", title: "Evening Reflection", isImportant: false, completedDays: [1, 4, 6, 10, 12, 14, 17, 25, 28], endDate: addDaysISO(-8), deletedAt: null },
-  { id: "h22", title: "No Junk Food", isImportant: true, completedDays: [2, 5, 7, 8, 11, 13, 19, 23, 29], endDate: addDaysISO(20), deletedAt: null },
-].map((habit) => ({
-  ...habit,
-  targetStreak: TARGET_STREAKS[habit.id] ?? 21,
-}));
-
 export default function HabitTracking() {
   const { isDemoMode } = useAuth();
+  const { clock, timezone, demoHabits, requestSignal } = useHabitEnvironment();
+  const today = clock.date;
+  const CURRENT_YEAR = Number(today.slice(0, 4));
+  const CURRENT_MONTH = Number(today.slice(5, 7)) - 1;
+  const DEMO_YEAR_OPTIONS = [...new Set([CURRENT_YEAR, ...demoHabits.flatMap(h => h.completedDayKeys.map(day => Number(day.slice(0, 4))))])].sort((a, b) => b - a);
+  const [loadError, setLoadError] = useState("");
+  const [yearError, setYearError] = useState("");
+  const [actionErrors, setActionErrors] = useState({});
+  const [retry, setRetry] = useState(0);
+  const [loadedPeriod, setLoadedPeriod] = useState("");
+  const [busyIds, setBusyIds] = useState(new Set());
+  const locks = useRef(new Set());
+  const version = useRef(0);
+  const live = useRef(true);
+  useEffect(() => {
+    live.current = true;
+    return () => { live.current = false; version.current += 1; };
+  }, []);
   const lowMotion = useMobileLowMotion();
   const TrackingRow = lowMotion ? "tr" : Motion.tr;
   const monthStripRef = useRef(null);
-  const [habits, setHabits] = useState(() => isDemoMode ? INITIAL_HABITS : []);
+  const [habits, setHabits] = useState([]);
   const [loading, setLoading] = useState(!isDemoMode);
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
   const [yearOptions, setYearOptions] = useState(() => (isDemoMode ? DEMO_YEAR_OPTIONS : [CURRENT_YEAR]));
@@ -110,7 +42,7 @@ export default function HabitTracking() {
   const [habitView, setHabitView] = useState("active");
   const [importantOnly, setImportantOnly] = useState(false);
   const [endingSoonOnly, setEndingSoonOnly] = useState(false);
-  const [today, setToday] = useState(() => toISODate(new Date()));
+
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 639px)");
@@ -137,25 +69,16 @@ export default function HabitTracking() {
   }, [selectedMonth]);
 
   useEffect(() => {
-    const refreshToday = () => setToday(toISODate(new Date()));
-    const interval = window.setInterval(refreshToday, 60 * 1000);
-    window.addEventListener("focus", refreshToday);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("focus", refreshToday);
-    };
-  }, []);
-
-  useEffect(() => {
     if (isDemoMode) {
-      setYearOptions(DEMO_YEAR_OPTIONS);
+      setYearOptions([...new Set([CURRENT_YEAR, ...demoHabits.flatMap(h => h.completedDayKeys.map(day => Number(day.slice(0, 4))))])].sort((a, b) => b - a));
       return;
     }
 
     let cancelled = false;
+    const controller = new AbortController();
     const fetchYearOptions = async () => {
       try {
-        const { data } = await api.get("/habits/heatmap");
+        const { data } = await api.get("/habits/heatmap", { signal: controller.signal });
         if (cancelled) return;
         const years = Array.isArray(data?.years)
           ? data.years
@@ -164,8 +87,9 @@ export default function HabitTracking() {
           : [];
         const nextOptions = [...new Set([CURRENT_YEAR, ...years])].sort((a, b) => b - a);
         setYearOptions(nextOptions.length ? nextOptions : [CURRENT_YEAR]);
+        setYearError("");
       } catch {
-        if (!cancelled) setYearOptions([CURRENT_YEAR]);
+        if (!cancelled) setYearError("Could not refresh available history years. Please retry tracking.");
       }
     };
 
@@ -175,64 +99,62 @@ export default function HabitTracking() {
 
     return () => {
       cancelled = true;
+      controller.abort();
       window.removeEventListener("focus", fetchYearOptions);
       window.removeEventListener("monkmode:habits-updated", fetchYearOptions);
     };
-  }, [isDemoMode]);
+  }, [isDemoMode, CURRENT_YEAR, demoHabits, retry]);
 
   useEffect(() => {
     if (!yearOptions.includes(selectedYear)) {
       setSelectedYear(yearOptions[0] ?? CURRENT_YEAR);
     }
-  }, [selectedYear, yearOptions]);
+  }, [selectedYear, yearOptions, CURRENT_YEAR]);
 
-  /* fetch tracking data for real users */
+  /* A month is published only after that exact request succeeds. */
   useEffect(() => {
     if (isDemoMode) return;
     let cancelled = false;
+    const controller = new AbortController();
     const fetchTracking = async () => {
-      setLoading(true);
+      if (locks.current.size) return;
+      const current = ++version.current;
       try {
-        const { data } = await api.get(`/habits/tracking?month=${selectedMonth + 1}&year=${selectedYear}`);
-        if (cancelled) return;
-        const normalized = data.map((h) => ({
-          ...h,
-          id: h._id?.toString() ?? h.id,
-          completedDays: h.completedDays ?? [],
-          startDate: h.startDate
-            ? (typeof h.startDate === "string" ? h.startDate.slice(0, 10) : toISODate(new Date(h.startDate)))
-            : null,
-          endDate: h.endDate
-            ? (typeof h.endDate === "string" ? h.endDate.slice(0, 10) : toISODate(new Date(h.endDate)))
-            : null,
-          deletedAt: h.deletedAt
-            ? (typeof h.deletedAt === "string" ? h.deletedAt.slice(0, 10) : toISODate(new Date(h.deletedAt)))
-            : null,
-        }));
-        setHabits(normalized);
-      } catch {
-        // silently fail — leave previous state
+        const { data } = await api.get("/habits/tracking?month=" + (selectedMonth + 1) + "&year=" + selectedYear, { signal: controller.signal });
+        if (cancelled || current !== version.current) return;
+        if (!Array.isArray(data)) throw new Error("Invalid tracking response");
+        setHabits(data.map(h => ({
+          ...h, id: h._id?.toString() ?? h.id, completedDays: h.completedDays ?? [],
+          startDate: habitDayKey(h.startDate, timezone), endDate: habitDayKey(h.endDate, timezone),
+          deletedAt: h.deletedAt || null,
+        })));
+        setLoadedPeriod(selectedYear + "-" + selectedMonth);
+        setLoadError("");
+      } catch (error) {
+        if (!cancelled && current === version.current) setLoadError(error.response?.data?.message || "Could not load this month's tracking data. Please retry.");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && current === version.current) setLoading(false);
       }
     };
     fetchTracking();
-    return () => { cancelled = true; };
-  }, [isDemoMode, selectedMonth, selectedYear]);
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") fetchTracking(); }, 60000);
+    window.addEventListener("focus", fetchTracking);
+    window.addEventListener("monkmode:habits-updated", fetchTracking);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearInterval(timer);
+      window.removeEventListener("focus", fetchTracking);
+      window.removeEventListener("monkmode:habits-updated", fetchTracking);
+    };
+  }, [isDemoMode, selectedMonth, selectedYear, timezone, today, retry]);
 
   const sortedHabits = useMemo(
-    () => [...habits].sort((a, b) => Number(Boolean(b.isImportant)) - Number(Boolean(a.isImportant))),
-    [habits]
+    () => [...(isDemoMode ? demoHabitTracking(demoHabits, selectedYear, selectedMonth + 1) : habits)].sort((a, b) => Number(Boolean(b.isImportant)) - Number(Boolean(a.isImportant))),
+    [habits, isDemoMode, demoHabits, selectedYear, selectedMonth]
   );
 
-  const adjustedHabits = useMemo(() => {
-    if (!isDemoMode) return sortedHabits; // real data from API needs no adjustment
-    const shift = ((selectedYear - CURRENT_YEAR) % 31 + 31) % 31;
-    return sortedHabits.map((habit) => ({
-      ...habit,
-      completedDays: habit.completedDays.map((day) => ((day + shift - 1) % 31) + 1),
-    }));
-  }, [isDemoMode, selectedYear, sortedHabits]);
+  const adjustedHabits = sortedHabits;
 
   const filteredHabits = useMemo(
     () => adjustedHabits.filter((habit) => {
@@ -244,7 +166,7 @@ export default function HabitTracking() {
 
       if (endingSoonOnly) {
         const endDateStr = habit.endDate
-          ? (typeof habit.endDate === "string" ? habit.endDate.slice(0, 10) : toISODate(new Date(habit.endDate)))
+          ? habitDayKey(habit.endDate, timezone)
           : null;
         if (!endDateStr) return false;
         const daysToEnd = Math.ceil((new Date(endDateStr) - new Date(today)) / (1000 * 60 * 60 * 24));
@@ -253,7 +175,7 @@ export default function HabitTracking() {
 
       return true;
     }),
-    [habitView, today, adjustedHabits, importantOnly, endingSoonOnly]
+    [habitView, today, adjustedHabits, importantOnly, endingSoonOnly, timezone]
   );
 
   const visibleDays = useMemo(() => {
@@ -268,17 +190,25 @@ export default function HabitTracking() {
     setDayPage(0);
   };
 
-  const toggleImportant = async (id) => {
-    // Optimistic update
-    setHabits((prev) => prev.map((habit) => (habit.id === id ? { ...habit, isImportant: !habit.isImportant } : habit)));
-    if (!isDemoMode) {
-      try {
-        const habitId = habits.find((h) => h.id === id)?._id?.toString() ?? id;
-        await api.patch(`/habits/${habitId}/important`);
-      } catch {
-        // Revert on failure
-        setHabits((prev) => prev.map((habit) => (habit.id === id ? { ...habit, isImportant: !habit.isImportant } : habit)));
+  const toggleImportant = async id => {
+    if (isDemoMode || locks.current.has(id)) return;
+    const habit = habits.find(h => h.id === id);
+    if (!habit) return;
+    locks.current.add(id);
+    version.current += 1;
+    setBusyIds(new Set(locks.current));
+    try {
+      const { data } = await api.patch("/habits/" + id + "/important", { isImportant: !habit.isImportant }, { signal: requestSignal });
+      if (live.current) {
+        setHabits(previous => previous.map(h => h.id === id ? { ...h, isImportant: data.isImportant } : h));
+        setActionErrors(previous => { const next = { ...previous }; delete next[id]; return next; });
       }
+    } catch (error) {
+      if (live.current) setActionErrors(previous => ({ ...previous, [id]: error.response?.data?.message || "Important flag was not saved. Please retry." }));
+    } finally {
+      locks.current.delete(id);
+      if (live.current) setBusyIds(new Set(locks.current));
+      window.dispatchEvent(new Event("monkmode:habits-updated"));
     }
   };
 
@@ -296,6 +226,7 @@ export default function HabitTracking() {
 
   return (
     <div className="habits-track-view space-y-4">
+      {(loadError || yearError || Object.keys(actionErrors).length > 0) && <div role="alert" className="rounded-xl border border-rose-400/25 p-3 text-sm text-rose-200">{loadError} {yearError} {Object.values(actionErrors).join(" ")} <button type="button" className="ml-2 underline" onClick={() => { setLoadError(""); setRetry(value => value + 1); }}>Retry tracking</button></div>}
       <div className="habits-track-heading flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <p className="text-label-lg">Track Your Habit</p>
         <div className="habit-track-filters flex w-full flex-wrap items-center gap-2 sm:w-auto">
@@ -397,7 +328,7 @@ export default function HabitTracking() {
 
         <div className="habits-track-grid journal-scroll overflow-x-auto overflow-y-auto rounded-xl border border-amber-100/10 bg-black/10 p-2.5 sm:p-3">
           <div className="habits-track-grid-inner">
-            {loading ? (
+            {!isDemoMode && loadedPeriod !== selectedYear + "-" + selectedMonth && loadError ? (<p className="p-6 text-sm text-stone-400">Tracking for this month is unavailable. Retry above.</p>) : (loading || (!isDemoMode && loadedPeriod !== selectedYear + "-" + selectedMonth)) ? (
               <div className="flex items-center justify-center py-16">
                 <p className="text-sm text-stone-400">Loading tracking data...</p>
               </div>
@@ -430,9 +361,9 @@ export default function HabitTracking() {
                       const currentStreak = Number.isFinite(Number(habit.currentStreak))
                         ? Number(habit.currentStreak)
                         : getCurrentStreak(habit.completedDays, visibleDays.length);
-                      const archiveLabel = getArchiveLabel(habit, today);
+                      const archiveLabel = isHabitArchived(habit, today) ? (habit.deletedAt ? "Deleted" : "Ended") : null;
                       const endDateStr = habit.endDate
-                        ? (typeof habit.endDate === "string" ? habit.endDate.slice(0, 10) : toISODate(new Date(habit.endDate)))
+                        ? habitDayKey(habit.endDate, timezone)
                         : null;
                       const daysToEnd = endDateStr
                         ? Math.ceil((new Date(endDateStr) - new Date(today)) / (1000 * 60 * 60 * 24))
@@ -454,6 +385,9 @@ export default function HabitTracking() {
                                 <button
                                   type="button"
                                   onClick={() => toggleImportant(habit._id?.toString() ?? habit.id)}
+                                  disabled={isDemoMode || busyIds.has(habit.id)}
+                                  aria-busy={busyIds.has(habit.id)}
+                                  aria-pressed={habit.isImportant}
                                   className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${
                                     habit.isImportant
                                       ? "border-amber-300/45 bg-amber-500/15 text-amber-200"

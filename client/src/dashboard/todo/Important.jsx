@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { DEFAULT_IMPORTANT_CATEGORIES, isDefaultCategory } from "./todoShared";
+import { DEFAULT_IMPORTANT_CATEGORIES, isDefaultImportantCategory } from "./todoShared";
+import { formatTodoTime, effectiveTodoDay, isTodoArchived } from "./todoUtils";
 
 const PRIORITY_FILTERS = ["High", "Medium", "Low", "All"];
 
@@ -25,13 +26,7 @@ const priorityStyles = {
   All: "border-amber-100/15 bg-white/5 text-stone-300",
 };
 
-const formatTime = (timeValue) => {
-  if (!timeValue) return "--";
-  const [hours, minutes] = timeValue.split(":").map(Number);
-  const dateObj = new Date();
-  dateObj.setHours(hours, minutes, 0, 0);
-  return dateObj.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-};
+const formatTime = formatTodoTime;
 
 const getTaskDisplayDays = (task) => {
   const pendingDays = Array.isArray(task?.pendingDays) ? task.pendingDays : [];
@@ -39,7 +34,7 @@ const getTaskDisplayDays = (task) => {
   return Array.isArray(task?.days) ? task.days : [];
 };
 
-function TaskMeta({ task }) {
+function TaskMeta({ task, timezone }) {
   return (
     <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-stone-300">
       <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
@@ -57,6 +52,8 @@ function TaskMeta({ task }) {
           {DAY_SHORT[day] ?? day}
         </span>
       ))}
+      {task.pendingTime && task.timeChangeEffectiveFrom && <span className="text-amber-200/80">New time from {effectiveTodoDay(task.timeChangeEffectiveFrom, timezone)}</span>}
+      {task.pendingDays?.length > 0 && task.daysChangeEffectiveFrom && <span className="text-amber-200/80">New days from {effectiveTodoDay(task.daysChangeEffectiveFrom, timezone)}</span>}
     </div>
   );
 }
@@ -65,6 +62,8 @@ export default function Important({
   tasks = [],
   importantCategories = DEFAULT_IMPORTANT_CATEGORIES,
   setImportantCategories = () => {},
+  clock,
+  timezone,
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedPriority, setSelectedPriority] = useState("High");
@@ -80,8 +79,8 @@ export default function Important({
   );
 
   const activeTasks = useMemo(
-    () => tasks.filter((task) => !task?.archived && !task?.deletedAt),
-    [tasks]
+    () => tasks.filter((task) => !isTodoArchived(task, clock.date)),
+    [tasks, clock.date]
   );
 
   const filteredByPriority = useMemo(
@@ -93,7 +92,7 @@ export default function Important({
   );
 
   const categoryTasks = useMemo(
-    () => activeTasks.filter((task) => task.category.toLowerCase() === selectedCategory.toLowerCase()),
+    () => activeTasks.filter((task) => String(task.category || "").toLowerCase() === selectedCategory.toLowerCase()),
     [selectedCategory, activeTasks]
   );
 
@@ -127,8 +126,8 @@ export default function Important({
   }, [normalizedImportantCategories, selectedCategory]);
 
   const handleDeleteCategory = (categoryName) => {
-    if (isDefaultCategory(categoryName)) {
-      setCategoryDeleteError("Default categories cannot be deleted.");
+    if (isDefaultImportantCategory(categoryName)) {
+      setCategoryDeleteError("Health and Bill & Payment are always important.");
       return;
     }
 
@@ -141,7 +140,7 @@ export default function Important({
       <nav className="important-mobile-nav" aria-label="Important task sections">
         {IMPORTANT_VIEWS.map((view) => {
           const isSelected = mobileView === view.id;
-          const count = view.id === "categories" ? normalizedImportantCategories.length : activeTasks.length;
+          const count = view.id === "categories" ? normalizedImportantCategories.length : filteredByPriority.length;
 
           return (
             <button
@@ -179,10 +178,10 @@ export default function Important({
                   ? "border-amber-400/35 bg-amber-500/10 text-amber-200"
                   : "border-amber-100/15 bg-white/5 text-stone-300"
               }`}>
-                <button type="button" onClick={() => setSelectedCategory(category)}>
+                <button type="button" aria-pressed={selectedCategory === category} onClick={() => setSelectedCategory(category)}>
                   {category} {"\u2605"}
                 </button>
-                {!isDefaultCategory(category) ? (
+                {!isDefaultImportantCategory(category) ? (
                   <button
                     type="button"
                     onClick={() => handleDeleteCategory(category)}
@@ -211,7 +210,7 @@ export default function Important({
               categoryTasks.map((task) => (
                 <article key={`${selectedCategory}-${task.id}`} className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 p-3">
                   <p className="text-sm font-semibold text-stone-100">{task.title}</p>
-                  <TaskMeta task={task} />
+                  <TaskMeta task={task} timezone={timezone} />
                 </article>
               ))
             )}
@@ -235,6 +234,7 @@ export default function Important({
                 key={priority}
                 type="button"
                 onClick={() => setSelectedPriority(priority)}
+                aria-pressed={selectedPriority === priority}
                 className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
                   selectedPriority === priority ? priorityStyles[priority] : "border-amber-100/15 bg-white/5 text-stone-400"
                 }`}
@@ -257,7 +257,7 @@ export default function Important({
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-stone-400">{task.category}</p>
-                  <TaskMeta task={task} />
+                  <TaskMeta task={task} timezone={timezone} />
                 </article>
               ))
             )}

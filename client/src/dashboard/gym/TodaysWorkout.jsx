@@ -1,100 +1,21 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
-import api from "../../api/axios";
-import useAuth from "../../hooks/useAuth";
+import { useGymEnvironment } from "./gymContext";
+import { useGymApi } from "./useGymData";
+import GymNotice from "./GymNotice";
+import { gymDay, gymWeekday, workoutOnDay } from "./gymUtils";
 import { WORKOUT_SPLITS } from "./workoutLibraryData";
-import {
-  createDummyWorkouts,
-  DEMO_FULL_DIET,
-  DEMO_SUPPLEMENTS,
-  DEMO_PREWORKOUT,
-  DEMO_MACROS,
-  RETIRED_DEMO_WORKOUT_IDS,
-} from "../../../data/GymDummyData";
-
 const getSplitLabel = (val) => WORKOUT_SPLITS.find((s) => s.value === val)?.label || val || "";
 
-const WORKOUTS_STORAGE_KEY = "monkmode_workouts";
-
-const normalizeActiveByDay = (items) => {
-  const usedDays = new Set();
-  return (Array.isArray(items) ? items : []).map((item) => {
-    if (!item?.isActive) return item;
-    const days = Array.isArray(item.days) ? item.days : [];
-    const hasConflict = days.some((day) => usedDays.has(day));
-    if (hasConflict) return { ...item, isActive: false };
-    days.forEach((day) => usedDays.add(day));
-    return item;
-  });
-};
-
-const mergeWithDemoWorkouts = (storedWorkouts, baseDate) => {
-  const stored = (Array.isArray(storedWorkouts) ? storedWorkouts : []).filter(
-    (workout) => !RETIRED_DEMO_WORKOUT_IDS.has(workout?.id)
-  );
-  const demos = createDummyWorkouts(baseDate);
-  const demoById = new Map(demos.map((demo) => [demo.id, demo]));
-
-  const refreshedStored = stored.map((workout) => {
-    const demo = demoById.get(workout.id);
-    if (!demo) return workout;
-    return {
-      ...demo,
-      isActive: workout.isActive ?? demo.isActive,
-      startDate: workout.startDate ?? demo.startDate,
-      neverEnds: workout.neverEnds ?? demo.neverEnds,
-      endDate: workout.endDate ?? demo.endDate,
-    };
-  });
-
-  const storedIds = new Set(refreshedStored.map((workout) => workout.id));
-  return [...refreshedStored, ...demos.filter((demo) => !storedIds.has(demo.id))];
-};
-
-const loadDemoWorkouts = () => {
-  try {
-    const stored = localStorage.getItem(WORKOUTS_STORAGE_KEY);
-    const parsed = stored ? JSON.parse(stored) : [];
-    return normalizeActiveByDay(mergeWithDemoWorkouts(parsed, new Date()));
-  } catch {
-    return normalizeActiveByDay(createDummyWorkouts(new Date()));
-  }
-};
-
-const saveDemoWorkouts = (workouts) => {
-  try {
-    localStorage.setItem(WORKOUTS_STORAGE_KEY, JSON.stringify(workouts));
-    window.dispatchEvent(new Event("monkmode:gym-workouts-updated"));
-  } catch {
-    // Demo mode should still work if storage is unavailable.
-  }
-};
-
-const loadLocalProgress = () => {
-  try { return JSON.parse(localStorage.getItem("monkmode_exercise_progress")) || {}; }
-  catch { return {}; }
-};
-
-const saveLocalProgress = (data) => {
-  localStorage.setItem("monkmode_exercise_progress", JSON.stringify(data));
-  window.dispatchEvent(new Event("monkmode:exercise-progress-updated"));
-};
+// Demo progress is intentionally isolated from every real-account cache.
+const loadLocalProgress = () => ({});
 
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MAX_PROGRESS_SETS = 20;
 
-const todayDay = () => WEEK_DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
-
-const formatDate = (day) => (day === todayDay() ? "Today" : day);
-
-const todayISO = () => {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
+const todayDay = () => gymWeekday(gymDay());
+const formatDate = (day, weekday = todayDay()) => (day === weekday ? "Today" : day);
 
 const stableExerciseKey = (exercise) => {
   const id = exercise?.id || "";
@@ -125,6 +46,7 @@ const DIET_TYPE_MAP = {
 
 /* ── Diet Modal ── */
 function DietModal({ type, day, planData, onClose }) {
+  const { weekday } = useGymEnvironment();
   const titles = {
     diet:       "Full Day Diet",
     supps:      "Supplements",
@@ -218,18 +140,18 @@ function DietModal({ type, day, planData, onClose }) {
       if (type === "macros") {
         const v = planData.values || {};
         const fields = [
-          ["Protein", v.protein], ["Carbs", v.carbs], ["Fats", v.fats], ["Fiber", v.fiber],
-          ["Calories", v.calories], ["Water", v.water], ["Sugar", v.sugar], ["Sodium", v.sodium],
+          ["Protein", v.protein, "g"], ["Carbs", v.carbs, "g"], ["Fats", v.fats, "g"], ["Fiber", v.fiber, "g"],
+          ["Calories", v.calories, "kcal"], ["Water", v.water, "L"], ["Sugar", v.sugar, "g"], ["Sodium", v.sodium, "mg"],
         ];
         return (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {fields.map(([label, val]) => val ? (
+            {fields.map(([label, val, unit]) => val !== "" && val != null ? (
               <div key={label} className="rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">{label}</p>
-                <p className="mt-1 text-sm font-semibold text-stone-100">{val}</p>
+                <p className="mt-1 text-sm font-semibold text-stone-100">{val} {unit}</p>
               </div>
             ) : null)}
-            {fields.every(([, val]) => !val) && (
+            {fields.every(([, val]) => val === "" || val == null) && (
               <p className="col-span-4 text-xs text-stone-500 text-center py-4">No macros set for {day}.</p>
             )}
           </div>
@@ -237,77 +159,7 @@ function DietModal({ type, day, planData, onClose }) {
       }
     }
 
-    /* ── Demo / fallback data ── */
-    if (type === "diet") {
-      const data = DEMO_FULL_DIET[day] || {};
-      const sections = [["Morning", data.morning], ["Breakfast", data.breakfast], ["Lunch", data.lunch], ["Evening", data.evening], ["Dinner", data.dinner]];
-      return (
-        <div className="space-y-4">
-          {sections.map(([label, items]) => items?.length ? (
-            <div key={label}>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-200/70">{label}</p>
-              <div className="space-y-1">
-                {items.map((item, i) => (
-                  <div key={i} className="rounded-lg border border-amber-100/10 bg-white/5 px-3 py-1.5 text-xs text-stone-200">{item}</div>
-                ))}
-              </div>
-            </div>
-          ) : null)}
-        </div>
-      );
-    }
-    if (type === "supps") {
-      const items = DEMO_SUPPLEMENTS[day] || [];
-      return (
-        <div className="space-y-2">
-          {items.length === 0
-            ? <p className="text-xs text-stone-500">No supplements for {day}.</p>
-            : items.map((item, i) => (
-              <div key={i} className="flex items-center gap-2 rounded-lg border border-amber-100/10 bg-white/5 px-3 py-2">
-                <span className="text-[10px] font-bold text-amber-400/60">{i + 1}.</span>
-                <p className="text-xs text-stone-200">{item}</p>
-              </div>
-            ))}
-        </div>
-      );
-    }
-    if (type === "preworkout") {
-      const data = DEMO_PREWORKOUT[day] || { pre: [], post: [] };
-      return (
-        <div className="space-y-4">
-          <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-200/70">Pre-Workout</p>
-            <div className="space-y-1">
-              {(data.pre || []).map((item, i) => (
-                <div key={i} className="rounded-lg border border-amber-100/10 bg-white/5 px-3 py-1.5 text-xs text-stone-200">{item}</div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-200/70">Post-Workout</p>
-            <div className="space-y-1">
-              {(data.post || []).map((item, i) => (
-                <div key={i} className="rounded-lg border border-sky-100/10 bg-sky-500/5 px-3 py-1.5 text-xs text-stone-200">{item}</div>
-              ))}
-            </div>
-          </div>
-        </div>
-      );
-    }
-    if (type === "macros") {
-      const data = DEMO_MACROS[day] || {};
-      const fields = [["Protein", data.protein], ["Carbs", data.carbs], ["Fats", data.fats], ["Fiber", data.fiber], ["Calories", data.calories], ["Water", data.water], ["Sugar", data.sugar], ["Sodium", data.sodium]];
-      return (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {fields.map(([label, val]) => val ? (
-            <div key={label} className="rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">{label}</p>
-              <p className="mt-1 text-sm font-semibold text-stone-100">{val}</p>
-            </div>
-          ) : null)}
-        </div>
-      );
-    }
+    return <p className="text-xs text-stone-400">No active plan for {day}. Add or activate one in Diet Chart.</p>;
   };
 
   return (
@@ -319,7 +171,7 @@ function DietModal({ type, day, planData, onClose }) {
         <div className="shrink-0 flex items-center justify-between gap-3 border-b border-amber-100/10 px-5 py-4">
           <div>
             <h3 className="text-sm font-semibold text-amber-100">{titles[type]}</h3>
-            <p className="mt-0.5 text-xs text-stone-500">{day} — {day === todayDay() ? "Today" : day}</p>
+            <p className="mt-0.5 text-xs text-stone-500">{day} — {day === weekday ? "Today" : day}</p>
           </div>
           <button type="button" onClick={onClose}
             className="rounded border border-amber-100/15 bg-white/5 px-2.5 py-1 text-xs font-semibold text-stone-300 transition hover:text-stone-100">
@@ -339,7 +191,11 @@ const parseReps = (val) =>
 
 /* ── Update Progress Modal ── */
 function UpdateProgressModal({ exercise, isDemoMode, onClose }) {
-  const date       = todayISO();
+  const { today: appToday, guard, busy, setError } = useGymEnvironment();
+  const api = useGymApi();
+  const [date] = useState(appToday);
+  const [loadError, setLoadError] = useState("");
+  const [attempt, setAttempt] = useState(0);
   const exKey      = stableExerciseKey(exercise);
   const key        = `${date}_${exKey}`;
 
@@ -353,14 +209,15 @@ function UpdateProgressModal({ exercise, isDemoMode, onClose }) {
       return;
     }
     let cancelled = false;
+    setLoadingExisting(true); setLoadError("");
     api.get(`/gym/exercise-progress?date=${date}&exerciseId=${exKey}`)
       .then(({ data }) => {
         if (!cancelled) setExisting(data[key] || {});
       })
-      .catch(() => { if (!cancelled) setExisting({}); })
+      .catch((failure) => { if (!cancelled && failure.code !== "ERR_CANCELED") setLoadError("Could not load existing progress. Retry before saving."); })
       .finally(() => { if (!cancelled) setLoadingExisting(false); });
     return () => { cancelled = true; };
-  }, [isDemoMode, date, exKey, key]);
+  }, [api, isDemoMode, date, exKey, key, attempt]);
 
   const [sets, setSets] = useState("");
   const [reps, setReps] = useState("");
@@ -399,8 +256,10 @@ function UpdateProgressModal({ exercise, isDemoMode, onClose }) {
     setRepsBreakdown((prev) => { const next = [...prev]; next[i] = val; return next; });
   };
 
-  const handleSave = async () => {
+  const handleSave = guard(async () => {
+    if (date !== appToday) { setError("The app day has changed. Close this form and reopen Today before saving."); return false; }
     const payload = {
+      expectedToday: date,
       date,
       exerciseId:      exKey,
       exerciseName:    exercise.name,
@@ -419,28 +278,12 @@ function UpdateProgressModal({ exercise, isDemoMode, onClose }) {
       payload.lastSetReps = lastSetReps;
     }
 
-    if (isDemoMode) {
-      const all = loadLocalProgress();
-      all[key] = { ...payload, savedAt: new Date().toISOString() };
-      saveLocalProgress(all);
-      onClose();
-      return;
-    }
-
     try {
       await api.post("/gym/exercise-progress", payload);
-      /* keep localStorage in sync so Progress.jsx charts still update */
-      const all = loadLocalProgress();
-      all[key] = { ...payload, savedAt: new Date().toISOString() };
-      saveLocalProgress(all);
-    } catch {
-      /* still sync localStorage on failure so UX isn't broken */
-      const all = loadLocalProgress();
-      all[key] = { ...payload, savedAt: new Date().toISOString() };
-      saveLocalProgress(all);
-    }
-    onClose();
-  };
+      onClose();
+      return true;
+    } catch { return false; }
+  });
 
   const numericWeight = Number.parseFloat(weight);
   const numericTargetReps = Number.parseInt(reps, 10) || 0;
@@ -471,6 +314,7 @@ function UpdateProgressModal({ exercise, isDemoMode, onClose }) {
     restBetweenSets !== "" &&
     !hasBreakdownError;
 
+  if (loadError) return <div className="gym-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"><div role="alert" className="rounded-xl border border-amber-100/20 bg-stone-950 p-5 text-sm text-amber-100">{loadError}<button type="button" className="ml-3 underline" onClick={() => setAttempt(value => value + 1)}>Retry</button><button type="button" className="ml-3 underline" onClick={onClose}>Close</button></div></div>;
   if (loadingExisting) {
     return (
       <div className="gym-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
@@ -600,7 +444,9 @@ function UpdateProgressModal({ exercise, isDemoMode, onClose }) {
                 : "Each set's reps must match the Reps / Set target."}
             </p>
           )}
-          <button type="button" onClick={handleSave} disabled={!canSave}
+          <GymNotice />
+          {date !== appToday && <p role="alert" className="text-xs text-amber-200">The app day has changed. Close this form and reopen Today before saving. Your old-day draft has not been submitted.</p>}
+          <button type="button" onClick={handleSave} disabled={!canSave || busy || date !== appToday}
             className={`w-full rounded-xl border py-2 text-xs font-semibold transition ${
               canSave
                 ? "border-amber-400/30 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25"
@@ -625,10 +471,14 @@ const PROGRESS_METRICS = [
 ];
 
 function ViewProgressModal({ exercise, isDemoMode, onClose }) {
+  const { today } = useGymEnvironment();
+  const api = useGymApi();
+  const [loadError, setLoadError] = useState("");
+  const [attempt, setAttempt] = useState(0);
   const [current, setCurrent] = useState(null);
   const [last,    setLast]    = useState(null);
   const [loading, setLoading] = useState(true);
-  const today = todayISO();
+
 
   const exKey = stableExerciseKey(exercise);
 
@@ -639,7 +489,7 @@ function ViewProgressModal({ exercise, isDemoMode, onClose }) {
         .map(([k, v]) => ({ date: k.split("_")[0], ...v }))
         .sort((a, b) => b.date.localeCompare(a.date));
       const cur  = sorted.find((e) => e.date === today) || null;
-      const prev = sorted.find((e) => e.date !== today) || null;
+      const prev = sorted.find((e) => e.date < today) || null;
       setCurrent(cur);
       setLast(prev);
       setLoading(false);
@@ -651,11 +501,12 @@ function ViewProgressModal({ exercise, isDemoMode, onClose }) {
     }
 
     let cancelled = false;
+    setLoading(true); setLoadError("");
     api.get(`/gym/exercise-progress?exerciseId=${exKey}`)
       .then(({ data: flat }) => { if (!cancelled) parseEntries(flat); })
-      .catch(() => { if (!cancelled) { setCurrent(null); setLast(null); setLoading(false); } });
+      .catch((failure) => { if (!cancelled && failure.code !== "ERR_CANCELED") { setLoadError("Could not load progress."); setLoading(false); } });
     return () => { cancelled = true; };
-  }, [isDemoMode, exKey, today]);
+  }, [api, isDemoMode, exKey, today, attempt]);
 
   const delta = (key, cur, prev) => {
     const getRaw = (entry) => {
@@ -705,7 +556,7 @@ function ViewProgressModal({ exercise, isDemoMode, onClose }) {
         </div>
 
         <div className="space-y-4 p-5">
-          {loading ? (
+          {loadError ? <div role="alert" className="text-sm text-amber-100">{loadError} <button type="button" className="underline" onClick={() => setAttempt(value => value + 1)}>Retry</button></div> : loading ? (
             <p className="py-6 text-center text-xs text-stone-500">Loading progress...</p>
           ) : !hasAny ? (
             <p className="py-6 text-center text-xs text-stone-500">No progress logged for this exercise yet.</p>
@@ -783,96 +634,35 @@ function ViewProgressModal({ exercise, isDemoMode, onClose }) {
 
 /* ── Main Component ── */
 export default function TodaysWorkout({ lowMotion = false }) {
-  const { isDemoMode } = useAuth();
+  const { isDemoMode, plans: allWorkouts, setPlans: setAllWorkouts, diets, today, weekday, loading, guard, busy } = useGymEnvironment();
+  const api = useGymApi();
   const WorkoutCard = lowMotion ? "article" : Motion.div;
   const ExerciseCard = lowMotion ? "article" : Motion.div;
   const DietCard = lowMotion ? "article" : Motion.div;
   const DietButton = lowMotion ? "button" : Motion.button;
-  const [selectedDay, setSelectedDay]         = useState(todayDay);
+  const [selectedDay, setSelectedDay]         = useState(weekday);
   const [dietModal, setDietModal]             = useState(null);
   const [progressModal, setProgressModal]     = useState(null);
   const [viewProgressModal, setViewProgressModal] = useState(null);
-  const [allWorkouts, setAllWorkouts]         = useState(() => isDemoMode ? loadDemoWorkouts() : []);
-  const [dietPlans, setDietPlans]             = useState({});
+  const dietPlans = Object.fromEntries(diets.filter(plan => plan.day === selectedDay && plan.isActive).map(plan => [plan.planType, plan]));
   const [bodyFilter, setBodyFilter]           = useState("all");
   const [mobileView, setMobileView]           = useState("workouts");
-  const [loading, setLoading]                 = useState(!isDemoMode);
 
-  /* Fetch workout plans */
-  useEffect(() => {
-    if (isDemoMode) {
-      setAllWorkouts(loadDemoWorkouts());
-      setLoading(false);
-      const onStorage = () => setAllWorkouts(loadDemoWorkouts());
-      window.addEventListener("storage", onStorage);
-      window.addEventListener("monkmode:gym-workouts-updated", onStorage);
-      return () => {
-        window.removeEventListener("storage", onStorage);
-        window.removeEventListener("monkmode:gym-workouts-updated", onStorage);
-      };
-    }
 
-    let cancelled = false;
-    const fetchPlans = async () => {
-      try {
-        const { data } = await api.get("/gym/plans");
-        if (!cancelled) setAllWorkouts(Array.isArray(data) ? data : []);
-      } catch {
-        if (!cancelled) setAllWorkouts([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    fetchPlans();
-    return () => { cancelled = true; };
-  }, [isDemoMode]);
-
-  /* Fetch diet plans for selected day (real mode only) */
-  useEffect(() => {
-    if (isDemoMode) return;
-    let cancelled = false;
-    api.get(`/gym/diet-plans?day=${selectedDay}`)
-      .then(({ data }) => {
-        if (cancelled || !Array.isArray(data)) return;
-        const map = {};
-        for (const plan of data) {
-          if (plan.isActive) map[plan.planType] = plan;
-        }
-        if (!cancelled) setDietPlans(map);
-      })
-      .catch(() => { if (!cancelled) setDietPlans({}); });
-    return () => { cancelled = true; };
-  }, [isDemoMode, selectedDay]);
-
-  const today = todayISO();
+  useEffect(() => { setSelectedDay(weekday); }, [weekday]);
 
   const todayWorkouts = allWorkouts.filter(
-    (w) => w.days?.includes(selectedDay) && w.isActive && (w.neverEnds || !w.endDate || w.endDate >= today)
+    (w) => workoutOnDay(w, today, selectedDay)
   );
 
   const inactiveScheduledWorkouts = allWorkouts.filter(
     (w) => w.days?.includes(selectedDay) && !w.isActive
   );
 
-  const handleActivateWorkout = async (id) => {
-    const target = allWorkouts.find((w) => w.id === id);
-    if (!target) return;
-    const targetDays = target.days || [];
-    if (isDemoMode) {
-      const next = allWorkouts.map((w) => {
-        if (w.id === id) return { ...w, isActive: true };
-        const overlaps = (w.days || []).some((d) => targetDays.includes(d));
-        return overlaps ? { ...w, isActive: false } : w;
-      });
-      setAllWorkouts(next);
-      saveDemoWorkouts(next);
-      return;
-    }
-    try {
-      const { data } = await api.patch(`/gym/plans/${id}/active`);
-      setAllWorkouts(Array.isArray(data) ? data : []);
-    } catch { /* server error — local state unchanged */ }
-  };
+  const handleActivateWorkout = guard(async (id) => {
+    const { data } = await api.patch(`/gym/plans/${id}/active`, { isActive: true });
+    setAllWorkouts(data);
+  });
 
   const allBodyGroups = [...new Set(
     todayWorkouts.flatMap((w) => (w.exercises || []).map((ex) => ex.bodyPart?.split(" - ")[0]?.trim()).filter(Boolean))
@@ -906,7 +696,7 @@ export default function TodaysWorkout({ lowMotion = false }) {
                   ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
                   : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-stone-200"
               }`}>
-              {day}{day === todayDay() ? " · Today" : ""}
+              {day}{day === weekday ? " · Today" : ""}
             </button>
           ))}
         </div>
@@ -938,7 +728,7 @@ export default function TodaysWorkout({ lowMotion = false }) {
           <div className="gym-workout-panel flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.06),transparent_40%),linear-gradient(180deg,rgba(20,12,10,0.97),rgba(10,8,8,0.98))] sm:rounded-2xl">
             <div className="shrink-0 border-b border-amber-100/10 px-4 py-3 sm:px-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-stone-100">{formatDate(selectedDay)}'s Workouts</h3>
+                <h3 className="text-sm font-semibold text-stone-100">{formatDate(selectedDay, weekday)}'s Workouts</h3>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-amber-300/20 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-amber-200">
                     {todayWorkouts.length} plan{todayWorkouts.length !== 1 ? "s" : ""}
@@ -1101,7 +891,7 @@ export default function TodaysWorkout({ lowMotion = false }) {
                                 className="dashboard-card-action" data-tone="warning">
                                 View Progress
                               </button>
-                              {selectedDay === todayDay() && (
+                              {selectedDay === weekday && (
                                 <button type="button" onClick={() => setProgressModal(ex)}
                                   className="dashboard-card-action" data-tone="success">
                                   Update Progress
@@ -1124,7 +914,7 @@ export default function TodaysWorkout({ lowMotion = false }) {
             <div className="gym-diet-grid grid grid-cols-2 gap-3 xl:grid-cols-1">
               {dietCards.map(({ type, label, icon, color }, di) => {
                 const planType = DIET_TYPE_MAP[type];
-                const hasPlan  = !isDemoMode && Boolean(dietPlans[planType]);
+                const hasPlan = Boolean(dietPlans[planType]);
                 return (
                   <DietCard key={type}
                     className={`gym-diet-card dashboard-glow-card flex shrink-0 flex-col items-start gap-2 rounded-2xl border p-3 ${color}`}
@@ -1138,10 +928,10 @@ export default function TodaysWorkout({ lowMotion = false }) {
                     <span className="text-2xl">{icon}</span>
                     <p className="text-xs font-semibold leading-snug">{label}</p>
                     <p className="text-[10px] opacity-60">
-                      {formatDate(selectedDay)}
+                      {formatDate(selectedDay, weekday)}
                       {hasPlan ? " · Active" : isDemoMode ? "" : " · No plan"}
                     </p>
-                    <DietButton type="button"
+                    <DietButton type="button" disabled={!hasPlan}
                       onClick={() => setDietModal({ type, day: selectedDay })}
                       {...(lowMotion ? {} : {
                         whileHover: { scale: 1.03, boxShadow: "0 0 12px rgba(255,255,255,0.22)" },
@@ -1169,7 +959,7 @@ export default function TodaysWorkout({ lowMotion = false }) {
         <DietModal
           type={dietModal.type}
           day={dietModal.day}
-          planData={isDemoMode ? null : dietPlans[DIET_TYPE_MAP[dietModal.type]] || null}
+          planData={dietPlans[DIET_TYPE_MAP[dietModal.type]] || null}
           onClose={() => setDietModal(null)}
         />
       )}
@@ -1177,7 +967,7 @@ export default function TodaysWorkout({ lowMotion = false }) {
         <UpdateProgressModal
           exercise={progressModal}
           isDemoMode={isDemoMode}
-          onClose={() => setProgressModal(null)}
+          onClose={() => { if (!busy) setProgressModal(null); }}
         />
       )}
       {viewProgressModal && (

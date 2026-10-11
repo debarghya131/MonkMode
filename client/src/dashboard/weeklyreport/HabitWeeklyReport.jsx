@@ -2,184 +2,13 @@ import { useState, useEffect } from "react";
 import { motion as Motion, AnimatePresence } from "framer-motion";
 import littleMonkLogo from "../../assets/littlemonklogo.webp";
 import useAuth from "../../hooks/useAuth";
-import api from "../../api/axios";
+import useHabitWeeklyData from "./useHabitWeeklyData";
 
-const DEMO_HABIT_DATA = [
-  {
-    id: "2026-04-13",
-    date: "Apr 13 - Apr 19",
-    signal: "7 Active days",
-    totalInstances: 44,
-    completed: 28,
-    missed: 16,
-    completionRate: 64,
-    weeklyScore: 70,
-    longestStreak: 4,
-    aiSummary:
-      "Your habit completion rate this week was 64% across 44 scheduled habit check-ins. Morning Routine and Study habits held strong with near-perfect execution. The biggest drops came from Mindfulness and Sleep — meditation was skipped 3 times and sleep discipline only lasted a few days. Streaks broke most often in the evening. A simple fix: anchor your evening habits to a single trigger, like brushing your teeth. If that cue fires, your sleep and mindfulness habits follow automatically. Focus on those two categories next week.",
-    categories: [
-      { name: "Morning Routine", total: 4, completed: 3, missed: 1 },
-      { name: "Fitness",         total: 4, completed: 3, missed: 1 },
-      { name: "Study",           total: 3, completed: 2, missed: 1 },
-      { name: "Health",          total: 3, completed: 2, missed: 1 },
-      { name: "Mindfulness",     total: 4, completed: 2, missed: 2 },
-      { name: "Sleep",           total: 3, completed: 2, missed: 1 },
-    ],
-    dailyStats: [
-      { day: "Mon", completed: 5, total: 6 },
-      { day: "Tue", completed: 5, total: 6 },
-      { day: "Wed", completed: 6, total: 6 },
-      { day: "Thu", completed: 4, total: 6 },
-      { day: "Fri", completed: 3, total: 6 },
-      { day: "Sat", completed: 2, total: 7 },
-      { day: "Sun", completed: 3, total: 7 },
-    ],
-    priorityStats: [
-      { priority: "High",   total: 7, completed: 5, missed: 2 },
-      { priority: "Medium", total: 7, completed: 5, missed: 2 },
-      { priority: "Low",    total: 7, completed: 4, missed: 3 },
-    ],
-    habits: [
-      { name: "Morning Walk",      priority: "High",   category: "Fitness",         timeOfDay: "Morning",   repeat: "Daily - never ends",    targetStreak: 365, completedDays: 6, totalDays: 7, missed: 1, streak: 4 },
-      { name: "Sleep by 11 PM",    priority: "High",   category: "Sleep",           timeOfDay: "Night",     repeat: "Daily - never ends",    targetStreak: 365, completedDays: 4, totalDays: 7, missed: 3, streak: 0 },
-      { name: "Read 30 min",       priority: "Medium", category: "Study",           timeOfDay: "Afternoon", repeat: "21-day challenge",       targetStreak: 21,  completedDays: 5, totalDays: 7, missed: 2, streak: 5 },
-      { name: "Meditate",          priority: "Medium", category: "Mindfulness",     timeOfDay: "Morning",   repeat: "21-day challenge",       targetStreak: 21,  completedDays: 4, totalDays: 7, missed: 3, streak: 1 },
-      { name: "Deep Work Sprint",  priority: "Medium", category: "Study",           timeOfDay: "Afternoon", repeat: "21-day challenge",       targetStreak: 21,  completedDays: 5, totalDays: 7, missed: 2, streak: 4 },
-      { name: "Drink 3L Water",    priority: "Low",    category: "Health",          timeOfDay: "Morning",   repeat: "Daily - never ends",    targetStreak: 365, completedDays: 7, totalDays: 7, missed: 0, streak: 18 },
-      { name: "Weekend Long Run",  priority: "Low",    category: "Fitness",         timeOfDay: "Morning",   repeat: "Weekend - ends 2028",   targetStreak: 104, completedDays: 1, totalDays: 2, missed: 1, streak: 0 },
-      { name: "Weekend Planning",  priority: "Low",    category: "Morning Routine", timeOfDay: "Evening",   repeat: "Weekend - ends 2028",   targetStreak: 104, completedDays: 1, totalDays: 2, missed: 1, streak: 2 },
-    ],
-  },
-  {
-    id: "2026-04-06",
-    date: "Apr 6 - Apr 12",
-    signal: "5 Active days",
-    totalInstances: 44,
-    completed: 17,
-    missed: 27,
-    completionRate: 39,
-    weeklyScore: 60,
-    longestStreak: 3,
-    aiSummary:
-      "39% habit completion this week across 44 scheduled habit check-ins — below your usual pace. Tuesday and Friday had scheduled habits but no completions, which turned those check-ins into missed habits. Study and Fitness habits held their ground, but Sleep and Mindfulness dropped significantly. Two consecutive missed days in a week breaks momentum for streaks. Even a light habit day on off-days would preserve your streaks and lift your score next week.",
-    categories: [
-      { name: "Morning Routine", total: 3, completed: 2, missed: 1 },
-      { name: "Fitness",         total: 2, completed: 1, missed: 1 },
-      { name: "Study",           total: 3, completed: 2, missed: 1 },
-      { name: "Health",          total: 2, completed: 1, missed: 1 },
-      { name: "Mindfulness",     total: 2, completed: 1, missed: 1 },
-      { name: "Sleep",           total: 2, completed: 1, missed: 1 },
-    ],
-    dailyStats: [
-      { day: "Mon", completed: 5, total: 6 },
-      { day: "Tue", completed: 0, total: 6 },
-      { day: "Wed", completed: 5, total: 6 },
-      { day: "Thu", completed: 4, total: 6 },
-      { day: "Fri", completed: 0, total: 6 },
-      { day: "Sat", completed: 2, total: 7 },
-      { day: "Sun", completed: 1, total: 7 },
-    ],
-    priorityStats: [
-      { priority: "High",   total: 5, completed: 3, missed: 2 },
-      { priority: "Medium", total: 5, completed: 3, missed: 2 },
-      { priority: "Low",    total: 4, completed: 2, missed: 2 },
-    ],
-    habits: [
-      { name: "Morning Walk",      priority: "High",   category: "Fitness",         timeOfDay: "Morning",   repeat: "Daily - never ends",    targetStreak: 365, completedDays: 4, totalDays: 7, missed: 3, streak: 3 },
-      { name: "Sleep by 11 PM",    priority: "High",   category: "Sleep",           timeOfDay: "Night",     repeat: "Daily - never ends",    targetStreak: 365, completedDays: 2, totalDays: 7, missed: 5, streak: 0 },
-      { name: "Read 30 min",       priority: "Medium", category: "Study",           timeOfDay: "Afternoon", repeat: "21-day challenge",       targetStreak: 21,  completedDays: 3, totalDays: 7, missed: 4, streak: 3 },
-      { name: "Meditate",          priority: "Medium", category: "Mindfulness",     timeOfDay: "Morning",   repeat: "21-day challenge",       targetStreak: 21,  completedDays: 2, totalDays: 7, missed: 5, streak: 0 },
-      { name: "Deep Work Sprint",  priority: "Medium", category: "Study",           timeOfDay: "Afternoon", repeat: "21-day challenge",       targetStreak: 21,  completedDays: 4, totalDays: 7, missed: 3, streak: 2 },
-      { name: "Weekend Long Run",  priority: "Low",    category: "Fitness",         timeOfDay: "Morning",   repeat: "Weekend - ends 2028",   targetStreak: 104, completedDays: 1, totalDays: 2, missed: 1, streak: 0 },
-      { name: "Weekend Planning",  priority: "Low",    category: "Morning Routine", timeOfDay: "Evening",   repeat: "Weekend - ends 2028",   targetStreak: 104, completedDays: 1, totalDays: 2, missed: 1, streak: 1 },
-      { name: "Take Vitamins",     priority: "Low",    category: "Health",          timeOfDay: "Morning",   repeat: "Daily - never ends",    targetStreak: 365, completedDays: 3, totalDays: 7, missed: 4, streak: 2 },
-    ],
-  },
-  {
-    id: "2026-03-30",
-    date: "Mar 30 - Apr 5",
-    signal: "7 Active days",
-    totalInstances: 44,
-    completed: 34,
-    missed: 10,
-    completionRate: 77,
-    weeklyScore: 86,
-    longestStreak: 6,
-    aiSummary:
-      "Best habit week in the past month — 77% completion across 44 scheduled habit check-ins with all 7 days active. Morning Routine and Fitness habits had near-perfect scores. Longest streak reached 6 days for your Morning Walk. Sleep discipline improved significantly from prior weeks. The only weak spot was Mindfulness — meditation was skipped 3 times. Keep the Sunday planning habit that preceded this week; it was the key driver of your consistency.",
-    categories: [
-      { name: "Morning Routine", total: 4, completed: 4, missed: 0 },
-      { name: "Fitness",         total: 4, completed: 4, missed: 0 },
-      { name: "Study",           total: 3, completed: 3, missed: 0 },
-      { name: "Health",          total: 4, completed: 3, missed: 1 },
-      { name: "Mindfulness",     total: 3, completed: 2, missed: 1 },
-      { name: "Sleep",           total: 3, completed: 1, missed: 2 },
-    ],
-    dailyStats: [
-      { day: "Mon", completed: 6, total: 6 },
-      { day: "Tue", completed: 6, total: 6 },
-      { day: "Wed", completed: 6, total: 6 },
-      { day: "Thu", completed: 6, total: 6 },
-      { day: "Fri", completed: 6, total: 6 },
-      { day: "Sat", completed: 3, total: 7 },
-      { day: "Sun", completed: 1, total: 7 },
-    ],
-    priorityStats: [
-      { priority: "High",   total: 7, completed: 6, missed: 1 },
-      { priority: "Medium", total: 7, completed: 6, missed: 1 },
-      { priority: "Low",    total: 7, completed: 5, missed: 2 },
-    ],
-    habits: [
-      { name: "Morning Walk",      priority: "High",   category: "Fitness",         timeOfDay: "Morning",   repeat: "Daily - never ends",    targetStreak: 365, completedDays: 7, totalDays: 7, missed: 0, streak: 6 },
-      { name: "Sleep by 11 PM",    priority: "High",   category: "Sleep",           timeOfDay: "Night",     repeat: "Daily - never ends",    targetStreak: 365, completedDays: 5, totalDays: 7, missed: 2, streak: 3 },
-      { name: "Read 30 min",       priority: "Medium", category: "Study",           timeOfDay: "Afternoon", repeat: "21-day challenge",       targetStreak: 21,  completedDays: 6, totalDays: 7, missed: 1, streak: 5 },
-      { name: "Weekend Planning",  priority: "Low",    category: "Morning Routine", timeOfDay: "Evening",   repeat: "Weekend - ends 2028",   targetStreak: 104, completedDays: 2, totalDays: 2, missed: 0, streak: 6 },
-    ],
-  },
-  {
-    id: "2026-03-23",
-    date: "Mar 23 - Mar 29",
-    signal: "4 Active days",
-    totalInstances: 44,
-    completed: 12,
-    missed: 32,
-    completionRate: 27,
-    weeklyScore: 48,
-    longestStreak: 2,
-    aiSummary:
-      "27% completion across 44 scheduled habit check-ins — the weakest habit week of the past month. Monday, Friday, and Sunday had scheduled habits but no completions. Streaks broke across almost every habit category. The pattern here is inconsistency in showing up, not difficulty with the habits themselves. The fix is simpler than it seems: set one non-negotiable habit per day, even on rest days. Completing just one habit per day would have maintained streaks and improved your score.",
-    categories: [
-      { name: "Morning Routine", total: 2, completed: 1, missed: 1 },
-      { name: "Fitness",         total: 2, completed: 1, missed: 1 },
-      { name: "Study",           total: 2, completed: 1, missed: 1 },
-      { name: "Health",          total: 2, completed: 2, missed: 0 },
-      { name: "Mindfulness",     total: 2, completed: 1, missed: 1 },
-      { name: "Sleep",           total: 2, completed: 0, missed: 2 },
-    ],
-    dailyStats: [
-      { day: "Mon", completed: 0, total: 6 },
-      { day: "Tue", completed: 4, total: 6 },
-      { day: "Wed", completed: 4, total: 6 },
-      { day: "Thu", completed: 3, total: 6 },
-      { day: "Fri", completed: 0, total: 6 },
-      { day: "Sat", completed: 1, total: 7 },
-      { day: "Sun", completed: 0, total: 7 },
-    ],
-    priorityStats: [
-      { priority: "High",   total: 4, completed: 2, missed: 2 },
-      { priority: "Medium", total: 4, completed: 2, missed: 2 },
-      { priority: "Low",    total: 4, completed: 2, missed: 2 },
-    ],
-    habits: [
-      { name: "Morning Walk",      priority: "High",   category: "Fitness",         timeOfDay: "Morning",   repeat: "Daily - never ends",    targetStreak: 365, completedDays: 3, totalDays: 7, missed: 4, streak: 1 },
-      { name: "Sleep by 11 PM",    priority: "High",   category: "Sleep",           timeOfDay: "Night",     repeat: "Daily - never ends",    targetStreak: 365, completedDays: 1, totalDays: 7, missed: 6, streak: 0 },
-      { name: "Read 30 min",       priority: "Medium", category: "Study",           timeOfDay: "Afternoon", repeat: "21-day challenge",       targetStreak: 21,  completedDays: 2, totalDays: 7, missed: 5, streak: 2 },
-      { name: "Meditate",          priority: "Medium", category: "Mindfulness",     timeOfDay: "Morning",   repeat: "21-day challenge",       targetStreak: 21,  completedDays: 2, totalDays: 7, missed: 5, streak: 1 },
-      { name: "Deep Work Sprint",  priority: "Medium", category: "Study",           timeOfDay: "Afternoon", repeat: "21-day challenge",       targetStreak: 21,  completedDays: 3, totalDays: 7, missed: 4, streak: 1 },
-      { name: "Weekend Long Run",  priority: "Low",    category: "Fitness",         timeOfDay: "Morning",   repeat: "Weekend - ends 2028",   targetStreak: 104, completedDays: 1, totalDays: 2, missed: 1, streak: 0 },
-    ],
-  },
-];
+function LoadError({ message, retry }) {
+  return <div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/5 p-3 text-sm text-rose-200">
+    <p>{message}</p><button type="button" onClick={retry} className="mt-2 rounded-lg border border-amber-400/30 px-3 py-1 text-xs font-semibold text-amber-300">Retry</button>
+  </div>;
+}
 
 function completionColor(rate) {
   if (rate >= 75) return "text-emerald-300";
@@ -187,11 +16,7 @@ function completionColor(rate) {
   return "text-rose-300";
 }
 
-const getHabitSummary = (habits) => {
-  const total     = habits.length;
-  const completed = habits.filter((habit) => habit.streak > 0).length;
-  return { total, completed, missed: Math.max(total - completed, 0) };
-};
+const getHabitSummary = habits => habits.reduce((sum, habit) => ({ total: sum.total + habit.totalDays, completed: sum.completed + habit.completedDays, missed: sum.missed + habit.missed, pending: sum.pending + habit.pending }), { total: 0, completed: 0, missed: 0, pending: 0 });
 
 function ReportCard({ children, className = "" }) {
   return (
@@ -209,108 +34,28 @@ function ReportCard({ children, className = "" }) {
 
 export default function HabitWeeklyReport({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
-  const [selectedWeekId, setSelectedWeekId]     = useState(null);
-  const [summaries, setSummaries]               = useState([]);
-  const [loadingSummaries, setLoadingSummaries] = useState(true);
-  const [weekData, setWeekData]                 = useState(null);
-  const [loadingWeekData, setLoadingWeekData]   = useState(false);
-  const [aiSummary, setAiSummary]               = useState(null);
-  const [loadingAi, setLoadingAi]               = useState(false);
-  const [habitFilter, setHabitFilter]           = useState("All");
-  const TIME_FILTERS = ["All", "Morning", "Afternoon", "Evening", "Night"];
-  const [priorityFilter, setPriorityFilter]         = useState("All");
+  const { selectedWeekId, setSelectedWeekId, summaries, loadingSummaries, summariesError, retrySummaries,
+    weekData, loadingWeekData, weekError, retryWeek, analysis, generate } = useHabitWeeklyData(isDemoMode);
+  const aiSummary = analysis.text, loadingAi = analysis.loading;
+  const [habitFilter, setHabitFilter] = useState("All");
+  const TIME_FILTERS = ["All", "Morning", "Afternoon", "Evening", "Night", "Unspecified"];
+  const [priorityFilter, setPriorityFilter] = useState("All");
   const [categoryPerfFilter, setCategoryPerfFilter] = useState("completion");
-
-  // Load summaries on mount
-  useEffect(() => {
-    let active = true;
-
-    if (isDemoMode) {
-      const demoSummaries = DEMO_HABIT_DATA.map(w => ({
-        id: w.id, date: w.date, signal: w.signal, habitCount: w.habits.length,
-      }));
-      if (active) {
-        setSummaries(demoSummaries);
-        setSelectedWeekId(demoSummaries[0]?.id ?? null);
-        setLoadingSummaries(false);
-      }
-      return () => {
-        active = false;
-      };
-    }
-
-    api.get("/weekly-report/habits/summaries")
-      .then(res => {
-        if (!active) return;
-        setSummaries(res.data);
-        if (res.data.length > 0) setSelectedWeekId(res.data[0].id);
-      })
-      .catch(err => console.error("Failed to load habit weeks:", err))
-      .finally(() => {
-        if (active) setLoadingSummaries(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [isDemoMode]);
-
-  // Load week data when selection changes
-  useEffect(() => {
-    let active = true;
-
-    if (!selectedWeekId) {
-      setWeekData(null);
-      setAiSummary(null);
-      setLoadingWeekData(false);
-      setLoadingAi(false);
-      return;
-    }
-    if (isDemoMode) {
-      const demo = DEMO_HABIT_DATA.find(w => w.id === selectedWeekId) ?? null;
-      setWeekData(demo);
-      setAiSummary(demo?.aiSummary ?? null);
-      return;
-    }
-    setLoadingWeekData(true);
-    setLoadingAi(true);
-    setAiSummary(null);
-    api.get(`/weekly-report/habits?week=${selectedWeekId}`)
-      .then(res => {
-        if (active) setWeekData(res.data);
-      })
-      .catch(err => {
-        console.error("Failed to load habit week data:", err);
-        if (active) setWeekData(null);
-      })
-      .finally(() => {
-        if (active) setLoadingWeekData(false);
-      });
-    api.get(`/weekly-report/habits/ai-summary?week=${selectedWeekId}`)
-      .then(res => {
-        if (active) setAiSummary(res.data.aiSummary ?? null);
-      })
-      .catch(err => console.error("Failed to load habit AI summary:", err))
-      .finally(() => {
-        if (active) setLoadingAi(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [selectedWeekId, isDemoMode]);
+  useEffect(() => { setHabitFilter("All"); setPriorityFilter("All"); setCategoryPerfFilter("completion"); }, [selectedWeekId]);
 
   const habitTotals = weekData ? getHabitSummary(weekData.habits ?? []) : null;
 
   return (
-    <div className="weekly-habit-view flex flex-col gap-4 lg:flex-row lg:items-start">
+    <div className="weekly-habit-view flex flex-col gap-4 lg:flex-row lg:items-start" data-demo-allow="true">
 
       <div className="weekly-habit-quick-weeks rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-3" data-demo-allow="true">
         <p className="text-label-md">Little Monk's Analysis</p>
         {loadingSummaries ? (
           <p className="mt-2 text-xs text-stone-500">Loading weeks...</p>
+        ) : summariesError ? (
+          <LoadError message={summariesError} retry={retrySummaries} />
         ) : summaries.length === 0 ? (
-          <p className="mt-2 text-xs text-stone-500">No weekly summaries yet.</p>
+          <p className="mt-2 text-xs text-stone-500">Completed weeks with scheduled habits appear here (last 12 weeks).</p>
         ) : (
           <div className="weekly-habit-quick-list mt-2 flex gap-2 overflow-x-auto pb-1">
             {summaries.map((week) => (
@@ -342,6 +87,8 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
             >
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
             </Motion.div>
+          ) : weekError ? (
+            <LoadError message={weekError} retry={retryWeek} />
           ) : weekData ? (
             <Motion.div
               key={weekData.id}
@@ -360,7 +107,7 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                   </div>
                   <div className="weekly-habit-heading-actions flex flex-wrap items-center gap-2 sm:justify-end">
                     <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
-                      {weekData.habits?.length ?? 0} Habits Scheduled
+                      {weekData.habits.length} habit{weekData.habits.length === 1 ? "" : "s"} scheduled
                     </span>
                     <button
                       type="button"
@@ -372,11 +119,12 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                   </div>
                 </div>
 
+                <p className="mt-2 text-[11px] text-stone-400">{weekData.totalInstances} check-ins · {weekData.completed} completed · {weekData.missed} missed · {weekData.pending} pending</p>
                 {/* Summary pills */}
                 <div className="weekly-habit-summary-pills mt-2 flex flex-wrap items-center gap-2">
                   {/* Streak Maintain */}
                   <div className="flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Streak Maintain</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Completed Check-ins</p>
                     <span className={`text-xs font-bold ${completionColor(habitTotals.total > 0 ? Math.round((habitTotals.completed / habitTotals.total) * 100) : 0)}`}>
                       {habitTotals.completed}
                       <span className="text-[10px] font-semibold text-stone-500">/{habitTotals.total}</span>
@@ -393,7 +141,7 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                       animate={{ left: ["-40%", "130%"] }}
                       transition={{ duration: lowMotion ? 0 : 1.8, repeat: lowMotion ? 0 : Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                     />
-                    <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Streak Break</p>
+                    <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Missed Check-ins</p>
                     <span className="relative z-10 text-xs font-bold text-rose-300">
                       {habitTotals.missed}
                       <span className="text-[10px] font-semibold text-stone-500">/{habitTotals.total}</span>
@@ -402,16 +150,16 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                   {/* Longest Streak */}
                   <div className="flex items-center gap-1.5 rounded-full border border-orange-400/20 bg-orange-500/10 px-3 py-1">
                     <span className="text-sm leading-none">🔥</span>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Longest Streak</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Best Within-week Run</p>
                     <span className="text-xs font-bold text-orange-300">
                       {weekData.longestStreak}
-                      <span className="text-[10px] font-semibold text-stone-500"> days</span>
+                      <span className="text-[10px] font-semibold text-stone-500"> check-ins</span>
                     </span>
                   </div>
                   {/* Consistency */}
                   {(() => {
-                    const activeDays     = parseInt(weekData.signal ?? "0");
-                    const consistencyPct = Math.round((activeDays / 7) * 100);
+                    const activeDays = weekData.activeDays;
+                    const consistencyPct = weekData.consistency;
                     return (
                       <Motion.div
                         className={`relative flex items-center gap-1.5 overflow-hidden rounded-full border px-3 py-1 ${
@@ -434,7 +182,7 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                           "text-rose-300"
                         }`}>
                           {consistencyPct}%
-                          <span className="text-[10px] font-semibold text-stone-500"> ({activeDays}/7d)</span>
+                          <span className="text-[10px] font-semibold text-stone-500"> ({activeDays}/{weekData.scheduledDays}d)</span>
                         </span>
                       </Motion.div>
                     );
@@ -465,7 +213,7 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                 transition={{ delay: 0.1 }}
                 className="weekly-habit-ai dashboard-glow-card flex min-h-[15rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl sm:p-5 lg:h-[24vh]"
               >
-                <div className="mb-3 flex items-center gap-2">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
                   <Motion.img
                     src={littleMonkLogo}
                     alt="Little Monk"
@@ -475,11 +223,12 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                   />
                   <div>
                     <p className="text-label-md">Little Monk's Analysis</p>
-                    <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-amber-300/70">AI Generated</p>
+                    <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-amber-300/70">{isDemoMode ? "Demo sample analysis" : aiSummary ? "AI generated · verify insights" : "On-demand analysis"}</p>
                   </div>
+                  {!isDemoMode && <button type="button" disabled={loadingAi || !weekData.totalInstances} onClick={generate} className="ml-auto rounded-lg border border-amber-400/30 px-3 py-1.5 text-xs font-semibold text-amber-300 disabled:opacity-40">{loadingAi ? "Please wait…" : aiSummary ? "↻ Regenerate" : "Generate analysis"}</button>}
                 </div>
                 <div className="journal-scroll min-h-0 flex-1 overflow-y-auto pr-1">
-                  {loadingAi ? (
+                  {loadingAi && !aiSummary ? (
                     <div className="flex h-full items-center justify-center">
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
                     </div>
@@ -487,9 +236,13 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                     <p className="text-sm leading-relaxed text-stone-300">{aiSummary}</p>
                   ) : (
                     <p className="text-sm leading-relaxed text-stone-500 italic">
-                      AI analysis will be available here once generated.
+                      Generate an analysis when you’re ready. Opening a report does not generate AI text.
                     </p>
                   )}
+                  {analysis.stale && <p role="status" className="mt-2 text-xs text-amber-300">Saved analysis is out of date. Regenerate to reflect this report.</p>}
+                  {analysis.error && <LoadError message={analysis.error} retry={analysis.retryWith === "generate" ? generate : retryWeek} />}
+                  {analysis.warning && <p role="status" className="mt-2 text-xs text-amber-300">{analysis.warning}</p>}
+                  {loadingAi && aiSummary && <p role="status" className="mt-2 text-xs text-stone-400">Generating updated analysis…</p>}
                 </div>
               </Motion.div>
 
@@ -501,10 +254,10 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                   className="weekly-habit-stat-card dashboard-glow-card flex min-h-[12rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[20vh]"
                 >
                   <div className="mb-3 flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Habit Summary</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Scheduled Check-ins</p>
                     <div className="weekly-habit-card-filter flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
                       {["All", "High", "Medium", "Low"].map((p) => (
-                        <button key={p} type="button" onClick={() => setPriorityFilter(p)}
+                        <button key={p} type="button" aria-pressed={priorityFilter === p} onClick={() => setPriorityFilter(p)}
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
                             priorityFilter === p ? "bg-amber-500/20 text-amber-300" : "text-stone-500 hover:text-stone-300"
                           }`}
@@ -527,18 +280,18 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                             </div>
                             <div className="grid grid-cols-3 gap-1.5">
                               <div className="rounded-lg border border-stone-700/40 bg-stone-900/50 px-1.5 py-1 text-center">
-                                <p className="text-[9px] text-stone-500">Scheduled Habits</p>
-                                <p className="text-xs font-bold text-stone-200">{weekData.habits?.length ?? 0}</p>
+                                <p className="text-[9px] text-stone-500">Check-ins</p>
+                                <p className="text-xs font-bold text-stone-200">{habitTotals.total}</p>
                               </div>
                               <div className="rounded-lg border border-emerald-400/15 bg-emerald-500/8 px-1.5 py-1 text-center">
-                                <p className="text-[9px] text-stone-500">Streak Maintain</p>
+                                <p className="text-[9px] text-stone-500">Completed Check-ins</p>
                                 <p className="text-xs font-bold text-emerald-300">{habitTotals.completed}</p>
-                                <p className="text-[8px] text-stone-500">{compPct}% of habits</p>
+                                <p className="text-[8px] text-stone-500">{compPct}% of check-ins</p>
                               </div>
                               <div className="rounded-lg border border-rose-400/15 bg-rose-500/8 px-1.5 py-1 text-center">
-                                <p className="text-[9px] text-stone-500">Streak Break</p>
+                                <p className="text-[9px] text-stone-500">Missed Check-ins</p>
                                 <p className="text-xs font-bold text-rose-300">{habitTotals.missed}</p>
-                                <p className="text-[8px] text-stone-500">{missPct}% of habits</p>
+                                <p className="text-[8px] text-stone-500">{missPct}% of check-ins</p>
                               </div>
                             </div>
                           </div>
@@ -554,18 +307,18 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                           <p className={`mb-2 text-[11px] font-bold ${priorityColor[row.priority]}`}>{row.priority} Priority Habits</p>
                           <div className="grid grid-cols-3 gap-1.5">
                             <div className="rounded-lg border border-stone-700/40 bg-stone-900/50 px-1.5 py-1 text-center">
-                              <p className="text-[9px] text-stone-500">Scheduled Habits</p>
+                              <p className="text-[9px] text-stone-500">Check-ins</p>
                               <p className="text-xs font-bold text-stone-200">{row.total}</p>
                             </div>
                             <div className="rounded-lg border border-emerald-400/15 bg-emerald-500/8 px-1.5 py-1 text-center">
-                              <p className="text-[9px] text-stone-500">Streak Maintain</p>
+                              <p className="text-[9px] text-stone-500">Completed Check-ins</p>
                               <p className="text-xs font-bold text-emerald-300">{row.completed}</p>
-                              <p className="text-[8px] text-stone-500">{compPct}% of habits</p>
+                              <p className="text-[8px] text-stone-500">{compPct}% of check-ins</p>
                             </div>
                             <div className="rounded-lg border border-rose-400/15 bg-rose-500/8 px-1.5 py-1 text-center">
-                              <p className="text-[9px] text-stone-500">Streak Break</p>
+                              <p className="text-[9px] text-stone-500">Missed Check-ins</p>
                               <p className="text-xs font-bold text-rose-300">{row.missed}</p>
-                              <p className="text-[8px] text-stone-500">{missPct}% of habits</p>
+                              <p className="text-[8px] text-stone-500">{missPct}% of check-ins</p>
                             </div>
                           </div>
                         </div>
@@ -582,7 +335,7 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Habit Performance</p>
                     <div className="weekly-habit-card-filter flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:flex-nowrap sm:rounded-full">
                       {TIME_FILTERS.map((f) => (
-                        <button key={f} type="button" onClick={() => setHabitFilter(f)}
+                        <button key={f} type="button" aria-pressed={habitFilter === f} onClick={() => setHabitFilter(f)}
                           className={`flex-1 rounded-full py-0.5 text-[10px] font-semibold transition-colors ${
                             habitFilter === f ? "bg-amber-500/20 text-amber-300" : "text-stone-500 hover:text-stone-300"
                           }`}
@@ -606,10 +359,10 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                           if (habits.length === 0)
                             return <p className="text-center text-[11px] text-stone-600">No habits in this time slot</p>;
                           return habits.map((h) => {
-                            const streakPct = Math.round((h.streak / h.targetStreak) * 100);
-                            const broken    = h.streak === 0;
+                            const streakPct = h.totalDays ? Math.round(h.completedDays / h.totalDays * 100) : 0;
+                            const broken = h.missed > 0;
                             return (
-                              <div key={h.name} className={`space-y-1.5 rounded-xl border p-2.5 ${broken ? "border-rose-400/20 bg-rose-500/5" : "border-stone-700/30 bg-stone-950/30"}`}>
+                              <div key={h.id} className={`space-y-1.5 rounded-xl border p-2.5 ${broken ? "border-rose-400/20 bg-rose-500/5" : "border-stone-700/30 bg-stone-950/30"}`}>
                                 <div className="flex items-center gap-2">
                                   <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-stone-300">{h.name}</span>
                                   <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${timeColor[h.timeOfDay] ?? "bg-stone-500/15 text-stone-300 border-stone-400/20"}`}>
@@ -617,20 +370,19 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                                   </span>
                                 </div>
                                 <p className="truncate text-[9px] font-medium uppercase tracking-[0.12em] text-stone-500">{h.repeat}</p>
+                                <p className="text-[10px] text-stone-400">{h.completedDays}/{h.totalDays} completed · {h.missed} missed · {h.pending} pending</p>
+                                <p className="text-[10px] text-stone-400">Within-week run: best {h.longestStreak}, ending {h.streak}{h.targetStreak ? ` · target ${h.targetStreak}` : ""}</p>
                                 <div className="flex items-center gap-2">
                                   <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-stone-800/60">
                                     <Motion.div
                                       initial={{ width: 0 }}
                                       animate={{ width: `${streakPct}%` }}
                                       transition={{ duration: 0.5, ease: "easeOut" }}
-                                      className={`h-full rounded-full ${broken ? "bg-rose-400" : streakPct >= 75 ? "bg-emerald-400" : streakPct >= 40 ? "bg-amber-400" : "bg-rose-400"}`}
+                                      className={`h-full rounded-full ${streakPct >= 75 ? "bg-emerald-400" : streakPct >= 55 ? "bg-amber-400" : "bg-rose-400"}`}
                                     />
                                   </div>
                                   <span className="shrink-0 text-[10px] font-bold">
-                                    {broken
-                                      ? <span className="text-rose-400">💔 Streak Broken</span>
-                                      : <span className="text-orange-300">🔥 {h.streak}d <span className="font-normal text-stone-500">/ {h.targetStreak}d</span></span>
-                                    }
+                                    <span className={completionColor(streakPct)}>{streakPct}% completed</span>
                                   </span>
                                 </div>
                               </div>
@@ -657,13 +409,13 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                       return stats.map((d, i) => {
                         const pct     = d.total > 0 ? Math.round((d.completed / d.total) * 100) : null;
                         const rate    = d.total > 0 ? d.completed / d.total : -1;
-                        const isBest  = rate === bestRate  && rate >= 0;
+                        const isBest  = rate === bestRate && d.completed > 0;
                         const isWorst = rate === worstRate && rate >= 0 && bestRate !== worstRate;
                         return (
                           <div key={d.day} className="flex items-center gap-2">
                             <span className="w-7 shrink-0 text-[11px] font-semibold text-stone-400">{d.day}</span>
                             {d.total === 0 ? (
-                              <span className="text-[10px] text-stone-600">— no habits</span>
+                              <span className="text-[10px] text-stone-600">{d.future ? "— future day" : "— no habits"}</span>
                             ) : (
                               <>
                                 <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-stone-800/60">
@@ -688,6 +440,17 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                 </Motion.div>
 
               </div>
+              <details className="weekly-habit-missed rounded-2xl border border-rose-400/15 bg-stone-950/30 p-4">
+                <summary className="cursor-pointer text-sm font-semibold text-rose-200">Missed check-ins · {weekData.missedHabitsTotal}</summary>
+                <div className="mt-3 space-y-2">
+                  {weekData.missedHabits.map(habit => <div key={habit.id} className="rounded-xl border border-stone-700/40 p-3">
+                    <p className="text-sm font-semibold text-stone-200">{habit.title}</p>
+                    <p className="mt-1 text-xs text-stone-400">{habit.day} · {habit.category} · {habit.time || "No scheduled time"}</p>
+                  </div>)}
+                  {!weekData.missedHabitsTotal && <p className="text-xs text-stone-400">No missed check-ins in this report.</p>}
+                  {weekData.missedHabitsTruncated && <p className="text-xs text-stone-400">Showing the first 20 of {weekData.missedHabitsTotal} missed check-ins. All are included in report totals.</p>}
+                </div>
+              </details>
             </Motion.div>
           ) : (
             <Motion.div
@@ -742,10 +505,12 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
               <div className="flex h-full items-center justify-center">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400" />
               </div>
-            ) : summaries.length === 0 ? (
+            ) : summariesError ? (
+          <LoadError message={summariesError} retry={retrySummaries} />
+        ) : summaries.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
                 <span className="text-2xl opacity-20">🔄</span>
-                <p className="text-xs text-stone-600">No completed weeks yet</p>
+                <p className="text-xs text-stone-600">No scheduled habits in the last 12 completed weeks</p>
               </div>
             ) : (
               summaries.map((week) => {
@@ -768,6 +533,7 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                       </div>
                       <button
                         type="button"
+                        aria-pressed={isSelected}
                         onClick={() => setSelectedWeekId(isSelected ? null : week.id)}
                         className={`w-full rounded-full border px-3 py-1 text-xs font-semibold transition-colors sm:w-fit ${
                           isSelected
@@ -802,6 +568,7 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                 <button
                   key={f}
                   type="button"
+                  aria-pressed={categoryPerfFilter === f}
                   onClick={() => setCategoryPerfFilter(f)}
                   className={`flex-1 rounded-full py-1 text-[11px] font-semibold transition-colors ${
                     categoryPerfFilter === f
@@ -811,7 +578,7 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                       : "text-stone-500 hover:text-stone-300"
                   }`}
                 >
-                  {f === "completion" ? "Streak Maintain" : "Streak Break"}
+                  {f === "completion" ? "Completion Rate" : "Miss Rate"}
                 </button>
               ))}
             </div>

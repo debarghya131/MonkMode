@@ -1,24 +1,23 @@
-import { AnimatePresence, motion as Motion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion as Motion } from "framer-motion";
 import { useState } from "react";
+import useAuth from "../../../hooks/useAuth";
+import useMobileLowMotion from "../../../hooks/useMobileLowMotion";
+import { GoalAnalysisContext } from "./goalAnalysisContext";
+import useGoalAnalysisData from "./useGoalAnalysisData";
 import GoalProgressAnalysis from "./GoalProgressAnalysis";
 import ScoreConsisteDeadAnalysis from "./ScoreConsisteDeadAnalysis";
-
 const GOAL_ANALYSIS_SECTIONS = [
-  {
-    id: "goal-progress",
-    label: "Goal Progress Analysis",
-    icon: "🎯",
-    component: GoalProgressAnalysis,
-  },
-  {
-    id: "consistency-deadline-score",
-    label: "Consistency | Deadline | Score Analysis",
-    icon: "📈",
-    component: ScoreConsisteDeadAnalysis,
-  },
+  { id: "goal-progress", label: "Goal Progress Analysis", icon: "🎯", component: GoalProgressAnalysis },
+  { id: "consistency-deadline-score", label: "Consistency | Deadline | Score Analysis", icon: "📈", component: ScoreConsisteDeadAnalysis },
 ];
 
 export default function GoalAnalysis() {
+  const { isDemoMode, user } = useAuth();
+  return <GoalSession key={isDemoMode ? "demo" : user?.id || user?._id || "user"} isDemoMode={isDemoMode} />;
+}
+function GoalSession({ isDemoMode }) {
+  const resource = useGoalAnalysisData(isDemoMode);
+  const lowMotion = useMobileLowMotion();
   const [activeSection, setActiveSection] = useState(GOAL_ANALYSIS_SECTIONS[0].id);
   const [menuOpen, setMenuOpen] = useState(false);
   const activeTab =
@@ -27,12 +26,16 @@ export default function GoalAnalysis() {
   const ActiveComponent = activeTab.component;
 
   return (
-    <div className="goal-analysis-page space-y-4 sm:space-y-5">
+    <GoalAnalysisContext.Provider value={resource}>
+    <MotionConfig reducedMotion={lowMotion ? "always" : "user"}>
+    <div data-demo-allow="true" data-section={activeSection} data-active={activeSection} className="goal-analysis-page space-y-4 sm:space-y-5">
       {/* Mobile: hamburger dropdown */}
-      <div className="goal-analysis-mobile-nav relative sm:hidden">
+      <div className="goal-analysis-mobile-nav relative sm:hidden" onKeyDown={event => { if (event.key === "Escape") setMenuOpen(false); }}>
         <button
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
+          aria-expanded={menuOpen}
+          aria-label="Goal Analysis section"
           className="flex w-full items-center justify-between gap-2 rounded-2xl border border-amber-100/10 bg-black/20 px-4 py-2.5 text-sm font-semibold text-amber-300 shadow-xl shadow-black/25 backdrop-blur"
         >
           <span className="flex min-w-0 items-center gap-2">
@@ -52,6 +55,7 @@ export default function GoalAnalysis() {
                   key={section.id}
                   type="button"
                   onClick={() => { setActiveSection(section.id); setMenuOpen(false); }}
+                  aria-pressed={activeSection === section.id}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
                     activeSection === section.id
                       ? "bg-amber-500/15 text-amber-300"
@@ -81,7 +85,7 @@ export default function GoalAnalysis() {
               className="dashboard-section-tab flex min-w-[7rem] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold"
             >
               <span className="text-base leading-none">{section.icon}</span>
-              <span>{section.label}</span>
+              <span className="min-w-0 truncate" title={section.label}>{section.label}</span>
             </Motion.button>
           );
         })}
@@ -91,7 +95,7 @@ export default function GoalAnalysis() {
         <Motion.div
           key={activeTab.id}
           className="goal-analysis-content"
-          initial={{ opacity: 0, y: 14 }}
+          initial={lowMotion ? false : { opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.22, ease: "easeInOut" }}
@@ -100,5 +104,7 @@ export default function GoalAnalysis() {
         </Motion.div>
       </AnimatePresence>
     </div>
+    </MotionConfig>
+    </GoalAnalysisContext.Provider>
   );
 }

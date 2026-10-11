@@ -14,6 +14,7 @@ import {
   toggleTodo,
   updateTodo
 } from "../controllers/todoController.js";
+import { getTodoPreferences, saveTodoPreferences } from "../controllers/todoController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { createRateLimiter } from "../middleware/rateLimit.js";
 
@@ -31,6 +32,7 @@ router.get("/heatmap", getTodoHeatmap);
 router.get("/summary", getTodoSummary);
 router.get("/analysis", getTodoAnalysis);
 router.get("/categories", getTodoCategories);
+router.route("/preferences").get(getTodoPreferences).patch(todoWriteLimiter, saveTodoPreferences);
 router.route("/logs").get(getTodoLogs).post(todoWriteLimiter, createTodoLog);
 router.route("/").post(todoWriteLimiter, createTodo).get(getTodos);
 router.patch("/:id/toggle", todoWriteLimiter, toggleTodo);

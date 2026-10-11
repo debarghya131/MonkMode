@@ -1,83 +1,19 @@
-import { useState, useEffect } from "react";
 import { motion as Motion, AnimatePresence } from "framer-motion";
-import api from "../../api/axios";
+import useJournalWeeklyData from "./useJournalWeeklyData";
+import { reportDayLabel } from "../../../../shared/journalWeeklyStats.js";
 import useAuth from "../../hooks/useAuth";
 import littleMonkLogo from "../../assets/littlemonklogo.webp";
 
-const DEMO_SUMMARIES = [
-  { id: "2026-04-27", date: "Apr 27 - May 3",  signal: "6 logged days", loggedDays: 6, weeklyScore: 84, longestStreak: 5, topMood: { label: "Focused",   emoji: "😤", days: 3 } },
-  { id: "2026-04-20", date: "Apr 20 - Apr 26",  signal: "5 logged days", loggedDays: 5, weeklyScore: 72, longestStreak: 4, topMood: { label: "Motivated", emoji: "🔥", days: 2 } },
-  { id: "2026-04-13", date: "Apr 13 - Apr 19",  signal: "4 logged days", loggedDays: 4, weeklyScore: 60, longestStreak: 3, topMood: { label: "Calm",      emoji: "😌", days: 2 } },
-];
-
-const DEMO_WEEK_DATA = {
-  "2026-04-27": {
-    id: "2026-04-27", date: "Apr 27 - May 3", signal: "6 logged days",
-    weeklyScore: 84, longestStreak: 5,
-    topMood: { label: "Focused", emoji: "😤", days: 3 },
-    stats: {
-      energy:       { avg: 76, highest: { day: "Wed, Apr 29", value: 88 }, lowest: { day: "Mon, Apr 27", value: 62 } },
-      rating:       { avg: 80, highest: { day: "Thu, Apr 30", value: 90 }, lowest: { day: "Sat, May 2",  value: 68 } },
-      wins:         { total: 14, highest: { day: "Thu, Apr 30", value: 4 }, lowest: { day: "Mon, Apr 27", value: 1 } },
-      mistakes:     { total: 5,  highest: { day: "Sat, May 2",  value: 2 }, lowest: { day: "Wed, Apr 29", value: 0 } },
-      achievements: { total: 6,  highest: { day: "Thu, Apr 30", value: 2 }, lowest: { day: "Mon, Apr 27", value: 0 } },
-    },
-  },
-  "2026-04-20": {
-    id: "2026-04-20", date: "Apr 20 - Apr 26", signal: "5 logged days",
-    weeklyScore: 72, longestStreak: 4,
-    topMood: { label: "Motivated", emoji: "🔥", days: 2 },
-    stats: {
-      energy:       { avg: 70, highest: { day: "Tue, Apr 21", value: 85 }, lowest: { day: "Fri, Apr 24", value: 55 } },
-      rating:       { avg: 73, highest: { day: "Tue, Apr 21", value: 84 }, lowest: { day: "Fri, Apr 24", value: 60 } },
-      wins:         { total: 10, highest: { day: "Tue, Apr 21", value: 3 }, lowest: { day: "Fri, Apr 24", value: 1 } },
-      mistakes:     { total: 7,  highest: { day: "Fri, Apr 24", value: 3 }, lowest: { day: "Tue, Apr 21", value: 0 } },
-      achievements: { total: 4,  highest: { day: "Wed, Apr 22", value: 2 }, lowest: { day: "Mon, Apr 20", value: 0 } },
-    },
-  },
-  "2026-04-13": {
-    id: "2026-04-13", date: "Apr 13 - Apr 19", signal: "4 logged days",
-    weeklyScore: 60, longestStreak: 3,
-    topMood: { label: "Calm", emoji: "😌", days: 2 },
-    stats: {
-      energy:       { avg: 64, highest: { day: "Mon, Apr 13", value: 78 }, lowest: { day: "Thu, Apr 16", value: 50 } },
-      rating:       { avg: 68, highest: { day: "Mon, Apr 13", value: 80 }, lowest: { day: "Thu, Apr 16", value: 55 } },
-      wins:         { total: 8,  highest: { day: "Mon, Apr 13", value: 3 }, lowest: { day: "Thu, Apr 16", value: 1 } },
-      mistakes:     { total: 6,  highest: { day: "Thu, Apr 16", value: 2 }, lowest: { day: "Mon, Apr 13", value: 1 } },
-      achievements: { total: 3,  highest: { day: "Wed, Apr 15", value: 2 }, lowest: { day: "Mon, Apr 13", value: 0 } },
-    },
-  },
-};
-
-const DEMO_AI_SUMMARIES = {
-  "2026-04-27": "Strong week overall. Focus mode dominated with 6 out of 7 days logged — a clear sign of consistent discipline. Thursday was the standout day with the highest rating and most achievements. The one missed day (Sunday) coincides with the lowest energy readings mid-week, suggesting rest was needed. Next week: protect the Thursday momentum and aim for 7/7.",
-  "2026-04-20": "A solid but uneven week. Tuesday peaked with high energy and wins, but Friday dragged — too many mistakes and low energy. The pattern suggests late-week fatigue. Consider shifting harder tasks to Mon–Wed and using Thu–Fri for reviews and lighter work.",
-  "2026-04-13": "Decent week with room to grow. Consistency improved to 4 days but streak broke mid-week. Monday was the best day, Thursday the weakest. The calm mood dominating this week may reflect steady work, but low achievements suggest effort wasn't translating into results. Add one specific goal to complete each day.",
-};
-
-const DEMO_MISSED_DAYS = {
-  "2026-04-27": [
-    { date: "2026-05-03", label: "Sun, May 3", note: "No journal submitted", reason: "Rest day — intentional break after a full week" },
-  ],
-  "2026-04-20": [
-    { date: "2026-04-22", label: "Wed, Apr 22", note: "No journal submitted", reason: null },
-    { date: "2026-04-25", label: "Sat, Apr 25", note: "No journal submitted", reason: "Weekend trip, forgot to log" },
-  ],
-  "2026-04-13": [
-    { date: "2026-04-14", label: "Tue, Apr 14", note: "No journal submitted", reason: null },
-    { date: "2026-04-17", label: "Fri, Apr 17", note: "No journal submitted", reason: null },
-    { date: "2026-04-19", label: "Sun, Apr 19", note: "No journal submitted", reason: "Sick day" },
-  ],
-};
-
-const formatDate = (date) =>
-  new Date(`${date}T00:00:00`).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
+const formatDate = reportDayLabel;
+function LoadError({ message, retry }) {
+  return <div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/5 p-3 text-sm text-rose-200">
+    <p>{message}</p>
+    <button type="button" onClick={retry} className="mt-2 rounded-lg border border-amber-400/30 px-3 py-1 text-xs font-semibold text-amber-300">Retry</button>
+  </div>;
+}
 
 function scoreColor(score) {
+  if (score == null) return { text: "text-stone-400", border: "border-stone-700", bg: "bg-white/5" };
   if (score >= 75) return { text: "text-emerald-300", border: "border-emerald-400/20", bg: "bg-emerald-500/10" };
   if (score >= 55) return { text: "text-amber-300",   border: "border-amber-400/20",   bg: "bg-amber-500/10"   };
   return                   { text: "text-rose-300",   border: "border-rose-400/20",     bg: "bg-rose-500/10"    };
@@ -116,7 +52,7 @@ function StatRow({ label, value, accent = "stone" }) {
   );
 }
 
-function AnalysisStatCard({ icon, title, mainLabel, mainValue, mainAccent = "amber", highest, lowest, unit = "", progressPercent = 0 }) {
+function AnalysisStatCard({ icon, title, mainLabel, mainValue, mainAccent = "amber", highest, lowest, unit = "", progressPercent = 0, progressLabel = "Average / 100", inverse = false }) {
   const progressColor =
     mainAccent === "emerald"
       ? "from-emerald-300 via-emerald-400 to-teal-400"
@@ -139,14 +75,14 @@ function AnalysisStatCard({ icon, title, mainLabel, mainValue, mainAccent = "amb
       <div className="mb-3 flex items-end justify-between gap-2 rounded-xl border border-amber-400/15 bg-amber-500/8 px-4 py-3">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-stone-500">{mainLabel}</p>
         <p className={`text-2xl font-bold leading-none ${mainAccent === "amber" ? "text-amber-300" : mainAccent === "emerald" ? "text-emerald-300" : mainAccent === "rose" ? "text-rose-300" : "text-stone-200"}`}>
-          {mainValue}{unit}
+          {mainValue ?? "—"}{mainValue == null ? "" : unit}
         </p>
       </div>
 
       <div className="mb-3">
         <div className="mb-1.5 flex items-center justify-between gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Momentum</span>
-          <span className="text-[10px] font-semibold text-stone-400">{clampPercent(progressPercent)}%</span>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">{progressLabel}</span>
+          <span className="text-[10px] font-semibold text-stone-400">{mainValue == null ? "—" : `${clampPercent(progressPercent)}%`}</span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-white/5">
           <Motion.div
@@ -161,13 +97,13 @@ function AnalysisStatCard({ icon, title, mainLabel, mainValue, mainAccent = "amb
       <div className="space-y-2">
         <StatRow
           label={`↑ Highest — ${highest.day}`}
-          value={`${highest.value}${unit}`}
-          accent="emerald"
+          value={highest.value == null ? "—" : `${highest.value}${unit}`}
+          accent={inverse ? "rose" : "emerald"}
         />
         <StatRow
           label={`↓ Lowest — ${lowest.day}`}
-          value={`${lowest.value}${unit}`}
-          accent="rose"
+          value={lowest.value == null ? "—" : `${lowest.value}${unit}`}
+          accent={inverse ? "emerald" : "rose"}
         />
       </div>
     </Motion.div>
@@ -176,128 +112,12 @@ function AnalysisStatCard({ icon, title, mainLabel, mainValue, mainAccent = "amb
 
 export default function JournalWeeklyReport({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
-  const [summaries, setSummaries] = useState([]);
-  const [loadingSummaries, setLoadingSummaries] = useState(true);
-
-  const [selectedWeekId, setSelectedWeekId] = useState(null);
-  const [weekData, setWeekData] = useState(null);
-  const [loadingWeekData, setLoadingWeekData] = useState(false);
-
-  const [aiSummary, setAiSummary] = useState(null);
-  const [loadingAi, setLoadingAi] = useState(false);
-
-  const [missedDays, setMissedDays] = useState([]);
-  const [loadingMissedDays, setLoadingMissedDays] = useState(true);
-
-
-  // On mount: fetch summaries list
-  useEffect(() => {
-    let active = true;
-
-    if (isDemoMode) {
-      if (active) {
-        setSummaries(DEMO_SUMMARIES);
-        setSelectedWeekId(DEMO_SUMMARIES[0].id);
-        setLoadingSummaries(false);
-      }
-      return () => {
-        active = false;
-      };
-    }
-
-    api.get("/weekly-report/journal/summaries")
-      .then((res) => {
-        if (!active) return;
-        setSummaries(res.data);
-        if (res.data.length > 0) setSelectedWeekId(res.data[0].id);
-      })
-      .catch((err) => console.error("Journal weekly report init error:", err))
-      .finally(() => {
-        if (active) setLoadingSummaries(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [isDemoMode]);
-
-  // When selected week changes: fetch detailed stats, AI summary, and missed days for that week
-  useEffect(() => {
-    let active = true;
-
-    setWeekData(null);
-    setAiSummary(null);
-    setMissedDays([]);
-
-    if (!selectedWeekId) {
-      setLoadingWeekData(false);
-      setLoadingAi(false);
-      setLoadingMissedDays(false);
-      return;
-    }
-
-    if (isDemoMode) {
-      setWeekData(DEMO_WEEK_DATA[selectedWeekId] || null);
-      setAiSummary(DEMO_AI_SUMMARIES[selectedWeekId] || null);
-      setMissedDays(DEMO_MISSED_DAYS[selectedWeekId] || []);
-      setLoadingWeekData(false);
-      setLoadingAi(false);
-      setLoadingMissedDays(false);
-      return;
-    }
-
-    setLoadingWeekData(true);
-    setLoadingAi(true);
-    setLoadingMissedDays(true);
-
-    api
-      .get(`/weekly-report/journal?week=${selectedWeekId}`)
-      .then((res) => {
-        if (active) setWeekData(res.data);
-      })
-      .catch((err) => console.error("Failed to load week data:", err))
-      .finally(() => {
-        if (active) setLoadingWeekData(false);
-      });
-
-    api
-      .get(`/weekly-report/journal/ai-summary?week=${selectedWeekId}`)
-      .then((res) => {
-        if (active) setAiSummary(res.data.aiSummary ?? null);
-      })
-      .catch((err) => console.error("Failed to load AI summary:", err))
-      .finally(() => {
-        if (active) setLoadingAi(false);
-      });
-
-    api
-      .get(`/weekly-report/journal/missed-days?week=${selectedWeekId}`)
-      .then((res) => {
-        if (active) setMissedDays(Array.isArray(res.data) ? res.data : []);
-      })
-      .catch((err) => console.error("Failed to load missed days:", err))
-      .finally(() => {
-        if (active) setLoadingMissedDays(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [selectedWeekId, isDemoMode]);
-
-  const handleRegenerate = async () => {
-    if (!selectedWeekId || isDemoMode) return;
-    setLoadingAi(true);
-    setAiSummary(null);
-    try {
-      const res = await api.get(`/weekly-report/journal/ai-summary?week=${selectedWeekId}&regenerate=true`);
-      setAiSummary(res.data.aiSummary ?? null);
-    } catch (err) {
-      console.error("Failed to regenerate AI summary:", err);
-    } finally {
-      setLoadingAi(false);
-    }
-  };
+  const { summaries, loadingSummaries, summariesError, retrySummaries, selectedWeekId, setSelectedWeekId,
+    weekData, loadingWeekData, weekError, retryWeek, analysis, generate } = useJournalWeeklyData(isDemoMode);
+  const aiSummary = analysis.text, loadingAi = analysis.loading;
+  const missedDays = weekData?.missedDays || [];
+  const loadingMissedDays = loadingWeekData;
+  const dayPercent = days => weekData?.loggedDays ? days / weekData.loggedDays * 100 : 0;
 
   return (
     <div className="weekly-journal-view flex flex-col gap-4 lg:flex-row lg:items-stretch">
@@ -306,8 +126,10 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
         <p className="text-label-md">Little Monk's Summary</p>
         {loadingSummaries ? (
           <p className="mt-2 text-xs text-stone-500">Loading weeks...</p>
+        ) : summariesError ? (
+          <LoadError message={summariesError} retry={retrySummaries} />
         ) : summaries.length === 0 ? (
-          <p className="mt-2 text-xs text-stone-500">No weekly summaries yet.</p>
+          <p className="mt-2 text-xs text-stone-500">Completed weeks with journal entries appear here (last 12 weeks).</p>
         ) : (
           <div className="weekly-journal-quick-list mt-2 flex gap-2 overflow-x-auto pb-1">
             {summaries.map((week) => (
@@ -342,7 +164,7 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
               className="flex h-56 flex-col items-center justify-center gap-3 rounded-[1.4rem] border border-dashed border-amber-100/10 px-4 text-center sm:h-64 sm:rounded-2xl"
             >
               <span className="text-3xl opacity-30">📊</span>
-              <p className="text-sm font-semibold text-stone-500">Select a week to view detailed analysis</p>
+              <p className="text-sm font-semibold text-stone-500">{loadingSummaries ? "Loading journal weeks…" : summariesError ? "Journal weeks could not be loaded" : summaries.length ? "Select a week to view detailed analysis" : "No completed journal week yet"}</p>
               <p className="text-xs text-stone-600">Click <span className="text-amber-400/70">View</span> on any weekly summary →</p>
             </Motion.div>
           ) : loadingWeekData ? (
@@ -361,6 +183,8 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
                 ))}
               </div>
             </Motion.div>
+          ) : weekError ? (
+            <div key="error" className="weekly-journal-main-body"><LoadError message={weekError} retry={retryWeek} /></div>
           ) : weekData ? (
             <Motion.div
               key={weekData.id}
@@ -383,6 +207,7 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
                     </span>
                     <button
                       type="button"
+                      data-demo-allow="true"
                       onClick={() => setSelectedWeekId(null)}
                       className="rounded-full border border-stone-700 px-3 py-1 text-xs font-semibold text-stone-400 transition-colors hover:border-stone-500 hover:text-stone-200"
                     >
@@ -405,7 +230,7 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
                     <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Weekly Score</p>
                     <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1 ${scoreColor(weekData.weeklyScore).border} ${scoreColor(weekData.weeklyScore).bg}`}>
                       <span className={`text-xs font-bold ${scoreColor(weekData.weeklyScore).text}`}>
-                        {weekData.weeklyScore}
+                        {weekData.weeklyScore ?? "—"}
                         <span className="text-[10px] font-semibold text-stone-500"> / 100</span>
                       </span>
                     </div>
@@ -456,23 +281,23 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
                     />
                     <div>
                       <p className="text-label-md">Little Monk's Analysis</p>
-                      <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-amber-300/70">AI Generated</p>
+                      <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-amber-300/70">{isDemoMode ? "Sample analysis · Demo" : aiSummary ? "AI Generated · Verify insights" : "On-demand AI"}</p>
                     </div>
                   </div>
                   {!isDemoMode && (
                     <button
                       type="button"
-                      disabled={loadingAi}
-                      onClick={handleRegenerate}
+                      disabled={loadingAi || !weekData.loggedDays}
+                      onClick={generate}
                       className="shrink-0 rounded-lg border border-amber-400/20 bg-amber-500/8 px-2.5 py-1 text-[10px] font-semibold text-amber-400/70 transition hover:border-amber-400/40 hover:text-amber-300 disabled:opacity-40"
                     >
-                      {loadingAi ? "Generating…" : "↻ Regenerate"}
+                      {loadingAi ? "Please wait…" : aiSummary ? "↻ Regenerate" : "Generate analysis"}
                     </button>
                   )}
                 </div>
                 <div className="journal-scroll min-h-0 flex-1 overflow-y-auto pr-1">
-                  {loadingAi ? (
-                    <div className="space-y-2 animate-pulse">
+                  {loadingAi && !aiSummary ? (
+                    <div className="space-y-2 animate-pulse" aria-label="Loading analysis">
                       <div className="h-3 rounded bg-white/10 w-full" />
                       <div className="h-3 rounded bg-white/10 w-5/6" />
                       <div className="h-3 rounded bg-white/10 w-4/6" />
@@ -480,9 +305,13 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
                     </div>
                   ) : (
                     <p className="text-sm leading-relaxed text-stone-300">
-                      {aiSummary || "No analysis available for this week."}
+                      {aiSummary || "Generate an optional AI analysis for this week. Opening reports does not use your AI allowance."}
                     </p>
                   )}
+                  {analysis.stale && <p role="status" className="mt-2 text-xs text-amber-300">Journal data changed. Regenerate to update this saved analysis.</p>}
+                  {analysis.error && <div className="mt-2"><LoadError message={analysis.error} retry={analysis.retryWith === "generate" ? generate : retryWeek} /></div>}
+                  {analysis.warning && <p role="status" className="mt-2 text-xs text-amber-300">{analysis.warning}</p>}
+                  {loadingAi && aiSummary && <p role="status" className="mt-2 text-xs text-stone-400">Updating analysis…</p>}
                 </div>
               </Motion.div>
 
@@ -515,7 +344,8 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
                   highest={weekData.stats.wins.highest}
                   lowest={weekData.stats.wins.lowest}
                   unit=" wins"
-                  progressPercent={weekData.stats.wins.total * 5}
+                  progressLabel="Days with wins"
+                  progressPercent={dayPercent(weekData.stats.wins.activeDays)}
                 />
                 <AnalysisStatCard
                   icon="×"
@@ -526,7 +356,9 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
                   highest={weekData.stats.mistakes.highest}
                   lowest={weekData.stats.mistakes.lowest}
                   unit=" mistakes"
-                  progressPercent={100 - weekData.stats.mistakes.total * 8}
+                  inverse
+                  progressLabel="Days without mistakes"
+                  progressPercent={dayPercent(weekData.loggedDays - weekData.stats.mistakes.activeDays)}
                 />
                 <AnalysisStatCard
                   icon="🏆"
@@ -536,7 +368,8 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
                   highest={weekData.stats.achievements.highest}
                   lowest={weekData.stats.achievements.lowest}
                   unit=" achieved"
-                  progressPercent={weekData.stats.achievements.total * 6}
+                  progressLabel="Days with achievements"
+                  progressPercent={dayPercent(weekData.stats.achievements.activeDays)}
                 />
                 <Motion.div
                   initial={{ opacity: 0, y: 12 }}
@@ -561,22 +394,22 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
                     <div className="mb-1.5 flex items-center justify-between gap-2">
                       <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">Weekly Consistency</span>
                       <span className="text-[10px] font-semibold text-stone-400">
-                        {clampPercent((weekData.longestStreak / 7) * 100)}%
+                        {clampPercent(weekData.consistency)}%
                       </span>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-white/5">
                       <Motion.div
                         className="progress-sheen h-full rounded-full bg-gradient-to-r from-orange-300 via-amber-400 to-yellow-300"
                         initial={{ width: 0, opacity: 0.7 }}
-                        animate={{ width: `${clampPercent((weekData.longestStreak / 7) * 100)}%`, opacity: 1 }}
+                        animate={{ width: `${clampPercent(weekData.consistency)}%`, opacity: 1 }}
                         transition={{ duration: 0.75, ease: "easeOut" }}
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <StatRow label="Current Best Run" value={`${weekData.longestStreak} days`} accent="amber" />
-                    <StatRow label="Weekly Target" value="7 days" accent="emerald" />
+                    <StatRow label="Longest run this week" value={`${weekData.longestStreak} days`} accent="amber" />
+                    <StatRow label="Logged days" value={`${weekData.loggedDays} / ${weekData.expectedDays} days`} accent="emerald" />
                   </div>
                 </Motion.div>
               </div>
@@ -612,8 +445,10 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
                   <div key={i} className="animate-pulse rounded-xl border border-amber-100/10 bg-stone-950/45 h-14" />
                 ))}
               </div>
-            ) : summaries.length === 0 ? (
-              <p className="pt-8 text-center text-xs text-stone-500">No weekly summaries yet.</p>
+            ) : summariesError ? (
+          <LoadError message={summariesError} retry={retrySummaries} />
+        ) : summaries.length === 0 ? (
+              <p className="pt-8 text-center text-xs text-stone-500">Completed weeks with journal entries appear here (last 12 weeks).</p>
             ) : (
               summaries.map((week) => {
                 const isSelected = selectedWeekId === week.id;
@@ -634,6 +469,8 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
                       </div>
                       <button
                         type="button"
+                        data-demo-allow="true"
+                        aria-pressed={isSelected}
                         onClick={() => setSelectedWeekId(isSelected ? null : week.id)}
                         className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
                           isSelected
@@ -665,13 +502,17 @@ export default function JournalWeeklyReport({ lowMotion = false }) {
               </div>
             </div>
             <span className="rounded-full border border-rose-400/20 bg-rose-400/10 px-3 py-1 text-sm font-bold text-rose-300">
-              {missedDays.length}
+              {weekData ? missedDays.length : "—"}
             </span>
           </div>
 
           <div className="relative min-h-0 flex-1">
           <div className="journal-scroll h-full overflow-y-auto pr-1">
-            {loadingMissedDays ? (
+            {!selectedWeekId ? (
+              <p className="text-xs text-stone-500">Select a week to view missed days.</p>
+            ) : weekError ? (
+              <p role="status" className="text-xs text-stone-500">Missed days are unavailable until the report loads.</p>
+            ) : loadingMissedDays ? (
               <div className="space-y-3">
                 {[...Array(3)].map((_, i) => (
                   <div key={i} className="animate-pulse rounded-xl border border-amber-100/10 bg-stone-950/45 h-16" />

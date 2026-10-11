@@ -1,25 +1,11 @@
 import { motion as Motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
-import { INITIAL_HABITS } from "../../../data/HabitDummyData";
-
-const toISODate = (date) => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-};
-
-const toDateOnly = (value) => {
-  if (!value) return null;
-  if (typeof value === "string") return value.slice(0, 10);
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return toISODate(parsed);
-};
+import { useHabitEnvironment } from "./habitContext";
+import { formatHabitDay, formatHabitTime, habitDayKey, isHabitOnDay } from "./habitUtils";
 
 const PRIORITY_STYLES = {
   High: "border-red-400/30 bg-red-500/10 text-red-200",
@@ -61,12 +47,7 @@ const timeSlotLabel = {
   night: "Night",
 };
 
-const formatTime = (timeValue) => {
-  const [hours, minutes] = timeValue.split(":").map(Number);
-  const date = new Date();
-  date.setHours(hours, minutes, 0, 0);
-  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-};
+const formatTime = formatHabitTime;
 
 const getTimeSlot = (timeValue) => {
   const [hours] = timeValue.split(":").map(Number);
@@ -79,36 +60,12 @@ const getTimeSlot = (timeValue) => {
 const matchesTimeSlot = (habit, selectedTimeSlot) =>
   selectedTimeSlot === "All" || getTimeSlot(habit.time) === selectedTimeSlot;
 
-const isHabitScheduledForDate = (habit, dateISO) => {
-  const target = new Date(`${dateISO}T00:00:00`);
-  if (Number.isNaN(target.getTime())) return false;
-
-  const startDate = toDateOnly(habit?.startDate || habit?.createdAt);
-  const endDate = toDateOnly(habit?.endDate);
-  if (startDate && dateISO < startDate) return false;
-  if (endDate && dateISO > endDate) return false;
-
-  const repeatType = String(habit?.repeatType || "daily").toLowerCase();
-  const dayIndex = target.getDay();
-
-  if (repeatType === "weekend") return dayIndex === 0 || dayIndex === 6;
-  if (repeatType === "weekdays") {
-    const selectedDays = Array.isArray(habit?.days) && habit.days.length
-      ? habit.days
-      : ["Mon", "Tue", "Wed", "Thu", "Fri"];
-    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    return selectedDays.includes(dayNames[dayIndex]);
-  }
-
-  return true;
-};
-
 const getHabitStatus = (habit) => {
   if (habit.status === "completed") return "completed";
   return "pending";
 };
 
-function HabitRow({ habit, status, onUndo, index = 0, lowMotion = false }) {
+function HabitRow({ habit, status, onUndo, busy = false, index = 0, lowMotion = false }) {
   const slot = getTimeSlot(habit.time);
   const Row = lowMotion ? "article" : Motion.article;
 
@@ -143,6 +100,8 @@ function HabitRow({ habit, status, onUndo, index = 0, lowMotion = false }) {
           <button
             type="button"
             onClick={onUndo}
+            disabled={busy}
+            aria-busy={busy}
             className="dashboard-card-action"
             data-tone="warning"
           >
@@ -207,19 +166,28 @@ function TimeSlotFilter({ selected, onChange }) {
 
 export default function TodaysHabit({ consistency = {} }) {
   const { isDemoMode } = useAuth();
+  const { clock, timezone, demoHabits, requestSignal } = useHabitEnvironment();
+  const todayISO = clock.date;
   const [searchParams, setSearchParams] = useSearchParams();
   const lowMotion = useMobileLowMotion();
   const Columns = lowMotion ? "div" : Motion.div;
   const Column = lowMotion ? "section" : Motion.section;
   const PendingRow = lowMotion ? "article" : Motion.article;
-  const [habits, setHabits] = useState(isDemoMode ? INITIAL_HABITS : []);
+  const [habits, setHabits] = useState(isDemoMode ? demoHabits : []);
   const [loading, setLoading] = useState(!isDemoMode);
   const [allFilter, setAllFilter] = useState("All");
   const [pendingFilter, setPendingFilter] = useState("All");
   const [completedFilter, setCompletedFilter] = useState("All");
   const [sidebarPriorityFilter, setSidebarPriorityFilter] = useState("All");
   const [timeSlotFilter, setTimeSlotFilter] = useState("All");
-  const [todayISO, setTodayISO] = useState(() => toISODate(new Date()));
+  const [loadError, setLoadError] = useState("");
+  const [actionErrors, setActionErrors] = useState({});
+  const [ready, setReady] = useState(isDemoMode);
+  const [retry, setRetry] = useState(0);
+  const [busyIds, setBusyIds] = useState(new Set());
+  const locks = useRef(new Set());
+  const version = useRef(0);
+  const live = useRef(true);
   const requestedMobileView = searchParams.get("habitToday");
   const mobileView = HABIT_TODAY_VIEWS.some((view) => view.id === requestedMobileView)
     ? requestedMobileView
@@ -234,55 +202,48 @@ export default function TodaysHabit({ consistency = {} }) {
   };
 
   useEffect(() => {
+    live.current = true;
+    return () => { live.current = false; version.current += 1; };
+  }, []);
+  useEffect(() => {
     if (isDemoMode) return;
     let cancelled = false;
-
+    const controller = new AbortController();
     const refreshHabits = async () => {
+      if (locks.current.size) return;
+      const current = ++version.current;
       try {
-        const res = await api.get("/habits?view=active");
-        if (cancelled) return;
-        setHabits(res.data.map((h) => ({
-          ...h,
-          status: h.completedToday ? "completed" : "pending",
-        })));
-      } catch {
-        // keep existing values on transient failure
+        const res = await api.get("/habits?view=active", { signal: controller.signal });
+        if (cancelled || current !== version.current) return;
+        if (!Array.isArray(res.data)) throw new Error("Invalid habit response");
+        setHabits(res.data.map(h => ({ ...h, status: h.completedToday ? "completed" : "pending" })));
+        setReady(true);
+        setLoadError("");
+      } catch (error) {
+        if (!cancelled && current === version.current) setLoadError(error.response?.data?.message || "Could not load your habits. Please retry.");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && current === version.current) setLoading(false);
       }
     };
-
     refreshHabits();
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") refreshHabits(); }, 60000);
     window.addEventListener("focus", refreshHabits);
     window.addEventListener("monkmode:habits-updated", refreshHabits);
-
     return () => {
       cancelled = true;
+      controller.abort();
+      window.clearInterval(timer);
       window.removeEventListener("focus", refreshHabits);
       window.removeEventListener("monkmode:habits-updated", refreshHabits);
     };
-  }, [isDemoMode, todayISO]);
-
-  const todayLabel = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-  });
-  useEffect(() => {
-    const refreshToday = () => setTodayISO(toISODate(new Date()));
-    const interval = window.setInterval(refreshToday, 60 * 1000);
-    window.addEventListener("focus", refreshToday);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("focus", refreshToday);
-    };
-  }, []);
+  }, [isDemoMode, todayISO, retry]);
+  const todayLabel = formatHabitDay(todayISO, { weekday: "long", month: "short", day: "numeric" });
 
   const visibleHabits = useMemo(
     () => habits
-      .filter((h) => isHabitScheduledForDate(h, todayISO))
+      .filter((h) => isHabitOnDay(h, todayISO, timezone))
       .filter((h) => matchesTimeSlot(h, timeSlotFilter)),
-    [habits, timeSlotFilter, todayISO]
+    [habits, timeSlotFilter, todayISO, timezone]
   );
 
   const pendingHabits = useMemo(
@@ -304,48 +265,35 @@ export default function TodaysHabit({ consistency = {} }) {
         if (!acc[habit.category]) acc[habit.category] = [];
         acc[habit.category].push(habit);
         return acc;
-      }, {}),
+      }, Object.create(null)),
     [visibleHabits]
   );
 
-  const refreshStreaks = async () => {
+  const updateCompletion = async (id, completed) => {
+    if (isDemoMode || locks.current.has(id)) return;
+    locks.current.add(id);
+    version.current += 1;
+    setBusyIds(new Set(locks.current));
     try {
-      const res = await api.get("/habits?view=active");
-      setHabits((prev) => {
-        const serverMap = Object.fromEntries(
-          res.data.map((h) => [(h._id ?? h.id)?.toString(), h])
-        );
-        return prev.map((h) => {
-          const key = (h._id ?? h.id)?.toString();
-          const s = serverMap[key];
-          if (!s) return h;
-          return { ...h, currentStreak: s.currentStreak, maxStreak: s.maxStreak, streakBreaks: s.streakBreaks };
-        });
-      });
-    } catch { /* silently fail */ }
-  };
-
-  const markDone = async (id) => {
-    setHabits((prev) => prev.map((h) => (h._id ?? h.id) === id ? { ...h, status: "completed" } : h));
-    if (!isDemoMode) {
-      try {
-        await api.post(`/habits/${id}/complete`);
-        await refreshStreaks();
-        window.dispatchEvent(new Event("monkmode:habits-updated"));
-      } catch { /* keep optimistic state */ }
+      const options = { signal: requestSignal };
+      if (completed) await api.post("/habits/" + id + "/complete", { date: todayISO }, options);
+      else await api.delete("/habits/" + id + "/complete", { ...options, data: { date: todayISO } });
+      if (live.current) {
+        setHabits(previous => previous.map(h => (h._id ?? h.id) === id ? { ...h, completedToday: completed, status: completed ? "completed" : "pending" } : h));
+        setActionErrors(previous => { const next = { ...previous }; delete next[id]; return next; });
+      }
+    } catch (error) {
+      if (live.current) setActionErrors(previous => ({ ...previous, [id]: error.response?.data?.message || "Habit update failed. Your saved completion has not changed; please retry." }));
+    } finally {
+      locks.current.delete(id);
+      if (live.current) setBusyIds(new Set(locks.current));
+      window.dispatchEvent(new Event("monkmode:habits-updated"));
     }
   };
+  const markDone = id => updateCompletion(id, true);
+  const markPending = id => updateCompletion(id, false);
 
-  const markPending = async (id) => {
-    setHabits((prev) => prev.map((h) => (h._id ?? h.id) === id ? { ...h, status: "pending" } : h));
-    if (!isDemoMode) {
-      try {
-        await api.delete(`/habits/${id}/complete`);
-        await refreshStreaks();
-        window.dispatchEvent(new Event("monkmode:habits-updated"));
-      } catch { /* keep optimistic state */ }
-    }
-  };
+  if (!ready && loadError) return <div role="alert" className="rounded-xl border border-rose-400/25 p-4 text-sm text-rose-200">{loadError} <button type="button" className="ml-2 underline" onClick={() => setRetry(value => value + 1)}>Retry habits</button></div>;
 
   if (loading) {
     return (
@@ -357,17 +305,18 @@ export default function TodaysHabit({ consistency = {} }) {
 
   return (
     <div className="habits-today-page space-y-5" data-mobile-view={mobileView}>
+      {(loadError || Object.keys(actionErrors).length > 0) && <div role="alert" className="rounded-xl border border-rose-400/25 p-3 text-sm text-rose-200">{loadError} {Object.values(actionErrors).join(" ")} {loadError && <button type="button" className="ml-2 underline" onClick={() => setRetry(value => value + 1)}>Retry habits</button>}</div>}
       <div className="habit-today-mobile-controls">
         <nav className="habit-today-mobile-nav" aria-label="Today's habit sections">
           <div className="habit-today-mobile-consistency">
             <span className="habit-today-mobile-consistency-icon" aria-hidden="true">📊</span>
             <div className="min-w-0">
               <p className="habit-today-mobile-consistency-title">
-                Consistency {isDemoMode ? "--" : `${consistency.lifetimeConsistency ?? 0}%`}
+                Consistency {isDemoMode ? `${Math.round(demoHabits.filter(h => h.completedToday).length / demoHabits.length * 100)}%` : `${consistency.lifetimeConsistency ?? 0}%`}
               </p>
               <p className="habit-today-mobile-consistency-detail">
                 {isDemoMode
-                  ? "Demo mode"
+                  ? `Sample today ${demoHabits.filter(h => h.completedToday).length}/${demoHabits.length}`
                   : `Today ${consistency.completedToday ?? 0}/${consistency.expectedToday ?? 0}`}
               </p>
             </div>
@@ -414,11 +363,11 @@ export default function TodaysHabit({ consistency = {} }) {
               <span className="text-base leading-none" aria-hidden="true">📊</span>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-amber-300">
-                  Consistency {isDemoMode ? "--" : `${consistency.lifetimeConsistency ?? 0}%`}
+                  Consistency {isDemoMode ? `${Math.round(demoHabits.filter(h => h.completedToday).length / demoHabits.length * 100)}%` : `${consistency.lifetimeConsistency ?? 0}%`}
                 </p>
                 <p className="mt-0.5 text-[10px] text-amber-100/60">
                   {isDemoMode
-                    ? "Demo mode"
+                    ? `Sample today ${demoHabits.filter(h => h.completedToday).length}/${demoHabits.length}`
                     : `Today ${consistency.completedToday ?? 0}/${consistency.expectedToday ?? 0} · Lifetime ${consistency.totalCompletedLifetime ?? 0}/${consistency.totalExpectedLifetime ?? 0}`}
                 </p>
               </div>
@@ -523,6 +472,8 @@ export default function TodaysHabit({ consistency = {} }) {
                             <button
                               type="button"
                               onClick={() => markDone(habit._id ?? habit.id)}
+                              disabled={busyIds.has(habit._id ?? habit.id) || isDemoMode}
+                              aria-busy={busyIds.has(habit._id ?? habit.id)}
                               className="dashboard-card-action"
                               data-tone="success"
                             >
@@ -573,6 +524,7 @@ export default function TodaysHabit({ consistency = {} }) {
                         habit={habit}
                         status={getHabitStatus(habit)}
                         onUndo={() => markPending(habit._id ?? habit.id)}
+                        busy={busyIds.has(habit._id ?? habit.id) || isDemoMode}
                         lowMotion={lowMotion}
                       />
                     ))
@@ -602,9 +554,7 @@ export default function TodaysHabit({ consistency = {} }) {
                 <p className="text-xs text-stone-500">No habits for this priority filter.</p>
               ) : (
                 sidebarHabits.map((habit) => {
-                  const endDateStr = habit.endDate
-                    ? (typeof habit.endDate === "string" ? habit.endDate.slice(0, 10) : habit.endDate.toISOString?.().slice(0, 10))
-                    : null;
+                  const endDateStr = habitDayKey(habit.endDate, timezone);
                   const daysLeft = endDateStr
                     ? Math.ceil((new Date(endDateStr) - new Date(todayISO)) / (1000 * 60 * 60 * 24))
                     : null;

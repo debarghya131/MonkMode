@@ -1,9 +1,12 @@
-import { useRef, useEffect, useState, useCallback } from "react";
-import { motion as Motion, AnimatePresence } from "framer-motion";
+import { useRef, useEffect, useState } from "react";
+import { motion as Motion, AnimatePresence, MotionConfig } from "framer-motion";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
+import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import mingLogo from "../../assets/minglogo1.webp";
 import mingAvatar from "../../assets/minglogo2.webp";
+import { GURU_MESSAGE_LIMIT, GURU_HISTORY_LIMIT } from "../../../../shared/guruInsightsStats.js";
+import { createDemoGuruInsights, demoGuruReply, guruCards, guruPatterns, guruSuggestions } from "./guruPresentation";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -24,7 +27,7 @@ const INITIAL_MESSAGES = [
   {
     id: "greeting",
     role: "guru",
-    text: "Namo Buddhaya. I am Ming — your discipline guide. Ask me anything about your goals, habits, mindset, or daily practice. I will walk beside you.",
+    text: "Namo Buddhaya. I am Ming — your AI discipline guide. Ask me anything about your goals, habits, mindset, or daily practice. I will walk beside you.",
   },
 ];
 
@@ -41,154 +44,11 @@ const COLOR_MAP = {
   stone:   { border: "border-stone-500/30",   bg: "bg-stone-500/10",   text: "text-stone-400",   num: "text-stone-400"   },
 };
 
-function getSectionCards(data) {
-  const { journal, habits, todos, goals, gym } = data;
-  return [
-    {
-      label: "Journal",
-      icon: "📓",
-      value: journal.entryCount,
-      unit: journal.entryCount === 1 ? "entry" : "entries",
-      sub: journal.entryCount > 0
-        ? `Avg energy ${journal.avgEnergyLevel}/100 · Rating ${journal.avgOverallRating}/100`
-        : "No entries this period",
-      color: "sky",
-    },
-    {
-      label: "Habits",
-      icon: "⚡",
-      value: `${habits.completionRate}%`,
-      unit: "completion",
-      sub: `${habits.completedLogs} completions · ${habits.totalActiveHabits} active habits`,
-      color: habits.completionRate >= 70 ? "emerald" : habits.completionRate >= 40 ? "yellow" : "red",
-    },
-    {
-      label: "To-Do",
-      icon: "✓",
-      value: todos.completed,
-      unit: todos.completed === 1 ? "task done" : "tasks done",
-      sub: todos.created > 0 ? `${todos.completionRate}% of ${todos.created} tasks created` : "No tasks logged",
-      color: "violet",
-    },
-    {
-      label: "Goals",
-      icon: "🎯",
-      value: goals.progressUpdates,
-      unit: goals.progressUpdates === 1 ? "update" : "updates",
-      sub: `${goals.goalsUpdated} goals touched · ${goals.completedGoals} completed`,
-      color: "amber",
-    },
-    {
-      label: "Gym",
-      icon: "💪",
-      value: gym.workoutDays,
-      unit: gym.workoutDays === 1 ? "session" : "sessions",
-      sub: gym.workoutDays > 0
-        ? `${gym.uniqueExercises} exercises · ${gym.measurementsTaken} check-ins`
-        : "No workouts logged",
-      color: gym.workoutDays > 0 ? "orange" : "stone",
-    },
-  ];
-}
-
-function generatePatterns(data) {
-  const { journal, habits, todos, goals, gym } = data;
-  const pts = [];
-
-  if (journal.entryCount > 0) {
-    pts.push(`Journaled ${journal.entryCount} ${journal.entryCount === 1 ? "time" : "times"}${journal.topMood ? ` — top mood: ${journal.topMood}` : ""}`);
-    pts.push(`Average energy ${journal.avgEnergyLevel}/100 · Overall rating ${journal.avgOverallRating}/100`);
-  } else {
-    pts.push("No journal entries recorded this period");
-  }
-
-  if (habits.totalActiveHabits > 0) {
-    pts.push(`${habits.completedLogs} habit completions from ${habits.totalActiveHabits} active habits (${habits.completionRate}% rate)`);
-  }
-
-  if (todos.created > 0) {
-    pts.push(`${todos.completed} of ${todos.created} tasks completed — ${todos.completionRate}% completion rate`);
-  }
-
-  if (goals.progressUpdates > 0) {
-    pts.push(`${goals.progressUpdates} goal progress logs across ${goals.goalsUpdated} of ${goals.activeGoals} goals`);
-  } else if (goals.activeGoals > 0) {
-    pts.push(`${goals.activeGoals} active goals — no progress logged this period`);
-  }
-
-  if (gym.workoutDays > 0) {
-    pts.push(`${gym.workoutDays} workout ${gym.workoutDays === 1 ? "day" : "days"} · ${gym.uniqueExercises} unique exercises logged`);
-    if (gym.bodyPartsWorked.length > 0) {
-      pts.push(`Body parts trained: ${gym.bodyPartsWorked.join(", ")}`);
-    }
-    if (gym.measurementsTaken > 0) {
-      pts.push(`${gym.measurementsTaken} body measurement ${gym.measurementsTaken === 1 ? "check-in" : "check-ins"}`);
-    }
-  } else {
-    pts.push("No gym sessions logged this period");
-  }
-
-  return pts;
-}
-
-function generateRecommendations(data) {
-  const { journal, habits, todos, goals, gym } = data;
-  const recs = [];
-
-  if (journal.entryCount === 0) {
-    recs.push({ area: "Journal", icon: "📓", text: "No entries this period. Reflection is the foundation — even 3 minutes of writing sharpens clarity." });
-  } else if (journal.avgEnergyLevel < 50) {
-    recs.push({ area: "Journal", icon: "📓", text: `Average energy at ${journal.avgEnergyLevel}/100. Review your sleep schedule and nutrition — recovery drives performance.` });
-  } else if (journal.avgOverallRating >= 75) {
-    recs.push({ area: "Journal", icon: "📓", text: `Strong average rating of ${journal.avgOverallRating}/100. Your daily reflection practice is working — keep it consistent.` });
-  }
-
-  if (habits.totalActiveHabits > 0) {
-    if (habits.completionRate < 50) {
-      recs.push({ area: "Habits", icon: "⚡", text: `Completion at ${habits.completionRate}%. Reduce your active habits to your top 3 and execute those perfectly before expanding.` });
-    } else if (habits.completionRate < 75) {
-      recs.push({ area: "Habits", icon: "⚡", text: `At ${habits.completionRate}% completion. Identify which habits you most often skip and either reschedule them or simplify them.` });
-    } else if (habits.completionRate >= 90) {
-      recs.push({ area: "Habits", icon: "⚡", text: `Excellent ${habits.completionRate}% habit completion. You have earned the right to add one more high-impact habit.` });
-    }
-  } else {
-    recs.push({ area: "Habits", icon: "⚡", text: "No active habits tracked. Start with 2–3 keystone habits: morning routine, reading, and exercise." });
-  }
-
-  if (todos.created > 0 && todos.completionRate < 50) {
-    recs.push({ area: "To-Do", icon: "✓", text: "Less than half your tasks are completed. Apply the 80/20 rule — identify the 20% of tasks that produce 80% of your results." });
-  } else if (todos.created === 0) {
-    recs.push({ area: "To-Do", icon: "✓", text: "No tasks logged. Break your goals into daily action items — execution starts with a clear task list." });
-  }
-
-  if (goals.activeGoals > 0 && goals.goalsUpdated === 0) {
-    recs.push({ area: "Goals", icon: "🎯", text: `You have ${goals.activeGoals} active ${goals.activeGoals === 1 ? "goal" : "goals"} with no progress logged. Log even a small update — tracking creates accountability.` });
-  } else if (goals.completedGoals > 0) {
-    recs.push({ area: "Goals", icon: "🎯", text: `You completed ${goals.completedGoals} ${goals.completedGoals === 1 ? "goal" : "goals"}. Set a new stretch goal to maintain momentum.` });
-  }
-
-  if (gym.workoutDays === 0) {
-    recs.push({ area: "Gym", icon: "💪", text: "No workouts this period. Commit to 2 sessions this week — consistency over intensity at the start." });
-  } else if (gym.workoutDays > 0 && gym.bodyPartsWorked.length < 3 && gym.workoutDays >= 3) {
-    recs.push({ area: "Gym", icon: "💪", text: "You are training frequently but targeting few muscle groups. Add variety to prevent imbalances and plateaus." });
-  } else if (gym.measurementsTaken === 0 && gym.workoutDays > 0) {
-    recs.push({ area: "Gym", icon: "💪", text: "No body measurements logged. Tracking measurements weekly gives you objective progress data beyond what the mirror shows." });
-  }
-
-  if (recs.length === 0) {
-    recs.push({ area: "Overall", icon: "✦", text: "You are maintaining strong progress across all disciplines. The goal now is to raise the ceiling — increase intensity in your weakest area." });
-  }
-
-  return recs;
-}
-
-// ── Sub-components ─────────────────────────────────────────────────────────────
-
-function StatCard({ card, index }) {
+function StatCard({ card, index, lowMotion }) {
   const c = COLOR_MAP[card.color] ?? COLOR_MAP.stone;
   return (
     <Motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={lowMotion ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.06 }}
       className={`rounded-2xl border ${c.border} ${c.bg} p-4 flex flex-col gap-1.5`}
@@ -201,20 +61,6 @@ function StatCard({ card, index }) {
       <p className="text-[0.65rem] text-stone-500 leading-4">{card.sub}</p>
     </Motion.div>
   );
-}
-
-function TypewriterText({ text }) {
-  const [displayed, setDisplayed] = useState("");
-  useEffect(() => {
-    let i = 0;
-    const iv = setInterval(() => {
-      i += 1;
-      setDisplayed(text.slice(0, i));
-      if (i >= text.length) clearInterval(iv);
-    }, 18);
-    return () => clearInterval(iv);
-  }, [text]);
-  return <>{displayed}<span className="animate-pulse">|</span></>;
 }
 
 function ChatBubble({ role, text }) {
@@ -233,7 +79,7 @@ function ChatBubble({ role, text }) {
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-amber-300/60">Ming</p>
         )}
         <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
-          {isUser ? text : <TypewriterText key={text} text={text} />}
+          {text}
         </p>
       </article>
     </div>
@@ -243,7 +89,13 @@ function ChatBubble({ role, text }) {
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function AIGuru() {
-  const { isDemoMode } = useAuth();
+  const { isDemoMode, user } = useAuth();
+  const lowMotion = useMobileLowMotion();
+  const accountKey = isDemoMode ? "demo" : user?._id || user?.id || user?.clerkId || "signed-out";
+  return <MotionConfig reducedMotion={lowMotion ? "always" : "user"}><GuruSession key={accountKey} isDemoMode={isDemoMode} lowMotion={lowMotion} /></MotionConfig>;
+}
+
+function GuruSession({ isDemoMode, lowMotion }) {
 
   // Insights state
   const [scope, setScope]     = useState("7d");
@@ -257,75 +109,95 @@ export default function AIGuru() {
   const [prompt, setPrompt]     = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const messagesScrollRef = useRef(null);
-  const idRef     = useRef(0);
+  const idRef = useRef(0);
+  const requestRef = useRef(null);
+  const [chatError, setChatError] = useState("");
+  const [failedPrompt, setFailedPrompt] = useState(null);
+  const [insightsAttempt, setInsightsAttempt] = useState(0);
 
-  const fetchInsights = useCallback(async (s) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { data: res } = await api.get(`/insights/summary?scope=${s}`);
-      setData(res);
-    } catch {
-      setError("Could not load insights. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  useEffect(() => () => requestRef.current?.abort(), []);
 
   useEffect(() => {
-    if (!isDemoMode) fetchInsights(scope);
-  }, [scope, isDemoMode, fetchInsights]);
+    if (activeTab !== "insights") return;
+    const controller = new AbortController();
+    setData(null);
+    setError(null);
+    if (isDemoMode) {
+      setData(createDemoGuruInsights(scope));
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    api.get("/insights/summary", { params: { scope }, signal: controller.signal, timeout: 15000 })
+      .then(({ data: result }) => {
+        if (controller.signal.aborted) return;
+        if (!result?.journal || !result.habits || !result.todos || !result.goals || !result.gym || result.scope !== scope)
+          throw new Error("Invalid insights response");
+        setData(result);
+      })
+      .catch(err => {
+        if (!controller.signal.aborted) setError(err.response?.data?.error || "Could not load Insights. Please retry.");
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [scope, activeTab, isDemoMode, insightsAttempt]);
 
   // Chat helpers
   useEffect(() => {
     if (activeTab !== "chat") return;
     const pane = messagesScrollRef.current;
-    if (pane) pane.scrollTo({ top: pane.scrollHeight, behavior: "smooth" });
+    if (pane) pane.scrollTo({ top: pane.scrollHeight, behavior: "auto" });
   }, [messages, chatLoading, activeTab]);
 
-  const sendPrompt = async (value) => {
+  const sendPrompt = async (value, retry = false) => {
     const clean = value.trim();
-    if (!clean || chatLoading) return;
+    if (!clean || clean.length > GURU_MESSAGE_LIMIT || requestRef.current) return;
     const nextId = (idRef.current += 1);
-
+    setChatError("");
+    setFailedPrompt(null);
+    const history = retry ? failedPrompt.history : messages
+      .filter(m => m.id !== "greeting")
+      .map(m => ({ role: m.role === "guru" ? "assistant" : "user", content: m.text.slice(0, 4000) }))
+      .slice(-GURU_HISTORY_LIMIT);
+    // Keep only complete turns within the server's input budget.
+    while (history.reduce((sum, item) => sum + item.content.length, 0) > 20000) history.splice(0, 2);
+    if (!retry) setMessages(prev => [...prev, { id: `user-${nextId}`, role: "user", text: clean }]);
+    setPrompt("");
     if (isDemoMode) {
-      setMessages((prev) => [
-        ...prev,
-        { id: `user-${nextId}`, role: "user", text: clean },
-        { id: `guru-${nextId}`, role: "guru", text: "Sign in to your account to speak with Ming. Demo mode cannot access personalized guidance." },
-      ]);
-      setPrompt("");
+      setMessages(prev => [...prev, { id: `guru-${nextId}`, role: "guru", text: demoGuruReply(clean) }]);
       return;
     }
-
-    setMessages((prev) => [...prev, { id: `user-${nextId}`, role: "user", text: clean }]);
-    setPrompt("");
+    const controller = new AbortController();
+    requestRef.current = controller;
     setChatLoading(true);
-
     try {
-      const history = messages
-        .filter((m) => m.id !== "greeting")
-        .map((m) => ({ role: m.role === "guru" ? "assistant" : "user", content: m.text }));
-
-      const { data } = await api.post("/insights/chat", { message: clean, history, scope });
-      setMessages((prev) => [...prev, { id: `guru-${nextId}`, role: "guru", text: data.reply }]);
-    } catch {
-      setMessages((prev) => [...prev, { id: `guru-${nextId}`, role: "guru", text: "The path is unclear at this moment. Try again shortly." }]);
+      const { data: result } = await api.post("/insights/chat", { message: clean, history, scope },
+        { signal: controller.signal, timeout: 75000 });
+      if (controller.signal.aborted) return;
+      if (typeof result?.reply !== "string" || !result.reply.trim()) throw new Error("Empty reply");
+      setMessages(prev => [...prev, { id: `guru-${nextId}`, role: "guru", text: result.reply.trim().slice(0, 8000) }]);
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      setChatError(err.response?.data?.error || err.response?.data?.message || "Ming could not respond. Please retry.");
+      setFailedPrompt({ message: clean, history });
     } finally {
-      setChatLoading(false);
+      if (requestRef.current === controller) {
+        requestRef.current = null;
+        if (!controller.signal.aborted) setChatLoading(false);
+      }
     }
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendPrompt(prompt); }
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); sendPrompt(prompt); }
   };
 
-  const cards       = data ? getSectionCards(data)            : [];
-  const patterns    = data ? generatePatterns(data)           : [];
-  const suggestions = data ? generateRecommendations(data)    : [];
+  const cards       = data ? guruCards(data)            : [];
+  const patterns    = data ? guruPatterns(data)           : [];
+  const suggestions = data ? guruSuggestions(data)    : [];
 
   return (
-    <section className="ai-guru-page min-h-0 w-full">
+    <section data-demo-allow="true" className="ai-guru-page min-h-0 w-full">
       <div className="ai-guru-frame grid min-h-0 overflow-hidden rounded-[1.4rem] border border-amber-100/10 shadow-2xl shadow-black/30 xl:rounded-[2rem]">
 
         {/* ── LEFT: Avatar panel ── */}
@@ -382,6 +254,7 @@ export default function AIGuru() {
                   key={s.key}
                   type="button"
                   onClick={() => setScope(s.key)}
+                  aria-pressed={scope === s.key}
                   className={`flex-1 rounded-lg py-1.5 text-[0.65rem] font-semibold uppercase tracking-wider transition ${
                     scope === s.key
                       ? "bg-amber-500/20 text-amber-300 border border-amber-400/25"
@@ -401,7 +274,7 @@ export default function AIGuru() {
             <Motion.p
               className="shimmer-text mt-6 text-[10px] font-medium uppercase tracking-[0.18em] [text-shadow:0_0_12px_rgba(245,181,47,0.34),0_0_24px_rgba(245,181,47,0.24)] lg:mt-8"
             >
-              AI Features Coming Soon
+              AI guidance · You stay in control
             </Motion.p>
           </div>
         </div>
@@ -414,23 +287,30 @@ export default function AIGuru() {
             <div className="ai-guru-heading-row flex flex-wrap items-start justify-between gap-3">
               <div className="ai-guru-heading-copy">
                 <p className="ai-guru-heading-eyebrow text-[0.625rem] uppercase tracking-[0.3em] text-amber-200/50">
-                  {activeTab === "insights" ? "AI Insights" : "Your AI guide"}
+                  {activeTab === "insights" ? "Recorded Insights" : "Your AI guide"}
                 </p>
                 <h3 className="text-base font-bold text-amber-50 sm:text-lg">
                   {activeTab === "insights" ? "Your Discipline Overview" : "Your Discipline Co-Pilot"}
                 </h3>
               </div>
+              {activeTab === "chat" && (
+                <button type="button" className="rounded-lg border border-amber-100/20 px-2 py-1 text-xs text-stone-300" onClick={() => {
+                  requestRef.current?.abort(); requestRef.current = null;
+                  setMessages(INITIAL_MESSAGES); setPrompt(""); setChatError("");
+                  setFailedPrompt(null); setChatLoading(false);
+                }}>Clear chat</button>
+              )}
               <Motion.span
                 className="ai-guru-beta-status relative shrink-0 overflow-hidden rounded-full border border-emerald-300/30 bg-emerald-500/10 px-3 py-1 text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-emerald-200"
-                animate={{ boxShadow: ["0 0 0px rgba(52,211,153,0)", "0 0 12px rgba(52,211,153,0.36)", "0 0 0px rgba(52,211,153,0)"] }}
+                animate={lowMotion ? {} : { boxShadow: ["0 0 0px rgba(52,211,153,0)", "0 0 12px rgba(52,211,153,0.36)", "0 0 0px rgba(52,211,153,0)"] }}
                 transition={{ boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
               >
                 <Motion.span
                   className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
-                  animate={{ left: ["-40%", "130%"] }}
+                  animate={lowMotion ? {} : { left: ["-40%", "130%"] }}
                   transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                 />
-                <span className="relative z-10">Beta</span>
+                <span className="relative z-10">{isDemoMode ? "Demo" : "Beta"}</span>
               </Motion.span>
             </div>
           </div>
@@ -440,13 +320,14 @@ export default function AIGuru() {
             {activeTab === "insights" && (
               <Motion.div
                 key="insights"
-                initial={{ opacity: 0 }}
+                initial={lowMotion ? false : { opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="ai-guru-insights-scroll journal-scroll min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 md:px-6"
               >
                 {loading && (
-                  <div className="flex h-40 items-center justify-center">
+                  <div className="flex h-40 items-center justify-center gap-3">
+                    <p role="status" className="text-sm text-stone-400">Loading Insights…</p>
                     <Motion.div
                       className="h-7 w-7 rounded-full border-2 border-amber-400/30 border-t-amber-400"
                       animate={{ rotate: 360 }}
@@ -457,87 +338,36 @@ export default function AIGuru() {
 
                 {error && !loading && (
                   <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-300">
-                    {error}
+                    <p role="alert">{error}</p>
+                    <button type="button" onClick={() => setInsightsAttempt(n => n + 1)} className="mt-2 rounded-lg border px-3 py-1">Retry Insights</button>
                   </div>
                 )}
 
-                {/* Full Features Coming Soon banner */}
-                <Motion.div
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.35, ease: "easeOut" }}
-                  whileHover={{ scale: 1.003 }}
-                  style={{ willChange: "transform, box-shadow" }}
-                  className="ai-guru-beta-banner relative mb-6 flex flex-col items-start gap-4 overflow-hidden rounded-[1.4rem] border border-amber-400/25 bg-gradient-to-r from-amber-500/10 via-orange-500/8 to-amber-500/10 px-4 py-4 sm:flex-row sm:items-center sm:px-6 sm:py-4"
-                >
-                  <Motion.span
-                    className="pointer-events-none absolute inset-y-0 left-[-45%] w-[28%] -skew-x-12 bg-white/20 blur-sm"
-                    animate={{ left: ["-45%", "130%"] }}
-                    transition={{ duration: 2.6, repeat: Infinity, repeatDelay: 1.2, ease: "easeInOut" }}
-                  />
-                  <Motion.span
-                    className="pointer-events-none absolute inset-0 rounded-2xl"
-                    animate={{
-                      boxShadow: [
-                        "0 0 0px rgba(251,191,36,0), inset 0 0 0px rgba(251,191,36,0)",
-                        "0 0 20px rgba(251,191,36,0.16), inset 0 0 12px rgba(251,191,36,0.08)",
-                        "0 0 0px rgba(251,191,36,0), inset 0 0 0px rgba(251,191,36,0)"
-                      ]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                  <Motion.div
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-400/30 bg-amber-500/15 text-lg"
-                    animate={{ y: [0, -1.5, 0], scale: [1, 1.06, 1], rotate: [0, -8, 0, 8, 0] }}
-                    transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
-                  >
-                    ✦
-                  </Motion.div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-300 sm:text-[0.78rem]">Full Features Coming Soon</p>
-                    <p className="mt-0.5 text-[0.72rem] leading-5 text-stone-500 sm:text-[0.76rem]">AI-powered deep analysis, trend forecasting &amp; personalised action plans</p>
-                  </div>
-                  <Motion.span
-                    className="shrink-0 rounded-full border border-amber-400/30 bg-amber-500/15 px-3 py-1 text-[0.62rem] font-bold uppercase tracking-widest text-amber-300 sm:ml-auto"
-                    animate={{
-                      opacity: [0.7, 1, 0.7],
-                      boxShadow: [
-                        "0 0 0px rgba(251,191,36,0)",
-                        "0 0 10px rgba(251,191,36,0.28)",
-                        "0 0 0px rgba(251,191,36,0)"
-                      ]
-                    }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  >
-                    Beta
-                  </Motion.span>
-                </Motion.div>
+                <div className="ai-guru-beta-banner mb-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs leading-5 text-stone-300">
+                  {isDemoMode ? "Demo sample · Fixed sample data, separate from your account. " : ""}
+                  Insights and suggestions are calculated from retained records, not AI-generated. Missing scores appear as —.
+                </div>
 
-                {isDemoMode && !loading && (
-                  <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm text-amber-200">
-                    Insights are not available in demo mode. Sign in to see your data.
-                  </div>
-                )}
-
-                {data && !loading && !error && (
+                {data && data.scope === scope && !loading && !error && (
                   <div className="ai-guru-insights-body space-y-6">
                     {/* Period label */}
                     {data.period && (
                       <p className="text-[0.65rem] font-semibold uppercase tracking-widest text-stone-500">
-                        {data.period.from} → {data.period.to}
+                        {data.period.from} → {data.period.to} · {data.timezone}
                       </p>
                     )}
 
+                    <p className="text-xs leading-5 text-stone-400">{data.dataNote}</p>
                     {/* Stat cards */}
-                    <div className="ai-guru-stat-grid grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                    <div data-scope={data.scope} className="ai-guru-stat-grid grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                       {cards.map((card, i) => (
-                        <StatCard key={card.label} card={card} index={i} />
+                        <StatCard key={card.label} card={card} index={i} lowMotion={lowMotion} />
                       ))}
                     </div>
 
                     {/* Pattern observations */}
                     <Motion.div
-                      initial={{ opacity: 0, y: 8 }}
+                      initial={lowMotion ? false : { opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.35 }}
                       className="rounded-2xl border border-sky-400/20 bg-sky-500/[0.07] p-4"
@@ -557,13 +387,13 @@ export default function AIGuru() {
 
                     {/* Recommendations */}
                     <Motion.div
-                      initial={{ opacity: 0, y: 8 }}
+                      initial={lowMotion ? false : { opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.45 }}
                       className="rounded-2xl border border-amber-400/20 bg-amber-500/[0.06] p-4"
                     >
                       <p className="mb-3 text-[0.65rem] font-semibold uppercase tracking-widest text-amber-300/70">
-                        ✦ Ming's Recommendations
+                        ✦ Suggested Next Steps
                       </p>
                       <ul className="space-y-3">
                         {suggestions.map((rec, i) => (
@@ -581,7 +411,7 @@ export default function AIGuru() {
                     {/* Mood distribution (if available) */}
                     {data.journal.moodDistribution?.length > 0 && (
                       <Motion.div
-                        initial={{ opacity: 0, y: 8 }}
+                        initial={lowMotion ? false : { opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.55 }}
                         className="rounded-2xl border border-violet-400/20 bg-violet-500/[0.06] p-4"
@@ -605,7 +435,7 @@ export default function AIGuru() {
                     {/* Gym body parts (if any) */}
                     {data.gym.bodyPartsWorked?.length > 0 && (
                       <Motion.div
-                        initial={{ opacity: 0, y: 8 }}
+                        initial={lowMotion ? false : { opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.62 }}
                         className="rounded-2xl border border-orange-400/20 bg-orange-500/[0.06] p-4"
@@ -634,11 +464,14 @@ export default function AIGuru() {
             {activeTab === "chat" && (
               <Motion.div
                 key="chat"
-                initial={{ opacity: 0 }}
+                initial={lowMotion ? false : { opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="ai-guru-chat flex min-h-0 flex-1 flex-col"
               >
+                <p className="shrink-0 px-4 pt-2 text-[11px] leading-4 text-stone-400">
+                  Context: {SCOPES.find(item => item.key === scope)?.label}. {isDemoMode ? "Demo · Scripted sample replies. No AI requests or saved conversations." : "Send shares your message, recent conversation, and aggregate app statistics with Groq. Notes and photos are not sent automatically. Chat resets when you leave or change accounts."}
+                </p>
                 {/* Quick prompts */}
                 <div className="ai-guru-prompts shrink-0 border-b border-amber-100/10 px-4 py-3 sm:px-5 md:px-6">
                   <div className="ai-guru-prompt-list grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -646,7 +479,8 @@ export default function AIGuru() {
                       <button
                         key={item.prompt}
                         type="button"
-                        onClick={() => sendPrompt(item.prompt)}
+                        onClick={() => setPrompt(item.prompt)}
+                        disabled={chatLoading || Boolean(failedPrompt)}
                         aria-label={item.prompt}
                         title={item.prompt}
                         className="min-h-10 rounded-2xl border border-amber-200/20 bg-amber-500/10 px-3 py-2 text-left text-xs font-semibold leading-5 text-amber-200 transition hover:-translate-y-0.5 hover:border-amber-200/40 hover:bg-amber-500/20"
@@ -661,7 +495,7 @@ export default function AIGuru() {
 
                 {/* Messages */}
                 <div className="ai-guru-messages-region relative min-h-0 flex-1 overflow-hidden">
-                  <div ref={messagesScrollRef} className="ai-guru-messages-scroll journal-scroll scrollbar-none flex h-full min-h-0 flex-col gap-2.5 overflow-y-auto px-4 py-4 sm:gap-3 sm:px-5 md:px-6">
+                  <div ref={messagesScrollRef} role="log" aria-label="Conversation with Ming" aria-live="polite" aria-relevant="additions" className="ai-guru-messages-scroll journal-scroll scrollbar-none flex h-full min-h-0 flex-col gap-2.5 overflow-y-auto px-4 py-4 sm:gap-3 sm:px-5 md:px-6">
                     {messages.map((msg) => (
                       <ChatBubble key={msg.id} role={msg.role} text={msg.text} />
                     ))}
@@ -670,12 +504,13 @@ export default function AIGuru() {
                         <img src={mingAvatar} alt="Ming" className="h-10 w-auto shrink-0 self-end sm:h-14" />
                         <div className="rounded-2xl border border-sky-200/15 bg-stone-950/65 px-4 py-3 shadow-none drop-shadow-none backdrop-blur-0">
                           <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-amber-300/60">Ming</p>
+                          <p role="status" className="sr-only">Ming is responding…</p>
                           <div className="flex items-center gap-1.5">
                             {[0, 1, 2].map((i) => (
                               <Motion.span
                                 key={i}
                                 className="h-1.5 w-1.5 rounded-full bg-amber-400/60"
-                                animate={{ opacity: [0.3, 1, 0.3] }}
+                                animate={lowMotion ? {} : { opacity: [0.3, 1, 0.3] }}
                                 transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
                               />
                             ))}
@@ -686,12 +521,28 @@ export default function AIGuru() {
                   </div>
                 </div>
 
+                {chatError && (
+                  <div className="shrink-0 border-t border-red-400/20 px-4 py-2 text-xs text-red-200">
+                    <p role="alert">{chatError}</p>
+                    <button type="button" disabled={chatLoading} onClick={() => sendPrompt(failedPrompt.message, true)} className="mr-3 mt-1 rounded border px-2 py-1">Retry message</button>
+                    <button type="button" onClick={() => {
+                      setPrompt(failedPrompt.message);
+                      setMessages(prev => prev.slice(0, -1));
+                      setFailedPrompt(null); setChatError("");
+                    }} className="mt-1 rounded border px-2 py-1">Edit message</button>
+                    <p className="mt-1">Retries may use another AI request from your quota.</p>
+                  </div>
+                )}
                 {/* Input */}
                 <div className="ai-guru-composer shrink-0 border-t border-amber-100/10 px-4 py-4 sm:px-5 md:px-6">
                   <div className="ai-guru-composer-row flex flex-col gap-2 rounded-[1.15rem] border border-amber-200/10 bg-[#120d0c]/88 p-2 ring-1 ring-inset ring-amber-300/5 sm:flex-row sm:items-center">
                     <div className="flex min-w-0 flex-1 items-center rounded-[1rem] border border-amber-100/10 bg-black/30 px-3">
                       <img src={mingAvatar} alt="Ming" className="ai-guru-composer-avatar mr-3 h-10 w-auto shrink-0 object-contain" />
                       <textarea
+                        data-demo-chat="true"
+                        aria-label="Message to Ming"
+                        maxLength={GURU_MESSAGE_LIMIT}
+                        disabled={chatLoading || Boolean(failedPrompt)}
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         onKeyDown={handleKeyDown}
@@ -703,22 +554,22 @@ export default function AIGuru() {
                     <Motion.button
                       type="button"
                       onClick={() => sendPrompt(prompt)}
-                      disabled={chatLoading}
-                      animate={chatLoading ? {} : { boxShadow: ["0 8px 20px rgba(245,181,47,0.2)", "0 0 22px rgba(245,181,47,0.48)", "0 8px 20px rgba(245,181,47,0.2)"] }}
+                      disabled={chatLoading || Boolean(failedPrompt) || !prompt.trim()}
+                      animate={chatLoading || lowMotion ? {} : { boxShadow: ["0 8px 20px rgba(245,181,47,0.2)", "0 0 22px rgba(245,181,47,0.48)", "0 8px 20px rgba(245,181,47,0.2)"] }}
                       transition={{ boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
-                      whileHover={chatLoading ? {} : { y: -2, scale: 1.04 }}
-                      whileTap={chatLoading ? {} : { scale: 0.95 }}
+                      whileHover={chatLoading || lowMotion ? {} : { y: -2, scale: 1.04 }}
+                      whileTap={chatLoading || lowMotion ? {} : { scale: 0.95 }}
                       className="ai-guru-send relative min-h-[3rem] w-full overflow-hidden rounded-[1rem] border border-amber-200/35 bg-gradient-to-r from-[#ffd86b] via-[#f7bc3a] to-[#ee971d] px-5 text-sm font-black uppercase tracking-[0.16em] text-stone-950 transition hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto sm:min-w-[6.5rem]"
                     >
                       <Motion.span
                         className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/35 blur-sm"
-                        animate={{ left: ["-40%", "130%"] }}
+                        animate={lowMotion ? {} : { left: ["-40%", "130%"] }}
                         transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                       />
                       <span className="relative z-10">Send</span>
                     </Motion.button>
                   </div>
-                  <p className="ai-guru-composer-help mt-2 px-1 text-[10px] text-stone-600">Enter to send · Shift + Enter for new line</p>
+                  <p className="ai-guru-composer-help mt-2 px-1 text-[10px] text-stone-600">{prompt.length}/{GURU_MESSAGE_LIMIT} · Enter to send · Shift + Enter for new line · AI can make mistakes; not medical advice.</p>
                 </div>
               </Motion.div>
             )}

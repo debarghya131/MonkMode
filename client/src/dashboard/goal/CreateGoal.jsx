@@ -1,9 +1,9 @@
 import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import api from "../../api/axios";
-import useAuth from "../../hooks/useAuth";
+import { useGoalContext } from "./goalContext";
+import { addGoalMonths, formatGoalTime, shiftGoalDay } from "./goalUtils";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 
 const GOAL_TYPES = [
@@ -36,41 +36,9 @@ const PRIORITY_DOT_STYLES = {
   Low: "bg-green-400",
 };
 
-const toISO = (d) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
-
-const addDaysToISO = (startISO, n) => {
-  const [y, m, d] = startISO.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  date.setDate(date.getDate() + n);
-  return toISO(date);
-};
-
-const currentTime = () => {
-  const d = new Date();
-  const h = String(d.getHours()).padStart(2, "0");
-  const m = String(d.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
-};
-
-const fmtTime = (t) => {
-  if (!t) return "--";
-  const [h, m] = t.split(":").map(Number);
-  const d = new Date();
-  d.setHours(h, m);
-  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-};
-
-const addMonthsToISO = (startISO, months) => {
-  const [y, m, d] = startISO.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  date.setMonth(date.getMonth() + months);
-  return toISO(date);
-};
+const addDaysToISO = shiftGoalDay;
+const addMonthsToISO = addGoalMonths;
+const fmtTime = formatGoalTime;
 
 const getMinimumDeadlineByType = (startDate, goalType) => {
   if (!startDate) return "";
@@ -88,81 +56,8 @@ const formatUndoCountdown = (remainingMs) => {
   return `Undo in ${hours}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
 };
 
-const normalizeGoal = (goal) => {
-  const id = goal?.id || goal?._id || "";
-  const startDate = toISO(goal?.startDate ? new Date(goal.startDate) : new Date());
-  const deadline = goal?.deadline ? toISO(new Date(goal.deadline)) : "";
-  return {
-    ...goal,
-    id,
-    startDate,
-    deadline,
-    goalType: goal?.goalType || "short-term",
-    priority: goal?.priority || "Medium",
-    title: goal?.title || "",
-    description: goal?.description || ""
-  };
-};
-
-const buildDemoGoals = (today) => [
-  {
-    id: "demo-goal-1",
-    title: "Crack GATE 2027",
-    description: "Complete syllabus + PYQs with weekly revisions.",
-    goalType: "long-term",
-    startDate: addDaysToISO(today, -25),
-    deadline: addDaysToISO(today, 260),
-    priority: "High"
-  },
-  {
-    id: "demo-goal-2",
-    title: "Learn Web Dev",
-    description: "Finish React + backend basics and ship 2 projects.",
-    goalType: "short-term",
-    startDate: addDaysToISO(today, -8),
-    deadline: addDaysToISO(today, 24),
-    priority: "Medium"
-  },
-  {
-    id: "demo-goal-3-archived",
-    title: "30-Day DSA Sprint",
-    description: "Solved 120 curated questions in 30 days.",
-    goalType: "short-term",
-    startDate: addDaysToISO(today, -45),
-    deadline: addDaysToISO(today, -8),
-    priority: "Low"
-  }
-];
-
-const buildDemoLogs = (today) => [
-  {
-    id: "demo-goal-log-1",
-    action: "created",
-    title: "Crack GATE 2027",
-    date: addDaysToISO(today, -25),
-    time: "06:30"
-  },
-  {
-    id: "demo-goal-log-2",
-    action: "updated",
-    title: "Learn Web Dev",
-    date: addDaysToISO(today, -3),
-    time: "20:15"
-  },
-  {
-    id: "demo-goal-log-3",
-    action: "archived",
-    title: "30-Day DSA Sprint",
-    date: addDaysToISO(today, -8),
-    time: "21:00"
-  }
-];
-const emitGoalsUpdated = () => {
-  window.dispatchEvent(new Event("monkmode:goals-updated"));
-};
-
-export default function CreateGoal({ onGoalChanged }) {
-  const { isDemoMode } = useAuth();
+export default function CreateGoal() {
+  const { isDemoMode, goals, goalLogs, today, nowMs, busy, mutate, logsError, logsReady } = useGoalContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedMobileView = searchParams.get("goalCreate");
   const mobileView = CREATE_GOAL_VIEWS.some((view) => view.id === requestedMobileView)
@@ -178,10 +73,8 @@ export default function CreateGoal({ onGoalChanged }) {
   };
   const lowMotion = useMobileLowMotion();
   const GoalListCard = lowMotion ? "article" : Motion.article;
-  const today = useMemo(() => toISO(new Date()), []);
   const [error, setError] = useState("");
   const [undoError, setUndoError] = useState("");
-  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -190,68 +83,21 @@ export default function CreateGoal({ onGoalChanged }) {
     deadline: "",
     priority: "",
   });
-  const [goals, setGoals] = useState([]);
-  const [goalLogs, setGoalLogs] = useState([]);
   const [goalsView, setGoalsView] = useState("active");
   const [editingId, setEditingId] = useState(null);
   const [archiveEditGoal, setArchiveEditGoal] = useState(null);
   const [archiveEditForm, setArchiveEditForm] = useState({});
   const [archiveDeleteId, setArchiveDeleteId] = useState(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
   const formPanelRef = useRef(null);
 
-  const fetchGoalData = useCallback(async () => {
-    if (isDemoMode) {
-      setGoals(buildDemoGoals(today));
-      setGoalLogs(buildDemoLogs(today));
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const [{ data: goalsData }, { data: logsData }] = await Promise.all([
-        api.get("/goals"),
-        api.get("/goals/logs")
-      ]);
-
-      const normalizedGoals = Array.isArray(goalsData) ? goalsData.map(normalizeGoal) : [];
-      const normalizedLogs = Array.isArray(logsData) ? logsData : [];
-      setGoals(normalizedGoals);
-      setGoalLogs(normalizedLogs);
-    } catch (fetchError) {
-      console.error("Failed to fetch goal data:", fetchError);
-      setGoals([]);
-      setGoalLogs([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [isDemoMode, today]);
-
   useEffect(() => {
-    fetchGoalData();
-  }, [fetchGoalData]);
+    if (!editingId && !form.title && !form.description && !form.goalType && !form.deadline && !form.priority) {
+      setForm(previous => previous.startDate === today ? previous : { ...previous, startDate: today });
+    }
+  }, [today, editingId, form.title, form.description, form.goalType, form.deadline, form.priority]);
 
-  useEffect(() => {
-    const latestUndoExpiry = goalLogs.reduce((latest, log) => {
-      if (log.action !== "deleted" || !log.deleteUndoExpiresAt) return latest;
-      const expiry = new Date(log.deleteUndoExpiresAt).getTime();
-      return Number.isFinite(expiry) ? Math.max(latest, expiry) : latest;
-    }, 0);
-
-    if (latestUndoExpiry <= Date.now()) return undefined;
-
-    const timer = window.setInterval(() => {
-      const nextNow = Date.now();
-      setNowMs(nextNow);
-      if (nextNow >= latestUndoExpiry) window.clearInterval(timer);
-    }, 1000);
-
-    return () => window.clearInterval(timer);
-  }, [goalLogs]);
-
-  const activeGoals = goals.filter((goal) => !goal.deletedAt && goal.deadline >= today);
-  const archivedGoals = goals.filter((goal) => goal.deletedAt || goal.deadline < today);
+  const activeGoals = goals.filter((goal) => goal.status === "Active");
+  const archivedGoals = goals.filter((goal) => goal.status === "Archived");
   const displayedGoals = goalsView === "active" ? activeGoals : archivedGoals;
   const editingGoal = editingId ? goals.find((goal) => goal.id === editingId) : null;
   const isEditingStartedGoal = Boolean(editingGoal?.startDate && editingGoal.startDate <= today);
@@ -312,202 +158,65 @@ export default function CreateGoal({ onGoalChanged }) {
   };
 
   const handleDelete = async (id) => {
-    const goal = goals.find((g) => g.id === id);
-    if (!goal) return;
-    if (isDemoMode) {
-      setGoals((prev) => prev.filter((g) => g.id !== id));
-      setGoalLogs((prev) => [
-        {
-          id: `${id}-deleted-${Date.now()}`,
-          action: "deleted",
-          title: goal.title,
-          date: toISO(new Date()),
-          time: currentTime(),
-          deletedItem: goal,
-        },
-        ...prev,
-      ]);
-      if (editingId === id) resetForm();
-      emitGoalsUpdated();
-      return;
-    }
-
+    if (isDemoMode || busy) return false;
     try {
-      await api.delete(`/goals/${id}`);
-      await fetchGoalData();
-      onGoalChanged?.();
-      emitGoalsUpdated();
+      await mutate("delete", `/goals/${id}`);
       if (editingId === id) resetForm();
-    } catch (deleteError) {
-      console.error("Failed to delete goal:", deleteError);
-      setError(deleteError?.response?.data?.message || "Failed to delete goal.");
+      setError("");
+      return true;
+    } catch (error) {
+      setError(error.response?.data?.message || error.message || "Failed to delete goal.");
+      return false;
     }
-  };
-
-  const handleUndoDelete = (logId) => {
-    const log = goalLogs.find((l) => l.id === logId);
-    if (!log?.deletedItem) return;
-    const item = log.deletedItem;
-    const nowDate = toISO(new Date());
-    const expired = item.deadline && item.deadline < nowDate;
-    if (expired) {
-      setUndoError(`Undo not possible — "${item.title}" deadline has already passed.`);
-      setTimeout(() => setUndoError(""), 4000);
-      return;
-    }
-    setUndoError("");
-    setGoals((prev) => [item, ...prev]);
-    setGoalLogs((prev) => prev.filter((l) => l.id !== logId));
   };
 
   const handleRestoreGoal = async (log) => {
-    if (!log) return;
-
-    if (isDemoMode) {
-      handleUndoDelete(log.id);
-      emitGoalsUpdated();
-      return;
-    }
-
-    if (!log.goalId) return;
-
+    if (isDemoMode || busy || !log?.goalId) return;
     try {
-      await api.patch(`/goals/${log.goalId}/restore`);
+      await mutate("patch", `/goals/${log.goalId}/restore`);
       setUndoError("");
-      await fetchGoalData();
-      onGoalChanged?.();
-      emitGoalsUpdated();
     } catch (error) {
-      setUndoError(error?.response?.data?.message || "Failed to restore goal.");
+      setUndoError(error.response?.data?.message || error.message || "Failed to restore goal.");
     }
   };
 
   const saveArchiveEdit = async () => {
-    if (!archiveEditForm.title?.trim()) return;
-    if (!archiveEditGoal?.id) return;
-    const resolvedArchiveStartDate = isArchiveEditStartedGoal
-      ? archiveEditGoal.startDate
-      : (archiveEditForm.startDate || null);
-
-    if (!isDemoMode) {
-      try {
-        await api.patch(`/goals/${archiveEditGoal.id}`, {
-          title: archiveEditForm.title?.trim(),
-          description: archiveEditForm.description || "",
-          goalType: archiveEditForm.goalType || "short-term",
-          startDate: resolvedArchiveStartDate,
-          deadline: archiveEditForm.deadline || null,
-          priority: archiveEditForm.priority || "Medium"
-        });
-        setArchiveEditGoal(null);
-        await fetchGoalData();
-        onGoalChanged?.();
-        emitGoalsUpdated();
-      } catch (updateError) {
-        console.error("Failed to update goal:", updateError);
-        setError(updateError?.response?.data?.message || "Failed to update goal.");
-      }
-      return;
+    if (isDemoMode || busy || !archiveEditGoal?.id || !archiveEditForm.title?.trim()) return;
+    try {
+      await mutate("patch", `/goals/${archiveEditGoal.id}`, {
+        title: archiveEditForm.title.trim(),
+        description: archiveEditForm.description || "",
+        goalType: archiveEditForm.goalType || "short-term",
+        startDate: isArchiveEditStartedGoal ? archiveEditGoal.startDate : archiveEditForm.startDate || null,
+        deadline: archiveEditForm.deadline || null,
+        priority: archiveEditForm.priority || "Medium"
+      });
+      setArchiveEditGoal(null);
+      setError("");
+    } catch (error) {
+      setError(error.response?.data?.message || error.message || "Failed to update goal.");
     }
-
-    setGoals((prev) =>
-      prev.map((g) => g.id === archiveEditGoal.id
-        ? {
-          ...g,
-          ...archiveEditForm,
-          startDate: resolvedArchiveStartDate || g.startDate,
-          title: archiveEditForm.title.trim()
-        }
-        : g)
-    );
-    setGoalLogs((prev) => [
-      { id: `${archiveEditGoal.id}-updated-${Date.now()}`, action: "updated", title: archiveEditForm.title.trim(), date: toISO(new Date()), time: currentTime() },
-      ...prev,
-    ]);
-    setArchiveEditGoal(null);
-    emitGoalsUpdated();
   };
 
   const doArchiveDelete = async () => {
-    if (!archiveDeleteId) return;
-    await handleDelete(archiveDeleteId);
-    setArchiveDeleteId(null);
+    if (archiveDeleteId && await handleDelete(archiveDeleteId)) setArchiveDeleteId(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isDemoMode || busy) return;
     const validation = validate();
-    if (validation) {
-      setError(validation);
-      return;
-    }
-
-    const resolvedStartDate = isEditingStartedGoal ? (editingGoal?.startDate || form.startDate) : form.startDate;
-    const newGoal = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      ...form,
-      startDate: resolvedStartDate,
-      title: form.title.trim(),
-      description: form.description.trim(),
-    };
-
-    if (isDemoMode) {
-      if (editingId) {
-        setGoals((prev) => prev.map((g) => (g.id === editingId ? { ...newGoal, id: editingId } : g)));
-        setGoalLogs((prev) => [
-          {
-            id: `${editingId}-updated-${Date.now()}`,
-            action: "updated",
-            title: newGoal.title,
-            date: toISO(new Date()),
-            time: currentTime(),
-          },
-          ...prev,
-        ]);
-        resetForm();
-        emitGoalsUpdated();
-        return;
-      }
-
-      setGoals((prev) => [newGoal, ...prev]);
-      setGoalLogs((prev) => [
-        {
-          id: `${newGoal.id}-created`,
-          action: "created",
-          title: newGoal.title,
-          date: toISO(new Date()),
-          time: currentTime(),
-        },
-        ...prev,
-      ]);
-      resetForm();
-      emitGoalsUpdated();
-      return;
-    }
-
+    if (validation) { setError(validation); return; }
     try {
-      const payload = {
-        title: form.title.trim(),
-        description: form.description.trim(),
+      await mutate(editingId ? "patch" : "post", editingId ? `/goals/${editingId}` : "/goals", {
+        title: form.title.trim(), description: form.description.trim(),
         goalType: form.goalType,
-        startDate: resolvedStartDate,
-        deadline: form.deadline,
-        priority: form.priority
-      };
-
-      if (editingId) {
-        await api.patch(`/goals/${editingId}`, payload);
-      } else {
-        await api.post("/goals", payload);
-      }
-
-      await fetchGoalData();
-      onGoalChanged?.();
-      emitGoalsUpdated();
+        startDate: isEditingStartedGoal ? editingGoal.startDate : form.startDate,
+        deadline: form.deadline, priority: form.priority
+      });
       resetForm();
-    } catch (submitError) {
-      console.error("Failed to save goal:", submitError);
-      setError(submitError?.response?.data?.message || "Failed to save goal.");
+    } catch (error) {
+      setError(error.response?.data?.message || error.message || "Failed to save goal.");
     }
   };
 
@@ -539,6 +248,7 @@ export default function CreateGoal({ onGoalChanged }) {
         <div ref={formPanelRef} data-goal-create-panel="create" className="schedule-main goal-create-form journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
           <h3 className="mb-4 text-sm font-semibold text-amber-200">New Goal</h3>
           <form className="space-y-3" onSubmit={handleSubmit}>
+            <fieldset disabled={busy || isDemoMode} className="space-y-3 min-w-0 border-0 p-0">
             <div>
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                 Goal Title *
@@ -594,7 +304,7 @@ export default function CreateGoal({ onGoalChanged }) {
                   Start Date *
                 </label>
 <DashboardDateTimeInput
-                  type="date"
+                  type="date" today={today}
                   value={form.startDate}
                   disabled={Boolean(editingId && isEditingStartedGoal)}
                   onChange={(e) => setField("startDate", e.target.value)}
@@ -611,7 +321,7 @@ export default function CreateGoal({ onGoalChanged }) {
                   Deadline *
                 </label>
 <DashboardDateTimeInput
-                  type="date"
+                  type="date" today={today}
                   value={form.deadline}
                   min={minimumDeadline || form.startDate || undefined}
                   onChange={(e) => setField("deadline", e.target.value)}
@@ -654,10 +364,10 @@ export default function CreateGoal({ onGoalChanged }) {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={busy || isDemoMode}
               className="w-full rounded-lg border border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 px-4 py-2 text-xs font-semibold text-amber-200 transition hover:from-amber-400/25 hover:to-orange-400/20"
             >
-              {editingId ? "Update Goal" : "Add Goal"}
+              {busy ? "Saving..." : editingId ? "Update Goal" : "Add Goal"}
             </button>
             {editingId && (
               <button
@@ -668,6 +378,7 @@ export default function CreateGoal({ onGoalChanged }) {
                 Cancel Edit
               </button>
             )}
+            </fieldset>
           </form>
         </div>
 
@@ -702,9 +413,7 @@ export default function CreateGoal({ onGoalChanged }) {
           </div>
 
           <div className="goal-create-list-body journal-scroll flex-1 space-y-2 overflow-y-auto pr-1">
-            {loading ? (
-              <p className="mt-6 text-center text-xs text-stone-500">Loading goals...</p>
-            ) : displayedGoals.length === 0 ? (
+            {displayedGoals.length === 0 ? (
               <p className="mt-6 text-center text-xs text-stone-500">
                 {goalsView === "active"
                   ? "No active goals yet. Create one to get started."
@@ -744,10 +453,17 @@ export default function CreateGoal({ onGoalChanged }) {
                           {goal.priority}
                         </span>
                       </div>
+                      {isDeletedGoal && goal.canUndoDelete && Date.parse(goal.deleteUndoExpiresAt) > nowMs && (
+                        <button type="button" className="dashboard-card-action" data-tone="success"
+                          disabled={busy || isDemoMode} onClick={() => handleRestoreGoal({ goalId: goal.id })}>
+                          Restore
+                        </button>
+                      )}
                       {goalsView !== "archive" && (
                         <div className="goal-created-card-actions flex flex-wrap items-center gap-1.5 sm:justify-end">
                           <button
                             type="button"
+                            disabled={busy || isDemoMode}
                             onClick={() => startEdit(goal)}
                             className="dashboard-card-action" data-tone="warning"
                           >
@@ -755,6 +471,7 @@ export default function CreateGoal({ onGoalChanged }) {
                           </button>
                           <button
                             type="button"
+                            disabled={busy || isDemoMode}
                             onClick={() => handleDelete(goal.id)}
                             className="dashboard-card-action" data-tone="danger"
                           >
@@ -795,8 +512,10 @@ export default function CreateGoal({ onGoalChanged }) {
               <p className="mb-2 shrink-0 rounded-md border border-rose-400/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-300">{undoError}</p>
             )}
 
-            {loading ? (
-              <p className="text-sm text-stone-400">Loading goal logs...</p>
+            {logsError ? (
+              <p role="alert" className="text-sm text-rose-200">{logsError}</p>
+            ) : !logsReady ? (
+              <p className="text-sm text-stone-400">Loading goal activity...</p>
             ) : goalLogs.length === 0 ? (
               <p className="text-sm text-stone-400">No goal logs yet.</p>
             ) : (
@@ -903,7 +622,8 @@ export default function CreateGoal({ onGoalChanged }) {
                       ((isDemoMode && log.deletedItem) || (!isDemoMode && log.canUndoDelete && log.goalId)) && (
                       <button
                         type="button"
-                        onClick={() => handleRestoreGoal(log)}
+                        disabled={busy || isDemoMode}
+                            onClick={() => handleRestoreGoal(log)}
                         className="shrink-0 rounded border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
                         title="Restore goal"
                       >
@@ -949,7 +669,7 @@ export default function CreateGoal({ onGoalChanged }) {
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Start Date</label>
 <DashboardDateTimeInput
-                    type="date"
+                    type="date" today={today}
                     value={archiveEditForm.startDate || ""}
                     disabled={isArchiveEditStartedGoal}
                     onChange={(e) => setArchiveEditForm((p) => ({ ...p, startDate: e.target.value }))}
@@ -962,7 +682,7 @@ export default function CreateGoal({ onGoalChanged }) {
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Deadline</label>
-<DashboardDateTimeInput type="date" value={archiveEditForm.deadline || ""} onChange={(e) => setArchiveEditForm((p) => ({ ...p, deadline: e.target.value }))}
+<DashboardDateTimeInput type="date" today={today} value={archiveEditForm.deadline || ""} onChange={(e) => setArchiveEditForm((p) => ({ ...p, deadline: e.target.value }))}
                     className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1.5 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
                 </div>
               </div>
@@ -977,7 +697,7 @@ export default function CreateGoal({ onGoalChanged }) {
               {!archiveEditForm.title?.trim() && (
                 <p className="text-[11px] text-rose-300">Title is required.</p>
               )}
-              <button type="button" onClick={saveArchiveEdit}
+              <button type="button" disabled={busy || isDemoMode} onClick={saveArchiveEdit}
                 className="w-full rounded-lg border border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 px-4 py-2 text-xs font-semibold text-amber-200 transition hover:from-amber-400/25 hover:to-orange-400/20">
                 Save Changes
               </button>
@@ -993,7 +713,7 @@ export default function CreateGoal({ onGoalChanged }) {
             <p className="text-sm font-semibold text-stone-100">Delete this archived goal?</p>
             <p className="mt-1 text-xs text-stone-400">This action cannot be undone — the goal will be permanently removed.</p>
             <div className="mt-4 flex gap-2">
-              <button type="button" onClick={doArchiveDelete}
+              <button type="button" disabled={busy || isDemoMode} onClick={doArchiveDelete}
                 className="flex-1 rounded-lg border border-rose-400/35 bg-rose-500/15 px-4 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/25">
                 Yes, Delete
               </button>

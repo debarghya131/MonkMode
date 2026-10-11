@@ -1147,6 +1147,626 @@ Run backend regressions from `server/` with `npm test`; frontend checks from
 `client/` are `npm run lint` and `npm run build`. Regression tests use isolated
 model stubs and never connect to a database or call paid APIs.
 
+### Journal reliability
+
+Deploy the updated client and backend together. The editor reads today's entry
+with `/journal?today=true` and uses the backend's calendar date/timezone rather
+than the browser's local day. Saves let the backend select today's date. An entry
+that was saved successfully remains successful even if statistics or reusable
+field-template refresh fails. Initial loading failures block editing and offer a
+retry, protecting an existing entry from accidental replacement.
+
+Past entries load in pages of 14 with **Load older entries** and retry support.
+Journal form/history state resets when the signed-in account changes. Demo mode
+uses read-only samples, with sample consistency calculated from those sample
+dates rather than real-user storage.
+
+Missed days exclude unfinished today and dates before account creation, and use
+the application's timezone. Reasons require a valid missed past day and at most
+1,000 characters; the default daily reason-write limit is 100 (deployment settings
+can override it). Failures retain the typed reason and offer retries. These fixes
+do not copy, rewrite, or delete existing journal records. `npm test` includes the
+Journal calendar, validation, user-scope and client-date utility regressions.
+
+### Todo reliability (Today, Upcoming, Schedule and Important)
+
+Deploy the client and backend together: the client now loads account preferences
+from `/todos/preferences`. Custom categories and starred categories are saved on
+the signed-in user's document, not in shared browser storage. Health and Bill &
+Payment remain important by default; other default categories can be unstarred.
+Old shared browser preferences are left untouched but are not automatically
+imported because they cannot be attributed safely to a particular account.
+Re-star any desired browser-only custom categories once in Schedule.
+
+The four tabs share one task snapshot and the backend timezone/server clock.
+Today updates missed status as time passes; Upcoming derives its six dates from
+the same schedules instead of issuing six duplicate task queries. Focus, task
+updates and background refresh keep data current. Failed loads/actions show
+errors and retries without pretending the task list is empty. Account changes
+clear task, editor, category and request state. Demo samples stay read-only and
+never call protected Todo APIs.
+
+Repeating end dates are inclusive, and deferred times/weekdays use their actual
+application-calendar effective dates. Future completion dates/times and new
+backdated tasks are rejected. Completion uses an explicit status, with per-task
+request locks and no whole-list rollback. Schedule disables repeat submissions,
+retains failed form drafts and supports calendar previews by hover, focus or tap.
+Opening Schedule no longer writes synthetic "ended" audit records.
+
+If an audit log fails after a task write, the response reports success with an
+activity-log warning rather than encouraging a duplicate retry. Deletion remains
+recoverable for 48 hours, including through Restore in Archive if a deletion log
+is missing. These changes require no record-rewriting database migration.
+`npm test` includes isolated Todo regressions; frontend checks are `npm run lint`
+and `npm run build`.
+
+### Habit reliability (Today, Create Habit and Track Your Habit)
+
+Deploy the frontend and backend together. Habit consistency now publishes the
+application timezone, calendar date and server clock, including for empty accounts.
+All three Habit tabs use this clock rather than the browser's timezone. Timestamp
+dates are converted to app-calendar days instead of slicing UTC; end dates remain
+inclusive, and deferred time/weekday edits show their actual effective dates.
+
+Done/Undo and Important actions wait for server confirmation, protect repeat clicks,
+and show persistent errors on failure. Completion requests include the displayed
+day so crossing midnight cannot accidentally update another day's completion.
+Important writes can set an explicit boolean, making retries idempotent.
+
+List/history loading failures have visible retries instead of false empty states.
+Tracking refreshes on focus, habit updates, day rollover and periodically; failed
+month changes never show the previous month under the new heading. Create retains
+failed drafts, disables inputs during saves, and updates from canonical responses.
+Deletion is recoverable for 48 hours through logs or Restore in Archive.
+
+Habit state resets when the authenticated account or demo mode changes. Custom
+categories are browser-local but account-scoped under new v2 storage keys. Old
+shared v1 categories are deliberately not imported because their owner is unknown;
+re-add any custom categories once. Demo does not write category storage or call
+protected Habit APIs, and all three tabs use the same six read-only sample habits
+with no future completion ticks.
+
+These changes need no data migration or database-record rewrites. `npm test` includes
+isolated Habit regressions; frontend checks are `npm run lint` and `npm run build`.
+
+### Goal reliability (My Goals, Create Goal and Progress)
+
+Deploy the frontend and backend together. Goal summary responses now include the
+app timezone and server clock. All three tabs use one account-isolated snapshot,
+including the same read-only demo records. Deadline dates remain inclusive and
+statuses recalculate at app midnight, independently of the browser's timezone.
+
+Loading failures show Retry instead of an empty list. Refresh failures retain the
+last loaded goals; activity-log failures do not hide the goal list. Saves apply
+canonical responses immediately, protect repeat clicks, and preserve failed drafts.
+Deleted goals can be restored from Archive within the existing 48-hour window even
+when the activity feed is unavailable. Focus, day rollover and periodic refreshes
+keep My Goals and Progress current.
+
+Important writes accept an explicit boolean for idempotent retries. Subgoal
+completion uses the same milestone-based rule as the goal summary. A secondary
+progress-audit failure returns a successful save with a warning, not a false save
+failure; the embedded Goal activity remains saved. No historical data is rewritten
+or repaired by these changes, and no migration is required. Goal regressions run
+with database stubs under `npm test`.
+
+### Gym reliability (all seven sections)
+
+Deploy the frontend and backend together. All Gym tabs share an
+account-isolated workout/diet snapshot and the app timezone/server clock. The
+protected `/gym/clock` endpoint verifies the clock independently of measurement
+or gallery queries before the initial plan snapshot is made editable. Future
+workouts stay out of Today, end dates are inclusive, and invalid calendar dates
+are rejected. Initial load failures show Retry; refresh failures retain saved
+plans. Tab selections are reflected in the URL.
+
+Progress and plan saves only apply confirmed server responses. Failed saves keep
+their forms open, and shared write guards prevent repeated submissions. Progress
+writes from Today include an app-day check, reject future days, and recover
+concurrent unique-record upserts. Multi-day workout copies retain successful days
+and retry only failed ones; server-side copies are idempotent. History-write
+failures are shown separately from successful workout saves, and an unacknowledged
+delete-history entry does not enable a local undo.
+
+Diet drafts and custom workout options use account-specific v2 storage keys.
+Unknown-owner legacy caches are not imported or deleted. Demo mode neither reads
+private drafts nor calls protected Gym APIs; Today and Diet Chart use the same
+sample plans and macros.
+
+Workout/diet plan, measurement, gallery and custom-library writes now require MongoDB transactions: **use MongoDB Atlas,
+a replica set, or a sharded cluster, not a standalone MongoDB server**. An
+account-scoped User version fence serializes concurrent plan mutations; target
+activation, overlap deactivation and the response snapshot commit or roll back
+together. Editing an active workout also reconciles its new weekdays. Explicit
+activation booleans allow safe retries. No manual migration or historical rewrite
+is required; the version field is populated on subsequent authorized writes.
+
+The Gym regressions use isolated in-memory database stubs under `npm test`,
+not live Atlas writes. Browser fixtures intercept all API requests. These checks
+do not verify a deployed database's transaction support; validate the deployment
+against a non-production replica-set database before release.
+
+Measurements, Progress, Workout Library and Gallery also use tab-scoped,
+abortable requests, explicit loading errors/Retry, last-good-data retention and
+the shared write lock. Progress reads only server history for authenticated
+accounts: unknown-owner measurement, workout, library and exercise-progress
+browser caches are not merged. Demo measurement history is shared by both
+measurement views and no longer stored in those legacy keys. Same-name exercises
+with different IDs retain separate workout trends.
+
+A measurement check-in may contain just the fields the user actually measures;
+values must be positive finite decimals up to 1000 in the displayed unit. Dates
+cannot be changed by update. Captured app-day checks prevent a midnight draft
+from being silently submitted as today's data. Deleted measurements must be
+restored, not overwritten; repeated delete requests do not restart their 48-hour
+restore window, and restore is retry-safe. The existing deletedAt TTL is unchanged.
+
+Library save failures keep the modal and draft open. Custom-exercise creation is
+account-fenced and case-insensitive duplicate retries return the existing record.
+Gallery uploads accept up to 6 JPG/PNG/WEBP images per request, 2 MB each; each
+check-in is capped at 12 photos and 14 MiB of encoded image data to stay below
+MongoDB's document limit. Base64 and image file signatures are checked; this is
+not a full image decoder or malware scanner. Identical image bytes in one
+check-in are deduplicated for retry safety. Failed uploads retain the chosen files
+in memory with Retry; confirmed responses update the gallery without depending
+on a second successful GET. Photo deletion requires confirmation and is permanent.
+
+Gallery daily upload-attempt default is now 8 and measurement write-attempt
+default is 60; short-window throttles remain. **Existing explicit deployment
+values override these defaults**: review `GYM_GALLERY_RATE_LIMIT_DAILY_MAX` and
+`GYM_MEASUREMENT_RATE_LIMIT_DAILY_MAX` when deploying. Values of 1 and 2 can
+prevent retries after transient failures. No live environment variables, records
+or indexes were changed by these fixes. Gallery still stores base64 in MongoDB;
+large-scale photo hosting should use private object storage with authorized
+access and paginated metadata rather than unbounded base64 history reads.
+
+### Weekly Report — Journal reliability
+
+Journal reports use Monday–Sunday weeks in `APP_TIMEZONE`. The picker lists the
+last 12 completed weeks that contain owned journal entries. A single detail
+response supplies both statistics and missed days. Missing days exclude unfinished
+today, future days and dates before account creation; existing owned history is
+retained even if it predates imported account metadata.
+
+Consistency is logged days divided by eligible days, independently of the longest
+consecutive run: six of seven days is **86%**, not five-day-streak/7 (71%). Blank
+list fields do not inflate totals. Unrecorded energy/rating metrics display “—”,
+not a fabricated 50. The weekly score is available only with recorded ratings,
+and combines 45% consistency, 45% average rating and a capped streak bonus.
+Count-card progress labels show actual days with wins/achievements or without
+mistakes; they do not imply arbitrary targets. Demo reports use the same calculator
+over isolated sample entries and label their text as sample analysis.
+
+`GET /api/weekly-report/journal/ai-summary?week=YYYY-MM-DD` reads saved analysis
+only: opening a week neither generates AI text nor consumes generation quota.
+The Generate/Regenerate button uses an authenticated, rate-limited `POST` to the
+same endpoint. Legacy explicit `GET ?regenerate=true` remains limited for
+compatibility. Existing cached summaries without the optional `sourceHash` field
+remain readable but are marked stale; regeneration refreshes them on demand.
+No migration or deletion of saved analysis is needed.
+
+Cache fingerprints track report metrics and missed-day reasons. Failed generation
+preserves the last displayed analysis, while failed cache persistence returns the
+generated text with a warning. Concurrent generation is coalesced **within one
+server process**; unique cache indexes prevent duplicate documents, not duplicate
+provider calls across multiple instances. Daily quota counts generation attempts,
+including failures. The prompt sends aggregate statistics and missed-day reasons,
+not raw journal narratives; AI output still needs user judgment.
+
+Loading failures have explicit Retry states. Requests have timeouts and are
+cancelled when changing weeks, accounts or tabs. Demo navigation never calls the
+protected Journal report endpoints or reads private browser caches. Deploy the
+updated frontend and backend together for the cache-only GET / generation POST
+contract. Local regression and browser fixtures do not validate live Groq,
+production credentials, indexes or multi-instance rate limiting.
+
+### Weekly Report — ToDo reliability
+
+ToDo's picker, detailed report and AI context share one occurrence calculator.
+The picker shows the last 12 completed Monday–Sunday weeks in `APP_TIMEZONE`
+with at least one scheduled task. One-time tasks do not require a `dayStates`
+record to be counted. Soft-deleted/ended tasks retain their earlier history;
+deletion stops inferred occurrences, while saved deletion-day outcomes remain
+visible. Future dates are excluded, and unfinished tasks today remain pending
+until their scheduled time passes. Past pending occurrences count as missed.
+
+Totals reconcile across categories, priorities, daily breakdowns and timing
+buckets. Timing means **scheduled wall-clock time**, not the time of completion:
+midnight–6 AM and unspecified/invalid times are included. Stored deferred weekday
+and time changes use their app-calendar effective day, with inclusive end dates.
+Important categories use account preferences plus the required Health and
+Bill & Payment defaults, not another browser's custom categories.
+
+Consistency means days with at least one completion divided by days containing
+scheduled occurrences; unscheduled days are not penalized. Active-day streaks
+require consecutive calendar days with a completion and are **not Monk Streaks**.
+Late completions remain completed and are separately counted. The score combines
+70% task completion rate and 30% active-day consistency. The collapsed missed-task
+list shows up to 20 occurrences and states when additional rows are omitted;
+all occurrences still contribute to totals. Demo weeks use isolated sample tasks
+and this same calculator, with no pending tasks invented in finished weeks.
+
+ToDo AI uses cache-only `GET /api/weekly-report/todos/ai-summary?week=YYYY-MM-DD`
+and explicit, authenticated, rate-limited `POST` generation. Legacy explicit
+`GET ?regenerate=true` remains rate-limited. Opening reports does not spend AI
+generation allowance. Old caches remain readable and are marked stale until
+regenerated with an optional `sourceHash`; no cache migration/deletion is needed.
+Provider failures preserve displayed analysis; cache-save failures return valid
+generated text with a warning. Only aggregate facts are sent to the provider,
+not task descriptions or missed-task titles. Category names are treated as data.
+Same-snapshot generation is coalesced within one process, not across instances.
+Generation attempts, including failures, still count toward configured quotas.
+
+Requests have timeouts, Retry states and cancellation on week/account/tab changes.
+Demo filters and navigation remain usable without protected ToDo report requests
+or private browser caches. Deploy frontend and backend together for the new AI
+GET/POST contract. No live records, indexes or environment values were changed.
+
+Historical limitation: existing ToDo records do not contain an immutable schedule
+version ledger. Reports preserve explicit past outcomes and use the retained
+schedule/deferred fields; they cannot reconstruct older recurrence, category or
+time values already overwritten by previous edits. Recovering such information
+requires a retained snapshot/backup. Local tests use database/provider stubs and
+browser fixtures, not live Groq calls or production database writes.
+
+### Weekly Report — Habits reliability
+
+- The week picker, detailed report and AI context use one scheduled-check-in calculation.
+  The picker shows the last 12 completed app-calendar weeks, including all-missed weeks.
+  Invalid or future week requests fail before record reads or provider calls.
+- Records are scoped to the authenticated user's habits; completion logs are read only
+  for those habit IDs. Deleted and ended habits retain earlier report history.
+  Deletion-day completions remain visible, while canceled check-ins and days after
+  deletion do not become missed. Without a saved deletion date, only recorded completions
+  are retained for a legacy deleted habit.
+- Daily, selected weekdays, weekends, legacy weekly schedules and saved challenge end
+  dates use the app timezone, inclusive start/end days and pending schedule changes.
+  Unfinished habits today remain pending for the whole app day, matching Habit Today
+  and monthly analysis; reminder times are not deadlines. Future days are not missed.
+  Legacy logs without a day key use their app-calendar date. Duplicate logs use the
+  latest available timestamp and ID, including explicit undone completions.
+- Header, category, priority, daily and per-habit totals count **check-ins**, not
+  “habits with a nonzero streak.” Consistency means active days / scheduled days;
+  weekly score is 70% completion rate + 30% consistency. The best within-week run
+  counts consecutive scheduled completions for one habit (skipping unscheduled days).
+  The per-habit ending run is also scoped to that week; neither is a lifetime streak
+  nor the all-sections Monk Streak. Pending today preserves the ending run until the
+  app day ends without completion.
+- Missing time-of-day metadata is labeled Unspecified. Missed-check-in details show
+  the first 20 rows, with the full count and all occurrences retained in aggregate totals.
+  Demo reports derive from sample habits and completion logs; filters, week selection,
+  close and missed details remain usable without protected API reads or writes.
+- `GET /api/weekly-report/habits/ai-summary` reads cached analysis only, without
+  consuming generation quota. Explicit `POST` generates analysis; legacy
+  `GET ?regenerate=true` remains rate-limited. The optional cache source hash marks
+  old or changed summaries stale. Generation sends aggregate statistics, not private
+  habit titles or notes. Failed generation preserves saved text; failed persistence
+  returns usable generated text with a warning. Same-process concurrent requests
+  coalesce; this is not a distributed multi-instance generation lock. Existing
+  generation quotas still count attempts, including failures and forced regeneration.
+- Frontend list/detail/AI failures have retries. Changing the week or account cancels
+  stale display updates; account-keyed report components prevent private report reuse.
+  Deploy frontend and backend together for cache-only reads and explicit generation.
+  No environment, index or live-database migration is needed for the optional hash.
+- Historical limit: the existing habit schema has no immutable per-occurrence schedule
+  or category snapshots. Earlier schedule/time/category edits that overwrote old fields
+  cannot be reconstructed exactly. Unscheduled completions are excluded under the
+  retained schedule, and already-expired or hard-deleted history needs a backup.
+  Regression tests stub MongoDB and the AI provider; they do not verify live credentials,
+  provider availability or deployed infrastructure.
+
+### Weekly Report — Goals reliability
+
+- The picker, detail and AI context share one report calculation. The picker contains
+  the last 12 completed app-calendar weeks with eligible goals, including numeric-only
+  goals and weeks without recorded activity. Invalid or future weeks fail before reads.
+- Goals and numeric progress logs are authenticated-account scoped; logs are restricted
+  to those owned goal IDs. Deleted and archived goals retain relevant historical weeks.
+  Goals created or started after the snapshot are excluded; a deletion during a week
+  stops the goal's snapshot and recorded activity at its deletion day.
+- Reports distinguish an **as-of progress snapshot** from **activity during the week**.
+  Numeric snapshots use stable saved values, prior progress logs or the next log's
+  previous value. They do not reuse today's value for every earlier week.
+  Embedded progress events cover secondary audit failures where possible.
+- Milestone progress uses milestone counts, not the default numeric target of 100.
+  Later-created milestones are excluded from older denominators. Recorded completion
+  events survive later reopening or deletion; current completedAt values provide a
+  fallback for legacy completions. A milestone counts at most once per goal per week,
+  even if completed, reopened and completed again. These are recorded distinct
+  completions, not net completed milestones at the end of the week.
+- Retained reopen events can reconstruct earlier milestone states. Missing reopen
+  history, later milestone deletions, known later metadata edits, missing audit history
+  or undated completions produce unavailable values where reconstruction is unsafe.
+  Unknown progress is null, not zero; it is excluded from averages and pace comparisons.
+  Milestone totals also exclude goals with unknown historical milestone counts.
+  If all retained milestones were added later, the earlier numeric/milestone mode is
+  unavailable rather than assumed to be an empty milestone goal with zero progress.
+- Numeric goals can be completed without milestones. Completion uses the actual
+  target/all-milestone condition, not a percentage rounded to 100. Expected progress
+  is linear calendar pace over inclusive start/deadline days, not a prediction.
+  Goals without schedules are labeled No schedule; unavailable history has a separate
+  risk bucket. All risk buckets reconcile with the reviewed goal count.
+  Score is 60% average known progress + 40% average known pace fulfillment;
+  unscheduled goals use their recorded progress for that component, without a free
+  on-track bonus. No known progress means an unavailable score, not a fabricated zero.
+- Demo reports derive from sample goals, milestones and numeric logs, including
+  numeric-only, unscheduled and unavailable-history examples. View/hide, week,
+  priority/type and risk filters work without protected report API reads or writes.
+- AI summary GET is cache-only and does not consume generation quota. Explicit POST
+  generates; legacy GET with regenerate=true is still rate-limited. An optional source
+  hash marks stale text. Provider context contains aggregate statistics, not private
+  goal/milestone titles or descriptions. Failed generation preserves previous text;
+  cache persistence failure returns the usable analysis with a warning.
+  Same-process duplicate generation requests coalesce, but this is not a distributed
+  lock. Existing quotas count generation attempts, including failed attempts.
+- List/detail/AI failures remain visible with retry controls. Changing weeks or
+  accounts aborts stale display updates. Deploy frontend and backend together for the
+  new cache-only/explicit-generation flow; no live-data migration is needed for the
+  optional cache hash.
+- Historical limits remain explicit: the existing schema has no immutable snapshots
+  of goal targets, deadlines, milestone membership or reopen/deletion state. Metadata
+  or events already overwritten/trimmed cannot be fully reconstructed; partial history
+  uses retained definitions and recorded evidence, not a guaranteed original snapshot.
+  Numeric log dates can also have been manually backdated by older flows. Missing
+  hard-deleted or expired records require a backup. No live database writes, environment
+  changes or provider calls are needed by the regression tests; deployed credentials
+  and infrastructure still require separate verification.
+
+### Weekly Report — GYM reliability
+
+- The picker, detail and AI context share one calculation for app-calendar Monday
+  through Sunday. The last 12 completed weeks include workout, measurement-only
+  and photo-only activity. Invalid/future weeks fail before protected reads.
+- Logged days measure activity coverage, not prescribed workout-plan adherence.
+  Coverage uses seven days for completed weeks and elapsed days for drafts, never
+  a hard-coded six-day denominator. The compatibility weeklyScore field is this
+  activity coverage, with no bonus for simply having an exercise comparison.
+- Exercise/day duplicates keep the latest retained entry. Comparisons match stable
+  exercise IDs, not titles, and use the most recent retained pre-week log. Cardio,
+  zero-load, unchanged and decreased-load entries remain visible. The UI shows
+  baseline/current dates and missing values rather than claiming strength gains.
+- Average logged time sums recorded exercise minutes over days with positive time
+  data. It is not measured elapsed session duration. Estimated external-load volume
+  uses recorded sets/reps, complete rep breakdowns (including drop-set rep totals)
+  and last-set values where present; unknown inputs are excluded. Earlier-set loads
+  still assume the saved common weight because the schema has no per-set weights.
+  The UI displays time/volume coverage and labels total volume, not an average.
+- Measurement comparisons use each field's latest known earlier reading and all
+  supported measurement fields. First readings remain visible without invented
+  baselines. Deleted, invalid and future readings are excluded; numeric changes
+  are neutral, not inherently beneficial or harmful.
+- Gallery timestamps are assigned by the app timezone, not a blanket 12-hour shift.
+  All retained images per day are counted and accessible, including Sunday. The
+  photo dialog supports keyboard navigation, Escape, focus containment and body
+  scroll restoration; changing weeks/accounts closes stale viewers. Picker and AI
+  reads use image metadata, not private image blobs or URLs.
+- Nutrition is explicitly a **current macro-plan reference**, deduplicated by
+  configured weekday and averaged per known metric. Units, zero values and decimals
+  are preserved. Current plans are not historical intake or weekly adherence and
+  are excluded from the AI facts/cache hash; no dated intake ledger exists.
+- Demo weeks derive from sample logs, measurements and photos using the same
+  calculator. Week/filter/photo controls do not call protected APIs or write data.
+  Real account/week switches abort stale requests; list/detail/AI errors offer Retry.
+- AI GET reads cached text only. Explicit POST and legacy GET regenerate=true use
+  existing generation-attempt quotas. An optional sourceHash marks legacy/stale text;
+  provider input contains statistics, not exercise names, notes, measurement values
+  or photos. Failed regeneration preserves text, storage failure returns a warning,
+  and same-process concurrent generation coalesces (not a distributed lock).
+- Deploy frontend/backend together. No environment, index or live-data migration is
+  required for the optional cache hash. Retained logs/measurements can be edited or
+  deleted; reports are not immutable historical snapshots. Expired/hard-deleted data
+  requires a backup. Tests use database/provider stubs and do not verify deployed
+  infrastructure, live credentials or provider availability.
+
+### AI Guru — chat and Insights reliability
+
+- Ask Ming and Insights share one owner-scoped calculator across Journal, ToDo,
+  Habits, Goals and Gym. Seven/30-day scopes include today and exactly 7/30 app
+  calendar days. All Time starts at retained evidence; pathological legacy ranges
+  are capped at 100 years with a visible note.
+- Task outcomes come from recurring occurrences/day states, not created/ended
+  audit actions. Habits use scheduled occurrences and last-write completion/undo
+  state. Retained archived/deleted definitions preserve historical evidence.
+  Missing denominators/scores remain unknown rather than becoming 0% or 50.
+- Goal completion is current numeric/milestone state, not a count of goals achieved
+  this period. Update and milestone events are deduplicated. Workout days require
+  numeric activity; blank placeholders, duplicate exercise/day entries and future
+  dates do not inflate totals. Measurements count valid distinct check-in days.
+- Insights observations and suggestions are explicitly rule-based, not generated
+  AI or medical advice. Retained schedules/history can be edited or deleted; these
+  totals are not immutable snapshots and missing logs cannot prove health outcomes.
+- Quick prompts populate the composer for review. Explicit Send shares the message,
+  up to 10 recent messages (20,000-character aggregate limit), and aggregate app
+  statistics with Groq. Automatic context excludes private journal text, task/goal/
+  exercise titles, notes and photos. Text users explicitly enter is still shared.
+  Messages are limited to 2,000 characters; no conversation database or browser
+  storage has been added.
+- Duplicate sends are blocked in the UI. Failed requests remain separate from
+  model replies and can be retried/edited without duplicating the user message or
+  sending error text as conversation history. Clear chat, navigation and account
+  changes cancel pending chat; scope changes ignore stale Insights responses.
+- Provider timeouts abort the request (no automatic SDK retries). Invalid inputs,
+  missing credentials, upstream failures, quotas and empty replies return visible
+  errors rather than fabricated successful advice. Existing authenticated POST
+  chat quotas still count attempts; retries may consume another request. Local
+  quota fallback is per server process, not a distributed production limit.
+- Demo chat is a clearly labeled scripted sample; demo Insights use isolated
+  sample records and the same calculator. Only its local composer bypasses demo
+  text-entry blocking. No protected Insights/chat requests, AI billing, persistence
+  or real-account writes occur in demo mode.
+- Desktop/mobile checks cover chat, Insights, retries, duplicate clicks, stale
+  responses, account changes and long replies. Reduced-motion/mobile screens skip
+  repeating decorative motion; replies are readable immediately.
+- Deploy client/server together. No database or environment migration is required.
+  Real chat still needs an existing valid Groq API_KEY and network access. Tests
+  stub databases/providers; live credentials, availability and deployment were
+  not verified or changed.
+
+### Analysis — Journal: Mood, Sleep & Energy, Others
+
+- All three tabs share one authenticated monthly read and one canonical calculator.
+  Calendar month/year selections persist across tabs; filters/account changes abort
+  stale requests. Failed or malformed responses show Retry rather than empty success.
+  The server publishes the authoritative app day/timezone and rejects future periods
+  and malformed parameters before reading records.
+- Canonical day keys determine the month; legacy timestamps use the application
+  timezone. Duplicate days keep the latest update, future/invalid days are excluded,
+  all 20 supported mood names normalize case, and missing scores remain unknown
+  rather than being replaced with 50. Mood percentages use mood-logged days; averages
+  show metric-specific sample counts and do not establish causes or health outcomes.
+- Mood timelines remain chronological across the complete month, including days
+  without entries. Energy is a self-reported /100 score, not mood intensity. Mood
+  distribution distinguishes logged days from distinct mood types.
+- Sleep duration is inferred from valid bedtime/wakeup pairs (positive and at most
+  18 hours); it is not measured sleep quality. Circular clock averages handle midnight
+  and return unknown for opposing times. Missing/invalid pairs remain gaps, not
+  invented baselines. Duration labels round in minutes without producing “5h 60m.”
+- Sleep comparisons use distinct left-hour/right-/100 axes. Month blocks cover
+  days 1–7, 8–14, 15–21, 22–28 and remaining days; they are labeled as blocks, not
+  Monday–Sunday weeks. Full-month energy extremes do not change with block selection.
+- Reflection counts exclude empty/non-string items. Repeated mistake/distraction
+  tags match case-insensitively on at least two distinct days, without counting the
+  same tag twice in one entry. Missing days are unknown, not zero-win days.
+- Missed logs exclude future dates, unfinished today and pre-account days. Retained
+  imported entries can establish an earlier tracking start. With no account-date
+  evidence or entries, no missed history is invented. Streaks are within-month runs,
+  not lifetime or Monk Streak; consecutive missing days end a run only once.
+- Composite month-block scores reuse the weekly-report formula (45% coverage,
+  45% average rating, up to 10 streak points), include the final partial block and
+  leave blocks with missing ratings unknown. These are not calendar-week reports.
+- Calculated summaries are labeled as such, not AI-generated. Summary View/Hide
+  controls, keyboard/touch chart values, native horizontally scrollable charts,
+  readable data tables, empty states and desktop/mobile layouts are supported.
+  Charts render directly without long decorative drawing delays.
+- Demo tabs share isolated sample records through the same calculator, without
+  protected API requests, provider calls, persistence or real-account writes.
+- Deploy frontend/backend together. No database/environment migration is needed.
+  Tests use database stubs and mocked browser APIs; live production data/deployment
+  have not been verified or changed. Retained records can be edited or deleted;
+  analysis is not an immutable historical snapshot.
+
+### Analysis — ToDo: completion, category/priority, score & streak
+
+- All three tabs share one authenticated monthly resource, year/month filters and
+  occurrence calculator. Account/filter changes abort stale requests; failed or
+  malformed nested responses show Retry, not empty success. Task-update events,
+  window focus and a one-minute refresh keep overdue/pending outcomes current.
+  Clock/day boundaries use the server's application timezone; future months and
+  invalid parameters are rejected before database reads.
+- Monthly analysis reuses the ToDo Weekly Report occurrence decisions: one-time,
+  daily, custom weekdays and weekend schedules, effective time/day changes,
+  retained historical states, legacy anchors and deletion-day evidence. Deleted
+  tasks do not generate later occurrences, and future states do not count.
+- Completed, missed and pending totals remain separate across all charts and
+  reconcile by category, priority, weekday, time slot and month block. Percentages
+  are task-weighted; zero-completion groups are valid, but unscheduled groups have
+  unknown rates. A recurring task counts once per scheduled occurrence.
+- Time analysis groups by scheduled time, not actual completion hour or work
+  duration. Midnight–6AM and unspecified-time buckets are included; unspecified
+  times cannot win the strongest scheduled-slot insight.
+- Important categories use Health, Bill & Payment and custom starred preferences.
+  Arbitrary category names and invalid legacy priorities cannot affect object
+  prototypes or break totals. Unknown priorities use the weekly-report fallback.
+- Procrastination detection is explicitly a possible signal: recorded late flags
+  remain completed, not missed. Timing-known completion evidence is the lateness
+  denominator; legacy completions without timing evidence are not assumed on time.
+  Counts are grouped by scheduled occurrence date, not inferred completion date;
+  these facts do not establish intent, causes or a clinical assessment.
+- The product activity score uses the weekly formula: 70% task completion rate +
+  30% active-day consistency (days with a completion / scheduled days). No-task
+  groups have no score. Month blocks include days 29–31 where applicable and are
+  labeled as blocks, not Monday–Sunday calendar weeks; current results are provisional.
+- Activity streaks require at least one completed task on consecutive calendar days
+  within the selected month. Past no-completion days, including unscheduled days,
+  break runs; unfinished today/future days do not. Breaks count run-ending transitions,
+  not every inactive day. Old-month runs are not current or cross-module Monk Streaks.
+- All tabs use one isolated demo dataset and the same calculator; unsupported demo
+  months show no data rather than another month's sample. No protected requests,
+  persistence, provider calls or real-account writes occur in demo analysis.
+- Summaries are calculated, not AI-generated. Expandable View/Hide controls, exact
+  keyboard/touch chart values, readable tables, whole-number count ticks and mobile
+  horizontal chart scrolling are supported without decorative drawing delays.
+- Deploy frontend/backend together. No database/environment migration is required.
+  Database-stubbed regressions and mocked desktop/mobile browser checks do not
+  verify live production data or deployment. Historical schedules/category edits
+  are not immutable audit snapshots; expired or unavailable records cannot be
+  reconstructed by these charts. Analysis reads minimal fields and performs no writes.
+
+### Analysis — Habits: completion, category/priority/time, streak & score
+
+- All three tabs share one owner-authenticated monthly resource and persistent
+  year/month filters. Filter/account changes abort stale requests; failed or
+  malformed nested responses show Retry rather than empty success. Habit-update
+  events, focus and a one-minute refresh keep current-day outcomes fresh. Clock
+  boundaries use the server app timezone; future months and invalid parameters
+  are rejected before reading database records.
+- Monthly analysis uses the same schedule/log decisions as Habit Weekly Report:
+  daily, weekly, weekend and selected weekdays, effective weekday changes,
+  creation/start/end boundaries, archived/deleted history and completed deletion-day
+  evidence. Future and unscheduled logs do not create occurrences.
+- Canonical log day keys determine the date; missing/empty-key legacy timestamps
+  use the app timezone. Latest duplicate logs win deterministically, including
+  false undo records. Logs are queried only for IDs returned by the owner-scoped
+  Habit query; accounts without habits do not query logs.
+- Completed, missed and pending totals reconcile across habit IDs, calendar days,
+  weekdays, categories, priorities, time-of-day groups and month blocks. Today's
+  unfinished habits stay pending until the app day ends, regardless of reminder
+  time. Unscheduled/future dates are not missed. Rates are occurrence-weighted;
+  zero-completion groups are valid, but empty groups have unknown rates/scores.
+- Duplicate titles never merge different habits. Same-name habits keep distinct
+  IDs and numbered labels; duplicate documents retain the latest update. Invalid
+  legacy priorities use the weekly-report Medium fallback, and arbitrary category
+  strings cannot affect object prototypes.
+- Time-of-day analysis uses configured Morning/Afternoon/Evening/Night assignments,
+  not actual check-in hours or work duration. Missing/invalid assignments stay in
+  an explicit Unspecified group that reconciles totals and cannot win the strongest
+  assigned-time insight. Reminder hours are not used to invent an assignment.
+- Individual habit streaks count consecutive completed scheduled occurrences,
+  skipping unscheduled days. A missed occurrence ends a run once; pending today
+  does not break it. Longest run, ending run, break lengths and current month-local
+  run are distinct; old-month and ended/deleted runs are not labeled current.
+- Full-completion calendar runs are a separate metric: each day must have at least
+  one scheduled habit and all expected check-ins completed. Past partial/no-habit
+  days break this run, while unfinished today/future days do not. Neither metric
+  claims lifetime carry or equality to the cross-module navbar Monk Streak.
+- The product score matches Habit Weekly Report, including rounding: 70% check-in
+  completion rate + 30% active-day consistency (days with a completion / scheduled
+  days). Month blocks include remaining days 29–31 and are not calendar weeks;
+  no-occurrence blocks are unknown and current-month results are provisional.
+- All tabs share one isolated demo dataset through the same calculator. Unsupported
+  demo months show no data instead of another month's sample; no protected requests,
+  persistence, provider calls or real-account writes occur.
+- Calculated summaries are labeled as such, not AI-generated. Expandable View/Hide
+  controls, keyboard/touch values, readable data tables, whole-number streak/count
+  ticks and native mobile chart scrolling are supported without drawing delays.
+- Deploy frontend/backend together. No database/environment migration is needed.
+  Minimal projections exclude notes/activity logs; analysis performs no writes.
+  Database-stubbed regressions and mocked desktop/mobile checks do not verify live
+  production deployment or data. Retained schedule/category edits are not immutable
+  historical snapshots, and unavailable history cannot be reconstructed.
+
+### Gym analysis: shared monthly data
+
+All four Gym Analysis tabs use the authenticated `GET /api/gym/analysis?year=YYYY&month=M` endpoint and one account-keyed frontend resource. Year/month filters persist across tabs. Requests are aborted on filter/account changes; loading, empty and retryable failure states are distinct. Gym updates, focus and app-day rollover refresh real-user data. Demo samples remain local and never call protected APIs or write records.
+
+- Workout Performance counts distinct logged dates and exercise IDs, preserves unknown volume/time as gaps, and includes unrecognized body groups as Other. Volume uses the same recorded sets/reps, final-set overrides and rep-breakdown calculation as weekly reports. It is an external-load estimate, not session duration, training quality or muscle growth.
+- Strength Progress selects exercises by stable ID, distinguishes duplicate names, and charts only the selected month's readings in one unit at a time. Comparisons use the latest retained pre-month record, otherwise the first entry within the month. Missing/zero load baselines never produce invented percentage gains or personal records.
+- Body Measurements excludes deleted/future/invalid readings and compares each field with its own dated, positive baseline. Kilograms and centimetres remain separate. Signed changes are neutral; no diagnosis, ideal weight or BMI is inferred.
+- Nutrition & Consistency uses elapsed calendar dates, including today's provisional activity, without hard-coded rest days. The final partial month block is included. Current active weekday macro plans are a separate reference; the app has no dated intake data, so historical nutrition and adherence are not measurable. Each nutrient uses its own valid configured-weekday denominator; zero is valid.
+
+The endpoint returns app timezone/clock metadata, strict nested monthly data, minimal projected records and no private exercise notes or gallery images. Exercise baselines are grouped server-side to avoid returning lifetime exercise history. Existing measurements are read-only; no database migration is required. Deploy frontend and backend together because the monthly analysis response now serves all four tabs. Charts expose keyboard/touch values and data tables; mobile navigation supports Escape and reduced motion.
+
+### Goal analysis: checkpoint progress, activity and deadlines
+
+Both Goal Analysis tabs share the authenticated `GET /api/goals/analysis?year=YYYY&month=M` resource. Year/month and chart filters persist across tabs. Account changes cancel stale requests and reset the resource; goal updates, focus and app-day rollover refresh real-user data. Loading, retryable failure and empty-account states remain distinct. Demo data uses local raw fixtures and the same calculator, without protected API reads, provider calls or writes.
+
+- Goal Progress Analysis reconstructs the selected checkpoint using the weekly report's retained numeric snapshots and milestone history. Numeric goals use value / positive target; milestone goals use known completed / total counts. Unavailable history stays unknown and is excluded from averages. Rounded 100% is not proof of completion. Stable IDs distinguish duplicate names, and data tables preserve full titles even when chart labels are shortened.
+- Milestone completion check-ins are distinct per milestone and app-calendar day. A duplicate audit event and `completedAt` count once; recompletion on a different date remains another check-in, not another distinct milestone. Check-ins are historical activity, not net currently-completed milestone state. Edited or missing milestone deadline history is not classified as late/on-time.
+- Activity consistency measures dates with recorded updates against each goal's eligible created/start/deletion window. Activity score measures the share of eligible goals with a recorded update. Progress/pace score uses the existing weekly heuristic: 60% mean known progress plus 40% mean capped progress-to-linear-calendar-pace ratio; goals without a usable schedule use progress in that pace term. These three values are not interchangeable or forecasts. Chart filters affect goal charts, while explicitly labeled summary figures cover the full period.
+- Deadline differences are signed app-calendar days relative to the selected checkpoint (or a retained deletion date), not today's date for a historical month. Overdue, due-today, upcoming, completed, deleted and unavailable history stay distinct. Unknown completion does not prove a goal is overdue and incomplete. Calendar blocks include the final partial fifth block; future scores are gaps rather than zero.
+
+The owner-scoped read includes retained deletions and minimal projected goal fields and numeric audit data; private descriptions and raw activity records are not returned. Removed milestones, later metadata edits and trimmed history cannot always be reconstructed; visible history notes explain that limitation. Shared date memoization avoids repeating timezone conversion throughout monthly reconstruction. Charts have keyboard/touch readouts and data tables; mobile navigation supports Escape and reduced motion. Deploy frontend and backend together for the new response contract; no database migration or live data changes are required.
+
 ## 🧩 Challenges Faced
 
 - Designing one dashboard that connects journal, todo, habits, goals, gym, analytics, and weekly reports without mixing data boundaries.

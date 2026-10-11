@@ -1,63 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import littleMonkLogo from "../../assets/littlemonklogo.webp";
-import api from "../../api/axios";
+import useGoalWeeklyData from "./useGoalWeeklyData";
+import { goalReportRisk } from "../../../../shared/goalWeeklyStats";
+
+function LoadError({ message, retry }) {
+  return <div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/5 p-3 text-sm text-rose-200">
+    <p>{message}</p><button type="button" onClick={retry} className="mt-2 rounded-lg border border-amber-400/30 px-3 py-1 text-xs font-semibold text-amber-300">Retry</button>
+  </div>;
+}
 import useAuth from "../../hooks/useAuth";
 
-const WEEKLY_GOAL_DATA = [
-  {
-    id: "2026-04-13",
-    date: "Apr 13 - Apr 19",
-    weeklyScore: 74,
-    summary:
-      "Goal momentum was solid this week. Web Dev and SQL Mastery moved forward, while GATE and System Design need tighter weekly milestones. The main risk is deadline pressure on short-term goals where progress is below the expected pace.",
-    goals: [
-      { title: "Crack GATE 2027", type: "Long Term", priority: "High", progress: 34, expected: 28, deadline: "Jan 4, 2027", completed: 1, total: 3, completedThisWeek: 1 },
-      { title: "Learn Web Dev", type: "Short Term", priority: "Medium", progress: 42, expected: 58, deadline: "May 30, 2026", completed: 1, total: 3, completedThisWeek: 1 },
-      { title: "Build Production APIs", type: "Short Term", priority: "High", progress: 46, expected: 44, deadline: "Jun 28, 2026", completed: 1, total: 3, completedThisWeek: 1 },
-      { title: "SQL Mastery", type: "Short Term", priority: "High", progress: 55, expected: 49, deadline: "Jun 5, 2026", completed: 1, total: 3, completedThisWeek: 1 },
-      { title: "Upgrade Resume + Portfolio", type: "Short Term", priority: "Medium", progress: 40, expected: 63, deadline: "May 27, 2026", completed: 1, total: 3, completedThisWeek: 1 },
-    ],
-  },
-  {
-    id: "2026-04-06",
-    date: "Apr 6 - Apr 12",
-    weeklyScore: 61,
-    summary:
-      "Progress was uneven. Long-term goals stayed stable, but urgent short-term goals lost ground against their deadlines. Next week should focus on closing one milestone from Resume, Web Dev, and SQL instead of spreading effort too thin.",
-    goals: [
-      { title: "Crack GATE 2027", type: "Long Term", priority: "High", progress: 30, expected: 26, deadline: "Jan 4, 2027", completed: 1, total: 3, completedThisWeek: 1 },
-      { title: "Learn Web Dev", type: "Short Term", priority: "Medium", progress: 35, expected: 54, deadline: "May 30, 2026", completed: 1, total: 3, completedThisWeek: 1 },
-      { title: "SQL Mastery", type: "Short Term", priority: "High", progress: 41, expected: 45, deadline: "Jun 5, 2026", completed: 1, total: 3, completedThisWeek: 1 },
-      { title: "React Native App", type: "Short Term", priority: "Medium", progress: 28, expected: 36, deadline: "Jul 10, 2026", completed: 1, total: 3, completedThisWeek: 1 },
-    ],
-  },
-  {
-    id: "2026-03-30",
-    date: "Mar 30 - Apr 5",
-    weeklyScore: 82,
-    summary:
-      "This was the strongest goal week. Most goals met or exceeded their expected progress, and milestone completion improved without sacrificing long-term preparation. Keep this rhythm: one high-priority goal block daily and one short review at night.",
-    goals: [
-      { title: "Crack GATE 2027", type: "Long Term", priority: "High", progress: 27, expected: 24, deadline: "Jan 4, 2027", completed: 1, total: 3, completedThisWeek: 1 },
-      { title: "Build Production APIs", type: "Short Term", priority: "High", progress: 48, expected: 39, deadline: "Jun 28, 2026", completed: 2, total: 3, completedThisWeek: 2 },
-      { title: "SQL Mastery", type: "Short Term", priority: "High", progress: 46, expected: 41, deadline: "Jun 5, 2026", completed: 2, total: 3, completedThisWeek: 2 },
-      { title: "AI/ML Roadmap", type: "Long Term", priority: "Medium", progress: 32, expected: 28, deadline: "Dec 15, 2026", completed: 1, total: 3, completedThisWeek: 1 },
-      { title: "Fitness Cut", type: "Long Term", priority: "Low", progress: 36, expected: 34, deadline: "Aug 30, 2026", completed: 1, total: 3, completedThisWeek: 1 },
-      { title: "Competitive Programming", type: "Short Term", priority: "Low", progress: 31, expected: 29, deadline: "Jun 15, 2026", completed: 1, total: 3, completedThisWeek: 1 },
-    ],
-  },
-];
-
-const riskInfo = (goal) => {
-  if (goal.total === 0) return { label: "No Milestones", icon: "⚪", color: "text-stone-400", bar: "bg-stone-600" };
-  const delta = goal.progress - goal.expected;
-  if (delta >= 0) return { label: "On Track", icon: "🟢", color: "text-emerald-300", bar: "bg-emerald-400" };
-  if (delta >= -12) return { label: "Slightly Behind", icon: "🟡", color: "text-amber-300", bar: "bg-amber-400" };
-  return { label: "Behind Schedule", icon: "🔴", color: "text-rose-300", bar: "bg-rose-400" };
+const riskInfo = goal => {
+  const label = goalReportRisk(goal);
+  const colors = {
+    "On Track": ["🟢", "text-emerald-300", "bg-emerald-400"],
+    Completed: ["✅", "text-emerald-300", "bg-emerald-400"],
+    "Slightly Behind": ["🟡", "text-amber-300", "bg-amber-400"],
+    "Behind Schedule": ["🔴", "text-rose-300", "bg-rose-400"],
+  };
+  const [icon, color, bar] = colors[label] || ["⚪", "text-stone-400", "bg-stone-600"];
+  return { label, icon, color, bar };
 };
 
 const scoreColor = (score) => {
+  if (score == null) return "text-stone-400";
   if (score >= 75) return "text-emerald-300";
   if (score >= 55) return "text-amber-300";
   return "text-rose-300";
@@ -82,13 +49,9 @@ function ReportCard({ children, className = "", style }) {
 
 export default function GoalWeeklyReport({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
-  const [summaries, setSummaries] = useState([]);
-  const [selectedWeekId, setSelectedWeekId] = useState(null);
-  const [weekData, setWeekData] = useState(null);
-  const [loadingSummaries, setLoadingSummaries] = useState(true);
-  const [loadingWeekData, setLoadingWeekData] = useState(false);
-  const [aiSummary, setAiSummary] = useState(null);
-  const [loadingAi, setLoadingAi] = useState(false);
+  const { summaries, loadingSummaries, summariesError, retrySummaries, selectedWeekId, setSelectedWeekId,
+    weekData, loadingWeekData, weekError, retryWeek, analysis, generate } = useGoalWeeklyData(isDemoMode);
+  const aiSummary = analysis.text, loadingAi = analysis.loading;
   const [goalFilter, setGoalFilter] = useState("All");
   const [riskFilter, setRiskFilter] = useState("Behind Schedule");
   const goalListRef = useRef(null);
@@ -102,111 +65,16 @@ export default function GoalWeeklyReport({ lowMotion = false }) {
   );
   const filteredRiskGoals = selectedGoals.filter((goal) => riskInfo(goal).label === riskFilter);
 
-  const goalCount = selectedWeek?.stats?.goalCount ?? selectedGoals.length;
-  const completedGoals = selectedWeek?.stats?.completedGoals ?? selectedGoals.filter((goal) => goal.total > 0 && goal.completed === goal.total).length;
-  const completedMilestones = selectedWeek?.stats?.completedMilestones ?? selectedGoals.reduce((sum, goal) => sum + goal.completed, 0);
-  const totalMilestones = selectedWeek?.stats?.totalMilestones ?? selectedGoals.reduce((sum, goal) => sum + goal.total, 0);
-  const pendingMilestones = selectedWeek?.stats?.pendingMilestones ?? Math.max(0, totalMilestones - completedMilestones);
-  const completedMilestonesThisWeek = selectedWeek?.stats?.completedMilestonesThisWeek ?? selectedGoals.reduce((sum, goal) => sum + goal.completedThisWeek, 0);
-  const avgProgress = selectedWeek?.stats?.avgProgress ?? (goalCount > 0 ? Math.round(selectedGoals.reduce((sum, goal) => sum + goal.progress, 0) / goalCount) : 0);
-  const riskCounts = selectedWeek?.stats?.riskCounts ?? selectedGoals.reduce(
-    (counts, goal) => {
-      const risk = riskInfo(goal).label;
-      if (risk === "No Milestones") return counts;
-      return { ...counts, [risk]: counts[risk] + 1 };
-    },
-    { "On Track": 0, "Slightly Behind": 0, "Behind Schedule": 0 }
-  );
+  const stats = selectedWeek?.stats;
+  const goalCount = stats?.goalCount ?? 0;
+  const completedGoals = stats?.completedGoals ?? 0;
+  const totalMilestones = stats?.totalMilestones ?? 0;
+  const pendingMilestones = stats?.pendingMilestones ?? 0;
+  const completedMilestonesThisWeek = stats?.completedMilestonesThisWeek ?? 0;
+  const avgProgress = stats?.avgProgress;
+  const riskCounts = stats?.riskCounts ?? {};
 
-  useEffect(() => {
-    let active = true;
-
-    setLoadingSummaries(true);
-    setSummaries([]);
-    setWeekData(null);
-
-    if (isDemoMode) {
-      if (active) {
-        setSummaries(WEEKLY_GOAL_DATA);
-        setSelectedWeekId(WEEKLY_GOAL_DATA[0]?.id ?? null);
-        setLoadingSummaries(false);
-      }
-      return () => {
-        active = false;
-      };
-    }
-
-    api.get("/weekly-report/goals/summaries")
-      .then((res) => {
-        if (!active) return;
-        const nextSummaries = Array.isArray(res.data) ? res.data : [];
-        setSummaries(nextSummaries);
-        setSelectedWeekId(nextSummaries[0]?.id ?? "current");
-      })
-      .catch((err) => {
-        console.error("Goal weekly summaries error:", err);
-        if (active) setSelectedWeekId("current");
-      })
-      .finally(() => {
-        if (active) setLoadingSummaries(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [isDemoMode]);
-
-  useEffect(() => {
-    let active = true;
-
-    if (!selectedWeekId) {
-      setWeekData(null);
-      setAiSummary(null);
-      setLoadingWeekData(false);
-      setLoadingAi(false);
-      return;
-    }
-
-    setGoalFilter("All");
-
-    if (isDemoMode) {
-      const demoWeek = WEEKLY_GOAL_DATA.find((week) => week.id === selectedWeekId) ?? WEEKLY_GOAL_DATA[0] ?? null;
-      setWeekData(demoWeek);
-      setAiSummary(demoWeek?.summary ?? null);
-      setLoadingWeekData(false);
-      setLoadingAi(false);
-      return;
-    }
-
-    setLoadingWeekData(true);
-    setWeekData(null);
-    setAiSummary(null);
-    const query = selectedWeekId === "current" ? "" : `?week=${selectedWeekId}`;
-    api.get(`/weekly-report/goals${query}`)
-      .then((res) => {
-        if (active) setWeekData(res.data);
-      })
-      .catch((err) => console.error("Goal weekly report error:", err))
-      .finally(() => {
-        if (active) setLoadingWeekData(false);
-      });
-
-    setLoadingAi(true);
-    api.get(`/weekly-report/goals/ai-summary${query}`)
-      .then((res) => {
-        if (active) setAiSummary(res.data?.aiSummary ?? null);
-      })
-      .catch(() => {
-        if (active) setAiSummary(null);
-      })
-      .finally(() => {
-        if (active) setLoadingAi(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [selectedWeekId, isDemoMode]);
+  useEffect(() => { setGoalFilter("All"); setRiskFilter("Behind Schedule"); }, [selectedWeekId]);
 
   useEffect(() => {
     const node = goalListRef.current;
@@ -248,16 +116,18 @@ export default function GoalWeeklyReport({ lowMotion = false }) {
       node.removeEventListener("scroll", updateFade);
       window.removeEventListener("resize", updateFade);
     };
-  }, [selectedWeekId, selectedWeek?.summary]);
+  }, [selectedWeekId, aiSummary, analysis.error, loadingAi]);
 
   return (
-    <div className="weekly-goal-view flex flex-col gap-4 xl:flex-row xl:items-start">
+    <div className="weekly-goal-view flex flex-col gap-4 xl:flex-row xl:items-start" data-demo-allow="true">
       <div className="weekly-goal-quick-weeks rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-3" data-demo-allow="true">
         <p className="text-label-md">Little Monk's Analysis</p>
         {loadingSummaries ? (
           <p className="mt-2 text-xs text-stone-500">Loading weeks...</p>
+        ) : summariesError ? (
+          <LoadError message={summariesError} retry={retrySummaries} />
         ) : summaries.length === 0 ? (
-          <p className="mt-2 text-xs text-stone-500">No weekly summaries yet.</p>
+          <p className="mt-2 text-xs text-stone-500">Completed weeks with goals appear here (last 12 weeks).</p>
         ) : (
           <div className="weekly-goal-quick-list mt-2 flex gap-2 overflow-x-auto pb-1">
             {summaries.map((week) => (
@@ -295,6 +165,15 @@ export default function GoalWeeklyReport({ lowMotion = false }) {
               <div className="h-44 animate-pulse rounded-2xl border border-amber-100/10 bg-white/6" />
               <div className="h-96 animate-pulse rounded-2xl border border-amber-100/10 bg-white/6" />
             </Motion.div>
+          ) : weekError ? (
+            <Motion.div
+              key="goal-report-error"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <LoadError message={weekError} retry={retryWeek} />
+            </Motion.div>
           ) : !selectedWeek ? (
             <Motion.div
               key="goal-report-empty"
@@ -303,7 +182,7 @@ export default function GoalWeeklyReport({ lowMotion = false }) {
               exit={{ opacity: 0 }}
               className="rounded-2xl border border-dashed border-amber-100/15 bg-white/5 px-5 py-10 text-center text-sm text-stone-400"
             >
-              No goal weekly report data found yet.
+              Select a week to view your goal report.
             </Motion.div>
           ) : (
           <Motion.div
@@ -322,6 +201,10 @@ export default function GoalWeeklyReport({ lowMotion = false }) {
                 </div>
               </div>
 
+              <p className="mt-2 text-xs text-stone-400">As of {selectedWeek.asOf} · {goalCount} goals reviewed · {completedMilestonesThisWeek} milestone completions · {stats.progressUpdatesThisWeek} progress updates</p>
+              {selectedWeek.historyNote && <p role="status" className="mt-2 text-xs text-amber-200/80">{selectedWeek.historyNote}</p>}
+              {stats.unknownProgressGoals > 0 && <p className="mt-1 text-xs text-stone-400">Average uses {stats.knownProgressGoals}/{goalCount} goals with known progress. Unknown history is not zero progress.</p>}
+              {stats.unknownMilestoneGoals > 0 && <p className="mt-1 text-xs text-stone-400">Milestone totals exclude {stats.unknownMilestoneGoals} goals whose historical milestone counts are unknown.</p>}
               <div className="weekly-goal-summary-pills mt-3 flex flex-wrap items-center gap-2">
                 <Motion.div
                   className="relative flex items-center gap-1.5 overflow-hidden rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1"
@@ -342,7 +225,7 @@ export default function GoalWeeklyReport({ lowMotion = false }) {
                     transition={{ duration: lowMotion ? 0 : 1.8, repeat: lowMotion ? 0 : Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                   />
                   <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Avg Progress</p>
-                  <span className="relative z-10 text-xs font-bold text-sky-300">{avgProgress}%</span>
+                  <span className="relative z-10 text-xs font-bold text-sky-300">{avgProgress == null ? "—" : `${avgProgress}%`}</span>
                 </Motion.div>
                 <div className="flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Goals Completed</p>
@@ -368,26 +251,26 @@ export default function GoalWeeklyReport({ lowMotion = false }) {
                     animate={{ left: ["-40%", "130%"] }}
                     transition={{ duration: lowMotion ? 0 : 1.8, repeat: lowMotion ? 0 : Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
                   />
-                  <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Sub Goal Pending</p>
+                  <p className="relative z-10 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Known Milestones Pending</p>
                   <span className="relative z-10 text-xs font-bold text-rose-300">
                     {pendingMilestones}<span className="text-[10px] font-semibold text-stone-500">/{totalMilestones}</span>
                   </span>
                 </Motion.div>
                 <div className="flex items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Sub Goal Done This Week</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Milestones Completed This Week</p>
                   <span className="text-xs font-bold text-violet-300">{completedMilestonesThisWeek}</span>
                 </div>
                 <div className="flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Score</p>
                   <span className={`text-xs font-bold ${scoreColor(selectedWeek.weeklyScore)}`}>
-                    {selectedWeek.weeklyScore}<span className="text-[10px] font-semibold text-stone-500"> /100</span>
+                    {selectedWeek.weeklyScore ?? "—"}<span className="text-[10px] font-semibold text-stone-500"> /100</span>
                   </span>
                 </div>
               </div>
             </ReportCard>
 
-            <ReportCard className="weekly-goal-ai flex min-h-[11rem] flex-col overflow-hidden xl:h-[17vh]">
-              <div className="mb-3 flex shrink-0 items-center gap-2">
+            <ReportCard className="weekly-goal-ai flex min-h-[13rem] flex-col overflow-hidden xl:h-[20vh]">
+              <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
                 <Motion.img
                   src={littleMonkLogo}
                   alt="Little Monk"
@@ -397,24 +280,29 @@ export default function GoalWeeklyReport({ lowMotion = false }) {
                 />
                 <div>
                   <p className="text-label-md">Little Monk's Goal Summary</p>
-                  <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-amber-300/70">AI Generated</p>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-amber-300/70">{isDemoMode ? "Demo sample analysis" : aiSummary ? "AI generated · verify insights" : "On-demand analysis"}</p>
                 </div>
+                {!isDemoMode && <button type="button" disabled={loadingAi || !goalCount} onClick={generate} className="ml-auto rounded-lg border border-amber-400/30 px-3 py-1.5 text-xs font-semibold text-amber-300 disabled:opacity-40">{loadingAi ? "Please wait…" : aiSummary ? "↻ Regenerate" : "Generate analysis"}</button>}
               </div>
               <div className="relative min-h-0 flex-1">
                 <div ref={summaryRef} className="journal-scroll h-full overflow-y-auto scroll-smooth pr-1">
-                  {loadingAi ? (
+                  {loadingAi && !aiSummary ? (
                     <div className="flex items-center gap-2 text-xs text-stone-500">
                       <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                       </svg>
-                      Generating analysis…
+                      Loading saved analysis…
                     </div>
                   ) : aiSummary ? (
                     <p className="text-sm leading-relaxed text-stone-300">{aiSummary}</p>
                   ) : (
-                    <p className="text-sm italic leading-relaxed text-stone-500">AI analysis will be available here once generated.</p>
+                    <p className="text-sm italic leading-relaxed text-stone-500">Generate an optional analysis. Opening this report does not generate AI text.</p>
                   )}
+                  {analysis.stale && <p role="status" className="mt-2 text-xs text-amber-300">Saved analysis is out of date. Regenerate to reflect this report.</p>}
+                  {analysis.error && <LoadError message={analysis.error} retry={analysis.retryWith === "generate" ? generate : retryWeek} />}
+                  {analysis.warning && <p role="status" className="mt-2 text-xs text-amber-300">{analysis.warning}</p>}
+                  {loadingAi && aiSummary && <p role="status" className="mt-2 text-xs text-stone-400">Generating updated analysis…</p>}
                 </div>
                 <div
                   className={`pointer-events-none absolute inset-x-0 top-0 h-3 bg-gradient-to-b from-[#1d0f0c] to-transparent transition-opacity duration-200 ${
@@ -437,6 +325,7 @@ export default function GoalWeeklyReport({ lowMotion = false }) {
                     <button
                       key={filter}
                       type="button"
+                      aria-pressed={goalFilter === filter}
                       onClick={() => setGoalFilter(filter)}
                       className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors ${
                         goalFilter === filter
@@ -458,27 +347,28 @@ export default function GoalWeeklyReport({ lowMotion = false }) {
                   ) : filteredGoals.map((goal) => {
                     const risk = riskInfo(goal);
                     return (
-                      <div key={goal.title} className="rounded-xl border border-stone-700/35 bg-stone-950/35 px-3 py-2">
+                      <div key={goal.id} className="rounded-xl border border-stone-700/35 bg-stone-950/35 px-3 py-2">
                         <div className="mb-1.5 min-w-0 space-y-1.5">
                           <div className="flex min-w-0 items-start justify-between gap-2">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-semibold text-stone-200">{goal.title}</p>
                               <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.12em] leading-relaxed text-stone-500">
-                                {goal.type} • {goal.priority} Priority • Due {goal.deadline}
+                                {goal.type} • {goal.priority} Priority • Due {goal.deadline || "Not set"}
                               </p>
                             </div>
                             <p className={`hidden shrink-0 text-xs font-bold ${risk.color} sm:block`}>{risk.icon} {risk.label}</p>
                           </div>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                            <p className="text-[10px] font-semibold text-stone-500">{goal.completed}/{goal.total} milestones</p>
-                            <p className="text-[10px] font-semibold text-stone-500">{goal.progress}% progress</p>
+                            <p className="text-[10px] font-semibold text-stone-500">{goal.total === 0 ? `Numeric goal · ${goal.currentValue ?? "—"}/${goal.targetValue ?? "—"}` : `${goal.completed ?? "—"}/${goal.total ?? "—"} milestones`}</p>
+                            <p className="text-[10px] font-semibold text-stone-500">{goal.progress === null ? "History unavailable" : `${goal.progress}% progress`}</p>
+                            {goal.historyLimited && <p className="text-[10px] text-amber-200/70">Partial history · {goal.progressBasis}</p>}
                             <p className={`text-xs font-bold ${risk.color} sm:hidden`}>{risk.icon} {risk.label}</p>
                           </div>
                         </div>
                         <div className="h-1.5 overflow-hidden rounded-full bg-stone-800/70">
                           <Motion.div
                             initial={{ width: 0 }}
-                            animate={{ width: `${goal.progress}%` }}
+                            animate={{ width: `${goal.progress ?? 0}%` }}
                             transition={{ duration: 0.5, ease: "easeOut" }}
                             className={`h-full rounded-full ${risk.bar}`}
                           />
@@ -538,6 +428,7 @@ export default function GoalWeeklyReport({ lowMotion = false }) {
                     </div>
                     <button
                       type="button"
+                      aria-pressed={isSelected}
                       onClick={() => setSelectedWeekId(isSelected ? null : week.id)}
                       className={`w-full rounded-full border px-3 py-1 text-xs font-semibold transition-colors sm:w-fit ${
                         isSelected
@@ -551,9 +442,11 @@ export default function GoalWeeklyReport({ lowMotion = false }) {
                 </Motion.div>
               );
             })}
-            {!loadingSummaries && summaries.length === 0 && (
+            {loadingSummaries && <p className="text-xs text-stone-500">Loading weeks…</p>}
+            {summariesError && <LoadError message={summariesError} retry={retrySummaries} />}
+            {!loadingSummaries && !summariesError && summaries.length === 0 && (
               <p className="rounded-xl border border-dashed border-amber-100/10 px-4 py-6 text-center text-xs text-stone-500">
-                Your current week will appear once goal data is available.
+                No goals in the last 12 completed weeks.
               </p>
             )}
           </div>
@@ -562,21 +455,22 @@ export default function GoalWeeklyReport({ lowMotion = false }) {
         <ReportCard className="weekly-goal-risk-card flex min-h-[22rem] flex-col overflow-hidden xl:h-[42vh]">
           <div className="mb-4 shrink-0">
             <p className="text-label-md">Risk Indicator</p>
-            <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">Progress vs deadline</p>
+            <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500">Recorded progress vs calendar pace</p>
           </div>
           <div className="weekly-goal-risk-buttons grid shrink-0 grid-cols-1 gap-2 text-center sm:grid-cols-3">
             {Object.entries(riskCounts).map(([label, count]) => {
-              const status =
-                label === "On Track"
-                  ? { dot: "bg-emerald-400", text: "text-emerald-300", border: "border-emerald-400/20", bg: "bg-emerald-500/8", icon: "🟢" }
-                  : label === "Slightly Behind"
-                    ? { dot: "bg-amber-400", text: "text-amber-300", border: "border-amber-400/20", bg: "bg-amber-500/8", icon: "🟡" }
-                    : { dot: "bg-rose-400", text: "text-rose-300", border: "border-rose-400/20", bg: "bg-rose-500/8", icon: "🔴" };
+              const info = riskInfo({ progress: label === "History unavailable" ? null : 0, expected: label === "No schedule" ? null : 0, isCompleted: label === "Completed" });
+              const status = label === "On Track" || label === "Completed"
+                ? { text: "text-emerald-300", border: "border-emerald-400/20", bg: "bg-emerald-500/8", icon: label === "Completed" ? "✅" : "🟢" }
+                : label === "Slightly Behind" ? { text: "text-amber-300", border: "border-amber-400/20", bg: "bg-amber-500/8", icon: "🟡" }
+                : label === "Behind Schedule" ? { text: "text-rose-300", border: "border-rose-400/20", bg: "bg-rose-500/8", icon: "🔴" }
+                : { text: info.color, border: "border-stone-400/20", bg: "bg-stone-500/8", icon: "⚪" };
               const active = riskFilter === label;
               return (
                 <button
                   key={label}
                   type="button"
+                  aria-pressed={riskFilter === label}
                   onClick={() => setRiskFilter(label)}
                   className={`flex h-[72px] w-full flex-col items-center justify-center gap-1 rounded-xl border px-2 py-1.5 transition sm:w-auto ${
                     active
@@ -596,23 +490,23 @@ export default function GoalWeeklyReport({ lowMotion = false }) {
             {filteredRiskGoals.map((goal) => {
               const risk = riskInfo(goal);
               return (
-                <div key={goal.title} className="rounded-lg border border-stone-700/30 bg-stone-950/35 px-2.5 py-2">
+                <div key={goal.id} className="rounded-lg border border-stone-700/30 bg-stone-950/35 px-2.5 py-2">
                   <div className="flex items-center justify-between gap-2">
                     <p className="min-w-0 truncate text-xs font-semibold text-stone-300">{goal.title}</p>
                     <span
                       className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                        risk.label === "On Track"
+                        risk.label === "On Track" || risk.label === "Completed"
                           ? "bg-emerald-400"
                           : risk.label === "Slightly Behind"
                             ? "bg-amber-400"
-                            : "bg-rose-400"
+                            : risk.label === "Behind Schedule" ? "bg-rose-400" : "bg-stone-500"
                       }`}
                     />
                   </div>
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <p className={`text-[10px] font-semibold ${risk.color}`}>{risk.icon} {risk.label}</p>
                     <p className="shrink-0 text-[10px] font-semibold text-stone-500">
-                      {goal.progress}% / {goal.expected}%
+                      {goal.progress === null ? "—" : `${goal.progress}%`} / {goal.expected === null ? "No schedule" : `${goal.expected}% pace`}
                     </p>
                   </div>
                 </div>

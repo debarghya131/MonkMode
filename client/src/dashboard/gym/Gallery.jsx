@@ -1,29 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import api from "../../api/axios";
+import { useGymApi } from "./useGymData";
+import { useGymEnvironment } from "./gymContext";
+import useGymResource from "./useGymResource";
+import GymResourceNotice from "./GymResourceNotice";
 import transformatiomImage1 from "../../assets/transformatiom image 1.webp";
 import transformatiomImage2 from "../../assets/transformatiom image 2.webp";
 import transformatiomImage3 from "../../assets/transformatiom image 3.webp";
 import transformatiomImage4 from "../../assets/transformatiom image 4.webp";
 import transformatiomImage5 from "../../assets/transformatiom image 5.webp";
 import transformatiomImage6 from "../../assets/transformatiom image 6.webp";
-import useAuth from "../../hooks/useAuth";
-
-const todayISO = () => {
-  const date = new Date();
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-};
-
 const formatDate = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
-
-const emitGalleryUpdated = () => {
-  window.dispatchEvent(new Event("monkmode:gym-gallery-updated"));
-};
 
 const DEMO_LOGS = [
   {
@@ -122,10 +114,11 @@ function Lightbox({ logs, startEntryId, startImageId, onClose }) {
   });
 
   if (!allImages.length) return null;
-  const image = allImages[current];
+  const image = allImages[Math.min(current, allImages.length - 1)];
 
   return createPortal(
     <div
+      role="dialog" aria-modal="true" aria-label="Gallery preview"
       className="gym-gallery-lightbox fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-3 backdrop-blur-sm sm:p-4"
       onClick={onClose}
     >
@@ -201,82 +194,51 @@ function Lightbox({ logs, startEntryId, startImageId, onClose }) {
 }
 
 export default function Gallery() {
-  const { isDemoMode } = useAuth();
-  const [logs, setLogs] = useState(() => (isDemoMode ? DEMO_LOGS : []));
+  const { isDemoMode, today, busy, guard } = useGymEnvironment();
+  const api = useGymApi();
+  const resource = useGymResource("/gym/gallery", DEMO_LOGS, "monkmode:gym-gallery-updated");
+  const logs = normalizeGalleryLogs(resource.data);
+  const { setData: setLogs, loading } = resource;
   const [dragging, setDragging] = useState(false);
   const [lightbox, setLightbox] = useState(null);
-  const [loading, setLoading] = useState(() => !isDemoMode);
   const [error, setError] = useState("");
-  const [uploading, setUploading] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState([]);
+  const uploading = busy;
   const fileRef = useRef();
 
-  const refreshGallery = useCallback(async () => {
-    if (isDemoMode) {
-      setLogs(DEMO_LOGS);
-      setLoading(false);
-      return;
+  const uploadFiles = guard(async files => {
+    if (!resource.ready) return false;
+    const imageFiles = Array.from(files || []);
+    if (!imageFiles.length) return false;
+    if (imageFiles.length > 6 || imageFiles.reduce((size, file) => size + file.size, 0) > 10 * 1024 * 1024 || imageFiles.some(file => !["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 2 * 1024 * 1024 || !file.size)) {
+      setError("Choose up to 6 JPG, PNG or WEBP images, at most 2 MB each and 10 MB total.");
+      return false;
     }
-
-    setLoading(true);
-    try {
-      const { data } = await api.get("/gym/gallery");
-      setLogs(normalizeGalleryLogs(data).map((log) => ({ ...log, demo: false })));
-      setError("");
-    } catch (fetchError) {
-      console.error("Failed to fetch gym gallery:", fetchError);
-      setLogs([]);
-      setError(fetchError?.response?.data?.message || "Failed to load gallery.");
-    } finally {
-      setLoading(false);
-    }
-  }, [isDemoMode]);
-
-  useEffect(() => {
-    refreshGallery();
-  }, [refreshGallery]);
-
-  useEffect(() => {
-    if (isDemoMode) return undefined;
-
-    const handleRefresh = () => {
-      refreshGallery();
-    };
-
-    window.addEventListener("focus", handleRefresh);
-    return () => window.removeEventListener("focus", handleRefresh);
-  }, [isDemoMode, refreshGallery]);
-
-  const processFiles = async (files) => {
-    if (isDemoMode || uploading) return;
-
-    const imageFiles = Array.from(files || []).filter((file) => file.type.startsWith("image/"));
-    if (!imageFiles.length) return;
-
-    const readers = imageFiles.map((file) => (
-      new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (event) => resolve(event.target?.result || "");
-        reader.readAsDataURL(file);
-      })
-    ));
-
-    setUploading(true);
+    const uploadDate = today;
+    setPendingFiles(imageFiles);
     setError("");
     try {
-      const base64Images = (await Promise.all(readers)).filter(Boolean);
-      await api.post("/gym/gallery", {
-        date: todayISO(),
-        images: base64Images
-      });
-      await refreshGallery();
-      emitGalleryUpdated();
-    } catch (uploadError) {
-      console.error("Failed to upload gallery images:", uploadError);
-      setError(uploadError?.response?.data?.message || "Failed to upload images.");
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
+      const images = await Promise.all(imageFiles.map(file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = event => resolve(event.target?.result || "");
+        reader.onerror = () => reject(new Error("Could not read this image. Please choose it again."));
+        reader.onabort = () => reject(new Error("Image reading was interrupted."));
+        reader.readAsDataURL(file);
+      })));
+      const { data } = await api.post("/gym/gallery", { date: uploadDate, expectedToday: uploadDate, images });
+      setLogs(previous => normalizeGalleryLogs([data, ...previous.filter(log => log.id !== data.id)]));
+      setPendingFiles([]);
+      return true;
+    } catch (failure) {
+      setError(failure.response?.data?.message || failure.message || "Upload failed. Retry the selected images.");
+      return false;
     }
+  });
+
+  const processFiles = async files => {
+    const saved = await uploadFiles(files);
+    if (saved && fileRef.current) fileRef.current.value = "";
+    return saved;
   };
 
   const handleDrop = (event) => {
@@ -285,19 +247,19 @@ export default function Gallery() {
     void processFiles(event.dataTransfer.files);
   };
 
-  const handleDeleteImage = async (entryId, imageId, isDemoImage) => {
-    if (isDemoMode || isDemoImage) return;
-
+  const handleDeleteImage = guard(async (entryId, imageId, isDemoImage) => {
+    if (isDemoImage || !window.confirm("Permanently delete this photo? This cannot be undone.")) return false;
+    setError("");
     try {
-      setError("");
-      await api.delete(`/gym/gallery/${entryId}/images/${imageId}`);
-      await refreshGallery();
-      emitGalleryUpdated();
-    } catch (deleteError) {
-      console.error("Failed to delete gallery image:", deleteError);
-      setError(deleteError?.response?.data?.message || "Failed to delete image.");
+      const { data } = await api.delete(`/gym/gallery/${entryId}/images/${imageId}`);
+      setLogs(previous => data.deletedEntryId ? previous.filter(log => log.id !== entryId)
+        : previous.map(log => log.id === entryId ? data.entry : log));
+      return true;
+    } catch (failure) {
+      setError(failure.response?.data?.message || "Could not delete this image. It has not been removed from this view.");
+      return false;
     }
-  };
+  });
 
   const totalImages = logs.reduce((sum, log) => sum + log.images.length, 0);
   const logsForLightbox =
@@ -307,6 +269,7 @@ export default function Gallery() {
 
   return (
     <>
+      <GymResourceNotice resource={resource} />
       <div className="gym-gallery-view space-y-4">
         <div className="gym-gallery-toolbar rounded-[1.5rem] border border-amber-100/10 bg-black/20 p-3 sm:rounded-3xl sm:p-4">
           <div className="gym-gallery-toolbar-row flex flex-col gap-3 lg:flex-row lg:items-stretch">
@@ -316,7 +279,7 @@ export default function Gallery() {
               onKeyDown={isDemoMode ? undefined : (event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  fileRef.current?.click();
+                  if (!busy && resource.ready) fileRef.current?.click();
                 }
               }}
               onDragOver={(event) => {
@@ -325,7 +288,7 @@ export default function Gallery() {
               }}
               onDragLeave={() => setDragging(false)}
               onDrop={isDemoMode ? undefined : handleDrop}
-              onClick={isDemoMode ? undefined : () => fileRef.current?.click()}
+              onClick={isDemoMode ? undefined : () => { if (!busy && resource.ready) fileRef.current?.click(); }}
               className={`gym-gallery-upload flex flex-1 flex-col items-start gap-3 rounded-[1.4rem] border-2 border-dashed px-4 py-3 transition sm:flex-row sm:items-center sm:justify-center sm:rounded-2xl sm:py-2 ${
                 isDemoMode
                   ? "cursor-not-allowed border-amber-100/10 bg-white/[0.03] opacity-60"
@@ -346,15 +309,15 @@ export default function Gallery() {
                 <p className="text-xs text-stone-500">
                   {isDemoMode
                     ? "Disabled in demo mode"
-                    : "JPG, PNG, WEBP — multiple files supported"}
+                    : "JPG, PNG, WEBP · 6 files max · 2 MB each · about 10 MB per check-in"}
                 </p>
               </div>
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 multiple
-                disabled={isDemoMode || uploading}
+                disabled={isDemoMode || uploading || !resource.ready}
                 className="hidden"
                 onChange={(event) => {
                   void processFiles(event.target.files);
@@ -392,6 +355,7 @@ export default function Gallery() {
         {error ? (
           <div className="rounded-2xl border border-rose-400/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-200">
             {error}
+            {pendingFiles.length > 0 && <button type="button" disabled={busy} onClick={() => processFiles(pendingFiles)} className="ml-3 rounded-lg border border-amber-300/30 px-3 py-1 text-xs text-amber-100">Retry upload ({pendingFiles.length})</button>}
           </div>
         ) : null}
 
@@ -400,7 +364,7 @@ export default function Gallery() {
             <div className="rounded-2xl border border-dashed border-amber-100/10 bg-black/15 py-12 text-center">
               <p className="text-sm font-semibold text-stone-300">Loading gallery...</p>
             </div>
-          ) : logs.length === 0 ? (
+          ) : !resource.ready ? null : logs.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-amber-100/10 bg-black/15 py-12 text-center">
               <p className="text-sm font-semibold text-stone-300">No photos yet.</p>
               <p className="mt-1 text-xs text-stone-500">Upload your first progress photo above.</p>

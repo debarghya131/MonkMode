@@ -1,8 +1,8 @@
 import { motion as Motion } from "framer-motion";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
-import api from "../../api/axios";
+import { formatTodoTime, formatTodoDay, shiftTodoDay, todosOnDay } from "./todoUtils";
 
 const PRIORITY_ORDER = ["High", "Medium", "Low"];
 
@@ -12,32 +12,10 @@ const PRIORITY_STYLES = {
   Low: "border-green-400/30 bg-green-500/10 text-green-200",
 };
 
-const formatTime = (timeValue) => {
-  if (!timeValue) return "--";
-  const [hours, minutes] = timeValue.split(":").map(Number);
-  const d = new Date();
-  d.setHours(hours, minutes, 0, 0);
-  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-};
+const formatTime = formatTodoTime;
 
-const getDateOffset = (daysOffset) => {
-  const d = new Date();
-  d.setDate(d.getDate() + daysOffset);
-  return d;
-};
-
-const toISODate = (dateObj) => {
-  const year = dateObj.getFullYear();
-  const month = String(dateObj.getMonth() + 1).padStart(2, "0");
-  const day = String(dateObj.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const formatDayLabel = (date) =>
-  date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-
-const formatWeekday = (date) =>
-  date.toLocaleDateString("en-US", { weekday: "long" });
+const formatDayLabel = date => formatTodoDay(date, { weekday: "short", month: "short", day: "numeric" });
+const formatWeekday = date => formatTodoDay(date, { weekday: "long" });
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -137,6 +115,7 @@ function PriorityFilterBar({ selected, onChange }) {
           key={level}
           type="button"
           onClick={() => onChange(level)}
+          aria-pressed={selected === level}
           className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${colorMap(level, selected === level)}`}
         >
           {level}
@@ -173,7 +152,7 @@ function DayColumn({ date, tasks, selectedPriority, lowMotion }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function Upcoming({ lowMotion = false }) {
+export default function Upcoming({ lowMotion = false, tasks = [], clock, timezone }) {
   const { isDemoMode } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const daysRailRef = useRef(null);
@@ -181,48 +160,12 @@ export default function Upcoming({ lowMotion = false }) {
   const [next5Priority, setNext5Priority] = useState("All");
   const [mobilePriority, setMobilePriority] = useState("All");
 
-  // Real user state
-  const [tomorrowTasks, setTomorrowTasks] = useState(isDemoMode ? TOMORROW_TASKS : []);
-  const [next5Data, setNext5Data] = useState(
-    isDemoMode
-      ? [2, 3, 4, 5, 6].map((offset) => ({
-          date: getDateOffset(offset),
-          tasks: NEXT5_TASKS.filter((t) => t.dayOffset === offset),
-        }))
-      : [2, 3, 4, 5, 6].map((offset) => ({ date: getDateOffset(offset), tasks: [] }))
-  );
-  const [loading, setLoading] = useState(!isDemoMode);
-
-  const tomorrowDate = getDateOffset(1);
-
-  useEffect(() => {
-    if (isDemoMode) return;
-
-    const fetchUpcoming = async () => {
-      try {
-        const offsets = [1, 2, 3, 4, 5, 6];
-        const dates = offsets.map((o) => toISODate(getDateOffset(o)));
-        const results = await Promise.all(
-          dates.map((dateISO) => api.get(`/todos?date=${dateISO}&view=active`))
-        );
-
-        const [tomorrowRes, ...next5Responses] = results;
-        setTomorrowTasks(tomorrowRes.data);
-        setNext5Data(
-          next5Responses.map((res, i) => ({
-            date: getDateOffset(i + 2),
-            tasks: res.data,
-          }))
-        );
-      } catch (err) {
-        console.error("Failed to fetch upcoming tasks:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUpcoming();
-  }, [isDemoMode]);
+  const tomorrowDate = shiftTodoDay(clock.date, 1);
+  const tomorrowTasks = isDemoMode ? TOMORROW_TASKS : todosOnDay(tasks, tomorrowDate, clock, timezone);
+  const next5Data = [2, 3, 4, 5, 6].map(offset => {
+    const date = shiftTodoDay(clock.date, offset);
+    return { date, tasks: isDemoMode ? NEXT5_TASKS.filter(task => task.dayOffset === offset) : todosOnDay(tasks, date, clock, timezone) };
+  });
 
   const tomorrowFiltered = useMemo(
     () =>
@@ -233,8 +176,8 @@ export default function Upcoming({ lowMotion = false }) {
   );
 
   const totalNext5 = useMemo(
-    () => next5Data.reduce((sum, { tasks }) => sum + tasks.length, 0),
-    [next5Data]
+    () => next5Data.reduce((sum, { tasks }) => sum + (next5Priority === "All" ? tasks.length : tasks.filter(task => task.priority === next5Priority).length), 0),
+    [next5Data, next5Priority]
   );
 
   const mobileDays = useMemo(
@@ -288,14 +231,6 @@ export default function Upcoming({ lowMotion = false }) {
     });
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-sm text-stone-400">Loading upcoming tasks…</p>
-      </div>
-    );
-  }
-
   return (
     <>
       <nav className="upcoming-mobile-day-nav" aria-label="Choose an upcoming day" data-demo-allow="true">
@@ -311,9 +246,9 @@ export default function Upcoming({ lowMotion = false }) {
               {offset === 1 ? "Tomorrow" : formatWeekday(date).slice(0, 3)}
             </span>
             <span className="upcoming-mobile-day-date">
-              {date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              {formatTodoDay(date, { month: "short", day: "numeric" })}
             </span>
-            <span className="upcoming-mobile-day-count">{tasks.length}</span>
+            <span className="upcoming-mobile-day-count">{mobilePriority === "All" ? tasks.length : tasks.filter(task => task.priority === mobilePriority).length}</span>
           </button>
         ))}
       </nav>
@@ -328,7 +263,7 @@ export default function Upcoming({ lowMotion = false }) {
           </div>
           <div className="shrink-0 rounded-xl border border-amber-100/10 bg-white/5 px-3 py-2 text-center">
             <p className="text-[9px] uppercase tracking-[0.14em] text-stone-500">Tasks</p>
-            <p className="mt-0.5 text-lg font-semibold text-amber-200">{activeMobileDay.tasks.length}</p>
+            <p className="mt-0.5 text-lg font-semibold text-amber-200">{mobileTasks.length}</p>
           </div>
         </div>
 
@@ -356,11 +291,11 @@ export default function Upcoming({ lowMotion = false }) {
               Tomorrow
             </p>
             <h3 className="mt-1 text-xl font-bold text-amber-100">{formatDayLabel(tomorrowDate)}</h3>
-            <p className="mt-1 text-xs text-stone-400">{tomorrowTasks.length} tasks scheduled</p>
+            <p className="mt-1 text-xs text-stone-400">{tomorrowFiltered.length} tasks shown</p>
           </div>
           <div className="shrink-0 rounded-[1rem] border border-amber-100/10 bg-white/5 px-3 py-2 text-center sm:rounded-xl sm:px-4">
             <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500">Tasks</p>
-            <p className="mt-0.5 text-xl font-semibold text-amber-200">{tomorrowTasks.length}</p>
+            <p className="mt-0.5 text-xl font-semibold text-amber-200">{tomorrowFiltered.length}</p>
           </div>
         </div>
 
@@ -388,11 +323,11 @@ export default function Upcoming({ lowMotion = false }) {
             </p>
             <h3 className="mt-1 text-xl font-bold text-amber-100">Upcoming Schedule</h3>
             <p className="mt-1 text-xs leading-5 text-stone-400">
-              {formatDayLabel(getDateOffset(2))} — {formatDayLabel(getDateOffset(6))}
+              {formatDayLabel(shiftTodoDay(clock.date, 2))} — {formatDayLabel(shiftTodoDay(clock.date, 6))}
             </p>
           </div>
           <div className="shrink-0 rounded-[1rem] border border-amber-100/10 bg-white/5 px-3 py-2 text-center sm:rounded-xl sm:px-4">
-            <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500">Total</p>
+            <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500">Shown</p>
             <p className="mt-0.5 text-xl font-semibold text-stone-100">{totalNext5}</p>
           </div>
         </div>
@@ -408,7 +343,7 @@ export default function Upcoming({ lowMotion = false }) {
         <div ref={daysRailRef} className="upcoming-next5-body mt-4" aria-label="Tasks for the next five days">
           {next5Data.map(({ date, tasks }) => (
             <DayColumn
-              key={date.toDateString()}
+              key={date}
               date={date}
               tasks={tasks}
               selectedPriority={next5Priority}

@@ -19,6 +19,7 @@ const journalWeeklySummarySchema = new mongoose.Schema({
     default: null,
     match: /^\d{4}-\d{2}-\d{2}$/,
   },
+  sourceHash: { type: String, default: null, match: /^[a-f0-9]{64}$/ },
   aiSummary: {
     type: String,
     required: true,
@@ -27,9 +28,8 @@ const journalWeeklySummarySchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
-journalWeeklySummarySchema.pre("validate", function syncLegacyWeekId(next) {
+journalWeeklySummarySchema.pre("validate", function syncLegacyWeekId() {
   if (!this.weekId && this.weekStart) this.weekId = this.weekStart;
-  next();
 });
 
 journalWeeklySummarySchema.index({ userId: 1, weekStart: 1 }, { unique: true });

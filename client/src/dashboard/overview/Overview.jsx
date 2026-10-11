@@ -10,10 +10,6 @@ import { INITIAL_HABITS as TODAY_HABITS } from "../../../data/HabitDummyData";
 import { INITIAL_TASKS as TODAY_TASKS } from "../../../data/ToDoDummyData";
 import OverviewHeatmap from "./OverviewHeatmap";
 import "./overview-summary.css";
-import {
-  DEFAULT_IMPORTANT_CATEGORIES,
-  IMPORTANT_TODO_CATEGORIES_STORAGE_KEY
-} from "../todo/todoShared";
 
 const GYM_MEASUREMENTS_KEY = "monkmode_gym_measurements";
 const GYM_GALLERY_KEY = "monkmode_gallery";
@@ -68,20 +64,6 @@ const readLastPicUploadedDate = () => {
   }
 };
 
-const readImportantTodoCategories = () => {
-  try {
-    const raw = localStorage.getItem(IMPORTANT_TODO_CATEGORIES_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    const custom = Array.isArray(parsed)
-      ? parsed
-          .map((value) => (typeof value === "string" ? value.trim() : ""))
-          .filter(Boolean)
-      : [];
-    return [...new Set([...DEFAULT_IMPORTANT_CATEGORIES, ...custom])];
-  } catch {
-    return DEFAULT_IMPORTANT_CATEGORIES;
-  }
-};
 
 const cardVariants = {
   hidden: { opacity: 0, y: 24 },
@@ -434,10 +416,7 @@ export default function Overview() {
 
     const refreshTaskSummary = async () => {
       try {
-        const importantCategories = readImportantTodoCategories();
-        const { data } = await api.get("/todos/summary", {
-          params: { importantCategories: importantCategories.join(",") }
-        });
+        const { data } = await api.get("/todos/summary");
         if (!isMounted) return;
         setTaskSummary({
           completed: Math.max(0, Number(data?.today?.completed || 0)),
