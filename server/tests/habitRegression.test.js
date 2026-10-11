@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import Habit from "../models/Habit.js";
 import HabitLog from "../models/HabitLog.js";
 import { completeHabit, undoCompleteHabit, toggleImportant, getHabitConsistency, getHabitTracking, updateHabit, restoreHabit, deleteHabit } from "../controllers/habitController.js";
-import { buildDemoHabits, demoHabitTracking, habitClock, habitDayKey, shiftHabitDay, formatHabitDay, formatHabitTime, habitCategoryStorageKey, isHabitArchived, isHabitOnDay, habitTimeOnDay } from "../../client/src/dashboard/habits/habitUtils.js";
+import { buildDemoHabits, demoHabitTracking, habitClock, habitDayKey, shiftHabitDay, formatHabitDay, formatHabitTime, habitCategoryStorageKey, isHabitArchived, isHabitOnDay, habitDaysOnDay, habitTimeOnDay } from "../../client/src/dashboard/habits/habitUtils.js";
 
 const USER = "000000000000000000000001";
 const ID = "000000000000000000000002";
@@ -51,6 +51,9 @@ test("Calendar previews apply deferred weekday and time edits only on the effect
   assert.equal(isHabitOnDay(habit, "2026-10-17"), false);
   assert.equal(habitTimeOnDay(habit, "2026-10-10"), "08:00");
   assert.equal(habitTimeOnDay(habit, "2026-10-11"), "10:00");
+  assert.deepEqual(habitDaysOnDay(habit, "2026-10-10"), ["Sat"]);
+  assert.deepEqual(habitDaysOnDay(habit, "2026-10-11"), ["Sun"]);
+  assert.deepEqual(habit.days, ["Sat"], "Reading the effective schedule must not rewrite history");
 });
 
 test("One demo snapshot drives all three tabs without future completions", () => {
@@ -77,7 +80,7 @@ for (const handler of [completeHabit, undoCompleteHabit]) {
   test(`${handler.name} refuses a stale browser day without writing completions`, async t => {
     freeze(t); find(t, item({ save: async () => assert.fail("No deferred save on invalid day") }));
     t.mock.method(HabitLog, "updateOne", async () => assert.fail("No completion write"));
-    t.mock.method(HabitLog, "deleteOne", async () => assert.fail("No completion delete"));
+    t.mock.method(HabitLog, "deleteMany", async () => assert.fail("No completion delete"));
     for (const date of ["2026-10-09", "2026-10-11", "invalid"]) {
       const result = await call(handler, req({ body: { date } }));
       assert.equal(result.status, 400);
@@ -91,7 +94,7 @@ test("Completing the inclusive final day is idempotent and account-scoped", asyn
   let writes = 0;
   t.mock.method(HabitLog, "updateOne", async (filter, update, options) => {
     assert.equal(filter.habitId, ID); assert.equal(filter.dayKey, "2026-10-10");
-    assert.equal(options.upsert, true); assert.equal(update.$setOnInsert.completed, true);
+    assert.equal(options.upsert, true); assert.equal(update.$set.completed, true);
     return { upsertedCount: ++writes === 1 ? 1 : 0 };
   });
   t.mock.method(HabitLog, "findOne", async () => ({ habitId: ID, dayKey: "2026-10-10", completed: true }));

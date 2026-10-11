@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
 import { requireDevelopmentDatabase } from "../config/database.js";
+import { groqCompletionOptions } from "../config/groq.js";
 
 import Journal from "../models/Journal.js";
 import JournalWeeklySummary from "../models/JournalWeeklySummary.js";
 import Todo from "../models/Todo.js";
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 async function main() {
   const database = requireDevelopmentDatabase();
@@ -48,9 +48,8 @@ async function main() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: GROQ_MODEL,
+        ...groqCompletionOptions({ maxTokens: 10 }),
         messages: [{ role: "user", content: "Say OK in one word." }],
-        max_tokens: 10,
       }),
     });
     if (!res.ok) {

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api/axios";
+import { validWeeklySummaries, validWeeklyReport, validWeeklyAiResponse, weeklyFailureMessage as failureMessage } from "./weeklyReportResponse";
 import { DEMO_HABIT_REPORTS, DEMO_HABIT_SUMMARIES } from "./habitDemoReports";
 
-const failureMessage = (error, fallback) => error.response?.data?.error || error.response?.data?.message || fallback;
 export default function useHabitWeeklyData(isDemoMode) {
   const [summaries, setSummaries] = useState([]);
   const [loadingSummaries, setLoadingSummaries] = useState(true);
@@ -27,7 +27,7 @@ export default function useHabitWeeklyData(isDemoMode) {
     api.get("/weekly-report/habits/summaries", { signal: controller.signal, timeout: 15000 })
       .then(({ data }) => {
         if (controller.signal.aborted) return;
-        if (!Array.isArray(data)) throw new Error("Invalid summary response");
+        if (!validWeeklySummaries(data)) throw new Error("Invalid summary response");
         setSummaries(data);
         setSelectedWeekId(current => data.some(week => week.id === current) ? current : data[0]?.id || null);
       })
@@ -53,13 +53,17 @@ export default function useHabitWeeklyData(isDemoMode) {
       api.get("/weekly-report/habits", config)
         .then(({ data }) => {
           if (!alive()) return;
-          if (data?.id !== selectedWeekId || !Array.isArray(data.categories) || !Array.isArray(data.dailyStats) || !Array.isArray(data.priorityStats) || !Array.isArray(data.habits) || !Array.isArray(data.missedHabits)) throw new Error("Invalid report response");
+          if (!validWeeklyReport(data, "habit", selectedWeekId)) throw new Error("Invalid report response");
           setDetail({ id: selectedWeekId, data, loading: false, error: "" });
         })
         .catch(error => { if (alive()) setDetail({ id: selectedWeekId, data: null, loading: false, error: failureMessage(error, "Could not load this habit report. Please retry.") }); });
       // Cache-only GET. Generation is an explicit, separately rate-limited POST.
       api.get("/weekly-report/habits/ai-summary", config)
-        .then(({ data }) => { if (alive()) setAnalysis({ text: data.aiSummary || null, stale: Boolean(data.stale), loading: false, error: "", warning: "" }); })
+        .then(({ data }) => {
+          if (!alive()) return;
+          if (!validWeeklyAiResponse(data)) throw new Error("Invalid analysis response");
+          setAnalysis({ text: data.aiSummary, stale: Boolean(data.stale), loading: false, error: "", warning: "" });
+        })
         .catch(error => { if (alive()) setAnalysis(previous => ({ ...previous, loading: false, error: failureMessage(error, "Could not load saved analysis. Please retry.") })); });
     }
     return () => controller.abort();
@@ -74,7 +78,7 @@ export default function useHabitWeeklyData(isDemoMode) {
       const { data } = await api.post("/weekly-report/habits/ai-summary", { regenerate: Boolean(analysis.text) },
         { params: { week: selectedWeekId }, signal: current.controller.signal, timeout: 30000 });
       if (context.current !== current || current.controller.signal.aborted) return;
-      if (!data.aiSummary) throw new Error("Empty analysis response");
+      if (!validWeeklyAiResponse(data, true)) throw new Error("Invalid analysis response");
       setAnalysis({ text: data.aiSummary, loading: false, error: "", stale: Boolean(data.stale), warning: data.warning || "" });
     } catch (error) {
       if (context.current === current && !current.controller.signal.aborted)

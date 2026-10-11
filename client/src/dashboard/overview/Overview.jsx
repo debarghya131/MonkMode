@@ -1,23 +1,20 @@
-import { useEffect, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import { Link, useSearchParams } from "react-router-dom";
-import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import DashboardLayout from "../DashboardLayout";
-import { GYM_GALLERY_DEMO_DATES, DEMO_OVERVIEW_STATS } from "../../../data/DummyData";
+import { DEMO_OVERVIEW_STATS } from "../../../data/DummyData";
 import { INITIAL_HABITS as TODAY_HABITS } from "../../../data/HabitDummyData";
 import { INITIAL_TASKS as TODAY_TASKS } from "../../../data/ToDoDummyData";
 import OverviewHeatmap from "./OverviewHeatmap";
+import useDashboardRead from "../useDashboardRead";
+import { overviewValidators, OVERVIEW_EVENTS } from "./overviewResponse";
 import "./overview-summary.css";
 
-const GYM_MEASUREMENTS_KEY = "monkmode_gym_measurements";
-const GYM_GALLERY_KEY = "monkmode_gallery";
+
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const EMPTY_HABIT_SUMMARY = { completed: 0, pending: 0 };
 const EMPTY_TASK_SUMMARY = { completed: 0, pending: 0, missed: 0, importantToday: 0 };
-const EMPTY_GOAL_SUMMARY = { totalGoals: 0, completedGoals: 0, totalSubgoals: 0, completedSubgoals: 0 };
-const EMPTY_GYM_SUMMARY = { completedProgress: 0, totalProgress: 0, pendingUpdates: 0, progressUpdatesToday: 0 };
 
 const OVERVIEW_MOBILE_VIEWS = [
   { id: "summary", icon: "▦", label: "Daily Summary" },
@@ -25,6 +22,7 @@ const OVERVIEW_MOBILE_VIEWS = [
 ];
 
 const formatCheckInDate = (date) => {
+  if (date === undefined) return "—";
   if (!ISO_DATE_REGEX.test(String(date || ""))) return "No check-in";
   return new Date(`${date}T00:00:00`).toLocaleDateString("en-US", {
     month: "short",
@@ -33,36 +31,7 @@ const formatCheckInDate = (date) => {
   });
 };
 
-const readLastMeasurementCheckInDate = () => {
-  try {
-    const stored = JSON.parse(localStorage.getItem(GYM_MEASUREMENTS_KEY));
-    if (!Array.isArray(stored)) return null;
 
-    return stored
-      .map((entry) => String(entry?.checkInDate || ""))
-      .filter((date) => ISO_DATE_REGEX.test(date))
-      .sort((left, right) => right.localeCompare(left))[0] || null;
-  } catch {
-    return null;
-  }
-};
-
-const readLastPicUploadedDate = () => {
-  try {
-    const stored = JSON.parse(localStorage.getItem(GYM_GALLERY_KEY));
-    const storedDates = Array.isArray(stored)
-      ? stored
-          .filter((entry) => Array.isArray(entry?.images) && entry.images.length > 0)
-          .map((entry) => String(entry.date || ""))
-      : [];
-
-    return [...storedDates, ...GYM_GALLERY_DEMO_DATES]
-      .filter((date) => ISO_DATE_REGEX.test(date))
-      .sort((left, right) => right.localeCompare(left))[0] || null;
-  } catch {
-    return GYM_GALLERY_DEMO_DATES[GYM_GALLERY_DEMO_DATES.length - 1];
-  }
-};
 
 
 const cardVariants = {
@@ -86,8 +55,9 @@ function OverviewArrow() {
   );
 }
 
-function StatusCard({ label, description, kind, metric, progress, lowMotion, className = "", viewHref, actions = [], children }) {
-  const percentage = progress.total > 0
+function StatusCard({ label, description, kind, metric, progress, lowMotion, resource, className = "", viewHref, actions = [], children }) {
+  const available = !resource || Boolean(resource.data);
+  const percentage = available && progress.total > 0
     ? Math.min(100, Math.max(0, Math.round((progress.completed / progress.total) * 100)))
     : 0;
   const cardActions = actions.length > 0 && (
@@ -136,14 +106,14 @@ function StatusCard({ label, description, kind, metric, progress, lowMotion, cla
       <div className="overview-card-body">
         <div className="overview-card-metric">
           <p className="overview-metric-value">
-            {metric.value}
-            {metric.total !== undefined && <span> / {metric.total}</span>}
+            {available ? metric.value : "—"}
+            {available && metric.total !== undefined && <span> / {metric.total}</span>}
           </p>
           <p className="overview-metric-label">{metric.label}</p>
           <div className="overview-card-progress">
             <div className="overview-progress-caption">
               <span>{progress.label}</span>
-              <span>{percentage}%</span>
+              <span>{available ? `${percentage}%` : "—"}</span>
             </div>
             <div
               className="overview-progress-track"
@@ -151,8 +121,8 @@ function StatusCard({ label, description, kind, metric, progress, lowMotion, cla
               aria-label={`${label}: ${progress.label}`}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-valuenow={percentage}
-              aria-valuetext={`${progress.completed} of ${progress.total}`}
+              aria-valuenow={available ? percentage : undefined}
+              aria-valuetext={available ? `${progress.completed} of ${progress.total}` : "Statistics unavailable"}
             >
               <span style={{ width: `${percentage}%` }} />
             </div>
@@ -164,6 +134,11 @@ function StatusCard({ label, description, kind, metric, progress, lowMotion, cla
         </div>
       </div>
       {kind === "gym" && cardActions}
+      {resource?.loading && <p role="status" className="mt-2 text-xs text-stone-400">Loading {label}…</p>}
+      {resource?.error && <div className="mt-2 text-xs text-rose-200">
+        <p role="alert">{resource.error}{available ? " Showing last loaded values." : ""}</p>
+        <button type="button" onClick={resource.retry} className="mt-1 text-amber-200">Retry {label}</button>
+      </div>}
     </Motion.article>
   );
 }
@@ -201,6 +176,11 @@ const containerVariants = {
 };
 
 export default function Overview() {
+  const { user, isDemoMode } = useAuth();
+  return <OverviewContent key={`${isDemoMode ? "demo" : "real"}:${user?.id || "guest"}`} />;
+}
+
+function OverviewContent() {
   const lowMotion = useMobileLowMotion();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedMobileView = searchParams.get("overview");
@@ -215,310 +195,38 @@ export default function Overview() {
       return next;
     });
   };
-  const { isDemoMode } = useAuth();
-  const [journalSummary, setJournalSummary] = useState(() => ({
-    todayLogged: false,
-    daysThisWeek: 0,
-    achievementsThisWeek: 0,
-    winsThisWeek: 0,
-  }));
-  const [lastMeasurementCheckInDate, setLastMeasurementCheckInDate] = useState(() => (isDemoMode ? readLastMeasurementCheckInDate() : null));
-  const [lastPicUploadedDate, setLastPicUploadedDate] = useState(() => (isDemoMode ? readLastPicUploadedDate() : null));
-  const [habitSummary, setHabitSummary] = useState(() =>
-    isDemoMode
-      ? TODAY_HABITS.reduce(
-          (summary, habit) => ({
-            completed: summary.completed + (habit.status === "completed" ? 1 : 0),
-            pending: summary.pending + (habit.status === "pending" ? 1 : 0),
-          }),
-          EMPTY_HABIT_SUMMARY
-        )
-      : EMPTY_HABIT_SUMMARY
-  );
-  const [taskSummary, setTaskSummary] = useState(() =>
-    isDemoMode
-      ? TODAY_TASKS.reduce(
-          (summary, task) => ({
-            completed: summary.completed + (task.status === "completed" ? 1 : 0),
-            pending: summary.pending + (task.status === "pending" ? 1 : 0),
-            missed: summary.missed + (task.status === "missed" ? 1 : 0),
-            importantToday: summary.importantToday + (task.priority === "High" ? 1 : 0),
-          }),
-          EMPTY_TASK_SUMMARY
-        )
-      : EMPTY_TASK_SUMMARY
-  );
-  const [goalSummary, setGoalSummary] = useState(() =>
-    isDemoMode
-      ? {
-          totalGoals: DEMO_OVERVIEW_STATS.goals.total,
-          completedGoals: DEMO_OVERVIEW_STATS.goals.completed,
-          totalSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsTotal,
-          completedSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsCompleted,
-        }
-      : EMPTY_GOAL_SUMMARY
-  );
-  const [gymSummary, setGymSummary] = useState(() =>
-    isDemoMode
-      ? {
-          completedProgress: DEMO_OVERVIEW_STATS.gym.completedProgress,
-          totalProgress: DEMO_OVERVIEW_STATS.gym.totalProgress,
-          pendingUpdates: DEMO_OVERVIEW_STATS.gym.pendingUpdates,
-          progressUpdatesToday: DEMO_OVERVIEW_STATS.gym.progressUpdatesToday,
-        }
-      : EMPTY_GYM_SUMMARY
-  );
 
-  useEffect(() => {
-    if (isDemoMode) {
-      setJournalSummary(DEMO_OVERVIEW_STATS.journal);
-      return;
-    }
-
-    let isMounted = true;
-    const refreshJournalSummary = async () => {
-      try {
-        const { data } = await api.get("/journal/summary");
-        if (!isMounted) return;
-
-        setJournalSummary({
-          todayLogged: Boolean(data?.todayLogged),
-          daysThisWeek: Math.max(0, Number(data?.daysThisWeek || 0)),
-          achievementsThisWeek: Math.max(0, Number(data?.achievementsThisWeek || 0)),
-          winsThisWeek: Math.max(0, Number(data?.winsThisWeek || 0)),
-        });
-      } catch {
-        if (!isMounted) return;
-        setJournalSummary({
-          todayLogged: false,
-          daysThisWeek: 0,
-          achievementsThisWeek: 0,
-          winsThisWeek: 0,
-        });
-      }
-    };
-
-    refreshJournalSummary();
-    window.addEventListener("focus", refreshJournalSummary);
-    window.addEventListener("monkmode:journal-logged-days-updated", refreshJournalSummary);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener("focus", refreshJournalSummary);
-      window.removeEventListener("monkmode:journal-logged-days-updated", refreshJournalSummary);
-    };
-  }, [isDemoMode]);
-
-  useEffect(() => {
-    if (!isDemoMode) return;
-
-    const refreshLocalGymStats = () => {
-      setLastMeasurementCheckInDate(readLastMeasurementCheckInDate());
-    };
-
-    refreshLocalGymStats();
-    window.addEventListener("storage", refreshLocalGymStats);
-    window.addEventListener("monkmode:gym-measurements-updated", refreshLocalGymStats);
-
-    return () => {
-      window.removeEventListener("storage", refreshLocalGymStats);
-      window.removeEventListener("monkmode:gym-measurements-updated", refreshLocalGymStats);
-    };
-  }, [isDemoMode]);
-
-  useEffect(() => {
-    if (isDemoMode) {
-      setGymSummary({
-        completedProgress: DEMO_OVERVIEW_STATS.gym.completedProgress,
-        totalProgress: DEMO_OVERVIEW_STATS.gym.totalProgress,
-        pendingUpdates: DEMO_OVERVIEW_STATS.gym.pendingUpdates,
-        progressUpdatesToday: DEMO_OVERVIEW_STATS.gym.progressUpdatesToday,
-      });
-      return;
-    }
-
-    let isMounted = true;
-
-    const refreshGymSummary = async () => {
-      try {
-        const { data } = await api.get("/gym/summary");
-        if (!isMounted) return;
-
-        setGymSummary({
-          completedProgress: Math.max(0, Number(data?.completedProgress || 0)),
-          totalProgress: Math.max(0, Number(data?.totalProgress || 0)),
-          pendingUpdates: Math.max(0, Number(data?.pendingUpdates || 0)),
-          progressUpdatesToday: Math.max(0, Number(data?.progressUpdatesToday || 0)),
-        });
-        setLastMeasurementCheckInDate(data?.lastMeasurementCheckInDate || null);
-        setLastPicUploadedDate(data?.lastPicUploadedDate || null);
-      } catch {
-        if (!isMounted) return;
-        setGymSummary({
-          completedProgress: 0,
-          totalProgress: 0,
-          pendingUpdates: 0,
-          progressUpdatesToday: 0,
-        });
-      }
-    };
-
-    refreshGymSummary();
-    window.addEventListener("focus", refreshGymSummary);
-    window.addEventListener("monkmode:gym-measurements-updated", refreshGymSummary);
-    window.addEventListener("monkmode:gym-gallery-updated", refreshGymSummary);
-    window.addEventListener("monkmode:exercise-progress-updated", refreshGymSummary);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener("focus", refreshGymSummary);
-      window.removeEventListener("monkmode:gym-measurements-updated", refreshGymSummary);
-      window.removeEventListener("monkmode:gym-gallery-updated", refreshGymSummary);
-      window.removeEventListener("monkmode:exercise-progress-updated", refreshGymSummary);
-    };
-  }, [isDemoMode]);
-
-  useEffect(() => {
-    if (isDemoMode) {
-      setLastPicUploadedDate(readLastPicUploadedDate());
-      return;
-    }
-
-    let isMounted = true;
-
-    const refreshGallerySummary = async () => {
-      try {
-        const { data } = await api.get("/gym/gallery/summary");
-        if (!isMounted) return;
-        setLastPicUploadedDate(data?.lastUploadedDate || null);
-      } catch {
-        if (!isMounted) return;
-        setLastPicUploadedDate(null);
-      }
-    };
-
-    refreshGallerySummary();
-    window.addEventListener("focus", refreshGallerySummary);
-    window.addEventListener("monkmode:gym-gallery-updated", refreshGallerySummary);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener("focus", refreshGallerySummary);
-      window.removeEventListener("monkmode:gym-gallery-updated", refreshGallerySummary);
-    };
-  }, [isDemoMode]);
-
-  const displayJournalSummary = isDemoMode ? DEMO_OVERVIEW_STATS.journal : journalSummary;
-
-  useEffect(() => {
-    if (isDemoMode) return;
-    let isMounted = true;
-
-    const refreshTaskSummary = async () => {
-      try {
-        const { data } = await api.get("/todos/summary");
-        if (!isMounted) return;
-        setTaskSummary({
-          completed: Math.max(0, Number(data?.today?.completed || 0)),
-          pending: Math.max(0, Number(data?.today?.pending || 0)),
-          missed: Math.max(0, Number(data?.today?.missed || 0)),
-          importantToday: Math.max(0, Number((data?.importantToday ?? data?.today?.important) || 0)),
-        });
-      } catch {
-        // keep existing summary on transient failure
-      }
-    };
-
-    refreshTaskSummary();
-    window.addEventListener("focus", refreshTaskSummary);
-    window.addEventListener("monkmode:todos-updated", refreshTaskSummary);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener("focus", refreshTaskSummary);
-      window.removeEventListener("monkmode:todos-updated", refreshTaskSummary);
-    };
-  }, [isDemoMode]);
-
-  useEffect(() => {
-    if (isDemoMode) return;
-    let isMounted = true;
-
-    const refreshGoalSummary = async () => {
-      try {
-        const { data } = await api.get("/goals/summary");
-        if (!isMounted) return;
-
-        setGoalSummary({
-          totalGoals: Math.max(0, Number(data?.totalGoals || 0)),
-          completedGoals: Math.max(0, Number(data?.completedGoals || 0)),
-          totalSubgoals: Math.max(0, Number(data?.totalSubgoals || 0)),
-          completedSubgoals: Math.max(0, Number(data?.completedSubgoals || 0)),
-        });
-      } catch {
-        // keep previous summary on transient failure
-      }
-    };
-
-    refreshGoalSummary();
-    window.addEventListener("focus", refreshGoalSummary);
-    window.addEventListener("monkmode:goals-updated", refreshGoalSummary);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener("focus", refreshGoalSummary);
-      window.removeEventListener("monkmode:goals-updated", refreshGoalSummary);
-    };
-  }, [isDemoMode]);
-
-  useEffect(() => {
-    if (isDemoMode) return;
-    let isMounted = true;
-
-    const refreshHabitSummary = async () => {
-      try {
-        const { data } = await api.get("/habits/consistency");
-        if (!isMounted) return;
-
-        const completed = Math.max(0, Number(data?.completedToday || 0));
-        const expected = Math.max(0, Number(data?.expectedToday || 0));
-        setHabitSummary({
-          completed,
-          pending: Math.max(0, expected - completed),
-        });
-      } catch {
-        // keep existing summary on failure
-      }
-    };
-
-    refreshHabitSummary();
-    window.addEventListener("focus", refreshHabitSummary);
-    window.addEventListener("monkmode:habits-updated", refreshHabitSummary);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener("focus", refreshHabitSummary);
-      window.removeEventListener("monkmode:habits-updated", refreshHabitSummary);
-    };
-  }, [isDemoMode]);
-
-  const displayedLastMeasurementDate = isDemoMode
-    ? (lastMeasurementCheckInDate || DEMO_OVERVIEW_STATS.gym.lastMeasurementCheckInDate)
-    : lastMeasurementCheckInDate;
-  const displayedLastPicUploadedDate = isDemoMode
-    ? (lastPicUploadedDate || DEMO_OVERVIEW_STATS.gym.lastPicUploadedDate)
-    : lastPicUploadedDate;
-  const displayedGoalSummary = isDemoMode
-    ? {
-        totalGoals: DEMO_OVERVIEW_STATS.goals.total,
-        completedGoals: DEMO_OVERVIEW_STATS.goals.completed,
-        totalSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsTotal,
-        completedSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsCompleted,
-      }
-    : goalSummary;
-  const displayedGymSummary = isDemoMode
-    ? DEMO_OVERVIEW_STATS.gym
-    : gymSummary;
+  const { isDemoMode, user } = useAuth();
+  const journalRead = useDashboardRead("/journal/summary", overviewValidators.journal, OVERVIEW_EVENTS.journal, isDemoMode, user?.id);
+  const taskRead = useDashboardRead("/todos/summary", overviewValidators.tasks, OVERVIEW_EVENTS.tasks, isDemoMode, user?.id);
+  const habitRead = useDashboardRead("/habits/consistency", overviewValidators.habits, OVERVIEW_EVENTS.habits, isDemoMode, user?.id);
+  const goalRead = useDashboardRead("/goals/summary", overviewValidators.goals, OVERVIEW_EVENTS.goals, isDemoMode, user?.id);
+  const gymRead = useDashboardRead("/gym/summary", overviewValidators.gym, OVERVIEW_EVENTS.gym, isDemoMode, user?.id);
+  const displayJournalSummary = isDemoMode ? DEMO_OVERVIEW_STATS.journal : journalRead.data || {
+    todayLogged: null, daysThisWeek: "—", achievementsThisWeek: "—", winsThisWeek: "—"
+  };
+  const taskSummary = isDemoMode ? TODAY_TASKS.reduce((summary, task) => ({
+    completed: summary.completed + (task.status === "completed" ? 1 : 0),
+    pending: summary.pending + (task.status === "pending" ? 1 : 0),
+    missed: summary.missed + (task.status === "missed" ? 1 : 0),
+    importantToday: summary.importantToday + (task.priority === "High" ? 1 : 0)
+  }), EMPTY_TASK_SUMMARY) : taskRead.data ? { ...taskRead.data.today, importantToday: taskRead.data.importantToday ?? taskRead.data.today.important }
+    : { completed: "—", pending: "—", missed: "—", importantToday: "—" };
+  const habitSummary = isDemoMode ? TODAY_HABITS.reduce((summary, habit) => ({
+    completed: summary.completed + (habit.status === "completed" ? 1 : 0),
+    pending: summary.pending + (habit.status === "pending" ? 1 : 0)
+  }), EMPTY_HABIT_SUMMARY) : habitRead.data ? {
+    completed: habitRead.data.completedToday, pending: habitRead.data.expectedToday - habitRead.data.completedToday
+  } : { completed: "—", pending: "—" };
+  const displayedGoalSummary = isDemoMode ? {
+    totalGoals: DEMO_OVERVIEW_STATS.goals.total, completedGoals: DEMO_OVERVIEW_STATS.goals.completed,
+    totalSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsTotal, completedSubgoals: DEMO_OVERVIEW_STATS.goals.subgoalsCompleted
+  } : goalRead.data || { totalGoals: "—", completedGoals: "—", totalSubgoals: "—", completedSubgoals: "—" };
+  const displayedGymSummary = isDemoMode ? DEMO_OVERVIEW_STATS.gym : gymRead.data || {
+    completedProgress: "—", totalProgress: "—", pendingUpdates: "—", progressUpdatesToday: "—"
+  };
+  const displayedLastMeasurementDate = isDemoMode ? DEMO_OVERVIEW_STATS.gym.lastMeasurementCheckInDate : gymRead.data?.lastMeasurementCheckInDate;
+  const displayedLastPicUploadedDate = isDemoMode ? DEMO_OVERVIEW_STATS.gym.lastPicUploadedDate : gymRead.data?.lastPicUploadedDate;
 
   return (
     <DashboardLayout>
@@ -562,6 +270,7 @@ export default function Overview() {
                   label="Today's Journal"
                   description="Daily reflection"
                   kind="journal"
+                  resource={isDemoMode ? null : journalRead}
                   lowMotion={lowMotion}
                   viewHref="/dashboard/journal"
                   metric={{ value: displayJournalSummary.daysThisWeek, total: 7, label: "days logged this week" }}
@@ -569,7 +278,7 @@ export default function Overview() {
                 >
                   <StatRow
                     label="Status"
-                    value={displayJournalSummary.todayLogged ? "Submitted" : "Pending"}
+                    value={displayJournalSummary.todayLogged === null ? "—" : displayJournalSummary.todayLogged ? "Submitted" : "Pending"}
                     accent={displayJournalSummary.todayLogged ? "success" : "negative"}
                   />
                   <StatRow label="Wins this week" value={displayJournalSummary.winsThisWeek} accent="positive" />
@@ -580,6 +289,7 @@ export default function Overview() {
                   label="Today's Tasks"
                   description="Make room for what matters"
                   kind="tasks"
+                  resource={isDemoMode ? null : taskRead}
                   lowMotion={lowMotion}
                   viewHref="/dashboard/todo"
                   metric={{ value: taskSummary.completed, label: "tasks completed today" }}
@@ -594,6 +304,7 @@ export default function Overview() {
                   label="Today's Habits"
                   description="Build your daily rhythm"
                   kind="habits"
+                  resource={isDemoMode ? null : habitRead}
                   lowMotion={lowMotion}
                   metric={{ value: habitSummary.completed, label: "habits completed today" }}
                   progress={{ completed: habitSummary.completed, total: habitSummary.completed + habitSummary.pending, label: "Routine completion" }}
@@ -609,6 +320,7 @@ export default function Overview() {
                   label="Goals"
                   description="Turn intention into progress"
                   kind="goals"
+                  resource={isDemoMode ? null : goalRead}
                   lowMotion={lowMotion}
                   metric={{ value: displayedGoalSummary.completedGoals, total: displayedGoalSummary.totalGoals, label: "goals completed" }}
                   progress={{ completed: displayedGoalSummary.completedGoals, total: displayedGoalSummary.totalGoals, label: "Goal completion" }}
@@ -624,6 +336,7 @@ export default function Overview() {
                   label="Gym"
                   description="Strength through consistency"
                   kind="gym"
+                  resource={isDemoMode ? null : gymRead}
                   lowMotion={lowMotion}
                   metric={{ value: displayedGymSummary.progressUpdatesToday, label: "progress updates today" }}
                   progress={{ completed: displayedGymSummary.completedProgress, total: displayedGymSummary.totalProgress, label: "Checklist completion" }}

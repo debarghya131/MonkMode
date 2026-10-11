@@ -19,11 +19,12 @@ import GymDietPlan from "../models/GymDietPlan.js";
 import { buildGymWeeklyReport, completedGymWeeks, gymReportWeek, gymExerciseFilter, gymMeasurementFilter, gymGalleryFilter, GYM_EXERCISE_FIELDS, GYM_MEASUREMENT_FIELDS, GYM_GALLERY_METADATA, gymReportFingerprint, gymAiContext } from "../utils/gymWeeklyReportUtils.js";
 import User from "../models/User.js";
 import { journalDayKey, journalWeekDays, parseJournalDayKey } from "../utils/journalCalendarUtils.js";
+import { reportWeekLabel, shiftReportDay } from "../../shared/journalWeeklyStats.js";
+import { groqCompletionOptions } from "../config/groq.js";
 import { buildJournalWeeklyReport, completedJournalWeeks, journalReportFingerprint, journalReportWeek } from "../utils/journalWeeklyReportUtils.js";
 import { buildTodoWeeklyReport, completedTodoWeeks, todoReportWeek, todoReportFilter, TODO_REPORT_FIELDS, todoReportFingerprint, todoAiContext } from "../utils/todoWeeklyReportUtils.js";
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = "llama-3.3-70b-versatile";
 const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 15_000);
 
 async function requestGroqSummary(apiKey, systemPrompt, userMessage) {
@@ -38,13 +39,11 @@ async function requestGroqSummary(apiKey, systemPrompt, userMessage) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: GROQ_MODEL,
+        ...groqCompletionOptions({ temperature: 0.72, maxTokens: 200 }),
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
         ],
-        max_tokens: 200,
-        temperature: 0.72,
       }),
       signal: controller.signal,
     });
@@ -101,11 +100,6 @@ function getWeekDayKeys(weekStart) {
   });
 }
 
-function formatWeekLabel(weekStart, weekEnd) {
-  const opts = { month: "short", day: "numeric", timeZone: "UTC" };
-  return `${weekStart.toLocaleDateString("en-US", opts)} - ${weekEnd.toLocaleDateString("en-US", opts)}`;
-}
-
 // Calculate longest streak of consecutive days in a set
 function longestConsecutiveStreak(activeDayKeys, weekDays) {
   let best = 0;
@@ -142,21 +136,13 @@ function getWeekStartDayKey(dayKey) {
 export const getWeeksList = (_req, res) => {
   try {
     const weeks = [];
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    const dow = today.getUTCDay();
-    const toMonday = dow === 0 ? -6 : 1 - dow;
-    const thisMonday = new Date(today);
-    thisMonday.setUTCDate(today.getUTCDate() + toMonday);
+    const thisMonday = journalWeekDays()[0];
 
     for (let i = 0; i < 12; i++) {
-      const weekStart = new Date(thisMonday);
-      weekStart.setUTCDate(thisMonday.getUTCDate() - i * 7);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+      const days = journalWeekDays(shiftReportDay(thisMonday, -i * 7));
       weeks.push({
-        id: toDayKey(weekStart),
-        date: formatWeekLabel(weekStart, weekEnd),
+        id: days[0],
+        date: reportWeekLabel(days),
       });
     }
     res.json(weeks);

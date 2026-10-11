@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useGymEnvironment } from "./gymContext";
 import { useGymApi } from "./useGymData";
 import { gymStorageKey } from "./gymUtils";
+import { gymRevision } from "./gymResponse";
 import { formatGoalTime } from "../goal/goalUtils";
 import GymNotice from "./GymNotice";
 
@@ -413,10 +414,15 @@ function SaveBtn({ label, selectedDay, onClick, disabled }) {
 
 /* ── Main Component ──────────────────────────────────────── */
 export default function DietChart() {
-  const { isDemoMode, userId, diets, setDiets, guard } = useGymEnvironment();
+  const { isDemoMode, userId, diets, setDiets, guard, blockWrites } = useGymEnvironment();
   const api = useGymApi();
   const draftKey = gymStorageKey(userId, "diet-draft");
   const draftCache = useMemo(() => isDemoMode ? null : loadDietDraftCache(draftKey), [draftKey, isDemoMode]);
+  const [editingRevisions, setEditingRevisions] = useState(() => draftCache?.editingRevisions || {});
+  useEffect(() => {
+    const cachedIds = [draftCache?.editingDietId, draftCache?.editingWnId, draftCache?.editingSuppId, draftCache?.editingMacroId].filter(Boolean);
+    if (cachedIds.some(id => typeof draftCache?.editingRevisions?.[id]?.expectedUpdatedAt !== "string")) blockWrites("This older diet edit draft has no saved revision. Reload Gym before editing so it cannot overwrite newer data.");
+  }, [draftCache, blockWrites]);
   const setTypePlans = (planType, updater) => setDiets(previous => {
     const current = previous.filter(plan => plan.planType === planType).map(stripPlanType);
     const next = typeof updater === "function" ? updater(current) : updater;
@@ -513,6 +519,7 @@ export default function DietChart() {
   useEffect(() => {
     if (isDemoMode) return;
     persistDietDraftCache(draftKey, {
+      editingRevisions,
       editingDietId, editingWnId, editingSuppId, editingMacroId,
       selectedDietDay,
       meals,
@@ -527,7 +534,7 @@ export default function DietChart() {
       macros
     });
   }, [
-    isDemoMode, draftKey, editingDietId, editingWnId, editingSuppId, editingMacroId,
+    isDemoMode, draftKey, editingRevisions, editingDietId, editingWnId, editingSuppId, editingMacroId,
     selectedDietDay, meals, mealInputs,
     selectedWnDay, workoutMeals, workoutInputs,
     selectedSuppDay, suppItems, suppInput,
@@ -595,6 +602,7 @@ export default function DietChart() {
 
   /* ── Diet handlers ── */
   const startEditDiet = (plan) => {
+    setEditingRevisions(previous => ({ ...previous, [plan.id]: gymRevision(plan) }));
     const nextMeals = Object.fromEntries(
       MEAL_SECTIONS.map(({ key }) => [key, (plan.meals?.[key] || []).map((item) => ({ ...item }))])
     );
@@ -634,7 +642,7 @@ export default function DietChart() {
     } else {
       try {
         const request = editingDietId
-        ? api.patch(`/gym/diet-plans/${editingDietId}`, payload)
+        ? api.patch(`/gym/diet-plans/${editingDietId}`, { ...editingRevisions[editingDietId], ...payload })
         : api.post("/gym/diet-plans", payload);
         const { data } = await request;
         const saved = stripPlanType(data);
@@ -657,6 +665,7 @@ export default function DietChart() {
 
   /* ── Workout Nutrition handlers ── */
   const startEditWn = (plan) => {
+    setEditingRevisions(previous => ({ ...previous, [plan.id]: gymRevision(plan) }));
     const nextMeals = Object.fromEntries(
       WORKOUT_SECTIONS.map(({ key }) => [key, (plan.meals?.[key] || []).map((item) => ({ ...item }))])
     );
@@ -696,7 +705,7 @@ export default function DietChart() {
     } else {
       try {
         const request = editingWnId
-        ? api.patch(`/gym/diet-plans/${editingWnId}`, payload)
+        ? api.patch(`/gym/diet-plans/${editingWnId}`, { ...editingRevisions[editingWnId], ...payload })
         : api.post("/gym/diet-plans", payload);
         const { data } = await request;
         const saved = stripPlanType(data);
@@ -719,6 +728,7 @@ export default function DietChart() {
 
   /* ── Supplement handlers ── */
   const startEditSupp = (plan) => {
+    setEditingRevisions(previous => ({ ...previous, [plan.id]: gymRevision(plan) }));
     setSuppItems((plan.items || []).map((item) => ({ ...item })));
     setSuppInput({ name: "", time: "" });
     setSelectedSuppDay(plan.day || "");
@@ -772,7 +782,7 @@ export default function DietChart() {
     } else {
       try {
         const request = editingSuppId
-        ? api.patch(`/gym/diet-plans/${editingSuppId}`, payload)
+        ? api.patch(`/gym/diet-plans/${editingSuppId}`, { ...editingRevisions[editingSuppId], ...payload })
         : api.post("/gym/diet-plans", payload);
         const { data } = await request;
         const saved = stripPlanType(data);
@@ -797,6 +807,7 @@ export default function DietChart() {
 
   /* ── Macro handlers ── */
   const startEditMacro = (plan) => {
+    setEditingRevisions(previous => ({ ...previous, [plan.id]: gymRevision(plan) }));
     setMacros({ ...BLANK_MACROS, ...(plan.values || {}) });
     setSelectedMacroDay(plan.day || "");
     setEditingMacroId(plan.id);
@@ -831,7 +842,7 @@ export default function DietChart() {
     } else {
       try {
         const request = editingMacroId
-        ? api.patch(`/gym/diet-plans/${editingMacroId}`, payload)
+        ? api.patch(`/gym/diet-plans/${editingMacroId}`, { ...editingRevisions[editingMacroId], ...payload })
         : api.post("/gym/diet-plans", payload);
         const { data } = await request;
         const saved = stripPlanType(data);

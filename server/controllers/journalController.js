@@ -104,6 +104,7 @@ const normalizeTime = (value, fieldName) => {
 
 const normalizeScore = (value, fieldName, fallback = 50) => {
   if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value !== "number" && typeof value !== "string") throw new Error(`${fieldName} must be a numeric score`);
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 1 || parsed > 100) {
     throw new Error(`${fieldName} must be between 1 and 100`);
@@ -120,6 +121,7 @@ const normalizeText = (value, maxLen = 5000) => {
 const normalizeStringArray = (value, maxItemLen = 400) => {
   if (value === null || value === undefined) return [];
   if (!Array.isArray(value)) throw new Error("Expected an array");
+  if (!value.every(item => typeof item === "string")) throw new Error("Reflection lists must contain text only");
   return value
     .map((item) => (typeof item === "string" ? item.trim() : ""))
     .filter(Boolean)
@@ -132,6 +134,7 @@ const normalizeCustomFields = (value) => {
 
   const normalized = [];
   for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("Invalid custom field");
     const title = normalizeText(item?.title || "", 120);
     const answer = normalizeText(item?.answer || "", 5000);
     const description = normalizeText(item?.description || "", 400);
@@ -150,6 +153,7 @@ const normalizeCustomFieldTemplates = (value) => {
 
   const normalized = [];
   for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("Invalid custom field template");
     const title = normalizeText(item?.title || "", 120);
     if (!title) continue;
     const description = normalizeText(item?.description || "", 400);
@@ -167,6 +171,7 @@ const buildJournalPayload = (body) => {
   payload.content = payload.summary;
 
   const normalizedMood = normalizeMood(body.mood);
+  if (body.mood !== undefined && !normalizedMood) throw new Error("Invalid mood value");
   if (normalizedMood) payload.mood = normalizedMood;
 
   payload.wakeUpTime = normalizeTime(body.wakeUpTime, "wakeUpTime");
@@ -268,14 +273,25 @@ const toSafePagination = (value, fallback, min, max) => {
 
 // Create journal entry for a day (upsert by dayKey).
 export const createJournalEntry = async (req, res) => {
+  let persistenceStarted = false;
   try {
+    const todayKey = toDayKey(new Date());
+    if (req.body.expectedDayKey !== undefined) {
+      if (typeof req.body.expectedDayKey !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(req.body.expectedDayKey)
+        || !parseDateInput(req.body.expectedDayKey)) return res.status(400).json({ message: "expectedDayKey must be a valid YYYY-MM-DD date" });
+      if (req.body.expectedDayKey !== todayKey) return res.status(409).json({ message: "The journal day has changed. Reload today's journal before saving this draft.", date: todayKey, timezone: APP_TIMEZONE });
+    }
     const parsedDate = parseDateInput(req.body.date);
     if (req.body.date !== undefined && !parsedDate) {
       return res.status(400).json({ message: "Valid date is required" });
     }
     const inputDate = parsedDate || new Date();
     const dayKey = toDayKey(inputDate);
-    const todayKey = toDayKey(new Date());
+    const guardedSave = Object.prototype.hasOwnProperty.call(req.body, "expectedUpdatedAt");
+    const expectedUpdatedAt = req.body.expectedUpdatedAt;
+    if (guardedSave && expectedUpdatedAt !== null && (typeof expectedUpdatedAt !== "string" || !Number.isFinite(Date.parse(expectedUpdatedAt)))) {
+      return res.status(400).json({ message: "expectedUpdatedAt must be null or a valid timestamp" });
+    }
     const payload = buildJournalPayload(req.body);
 
     if (!payload.mood && !hasMeaningfulContent(payload)) {
@@ -292,9 +308,22 @@ export const createJournalEntry = async (req, res) => {
     if (!payload.mood) payload.mood = "Neutral";
 
     const entryDate = getStartOfDay(inputDate);
+    persistenceStarted = true;
 
-    const existing = await Journal.findOne({ userId: req.user.id, dayKey });
+    const existing = await Journal.findOne({ userId: req.user.id, dayKey })
+      || await Journal.findOne({ userId: req.user.id, dayKey: { $exists: false }, date: { $gte: entryDate, $lt: addCalendarDays(entryDate, 1) } });
+    if (guardedSave && ((existing && expectedUpdatedAt === null) || (!existing && expectedUpdatedAt !== null))) {
+      return res.status(409).json({ message: "Today's journal changed in another request. Reload it before saving to avoid overwriting newer work." });
+    }
     if (existing) {
+      if (guardedSave) {
+        const updated = await Journal.findOneAndUpdate({ _id: existing._id, userId: req.user.id,
+          dayKey: existing.dayKey === undefined ? { $exists: false } : dayKey, updatedAt: new Date(expectedUpdatedAt) },
+          { $set: { ...payload, date: entryDate, dayKey, updatedAt: new Date(Math.max(Date.now(), Date.parse(expectedUpdatedAt) + 1)) } },
+          { new: true, runValidators: true, timestamps: false });
+        if (!updated) return res.status(409).json({ message: "Today's journal changed in another request. Reload it before saving to avoid overwriting newer work." });
+        return res.json(updated);
+      }
       Object.assign(existing, payload, { date: entryDate, dayKey });
       await existing.save();
       return res.status(200).json(existing);
@@ -312,6 +341,7 @@ export const createJournalEntry = async (req, res) => {
     } catch (createError) {
       // If two requests race for the same day, recover by updating the winning document.
       if (createError?.code === 11000) {
+        if (guardedSave) return res.status(409).json({ message: "Today's journal was saved by another request. Reload it before editing." });
         const winner = await Journal.findOne({ userId: req.user.id, dayKey });
         if (winner) {
           Object.assign(winner, payload, { date: entryDate, dayKey });
@@ -322,6 +352,9 @@ export const createJournalEntry = async (req, res) => {
       throw createError;
     }
   } catch (error) {
+    if (error?.code === 11000) return res.status(409).json({ message: "Today's journal changed in another request. Reload it before saving." });
+    if (error?.name === "ValidationError" || error?.name === "CastError") return res.status(400).json({ message: "Invalid journal values. Please check your answers." });
+    if (persistenceStarted) return res.status(503).json({ message: "Your save could not be confirmed. Reload today's journal to check it before trying again." });
     return res.status(400).json({ message: error.message || "Invalid journal payload" });
   }
 };
@@ -486,15 +519,18 @@ export const getJournalSummary = async (req, res) => {
     const weekStart = new Date(today);
     weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7));
 
-    const [todayEntry, weekEntries, totalEntries, moodStats, loggedDaysAgg] = await Promise.all([
-      Journal.findOne({ userId: req.user.id, dayKey: todayKey }).select("_id dayKey"),
+    const [todayEntry, rawWeekEntries, totalEntries, moodStats, loggedDaysAgg] = await Promise.all([
+      Journal.findOne({ userId: req.user.id, $or: [
+        { dayKey: todayKey },
+        { dayKey: { $exists: false }, date: { $gte: today, $lt: addCalendarDays(today, 1) } }
+      ] }).select("_id dayKey"),
       Journal.find({
         userId: req.user.id,
         $or: [
           { dayKey: { $gte: toDayKey(weekStart), $lte: todayKey } },
           { dayKey: { $exists: false }, date: { $gte: weekStart, $lt: addCalendarDays(today, 1) } }
         ]
-      }).select("achievement wins mistakes energyLevel overallRating mood"),
+      }).select("dayKey date updatedAt achievement wins mistakes energyLevel overallRating mood"),
       Journal.countDocuments({ userId: req.user.id }),
       Journal.aggregate([
         { $match: { userId: new mongoose.Types.ObjectId(req.user.id) } },
@@ -524,6 +560,16 @@ export const getJournalSummary = async (req, res) => {
       ])
     ]);
 
+    // Legacy duplicate documents must not create more than seven logged days.
+    const weekByDay = new Map();
+    for (const entry of rawWeekEntries) {
+      const day = entry.dayKey || (entry.date ? toDayKey(entry.date) : "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !parseDateInput(day) || day < toDayKey(weekStart) || day > todayKey) continue;
+      const old = weekByDay.get(day);
+      const stamp = row => Date.parse(row.updatedAt || row.date || "") || 0;
+      if (!old || stamp(entry) >= stamp(old)) weekByDay.set(day, entry);
+    }
+    const weekEntries = [...weekByDay.values()];
     const achievementsThisWeek = weekEntries.reduce(
       (sum, entry) => sum + (Array.isArray(entry.achievement) ? entry.achievement.length : 0),
       0
@@ -550,9 +596,9 @@ export const getJournalSummary = async (req, res) => {
     const topMoodThisWeek = [...weekMoodCounts.entries()]
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
 
-    const loggedDays = loggedDaysAgg
+    const loggedDays = [...new Set(loggedDaysAgg
       .map((item) => String(item?._id || ""))
-      .filter(Boolean);
+      .filter(day => /^\d{4}-\d{2}-\d{2}$/.test(day) && parseDateInput(day) && day <= todayKey))].sort();
     const loggedDaySet = new Set(loggedDays);
     let currentStreakDays = 0;
     let cursor = getStartOfDay(today);
@@ -577,6 +623,7 @@ export const getJournalSummary = async (req, res) => {
     return res.json({
       date: todayKey,
       timezone: APP_TIMEZONE,
+      serverNow: new Date().toISOString(),
       todayLogged: Boolean(todayEntry),
       daysThisWeek: weekEntries.length,
       achievementsThisWeek,
@@ -614,10 +661,10 @@ export const getJournalHeatmap = async (req, res) => {
     const userId = new mongoose.Types.ObjectId(req.user.id);
     const { year } = req.query;
 
-    const parsedYear = Number.parseInt(year, 10);
-    const hasYearFilter = Number.isFinite(parsedYear);
+    const parsedYear = Number(year);
+    const hasYearFilter = year !== undefined;
 
-    if (year !== undefined && !hasYearFilter) {
+    if (hasYearFilter && ((typeof year !== "string" && typeof year !== "number") || !/^\d{4}$/.test(String(year)) || !Number.isInteger(parsedYear))) {
       return res.status(400).json({ message: "Year must be a valid number" });
     }
     if (hasYearFilter && (parsedYear < 1970 || parsedYear > 3000)) {
@@ -705,6 +752,9 @@ export const getJournalHeatmap = async (req, res) => {
       values,
       years,
       totalSubmittedDays: values.length,
+      date: toDayKey(new Date()),
+      timezone: APP_TIMEZONE,
+      serverNow: new Date().toISOString(),
       totalEntries: byDay.reduce((sum, item) => sum + (Number(item.entries) || 0), 0)
     });
   } catch (error) {

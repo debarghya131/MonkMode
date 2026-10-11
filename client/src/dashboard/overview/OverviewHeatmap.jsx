@@ -3,13 +3,12 @@ import "react-calendar-heatmap/dist/styles.css";
 import { motion as Motion } from "framer-motion";
 import { cloneElement, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import api from "../../api/axios";
+import useDashboardRead from "../useDashboardRead";
+import { heatmapValidators, OVERVIEW_EVENTS, toCalendarHeatmapValues } from "./overviewResponse";
 import useAuth from "../../hooks/useAuth";
 import "./overview-heatmap.css";
 
-const TODAY = new Date();
-const CURRENT_YEAR = TODAY.getFullYear();
-const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const EMPTY_VALUES = [];
 
 const demoSeries = (seed, year, density = 0.18) => {
   const values = [];
@@ -26,7 +25,7 @@ const demoSeries = (seed, year, density = 0.18) => {
     const monthBoost = month >= 1 && month <= 3 ? 1.18 : month >= 8 && month <= 10 ? 0.9 : 1;
     if (next() < density * monthBoost) {
       values.push({
-        date: day.toISOString().slice(0, 10),
+        date: `${year}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`,
         count: Math.min(4, 1 + Math.floor(next() * 4)),
       });
     }
@@ -103,7 +102,7 @@ const HEATMAP_SECTIONS = [
   { id: "gym", label: "GYM", scale: "heatmap-amber", seed: 29, density: 0.19 },
 ];
 
-function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) {
+function HeatmapCard({ sectionId, label, scale, values, year, resource, binary = false }) {
   const total = binary
     ? values.reduce((sum, value) => sum + (value.count > 0 ? 1 : 0), 0)
     : sectionId === "todo" || sectionId === "habit" || sectionId === "goal" || sectionId === "gym"
@@ -145,12 +144,13 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
 
   const describeValue = (value) => {
     if (!value) return "";
+    const day = value.dayKey ?? value.date;
     if (binary) {
       if (!value.count) return "";
       const entryCount = value.entries || 1;
       return entryCount > 1
-        ? `${value.date}: Journal submitted (${entryCount} entries)`
-        : `${value.date}: Journal submitted`;
+        ? `${day}: Journal submitted (${entryCount} entries)`
+        : `${day}: Journal submitted`;
     }
     if (sectionId === "todo") {
       const completed = Number(value.completed) || 0;
@@ -158,22 +158,22 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
       const missed = Number(value.missed) || 0;
       if (totalTasks > 0) {
         return missed > 0
-          ? `${value.date}: ${completed}/${totalTasks} completed, ${missed} missed`
-          : `${value.date}: ${completed}/${totalTasks} completed`;
+          ? `${day}: ${completed}/${totalTasks} completed, ${missed} missed`
+          : `${day}: ${completed}/${totalTasks} completed`;
       }
     }
     if (sectionId === "habit") {
       const completed = Number(value.completed) || 0;
       const totalHabits = Number(value.total) || 0;
       if (totalHabits > 0) {
-        return `${value.date}: ${completed}/${totalHabits} habits completed`;
+        return `${day}: ${completed}/${totalHabits} habits completed`;
       }
     }
     if (sectionId === "goal") {
       const completedSubgoals = Number(value.completedSubgoals) || 0;
       return completedSubgoals === 1
-        ? `${value.date}: 1 sub-goal done`
-        : `${value.date}: ${completedSubgoals} sub-goals done`;
+        ? `${day}: 1 sub-goal done`
+        : `${day}: ${completedSubgoals} sub-goals done`;
     }
     if (sectionId === "gym") {
       const parts = [];
@@ -183,11 +183,11 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
       if (ex   > 0) parts.push(`${ex} workout update${ex > 1 ? "s" : ""}`);
       if (meas > 0) parts.push(`${meas} measurement update${meas > 1 ? "s" : ""}`);
       if (gal  > 0) parts.push(`${gal} gallery update${gal > 1 ? "s" : ""}`);
-      if (parts.length) return `${value.date}: ${parts.join(", ")}`;
+      if (parts.length) return `${day}: ${parts.join(", ")}`;
       const updates = Number(value.updates) || 0;
-      return updates > 0 ? `${value.date}: ${updates} gym activit${updates > 1 ? "ies" : "y"}` : value.date;
+      return updates > 0 ? `${day}: ${updates} gym activit${updates > 1 ? "ies" : "y"}` : day;
     }
-    return `${value.date}: ${value.count}`;
+    return `${day}: ${value.count}`;
   };
   const showTooltip = (event, value) => {
     const text = describeValue(value);
@@ -205,8 +205,10 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
       below,
     });
   };
-  const startDate = new Date(year, 0, 1);
+  // This library excludes startDate and includes endDate.
+  const startDate = new Date(year - 1, 11, 31);
   const endDate = new Date(year, 11, 31);
+  const calendarValues = useMemo(() => toCalendarHeatmapValues(values), [values]);
 
   return (
     <Motion.div
@@ -216,14 +218,19 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
     >
       <div className="overview-heatmap-card-header mb-1 flex shrink-0 flex-col gap-1 px-1.5 pt-1 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 sm:tracking-[0.16em]">{label}</p>
-        <span className="text-[10px] text-stone-500">{total} contributions</span>
+        <span className="text-[10px] text-stone-500">{resource && !resource.data ? "—" : total} contributions</span>
       </div>
+      {resource?.loading && <p role="status" className="px-2 text-[10px] text-stone-400">Loading {label} heatmap…</p>}
+      {resource?.error && <div className="px-2 text-[10px] text-rose-200">
+        <p role="alert">{resource.error}{resource.data ? " Showing last loaded values." : ""}</p>
+        <button type="button" onClick={resource.retry} className="text-amber-200">Retry {label} heatmap</button>
+      </div>}
       <div className="overview-heatmap journal-scroll min-h-0 w-full flex-1 overflow-x-auto overflow-y-hidden" tabIndex={0} role="region" aria-label={`${label} activity for ${year}, scroll to see all months`}>
         <div className="overview-heatmap-canvas h-full min-w-[38rem] sm:min-w-[44rem] lg:min-w-0 lg:w-full">
           <CalendarHeatmap
             startDate={startDate}
             endDate={endDate}
-            values={values}
+            values={calendarValues}
             showMonthLabels
             showWeekdayLabels={false}
             gutterSize={1}
@@ -237,6 +244,17 @@ function HeatmapCard({ sectionId, label, scale, values, year, binary = false }) 
             transformDayElement={(element, value) => cloneElement(element, {
               "aria-label": describeValue(value) || undefined,
               "aria-describedby": tooltip && tooltip.date === value?.date ? tooltipId : undefined,
+              tabIndex: value?.count > 0 ? 0 : undefined,
+              role: value?.count > 0 ? "button" : undefined,
+              onFocus: event => {
+                if (!value?.count) return;
+                setSelectedDay(value);
+                const bounds = event.currentTarget.getBoundingClientRect();
+                showTooltip({ clientX: bounds.left, clientY: bounds.bottom }, value);
+              },
+              onKeyDown: event => {
+                if (value?.count > 0 && ["Enter", " "].includes(event.key)) { event.preventDefault(); setSelectedDay(value); }
+              },
             }, null)}
             onClick={setSelectedDay}
           />
@@ -337,276 +355,24 @@ function YearPicker({ selectedYear, yearOptions, onChange }) {
 }
 
 export default function OverviewHeatmap() {
-  const { isDemoMode } = useAuth();
-  const [gymAllValues, setGymAllValues] = useState([]);
-  const [gymYears, setGymYears] = useState([]);
-  const [journalAllValues, setJournalAllValues] = useState([]);
-  const [journalYears, setJournalYears] = useState([]);
-  const [todoAllValues, setTodoAllValues] = useState([]);
-  const [todoYears, setTodoYears] = useState([]);
-  const [habitAllValues, setHabitAllValues] = useState([]);
-  const [habitYears, setHabitYears] = useState([]);
-  const [goalAllValues, setGoalAllValues] = useState([]);
-  const [goalYears, setGoalYears] = useState([]);
-  const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
 
-  useEffect(() => {
-    if (isDemoMode) return;
-    let isMounted = true;
-
-    const fetchJournalHeatmap = async () => {
-      try {
-        const { data } = await api.get("/journal/heatmap");
-        if (!isMounted) return;
-
-        const values = Array.isArray(data?.values)
-          ? data.values
-              .filter((item) => ISO_DATE_REGEX.test(String(item?.date || "")))
-              .map((item) => ({
-                date: String(item.date),
-                count: Number(item.count) > 0 ? Number(item.count) : 0,
-                entries: Number(item.entries) > 0 ? Number(item.entries) : 0,
-              }))
-          : [];
-
-        const years = Array.isArray(data?.years)
-          ? data.years
-              .map((year) => Number.parseInt(String(year), 10))
-              .filter((year) => Number.isFinite(year))
-          : [];
-
-        setJournalAllValues(values);
-        setJournalYears(years);
-      } catch {
-        if (!isMounted) return;
-        setJournalAllValues([]);
-        setJournalYears([]);
-      }
-    };
-
-    fetchJournalHeatmap();
-    window.addEventListener("focus", fetchJournalHeatmap);
-    window.addEventListener("monkmode:journal-logged-days-updated", fetchJournalHeatmap);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener("focus", fetchJournalHeatmap);
-      window.removeEventListener("monkmode:journal-logged-days-updated", fetchJournalHeatmap);
-    };
-  }, [isDemoMode]);
-
-  useEffect(() => {
-    if (isDemoMode) return;
-    let isMounted = true;
-
-    const fetchHabitHeatmap = async () => {
-      try {
-        const { data } = await api.get("/habits/heatmap");
-        if (!isMounted) return;
-
-        const values = Array.isArray(data?.values)
-          ? data.values
-              .filter((item) => ISO_DATE_REGEX.test(String(item?.date || "")))
-              .map((item) => {
-                const completed = Math.max(0, Number(item.completed) || 0);
-                const rawCount = Math.max(0, Number(item.count) || 0);
-                return {
-                  date: String(item.date),
-                  count: completed > 0 ? Math.min(4, Math.max(1, rawCount || completed)) : 0,
-                  total: Math.max(0, Number(item.total) || 0),
-                  completed,
-                  missed: Math.max(0, Number(item.missed) || 0),
-                  pending: Math.max(0, Number(item.pending) || 0),
-                };
-              })
-          : [];
-
-        const years = Array.isArray(data?.years)
-          ? data.years
-              .map((year) => Number.parseInt(String(year), 10))
-              .filter((year) => Number.isFinite(year))
-          : [];
-
-        setHabitAllValues(values);
-        setHabitYears(years);
-      } catch {
-        if (!isMounted) return;
-        setHabitAllValues([]);
-        setHabitYears([]);
-      }
-    };
-
-    fetchHabitHeatmap();
-    window.addEventListener("focus", fetchHabitHeatmap);
-    window.addEventListener("monkmode:habits-updated", fetchHabitHeatmap);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener("focus", fetchHabitHeatmap);
-      window.removeEventListener("monkmode:habits-updated", fetchHabitHeatmap);
-    };
-  }, [isDemoMode]);
-
-  useEffect(() => {
-    if (isDemoMode) return;
-    let isMounted = true;
-
-    const fetchGymHeatmap = async () => {
-      try {
-        const { data } = await api.get("/gym/heatmap");
-        if (!isMounted) return;
-
-        const values = Array.isArray(data?.values)
-          ? data.values
-              .filter((item) => ISO_DATE_REGEX.test(String(item?.date || "")))
-              .map((item) => {
-                const completedProgress = Math.max(0, Number(item.completedProgress) || 0);
-                const rawCount = Math.max(0, Number(item.count) || 0);
-                return {
-                  date: String(item.date),
-                  count: completedProgress > 0 ? Math.min(4, Math.max(1, rawCount || completedProgress)) : 0,
-                  updates: Math.max(0, Number(item.updates) || 0),
-                  exercises: Math.max(0, Number(item.exercises) || 0),
-                  measurement: Math.max(0, Number(item.measurement) || 0),
-                  gallery: Math.max(0, Number(item.gallery) || 0),
-                  completedProgress,
-                };
-              })
-          : [];
-
-        const years = Array.isArray(data?.years)
-          ? data.years
-              .map((year) => Number.parseInt(String(year), 10))
-              .filter((year) => Number.isFinite(year))
-          : [];
-
-        setGymAllValues(values);
-        setGymYears(years);
-      } catch {
-        if (!isMounted) return;
-        setGymAllValues([]);
-        setGymYears([]);
-      }
-    };
-
-    fetchGymHeatmap();
-    window.addEventListener("focus", fetchGymHeatmap);
-    window.addEventListener("monkmode:gym-measurements-updated", fetchGymHeatmap);
-    window.addEventListener("monkmode:gym-gallery-updated", fetchGymHeatmap);
-    window.addEventListener("monkmode:exercise-progress-updated", fetchGymHeatmap);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener("focus", fetchGymHeatmap);
-      window.removeEventListener("monkmode:gym-measurements-updated", fetchGymHeatmap);
-      window.removeEventListener("monkmode:gym-gallery-updated", fetchGymHeatmap);
-      window.removeEventListener("monkmode:exercise-progress-updated", fetchGymHeatmap);
-    };
-  }, [isDemoMode]);
-
-  useEffect(() => {
-    if (isDemoMode) return;
-    let isMounted = true;
-
-    const fetchGoalHeatmap = async () => {
-      try {
-        const { data } = await api.get("/goals/heatmap");
-        if (!isMounted) return;
-
-        const values = Array.isArray(data?.values)
-          ? data.values
-              .filter((item) => ISO_DATE_REGEX.test(String(item?.date || "")))
-              .map((item) => {
-                const completedSubgoals = Math.max(0, Number(item.completedSubgoals) || 0);
-                const rawCount = Math.max(0, Number(item.count) || 0);
-                return {
-                  date: String(item.date),
-                  count: completedSubgoals > 0 ? Math.min(4, Math.max(1, rawCount || completedSubgoals)) : 0,
-                  completedSubgoals,
-                };
-              })
-          : [];
-
-        const years = Array.isArray(data?.years)
-          ? data.years
-              .map((year) => Number.parseInt(String(year), 10))
-              .filter((year) => Number.isFinite(year))
-          : [];
-
-        setGoalAllValues(values);
-        setGoalYears(years);
-      } catch {
-        if (!isMounted) return;
-        setGoalAllValues([]);
-        setGoalYears([]);
-      }
-    };
-
-    fetchGoalHeatmap();
-    window.addEventListener("focus", fetchGoalHeatmap);
-    window.addEventListener("monkmode:goals-updated", fetchGoalHeatmap);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener("focus", fetchGoalHeatmap);
-      window.removeEventListener("monkmode:goals-updated", fetchGoalHeatmap);
-    };
-  }, [isDemoMode]);
-
-  useEffect(() => {
-    if (isDemoMode) return;
-    let isMounted = true;
-
-    const fetchTodoHeatmap = async () => {
-      try {
-        const { data } = await api.get("/todos/heatmap");
-        if (!isMounted) return;
-
-        const values = Array.isArray(data?.values)
-          ? data.values
-              .filter((item) => ISO_DATE_REGEX.test(String(item?.date || "")))
-              .map((item) => {
-                const completed = Math.max(0, Number(item.completed) || 0);
-                const rawCount = Math.max(0, Number(item.count) || 0);
-                return {
-                  date: String(item.date),
-                  count: completed > 0 ? Math.min(4, Math.max(1, rawCount || completed)) : 0,
-                  total: Math.max(0, Number(item.total) || 0),
-                  completed,
-                  missed: Math.max(0, Number(item.missed) || 0),
-                  pending: Math.max(0, Number(item.pending) || 0),
-                };
-              })
-          : [];
-
-        const years = Array.isArray(data?.years)
-          ? data.years
-              .map((year) => Number.parseInt(String(year), 10))
-              .filter((year) => Number.isFinite(year))
-          : [];
-
-        setTodoAllValues(values);
-        setTodoYears(years);
-      } catch {
-        if (!isMounted) return;
-        setTodoAllValues([]);
-        setTodoYears([]);
-      }
-    };
-
-    fetchTodoHeatmap();
-    window.addEventListener("focus", fetchTodoHeatmap);
-    window.addEventListener("monkmode:todos-updated", fetchTodoHeatmap);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener("focus", fetchTodoHeatmap);
-      window.removeEventListener("monkmode:todos-updated", fetchTodoHeatmap);
-    };
-  }, [isDemoMode]);
+  const { isDemoMode, user } = useAuth();
+  const journalRead = useDashboardRead("/journal/heatmap", heatmapValidators.journal, OVERVIEW_EVENTS.journal, isDemoMode, user?.id);
+  const todoRead = useDashboardRead("/todos/heatmap", heatmapValidators.todo, OVERVIEW_EVENTS.tasks, isDemoMode, user?.id);
+  const habitRead = useDashboardRead("/habits/heatmap", heatmapValidators.habit, OVERVIEW_EVENTS.habits, isDemoMode, user?.id);
+  const goalRead = useDashboardRead("/goals/heatmap", heatmapValidators.goal, OVERVIEW_EVENTS.goals, isDemoMode, user?.id);
+  const gymRead = useDashboardRead("/gym/heatmap", heatmapValidators.gym, OVERVIEW_EVENTS.gym, isDemoMode, user?.id);
+  const journalAllValues = journalRead.data?.values || EMPTY_VALUES, journalYears = journalRead.data?.years || EMPTY_VALUES;
+  const todoAllValues = todoRead.data?.values || EMPTY_VALUES, todoYears = todoRead.data?.years || EMPTY_VALUES;
+  const habitAllValues = habitRead.data?.values || EMPTY_VALUES, habitYears = habitRead.data?.years || EMPTY_VALUES;
+  const goalAllValues = goalRead.data?.values || EMPTY_VALUES, goalYears = goalRead.data?.years || EMPTY_VALUES;
+  const gymAllValues = gymRead.data?.values || EMPTY_VALUES, gymYears = gymRead.data?.years || EMPTY_VALUES;
+  const currentYear = Number(journalRead.today.slice(0, 4));
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const resources = { journal: journalRead, todo: todoRead, habit: habitRead, goal: goalRead, gym: gymRead };
 
   const yearOptions = useMemo(() => {
-    const years = new Set(isDemoMode ? [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2] : [CURRENT_YEAR]);
+    const years = new Set(isDemoMode ? [currentYear, currentYear - 1, currentYear - 2] : [currentYear]);
     journalYears.forEach((year) => years.add(year));
     todoYears.forEach((year) => years.add(year));
     habitYears.forEach((year) => years.add(year));
@@ -633,8 +399,8 @@ export default function OverviewHeatmap() {
       if (Number.isFinite(year)) years.add(year);
     });
     const sorted = [...years].sort((a, b) => b - a);
-    return sorted.length ? sorted : [CURRENT_YEAR];
-  }, [goalAllValues, goalYears, gymAllValues, gymYears, habitAllValues, habitYears, isDemoMode, journalAllValues, journalYears, todoAllValues, todoYears]);
+    return sorted.length ? sorted : [currentYear];
+  }, [currentYear, goalAllValues, goalYears, gymAllValues, gymYears, habitAllValues, habitYears, isDemoMode, journalAllValues, journalYears, todoAllValues, todoYears]);
 
   useEffect(() => {
     if (!yearOptions.includes(selectedYear)) {
@@ -704,7 +470,8 @@ export default function OverviewHeatmap() {
       <div className="overview-heatmap-cards flex min-h-0 flex-1 flex-col justify-between gap-2">
         {sectionData.map((section) => (
           <HeatmapCard
-            key={`${section.id}-${selectedYear}`}
+            key={`${user?.id}-${section.id}-${selectedYear}`}
+            resource={isDemoMode ? null : resources[section.id]}
             sectionId={section.id}
             label={section.label}
             scale={section.scale}

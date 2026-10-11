@@ -1,6 +1,5 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import api from "../api/axios";
 import monkLogo from "../assets/monkmode-logo.webp";
 import { INITIAL_HABITS } from "../../data/HabitDummyData";
 import { INITIAL_TASKS } from "../../data/ToDoDummyData";
@@ -8,6 +7,7 @@ import { DEMO_OVERVIEW_STATS } from "../../data/DummyData";
 import useAuth from "../hooks/useAuth";
 import useMobileLowMotion from "../hooks/useMobileLowMotion";
 import NavbarBirdBackground from "./NavbarBirdBackground";
+import useNavbarStats from "./useNavbarStats";
 
 const formatDate = (date) => {
   return new Date(date).toLocaleDateString("en-US", {
@@ -104,7 +104,7 @@ function StreakStat({ label, value, days, suffix = "days", icon, labelClass, val
         }}
         transition={simplifyMotion ? undefined : { duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
       >
-        {displayValue}{suffix ? ` ${suffix}` : ""}{" "}
+        {displayValue ?? "—"}{displayValue != null && suffix ? ` ${suffix}` : ""}{" "}
         <span className="navbar-stat-emoji inline-block">
           {icon}
         </span>
@@ -127,66 +127,17 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
   const { isDemoMode } = useAuth();
   const lowMotion = useMobileLowMotion();
   const firstName = user?.name || "Friend";
-  const [monkStreak, setMonkStreak] = useState(0);
-  const [consistencyScore, setConsistencyScore] = useState(() => (isDemoMode ? calculateConsistencyScoreFromDemo() : 0));
-  const [journalStreak, setJournalStreak] = useState(() => (isDemoMode ? DEMO_STREAKS.journal : 0));
-  const [habitStreak, setHabitStreak] = useState(() => (isDemoMode ? DEMO_STREAKS.habit : 0));
-  const [todoStreak, setTodoStreak] = useState(() => (isDemoMode ? DEMO_STREAKS.todo : 0));
-  const [statsDayKey, setStatsDayKey] = useState(null);
+  const stats = useNavbarStats(isDemoMode, user?.id);
+  const monkStreak = isDemoMode ? 0 : stats.data?.monkStreakDays;
+  const consistencyScore = isDemoMode ? calculateConsistencyScoreFromDemo() : stats.data?.consistencyScore;
+  const journalStreak = isDemoMode ? DEMO_STREAKS.journal : stats.data?.sections.journal.currentStreakDays;
+  const habitStreak = isDemoMode ? DEMO_STREAKS.habit : stats.data?.sections.habit.fullCompletionStreakDays;
+  const todoStreak = isDemoMode ? DEMO_STREAKS.todo : stats.data?.sections.todo.fullCompletionStreakDays;
+  const monkLevel = monkStreak == null ? { label: undefined, icon: "" } : getMonkLevel(monkStreak);
   const [showMobileStats, setShowMobileStats] = useState(false);
   const [activeMobileRule, setActiveMobileRule] = useState("");
   const [animateNavbarStats, setAnimateNavbarStats] = useState(() => window.innerWidth >= 1536);
-  const currentDate = formatDate(statsDayKey ? `${statsDayKey}T12:00:00` : new Date());
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const refreshNavbarStats = async () => {
-      if (isDemoMode) {
-        setMonkStreak(0);
-        setConsistencyScore(calculateConsistencyScoreFromDemo());
-        setJournalStreak(DEMO_STREAKS.journal);
-        setHabitStreak(DEMO_STREAKS.habit);
-        setTodoStreak(DEMO_STREAKS.todo);
-        return;
-      }
-
-      try {
-        const { data } = await api.get("/insights/consistency");
-        if (cancelled) return;
-
-        const nextConsistency = Math.max(0, Math.min(100, Number(data?.consistencyScore || 0)));
-        const nextJournalStreak = Math.max(0, Number(data?.sections?.journal?.currentStreakDays || 0));
-        const nextTodoStreak = Math.max(0, Number(data?.sections?.todo?.fullCompletionStreakDays || 0));
-        const nextHabitStreak = Math.max(0, Number(data?.sections?.habit?.fullCompletionStreakDays || 0));
-
-        setJournalStreak(nextJournalStreak);
-        setTodoStreak(nextTodoStreak);
-        setHabitStreak(nextHabitStreak);
-        setConsistencyScore(nextConsistency);
-        setMonkStreak(Math.max(0, Number(data?.monkStreakDays) || 0));
-        if (/^\d{4}-\d{2}-\d{2}$/.test(data?.date || "")) setStatsDayKey(data.date);
-      } catch {
-        // keep previous values on transient failure
-      }
-    };
-
-    refreshNavbarStats();
-    window.addEventListener("storage", refreshNavbarStats);
-    window.addEventListener("focus", refreshNavbarStats);
-    window.addEventListener("monkmode:habits-updated", refreshNavbarStats);
-    window.addEventListener("monkmode:todos-updated", refreshNavbarStats);
-    window.addEventListener("monkmode:journal-logged-days-updated", refreshNavbarStats);
-
-    return () => {
-      cancelled = true;
-      window.removeEventListener("storage", refreshNavbarStats);
-      window.removeEventListener("focus", refreshNavbarStats);
-      window.removeEventListener("monkmode:habits-updated", refreshNavbarStats);
-      window.removeEventListener("monkmode:todos-updated", refreshNavbarStats);
-      window.removeEventListener("monkmode:journal-logged-days-updated", refreshNavbarStats);
-    };
-  }, [isDemoMode, user?.id]);
+  const currentDate = formatDate(isDemoMode ? new Date() : `${stats.today}T12:00:00`);
 
   useEffect(() => {
     const handleResize = () => {
@@ -326,8 +277,8 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
           <StreakStat
             {...mobileRuleProps("Level")}
             label="Level"
-            value={getMonkLevel(monkStreak).label}
-            icon={getMonkLevel(monkStreak).icon}
+            value={monkLevel.label}
+            icon={monkLevel.icon}
             suffix=""
             labelClass="text-orange-300/70"
             valueClass="text-orange-300"
@@ -424,6 +375,14 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
 
         </div>
       </div>
+      {!isDemoMode && (stats.loading || stats.error) && (
+        <div className="relative z-10 mt-2 flex flex-wrap items-center justify-end gap-2 text-xs text-stone-300">
+          <p role={stats.error ? "alert" : "status"}>
+            {stats.error ? `${stats.error}${stats.data ? " Showing last loaded values." : ""}` : "Loading header statistics…"}
+          </p>
+          {stats.error && <button type="button" onClick={stats.retry} className="rounded-lg border border-amber-200/30 px-2 py-1 text-amber-200">Retry stats</button>}
+        </div>
+      )}
     </div>
   );
 }

@@ -4,54 +4,17 @@ import cors from "cors";
 import express from "express";
 import mongoose from "mongoose";
 import { getDatabaseConfig } from "./config/database.js";
+import { createCorsOptions, corsErrorHandler } from "./config/cors.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
-const CONFIGURED_CORS_ORIGINS = (process.env.CORS_ORIGINS || "")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-const DEV_CORS_ORIGINS = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  "http://localhost:4173",
-  "http://127.0.0.1:4173",
-];
 let server;
 let isShuttingDown = false;
 
-const allowedOrigins = new Set(IS_PRODUCTION ? CONFIGURED_CORS_ORIGINS : [...DEV_CORS_ORIGINS, ...CONFIGURED_CORS_ORIGINS]);
-const isLocalDevelopmentOrigin = (origin) => {
-  if (IS_PRODUCTION) return false;
-
-  try {
-    const { hostname, protocol } = new URL(origin);
-    return protocol === "http:" && (hostname === "localhost" || hostname === "127.0.0.1");
-  } catch {
-    return false;
-  }
-};
-const corsOptions = {
-  origin(origin, callback) {
-    if (!origin) {
-      callback(null, true);
-      return;
-    }
-
-    if (allowedOrigins.has(origin) || isLocalDevelopmentOrigin(origin)) {
-      callback(null, true);
-      return;
-    }
-
-    callback(new Error("CORS origin not allowed"));
-  },
-  methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-};
-
 app.use(clerkMiddleware());
-app.use(cors(corsOptions));
+app.use(cors(createCorsOptions()));
+app.use(corsErrorHandler);
 app.use(express.json({ limit: "25mb" }));
 
 // Models

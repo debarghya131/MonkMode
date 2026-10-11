@@ -16,6 +16,8 @@ import { getInsightsSummary } from "../controllers/insightsController.js";
 import { chatWithMing, validateGuruChat, GURU_SYSTEM_PROMPT } from "../controllers/aiGuruController.js";
 import insightsRoutes from "../routes/insightsRoutes.js";
 import { createDemoGuruInsights, guruCards, guruPatterns, guruSuggestions, demoGuruReply } from "../../client/src/dashboard/ai_guru/guruPresentation.js";
+import { validGuruInsights, validGuruReply, guruFailureMessage } from "../../client/src/dashboard/ai_guru/guruResponse.js";
+import { DEFAULT_GROQ_MODEL, groqCompletionOptions } from "../config/groq.js";
 
 const USER = "000000000000000000000001", today = "2026-10-10";
 const now = Date.parse("2026-10-10T06:00:00Z");
@@ -187,7 +189,7 @@ test("chat and Insights use identical statistics; context excludes private title
 });
 for (const [label, response, expected] of [
   ["upstream quota", { ok: false, status: 429 }, 429],
-  ["upstream failure", { ok: false, status: 401 }, 502],
+  ["upstream credential failure", { ok: false, status: 401 }, 503],
   ["empty choices", { ok: true, json: async () => ({ choices: [] }) }, 502],
   ["blank answer", { ok: true, json: async () => ({ choices: [{ message: { content: " " } }] }) }, 502],
   ["invalid JSON", { ok: true, json: async () => { throw new Error("PRIVATE PROVIDER"); } }, 500],
@@ -223,4 +225,75 @@ test("Insights remains protected and read-only; chat remains POST-only behind qu
   const chat = insightsRoutes.stack.find(layer => layer.route?.path === "/chat");
   assert.ok(insightsRoutes.stack[0].handle); assert.equal(summary.route.methods.get, true);
   assert.equal(chat.route.methods.post, true); assert.ok(chat.route.stack.length > 1);
+});
+
+test("Groq defaults to the replacement model with room for reasoning and final text", t => {
+  env(t, "GROQ_MODEL", undefined);
+  assert.deepEqual(groqCompletionOptions(), { model: DEFAULT_GROQ_MODEL, temperature: 0.5,
+    max_completion_tokens: 1500, reasoning_effort: "low", include_reasoning: false });
+  assert.equal(DEFAULT_GROQ_MODEL, "openai/gpt-oss-120b");
+  assert.equal(groqCompletionOptions({ maxTokens: 200 }).max_completion_tokens, 1500);
+});
+test("Groq custom model setting is trimmed and unsupported reasoning fields are omitted", t => {
+  env(t, "GROQ_MODEL", " qwen/qwen3.8-27b ");
+  assert.deepEqual(groqCompletionOptions({ maxTokens: 400, temperature: 0.72 }), {
+    model: "qwen/qwen3.8-27b", temperature: 0.72, max_completion_tokens: 400 });
+  env(t, "GROQ_MODEL", "openai/gpt-oss-20b");
+  assert.equal(groqCompletionOptions().include_reasoning, false);
+});
+test("Ming sends configured model options and trims credentials, not secrets in context", async t => {
+  env(t, "API_KEY", " fixture-not-real "); env(t, "GROQ_MODEL", "openai/gpt-oss-120b"); fixtures(t);
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    const body = JSON.parse(options.body);
+    assert.equal(options.headers.Authorization, "Bearer fixture-not-real");
+    assert.equal(body.model, "openai/gpt-oss-120b"); assert.equal(body.max_tokens, undefined);
+    assert.equal(body.include_reasoning, false); assert.equal(body.reasoning_effort, "low");
+    return { ok: true, json: async () => ({ choices: [{ message: { content: "A next step.", reasoning: "PRIVATE REASONING" } }] }) };
+  });
+  const result = await call(chatWithMing, { body: { message: "hello" } });
+  assert.equal(result.status, 200); assert.doesNotMatch(JSON.stringify(result.body), /PRIVATE REASONING|fixture-not-real/);
+});
+for (const status of [400, 401, 403, 404, 429, 500, 503]) {
+  test(`Ming reports safe upstream ${status} errors without automatic paid retries`, async t => {
+    env(t, "API_KEY", "fixture-not-real"); fixtures(t); let requests = 0;
+    t.mock.method(globalThis, "fetch", async () => {
+      requests++; return { ok: false, status, text() { assert.fail("Do not read provider diagnostics"); } };
+    });
+    const result = await call(chatWithMing, { body: { message: "hello" } });
+    const configuration = [400, 401, 403, 404].includes(status);
+    assert.equal(result.status, configuration ? 503 : status === 429 ? 429 : 502);
+    assert.equal(result.body.retryable, !configuration); assert.equal(requests, 1);
+    assert.equal(result.body.code, configuration ? "AI_CONFIGURATION" : status === 429 ? "AI_QUOTA" : "AI_PROVIDER_UNAVAILABLE");
+    assert.equal(result.body.reply, undefined);
+  });
+}
+for (const scope of ["7d", "30d", "all"]) {
+  test(`Insights validates ${scope} populated and empty reports and rejects malformed nested data`, () => {
+    const sample = createDemoGuruInsights(scope), empty = compute({}, scope);
+    assert.equal(validGuruInsights(sample, scope), true); assert.equal(validGuruInsights(empty, scope), true);
+    for (const bad of [null, {}, { ...sample, period: { from: "2026-02-31", to: today } }, { ...sample, dataNote: {} },
+      { ...sample, timezone: "invalid" }, { ...sample, scope: "wrong" }]) assert.equal(validGuruInsights(bad, scope), false);
+    for (const [section, fields] of Object.entries(sample)) {
+      if (!["journal", "habits", "todos", "goals", "gym"].includes(section)) continue;
+      assert.equal(validGuruInsights({ ...sample, [section]: null }, scope), false);
+      for (const key of Object.keys(fields)) {
+        assert.equal(validGuruInsights({ ...sample, [section]: { ...fields, [key]: {} } }, scope), false, `${section}.${key}`);
+      }
+    }
+    const invalid = structuredClone(sample); invalid.journal.moodDistribution[0] = null;
+    assert.equal(validGuruInsights(invalid, scope), false);
+    assert.equal(validGuruInsights({ ...empty, habits: { ...empty.habits, completionRate: 0 } }, scope), false);
+    assert.equal(validGuruInsights({ ...sample, serverNow: "not a date" }, scope), false);
+  });
+}
+test("Guru chat validation rejects wrong scope/period, blank, oversized and object replies", () => {
+  const good = { reply: "A helpful reply", scope: "7d", period: { from: days[0], to: today } };
+  assert.equal(validGuruReply(good, "7d"), true);
+  for (const bad of [null, {}, { ...good, reply: {} }, { ...good, reply: " " }, { ...good, reply: "x".repeat(8001) },
+    { ...good, scope: "30d" }, { ...good, period: { from: today, to: days[0] } }]) assert.equal(validGuruReply(bad, "7d"), false);
+});
+test("Guru errors render only text, with safe fallbacks for malformed error bodies", () => {
+  for (const error of [null, {}, { response: { data: { error: {}, message: [] } } }, { response: { data: { error: 4 } } }])
+    assert.equal(guruFailureMessage(error, "Please retry"), "Please retry");
+  assert.equal(guruFailureMessage({ response: { data: { error: {}, message: "Safe text" } } }, "Fallback"), "Safe text");
 });

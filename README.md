@@ -124,7 +124,7 @@ flowchart TD
     MONGO[(MongoDB + Mongoose Models)]
     ARCJET[Arcjet]
     LOCAL_LIMIT[In-memory Rate-limit Fallback]
-    GROQ[Groq AI - Llama 3.3 70B]
+    GROQ[Groq AI - Configurable text model]
   end
 
   U --> APP
@@ -301,7 +301,7 @@ flowchart TD
   WEEKLY_LIMIT([Weekly AI Rate Limiter])
   MING_CONTEXT([Build Ming User Context])
   MING_LIMIT([AI Chat Rate Limiter])
-  GROQ[Groq - Llama 3.3 70B]
+  GROQ[Groq - Configurable text model]
 
   DOMAIN_STORE -->|current-day and historical activity| OVERVIEW
   OVERVIEW -->|cards, streaks, scores and heatmaps| DASH
@@ -1055,6 +1055,7 @@ NODE_ENV=development
 PORT=5000
 MONGO_URI=mongodb_connection_string
 API_KEY=groq_api_key
+GROQ_MODEL=openai/gpt-oss-120b
 CLERK_SECRET_KEY=clerk_secret_key
 CLERK_PUBLISHABLE_KEY=clerk_publishable_key
 CORS_ORIGINS=http://localhost:5173
@@ -1117,6 +1118,25 @@ scheduled habit completion histories. Yesterday's streak remains visible while
 today is unfinished; a genuinely missed day breaks it. All backend calendars use
 `APP_TIMEZONE` (default `Asia/Kolkata`), independent of the hosting machine's zone.
 
+The individual ToDo/Habit header streaks and section consistency summaries also
+use retained schedules and completion history, including archived/soft-deleted
+items within their eligible dates. Removing an item does not erase a historical
+miss or completed day. Days without scheduled items are not completed streak
+days. Today's completion percentages still use today's active schedules; empty
+sections contribute zero to the three-section average, not automatic credit.
+
+Header statistics show `—` while unavailable, rather than fabricated zeros or a
+Beginner level. Failed or malformed responses show **Retry stats**; a failed
+refresh preserves same-account, same-day values with a visible warning. Account
+changes hide previous values immediately and abort pending reads. Latest-request
+guards prevent stale responses; app-day rollover refreshes within 30 seconds,
+with additional refresh on focus and Journal/ToDo/Habit changes. Demo values stay
+local and never call this endpoint. The response includes `serverNow` for clock
+alignment; older valid responses without it use the returned timezone only.
+Redeploy frontend and backend together for these fixes. No database migration,
+record changes or environment-secret changes are needed; historical records
+already hard-deleted or expired cannot be recovered by this code change.
+
 Habit completions, goal progress, todo activity and workout-plan logs no longer
 expire. Existing databases may still contain their old 30-day TTL indexes:
 changing schemas alone does **not** remove them. From
@@ -1168,6 +1188,34 @@ can override it). Failures retain the typed reason and offer retries. These fixe
 do not copy, rewrite, or delete existing journal records. `npm test` includes the
 Journal calendar, validation, user-scope and client-date utility regressions.
 
+### Overview and Journal production checks
+
+Deploy both the frontend and backend to activate these fixes. Overview validates
+each summary and heatmap before displaying it. Failed or malformed responses show
+unavailable values (`—`) and a retry, rather than invented zero activity. Refresh
+failures retain last-loaded values with a warning; account changes abort requests
+and clear the previous account's data. Reads refresh on focus, feature updates,
+and app-day rollover (checked every 30 seconds). Heatmaps include January 1 and
+preserve calendar dates across browser timezones, with keyboard-accessible cells.
+
+Journal validates today's entries, summary, templates, paginated history and
+missed-day responses. Unknown historical energy/rating values remain unknown;
+recorded zeros are preserved. The wizard sends `expectedDayKey` and
+`expectedUpdatedAt` with saves: a changed day or stale revision returns `409`
+instead of overwriting newer work. The revision check is atomic; a null revision
+means create-only. Guard fields are optional for older clients, so deploy the
+updated wizard as well as the backend. Existing date-only records can be adopted
+on an explicit same-day edit without inserting a duplicate.
+
+Unconfirmed saves require a reload before retrying. Successful saves remain
+successful when secondary statistics/template requests fail. Reusable custom
+field templates synchronize after submission, not while adding/removing draft
+fields. No new environment variables or database migration are required.
+`server/tests/overviewJournalHardening.test.js` covers these guards, owner
+isolation, legacy records, validation, and calendar/DST handling. Automated
+fixtures and read-only database checks do not replace a signed-in smoke test
+after deploying to Vercel and Render.
+
 ### Todo reliability (Today, Upcoming, Schedule and Important)
 
 Deploy the client and backend together: the client now loads account preferences
@@ -1181,7 +1229,9 @@ Re-star any desired browser-only custom categories once in Schedule.
 The four tabs share one task snapshot and the backend timezone/server clock.
 Today updates missed status as time passes; Upcoming derives its six dates from
 the same schedules instead of issuing six duplicate task queries. Focus, task
-updates and background refresh keep data current. Failed loads/actions show
+updates, 15-second app-day checks and background refresh keep data current. Task,
+summary, category-setting, activity-log and write responses are validated before
+displaying or accepting them. Failed loads/actions show
 errors and retries without pretending the task list is empty. Account changes
 clear task, editor, category and request state. Demo samples stay read-only and
 never call protected Todo APIs.
@@ -1192,6 +1242,29 @@ backdated tasks are rejected. Completion uses an explicit status, with per-task
 request locks and no whole-list rollback. Schedule disables repeat submissions,
 retains failed form drafts and supports calendar previews by hover, focus or tap.
 Opening Schedule no longer writes synthetic "ended" audit records.
+
+Reads no longer persist due time/weekday changes. They project those changes for
+the requested calendar day; actual mutations materialize due changes only in
+their final save, after validation. This avoids read/write races during parallel
+dashboard refreshes. Rescheduling an unstarted task into the past or an elapsed
+time is rejected. Repeating an explicit completion request preserves the original
+completion time and late flag rather than replacing them after its deadline.
+
+The client sends `expectedUpdatedAt` for task edits, status changes, deletion and
+restoration. The backend's atomic save checks both owner and revision and advances
+the revision even for writes in the same millisecond. An editor retains the
+revision it originally opened, even if a background read loads a newer task.
+Conflicts and unconfirmed writes require reloading before another attempt;
+Schedule retains the draft until the user explicitly replaces it by reloading.
+Legacy callers without a revision remain compatible but are not stale-edit
+protected. Deploy both sides to enable that protection in the UI.
+
+Failed category-setting writes keep the local draft across background reads;
+Retry resubmits that draft. Limits include built-in categories (100 total names,
+80 characters each), so saved settings remain safe to load and resave. Activity
+log limits and manually submitted date/time/action values are validated; linked
+task IDs must belong to the signed-in account. Database failures return safe
+messages without internal connection details.
 
 If an audit log fails after a task write, the response reports success with an
 activity-log warning rather than encouraging a duplicate retry. Deletion remains
@@ -1229,6 +1302,32 @@ with no future completion ticks.
 These changes need no data migration or database-record rewrites. `npm test` includes
 isolated Habit regressions; frontend checks are `npm run lint` and `npm run build`.
 
+Habit lists, tracking, history years, statistics and save acknowledgements are
+validated before reaching UI state. Malformed successful responses are treated as
+unconfirmed changes, not successful saves. Reads have timeouts and cancel older
+requests; failed refreshes retain the last confirmed snapshot. Uncertain writes
+block further changes until an explicit successful reload. Create/Edit keep the
+draft; their reload button clearly warns that it replaces the draft.
+
+Edits, deletion, restoration and Important updates send `expectedUpdatedAt`.
+The backend atomically checks ownership and revision, returns `409` on conflicts,
+and advances timestamps even for same-millisecond changes. Editors retain their
+original revision across background refreshes. Legacy callers without a revision
+remain compatible but do not receive stale-edit protection. Deploy both sides.
+
+Habit GET endpoints no longer save deferred changes or append automatic ended
+logs. Effective time/day changes are resolved for the relevant calendar date;
+the next explicit edit can materialize due changes. New habits cannot be backdated,
+started dates cannot be cleared, and fixed 7/21-day schedules have inclusive end
+dates enforced by the backend. Typed completion acknowledgements include the
+habit ID and day; undo removes retained duplicate completions for that day only.
+Tracking ignores future/invalid dates and gives retained day keys precedence over
+timestamps. Database failures return safe messages rather than internal details.
+
+Read-only checks of `test` and `MonkMode`, unauthenticated deployed endpoint checks,
+and isolated desktop/mobile browser fixtures do not replace a signed-in deployed
+smoke test after redeployment. No production records are changed by these checks.
+
 ### Goal reliability (My Goals, Create Goal and Progress)
 
 Deploy the frontend and backend together. Goal summary responses now include the
@@ -1243,12 +1342,36 @@ Deleted goals can be restored from Archive within the existing 48-hour window ev
 when the activity feed is unavailable. Focus, day rollover and periodic refreshes
 keep My Goals and Progress current.
 
+Goal lists, summaries, activity rows and save confirmations are validated before
+entering UI state. A timeout, conflicting edit, server failure or malformed save
+response blocks further writes until an explicit successful reload. The reload
+button warns that it replaces open drafts; background refreshes cannot unlock an
+uncertain write. Editors retain their original revision across background reads.
+Edits, Important changes, subgoal changes, deletion and restoration send
+`expectedUpdatedAt`; saves atomically check the account and stored revision and
+return `409` on concurrent changes. Legacy callers without a revision remain
+compatible but cannot detect edits made before their request started.
+
+Goal GETs no longer save automatic ended events. Deadline-derived archival stays
+read-only. New goals default to the app's current day and cannot be backdated;
+started dates cannot be cleared or rescheduled. Deadline changes must contain all
+retained milestone deadlines. Invalid calendar dates, oversized text and invalid
+progress numbers are rejected. Legacy goals with no start date use their retained
+creation day in the editor. Numeric progress cannot overwrite milestone-derived
+progress. Repeated deletion does not reset the original 48-hour restore window.
+
 Important writes accept an explicit boolean for idempotent retries. Subgoal
 completion uses the same milestone-based rule as the goal summary. A secondary
 progress-audit failure returns a successful save with a warning, not a false save
-failure; the embedded Goal activity remains saved. No historical data is rewritten
-or repaired by these changes, and no migration is required. Goal regressions run
-with database stubs under `npm test`.
+failure; the embedded Goal activity remains saved. Numeric edits and milestone
+additions also record changed progress. Database failures return safe messages,
+not private database details. No historical data is rewritten or repaired by
+these changes, and no migration is required. Goal regressions run with database
+stubs under `npm test`.
+
+Read-only checks of `test` and `MonkMode`, unauthenticated deployed endpoint checks,
+and isolated desktop/mobile browser fixtures do not replace a signed-in deployed
+smoke test after redeployment. Production records are not changed by these checks.
 
 ### Gym reliability (all seven sections)
 
@@ -1268,6 +1391,36 @@ and retry only failed ones; server-side copies are idempotent. History-write
 failures are shown separately from successful workout saves, and an unacknowledged
 delete-history entry does not enable a local undo.
 
+Lists and nested rows for workouts, diet plans, measurements, exercise progress,
+the custom library, gallery and workout history are validated before UI state is
+published. Save confirmations must match the requested record and values;
+deletions confirm the deleted ID. A conflicting, interrupted, timed-out or
+unconfirmed write blocks further writes until a successful explicit reload.
+`Reload Gym (replaces drafts)` warns before replacing open drafts and the current
+account's diet draft cache. Background reads cannot unlock an uncertain save.
+Resource refreshes do not clear save/history warnings. Confirmed plan changes
+queue a shared snapshot refresh so overlapping activations and diet changes stay
+consistent between tabs. Read failures are scoped to the affected screen and
+successful retries clear those read errors. Add Workout exposes a separate
+retry for custom suggestions/history and retains previously loaded suggestions.
+
+Workout, diet and measurement edits retain and send their original
+`expectedUpdatedAt` revision across background refreshes; diet draft caches also
+retain it. Activation, deletion and measurement restoration check the revision
+inside the account-fenced transaction. Exercise-progress edits include their
+saved timestamp and use an atomic revision filter. Same-millisecond edits advance
+the timestamp. Legacy callers remain compatible, but requests without a revision
+cannot detect earlier edits. Cached diet edits without a saved revision require
+an explicit reload before submission.
+
+Workout mixed exercise fields, weekdays, text lengths and bounded numeric fields
+are checked before saving. Planned rep ranges such as `8-12` remain supported;
+actual progress requires numeric reps or valid drop-set counts such as `8+2`.
+Partial numeric strings, objects, booleans and out-of-range values are rejected
+instead of silently parsed, truncated or clamped. Nutrition values are typed and
+bounded. Internal database errors are not returned to the browser. These changes
+do not rewrite retained history or modify environment configuration.
+
 Diet drafts and custom workout options use account-specific v2 storage keys.
 Unknown-owner legacy caches are not imported or deleted. Demo mode neither reads
 private drafts nor calls protected Gym APIs; Today and Diet Chart use the same
@@ -1285,6 +1438,13 @@ The Gym regressions use isolated in-memory database stubs under `npm test`,
 not live Atlas writes. Browser fixtures intercept all API requests. These checks
 do not verify a deployed database's transaction support; validate the deployment
 against a non-production replica-set database before release.
+
+The October 11, 2026 review passed 624 automated tests, frontend lint/build and
+122 desktop/mobile browser fixture checks. Read-only checks of `test` and
+`MonkMode` validated owned Gym responses and the measurement/exercise-progress
+unique indexes. Live health, authentication rejection and frontend-origin CORS
+checks also passed. No deployed writes were tested; signed-in smoke tests and
+transaction verification are still required after redeploying both services.
 
 Measurements, Progress, Workout Library and Gallery also use tab-scoped,
 abortable requests, explicit loading errors/Retry, last-good-data retention and
@@ -1597,10 +1757,25 @@ browser fixtures, not live Groq calls or production database writes.
 - Desktop/mobile checks cover chat, Insights, retries, duplicate clicks, stale
   responses, account changes and long replies. Reduced-motion/mobile screens skip
   repeating decorative motion; replies are readable immediately.
-- Deploy client/server together. No database or environment migration is required.
-  Real chat still needs an existing valid Groq API_KEY and network access. Tests
-  stub databases/providers; live credentials, availability and deployment were
-  not verified or changed.
+- Ming and weekly summaries share `GROQ_MODEL`, defaulting to
+  `openai/gpt-oss-120b`. Groq retired `llama-3.3-70b-versatile` for developer/free
+  accounts on August 16, 2026 ([provider notice](https://console.groq.com/docs/deprecations)).
+  The replacement reserves completion tokens for reasoning and final text, uses
+  low reasoning effort and excludes reasoning content. Other configured models
+  do not receive GPT-OSS-only parameters. There are no automatic paid retries or
+  model fallbacks.
+- Provider credential, permission and model/request failures return safe
+  configuration errors with `retryable: false`; Edit/Clear remain available.
+  Quota and temporary failures remain retryable. Provider diagnostics and secrets
+  are never returned to the browser. Insights validates nested data and period
+  boundaries; invalid replies and object-valued errors show usable error states.
+- Redeploy client/server together. No database migration is required. Optionally
+  set `GROQ_MODEL=openai/gpt-oss-120b` on Render (or omit it to use the default);
+  replace any explicit retired-model override. Real chat still needs a valid Groq
+  `API_KEY`, model permissions, available provider quota and network access.
+  Tests stub chat completions; a read-only model-catalog check confirmed the
+  replacement was listed for the local key, not a successful live chat or Render
+  configuration. Secrets, production records and deployment were not changed.
 
 ### Analysis — Journal: Mood, Sleep & Energy, Others
 
@@ -1766,6 +1941,57 @@ Both Goal Analysis tabs share the authenticated `GET /api/goals/analysis?year=YY
 - Deadline differences are signed app-calendar days relative to the selected checkpoint (or a retained deletion date), not today's date for a historical month. Overdue, due-today, upcoming, completed, deleted and unavailable history stay distinct. Unknown completion does not prove a goal is overdue and incomplete. Calendar blocks include the final partial fifth block; future scores are gaps rather than zero.
 
 The owner-scoped read includes retained deletions and minimal projected goal fields and numeric audit data; private descriptions and raw activity records are not returned. Removed milestones, later metadata edits and trimmed history cannot always be reconstructed; visible history notes explain that limitation. Shared date memoization avoids repeating timezone conversion throughout monthly reconstruction. Charts have keyboard/touch readouts and data tables; mobile navigation supports Escape and reduced motion. Deploy frontend and backend together for the new response contract; no database migration or live data changes are required.
+
+### Analysis retest hardening and rollout
+
+- Journal Analysis validates all nested calendar, entry, mood, week, weekday,
+  extrema, reflection and clock values before rendering. Malformed responses
+  show Retry instead of crashing; invalid error-body clocks cannot change the
+  selected month, and non-string error messages are not rendered as React children.
+- CORS keeps the existing production allowlist and development localhost rules.
+  Denied origins now receive safe `403` JSON without an allowed-origin header;
+  authorized preflight remains `204`. Unrelated errors are not swallowed.
+- Habits declare the non-unique `{ userId: 1, createdAt: -1 }` index used by
+  owner-scoped monthly queries. The additive index command does not synchronize
+  or drop existing indexes, reassign orphan records, or copy/delete data.
+
+Deploy the frontend to Vercel and backend to Render to activate these code fixes.
+For an existing database, inspect the index dry run first from `server/`:
+
+```bash
+# Development target: test
+npm run db:index:habits
+npm run db:index:habits -- --apply
+
+# Production target: MonkMode; use the intended production connection/environment
+NODE_ENV=production npm run db:index:habits
+NODE_ENV=production npm run db:index:habits -- --apply
+```
+
+The command prints its database target, is a dry run unless `--apply` is supplied,
+and treats an existing compatible index as a no-op. Name conflicts fail without
+dropping indexes. Deployment with Mongoose auto-indexing enabled also creates the
+declared index; this command supports explicit rollout when auto-indexing is off.
+Code tests and browser fixtures do not replace authenticated live-account checks
+with retained production activity. Old orphaned `test` records require a separate
+ownership/cleanup decision and are not reassigned by this fix.
+
+### Weekly Report response hardening
+
+Journal, ToDo, Habits, Goals and Gym validate summary rows, nested report metrics,
+daily calendars and AI text before storing API responses in UI state. Malformed
+payloads show a retryable error rather than crashing. Unknown historical values
+remain `null`, empty reports remain valid, and rejected AI regeneration responses
+do not replace previously loaded analysis. Object-valued HTTP errors use a safe
+text fallback. Cache reads remain GET-only; generation still requires an explicit
+user action and the existing backend limits.
+
+The general `/api/weekly-report/weeks` list uses the same `APP_TIMEZONE` calendar
+as report calculations, including local Monday midnight, year and DST boundaries.
+Redeploy the frontend and backend to activate these changes; this Weekly Report
+fix needs no database migration or data writes. Regression coverage is in
+`server/tests/weeklyReportHardeningRegression.test.js`; authenticated live checks
+with populated reports are still needed after deployment.
 
 ## 🧩 Challenges Faced
 

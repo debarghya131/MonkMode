@@ -8,6 +8,7 @@ import useAuth from "../../hooks/useAuth";
 import JournalRightSidebar from "./JournalRightSidebar";
 import { MOCK_HISTORY } from "../../../data/JournalDummyData";
 import { demoJournalConsistency, formatJournalDay, journalDayKey } from "./journalUtils";
+import { validJournalSummary, validJournalEntries, journalEntries, validJournalEntry, validJournalTemplates, journalFailureMessage } from "./journalResponse";
 
 const MOODS = [
   { emoji: "🔥", label: "Motivated" },
@@ -118,7 +119,7 @@ const normalizeList = (value, fallbackCount = 1) => {
 const buildFormFromEntry = (entry) => ({
   mood: normalizeMoodLabel(entry?.mood) || null,
   wakeUpTime: entry?.wakeUpTime || "",
-  energyLevel: Number(entry?.energyLevel || 50),
+  energyLevel: Number(entry?.energyLevel ?? 50),
   energyTouched: entry?.energyLevel !== undefined && entry?.energyLevel !== null,
   summary: entry?.summary || entry?.content || "",
   wins: normalizeList(entry?.wins, 3),
@@ -130,7 +131,7 @@ const buildFormFromEntry = (entry) => ({
   tomorrowPlan: entry?.tomorrowPlan || "",
   distractions: normalizeList(entry?.distractions, 1),
   sleepTime: entry?.sleepTime || "",
-  overallRating: Number(entry?.overallRating || 50),
+  overallRating: Number(entry?.overallRating ?? 50),
   ratingTouched: entry?.overallRating !== undefined && entry?.overallRating !== null,
 });
 
@@ -429,7 +430,13 @@ function JournalContent() {
   const [loadError, setLoadError] = useState("");
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [saveWarning, setSaveWarning] = useState("");
-  const [journalTimezone, setJournalTimezone] = useState("Asia/Kolkata");
+  const [journalClock, setJournalClock] = useState({ timezone: "Asia/Kolkata", offset: 0 });
+  const [tick, setTick] = useState(() => Date.now());
+  const [draftDayKey, setDraftDayKey] = useState(null);
+  const [entryVersion, setEntryVersion] = useState(null);
+  const [saveBlocked, setSaveBlocked] = useState(false);
+  const savingRef = useRef(false);
+  const saveRequestRef = useRef(null);
   const [journalConsistency, setJournalConsistency] = useState({
     lifetimeConsistency: 0,
     lifetimeLoggedDays: 0,
@@ -445,15 +452,23 @@ function JournalContent() {
     previousStepRef.current = step;
   }, [step]);
 
-  const todayStr = () => journalDayKey(new Date(), journalTimezone);
+  const todayStr = () => journalDayKey(new Date(tick + journalClock.offset), journalClock.timezone);
+  const dayChanged = !isDemoMode && draftDayKey && draftDayKey !== todayStr();
+  useEffect(() => {
+    if (isDemoMode) return;
+    const updateClock = () => setTick(Date.now());
+    const timer = setInterval(updateClock, 30000);
+    window.addEventListener("focus", updateClock);
+    return () => { clearInterval(timer); window.removeEventListener("focus", updateClock); saveRequestRef.current?.abort(); };
+  }, [isDemoMode]);
 
-  const syncCustomFieldTemplates = async (fields) => {
+  const syncCustomFieldTemplates = async (fields, signal) => {
     if (isDemoMode) return true;
     try {
-      await api.put("/journal/custom-fields", {
+      const { data } = await api.put("/journal/custom-fields", {
         templates: buildTemplatePayloadFromFields(fields)
-      });
-      return true;
+      }, { signal, timeout: 15000 });
+      return validJournalTemplates(data);
     } catch {
       return false;
     }
@@ -466,34 +481,43 @@ function JournalContent() {
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
     const loadJournalState = async () => {
       setLoading(true);
       setLoadError("");
       try {
         const [todayRes, summaryRes, templatesRes] = await Promise.all([
-          api.get("/journal?today=true"),
-          api.get("/journal/summary"),
-          api.get("/journal/custom-fields")
+          api.get("/journal?today=true", { signal: controller.signal, timeout: 15000 }),
+          api.get("/journal/summary", { signal: controller.signal, timeout: 15000 }),
+          api.get("/journal/custom-fields", { signal: controller.signal, timeout: 15000 })
         ]);
-        if (cancelled) return;
-        const timezone = summaryRes?.data?.timezone || "Asia/Kolkata";
-        const today = summaryRes?.data?.date || journalDayKey(new Date(), timezone);
-        setJournalTimezone(timezone);
+        if (controller.signal.aborted) return;
+        if (!validJournalSummary(summaryRes.data) || !validJournalEntries(todayRes.data) || !validJournalTemplates(templatesRes.data)) throw new Error("Invalid journal response");
+        const timezone = summaryRes.data.timezone, today = summaryRes.data.date;
+        const todayEntries = journalEntries(todayRes.data);
+        if (todayEntries.some(entry => (entry.dayKey || journalDayKey(new Date(entry.date), timezone)) !== today)
+          || Boolean(todayEntries.length) !== summaryRes.data.todayLogged) throw new Error("Journal day changed while loading");
+        setJournalClock({ timezone, offset: summaryRes.data.serverNow ? Date.parse(summaryRes.data.serverNow) - Date.now() : 0 });
+        setTick(Date.now());
+        setDraftDayKey(today);
+        setSaveBlocked(false);
+        setSubmitError("");
+        setSaveWarning("");
+        setStep(1);
 
-        const todayEntries = Array.isArray(todayRes?.data)
-          ? todayRes.data
-          : Array.isArray(todayRes?.data?.entries)
-          ? todayRes.data.entries
-          : [];
-
-        const existingToday = todayEntries[0];
+        const existingToday = [...todayEntries].sort((a, b) => Number(Boolean(b.dayKey)) - Number(Boolean(a.dayKey))
+          || Date.parse(b.updatedAt ?? b.date) - Date.parse(a.updatedAt ?? a.date))[0];
         if (existingToday) {
           setForm(buildFormFromEntry(existingToday));
           setCustomFields(Array.isArray(existingToday.customFields) ? existingToday.customFields : []);
           setSubmitted(true);
           setSubmittedDate(existingToday.dayKey || today);
+          setEntryVersion(existingToday.updatedAt);
         } else {
+          setForm(INITIAL_FORM);
+          setSubmitted(false);
+          setSubmittedDate(null);
+          setEntryVersion(null);
           const templates = Array.isArray(templatesRes?.data?.templates)
             ? templatesRes.data.templates
             : [];
@@ -510,14 +534,14 @@ function JournalContent() {
           lifetimeExpectedDays: Number(summaryRes?.data?.lifetimeExpectedDays || 0)
         });
       } catch {
-        if (!cancelled) setLoadError("Could not load your journal. Retry before writing so an existing entry is not overwritten.");
+        if (!controller.signal.aborted) setLoadError("Could not load your journal. Retry before writing so an existing entry is not overwritten.");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
     loadJournalState();
-    return () => { cancelled = true; };
+    return () => controller.abort();
   }, [isDemoMode, loadAttempt]);
 
   /* ── derived ── */
@@ -575,7 +599,6 @@ function JournalContent() {
     const nextFields = [...customFields, { title: "", description: "", answer: "" }];
     setCustomFields(nextFields);
     setStep(MANDATORY_STEP_COUNT + 1 + customFields.length); // jump to the new step
-    syncCustomFieldTemplates(nextFields);
   };
 
   const deleteCustomField = (idx) => {
@@ -584,7 +607,6 @@ function JournalContent() {
     setCustomFields(nextFields);
     // if we were on or after the deleted step, move back one
     if (step >= MANDATORY_STEP_COUNT + 1 + idx) setStep((s) => Math.max(1, s - 1));
-    syncCustomFieldTemplates(nextFields);
   };
 
   /* ── step validation ── */
@@ -645,34 +667,55 @@ function JournalContent() {
   const completedCount = allSteps.filter((s) => isStepComplete(s.id)).length;
   const allComplete    = completedCount === totalSteps;
   const handleSubmitJournal = async () => {
-    if (saving) return;
+    if (savingRef.current || saveBlocked) return;
     if (isDemoMode) {
       setSubmitError("Demo mode is preview-only. Sign in to write and save a journal entry.");
       return;
     }
+    if (!allComplete || !draftDayKey || journalDayKey(new Date(Date.now() + journalClock.offset), journalClock.timezone) !== draftDayKey) {
+      setSubmitError("The journal day changed or answers are incomplete. Reload today's journal before saving.");
+      return;
+    }
+    savingRef.current = true;
+    const controller = new AbortController();
+    saveRequestRef.current = controller;
     setSaving(true);
     setSubmitError("");
     setSaveWarning("");
 
+    let acknowledged = false;
     try {
       // The server determines today's date; the browser's timezone cannot move
       // this entry to yesterday or tomorrow.
-      const saved = await api.post("/journal", buildPayloadFromForm(form, customFields));
+      const saved = await api.post("/journal", { ...buildPayloadFromForm(form, customFields), expectedDayKey: draftDayKey,
+        ...(entryVersion !== undefined ? { expectedUpdatedAt: entryVersion } : {}) }, { signal: controller.signal, timeout: 20000 });
+      if (controller.signal.aborted) return;
+      acknowledged = true;
+      if (!validJournalEntry(saved.data) || saved.data.dayKey !== draftDayKey) throw new Error("Invalid save response");
       setSubmitted(true);
       setSubmittedDate(saved.data.dayKey);
+      setEntryVersion(saved.data.updatedAt);
       setRefreshSidebarKey((value) => value + 1);
       window.dispatchEvent(new Event("monkmode:journal-logged-days-updated"));
     } catch (error) {
-      const backendMessage = error?.response?.data?.message;
-      setSubmitError(backendMessage || "Could not save journal entry. Please try again.");
+      if (controller.signal.aborted) return;
+      if (acknowledged || !error.response || error.response.status === 409 || error.response.status >= 500) {
+        setSaveBlocked(true);
+        setSubmitError(acknowledged ? "The server acknowledged your save, but its confirmation could not be verified. Reload before saving again."
+          : journalFailureMessage(error, "The save could not be confirmed. Reload to check whether your entry was saved before trying again."));
+      } else setSubmitError(journalFailureMessage(error, "Could not save journal entry. Please try again."));
       setSaving(false);
+      savingRef.current = false;
       return;
     }
 
     // Once POST succeeds, secondary requests must never report the save failed.
     try {
-      const templatesSynced = await syncCustomFieldTemplates(customFields);
-      const summaryRes = await api.get("/journal/summary");
+      const templatesSynced = await syncCustomFieldTemplates(customFields, controller.signal);
+      if (controller.signal.aborted) return;
+      const summaryRes = await api.get("/journal/summary", { signal: controller.signal, timeout: 15000 });
+      if (controller.signal.aborted) return;
+      if (!validJournalSummary(summaryRes.data)) throw new Error("Invalid summary response");
       setJournalConsistency({
         lifetimeConsistency: Number(summaryRes?.data?.lifetimeConsistency || 0),
         lifetimeLoggedDays: Number(summaryRes?.data?.lifetimeLoggedDays || 0),
@@ -680,9 +723,10 @@ function JournalContent() {
       });
       if (!templatesSynced) setSaveWarning("Your entry is saved, including its custom answers. Reusable field templates could not sync; try again later.");
     } catch {
-      setSaveWarning("Your entry is saved. Statistics could not refresh; reload later to see the latest totals.");
+      if (!controller.signal.aborted) setSaveWarning("Your entry is saved. Statistics could not refresh; reload later to see the latest totals.");
     } finally {
-      setSaving(false);
+      savingRef.current = false;
+      if (!controller.signal.aborted) setSaving(false);
     }
   };
 
@@ -727,6 +771,7 @@ function JournalContent() {
             Your journal entry has been saved. Come back tomorrow and keep your consistency alive.
           </p>
           {saveWarning && <p role="status" className="max-w-md text-center text-xs text-amber-200">{saveWarning}</p>}
+          {dayChanged && <button type="button" disabled={saving} onClick={() => setLoadAttempt(value => value + 1)} className={btnPrimary}>Load today's journal</button>}
 
           {/* Editable-today badge */}
           <div className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold ${
@@ -1340,10 +1385,14 @@ function JournalContent() {
 
           {/* ── Navigation ── */}
           {submitError && (
-            <p className="mb-3 rounded-lg border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
+            <p role="alert" className="mb-3 rounded-lg border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
               {submitError}
             </p>
           )}
+          {(dayChanged || saveBlocked) && <div className="mb-3 text-xs text-amber-200">
+            <p role="status">{dayChanged ? "The app day changed. This draft has not been moved to the new day." : "Reload the saved entry before submitting again."} Reloading replaces the current draft.</p>
+            <button type="button" disabled={saving} onClick={() => setLoadAttempt(value => value + 1)} className="mt-2 rounded-lg border border-amber-200/30 px-3 py-2">Reload today's journal</button>
+          </div>}
           <div className="journal-step-nav mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
@@ -1374,7 +1423,7 @@ function JournalContent() {
             ) : (
               <button
                 type="button"
-                disabled={saving || (!isDemoMode && !allComplete)}
+                disabled={saving || saveBlocked || dayChanged || (!isDemoMode && !allComplete)}
                 onClick={handleSubmitJournal}
                 title={
                   isDemoMode

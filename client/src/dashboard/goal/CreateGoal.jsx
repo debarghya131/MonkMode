@@ -3,6 +3,7 @@ import { motion as Motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useGoalContext } from "./goalContext";
+import { goalFailureMessage, goalRevision } from "./goalResponse";
 import { addGoalMonths, formatGoalTime, shiftGoalDay } from "./goalUtils";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 
@@ -57,7 +58,7 @@ const formatUndoCountdown = (remainingMs) => {
 };
 
 export default function CreateGoal() {
-  const { isDemoMode, goals, goalLogs, today, nowMs, busy, mutate, logsError, logsReady } = useGoalContext();
+  const { isDemoMode, goals, goalLogs, today, nowMs, busy, saving, mutate, logsError, logsReady } = useGoalContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedMobileView = searchParams.get("goalCreate");
   const mobileView = CREATE_GOAL_VIEWS.some((view) => view.id === requestedMobileView)
@@ -85,6 +86,7 @@ export default function CreateGoal() {
   });
   const [goalsView, setGoalsView] = useState("active");
   const [editingId, setEditingId] = useState(null);
+  const editingRevision = useRef({});
   const [archiveEditGoal, setArchiveEditGoal] = useState(null);
   const [archiveEditForm, setArchiveEditForm] = useState({});
   const [archiveDeleteId, setArchiveDeleteId] = useState(null);
@@ -113,6 +115,7 @@ export default function CreateGoal() {
     if (!form.title.trim()) return "Goal title is required.";
     if (!form.goalType) return "Goal type is required.";
     if (!form.startDate) return "Start date is required.";
+    if (!editingId && form.startDate < today) return "New goals cannot start in the past.";
     if (!form.deadline) return "Deadline is required.";
     if (form.deadline < form.startDate) return "Deadline cannot be before start date.";
     if (form.goalType === "short-term" && form.deadline < addDaysToISO(form.startDate, 7)) {
@@ -139,6 +142,8 @@ export default function CreateGoal() {
   };
 
   const startEdit = (goal) => {
+    if (isDemoMode || busy) return;
+    editingRevision.current = goalRevision(goal);
     setEditingId(goal.id);
     setForm({
       title: goal.title,
@@ -165,7 +170,7 @@ export default function CreateGoal() {
       setError("");
       return true;
     } catch (error) {
-      setError(error.response?.data?.message || error.message || "Failed to delete goal.");
+      setError(goalFailureMessage(error, "Failed to delete goal."));
       return false;
     }
   };
@@ -176,7 +181,7 @@ export default function CreateGoal() {
       await mutate("patch", `/goals/${log.goalId}/restore`);
       setUndoError("");
     } catch (error) {
-      setUndoError(error.response?.data?.message || error.message || "Failed to restore goal.");
+      setUndoError(goalFailureMessage(error, "Failed to restore goal."));
     }
   };
 
@@ -184,6 +189,7 @@ export default function CreateGoal() {
     if (isDemoMode || busy || !archiveEditGoal?.id || !archiveEditForm.title?.trim()) return;
     try {
       await mutate("patch", `/goals/${archiveEditGoal.id}`, {
+        ...goalRevision(archiveEditGoal),
         title: archiveEditForm.title.trim(),
         description: archiveEditForm.description || "",
         goalType: archiveEditForm.goalType || "short-term",
@@ -194,7 +200,7 @@ export default function CreateGoal() {
       setArchiveEditGoal(null);
       setError("");
     } catch (error) {
-      setError(error.response?.data?.message || error.message || "Failed to update goal.");
+      setError(goalFailureMessage(error, "Failed to update goal."));
     }
   };
 
@@ -209,14 +215,15 @@ export default function CreateGoal() {
     if (validation) { setError(validation); return; }
     try {
       await mutate(editingId ? "patch" : "post", editingId ? `/goals/${editingId}` : "/goals", {
+        ...(editingId ? editingRevision.current : {}),
         title: form.title.trim(), description: form.description.trim(),
         goalType: form.goalType,
-        startDate: isEditingStartedGoal ? editingGoal.startDate : form.startDate,
+        startDate: form.startDate,
         deadline: form.deadline, priority: form.priority
       });
       resetForm();
     } catch (error) {
-      setError(error.response?.data?.message || error.message || "Failed to save goal.");
+      setError(goalFailureMessage(error, "Failed to save goal."));
     }
   };
 
@@ -255,6 +262,7 @@ export default function CreateGoal() {
               </label>
               <input
                 type="text"
+                maxLength={180}
                 value={form.title}
                 onChange={(e) => setField("title", e.target.value)}
                 placeholder="e.g. Crack GATE 2027"
@@ -268,6 +276,7 @@ export default function CreateGoal() {
               </label>
               <textarea
                 rows={3}
+                maxLength={2500}
                 value={form.description}
                 onChange={(e) => setField("description", e.target.value)}
                 placeholder="e.g. Complete core subjects, solve PYQs, and revise weekly."
@@ -306,6 +315,7 @@ export default function CreateGoal() {
 <DashboardDateTimeInput
                   type="date" today={today}
                   value={form.startDate}
+                  min={editingId && isEditingStartedGoal ? undefined : today}
                   disabled={Boolean(editingId && isEditingStartedGoal)}
                   onChange={(e) => setField("startDate", e.target.value)}
                   className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1.5 text-xs text-stone-100 outline-none transition focus:border-amber-300/35"
@@ -367,7 +377,7 @@ export default function CreateGoal() {
               disabled={busy || isDemoMode}
               className="w-full rounded-lg border border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 px-4 py-2 text-xs font-semibold text-amber-200 transition hover:from-amber-400/25 hover:to-orange-400/20"
             >
-              {busy ? "Saving..." : editingId ? "Update Goal" : "Add Goal"}
+              {saving ? "Saving..." : editingId ? "Update Goal" : "Add Goal"}
             </button>
             {editingId && (
               <button

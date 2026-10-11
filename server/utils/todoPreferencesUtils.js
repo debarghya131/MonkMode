@@ -10,6 +10,7 @@ export function normalizeTodoPreferences(body) {
       const name = value.trim();
       if (!names.has(name.toLowerCase())) names.set(name.toLowerCase(), name);
     }
+    if (names.size > 100) throw new Error("Categories cannot exceed 100 names including defaults");
     return [...names.values()];
   };
   return {

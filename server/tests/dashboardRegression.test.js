@@ -16,7 +16,9 @@ import WorkoutPlan from "../models/WorkoutPlan.js";
 import { getNavbarConsistency } from "../controllers/insightsController.js";
 import { getGymSummary } from "../controllers/gymController.js";
 import { getHabitConsistency } from "../controllers/habitController.js";
-import { calculateMonkStreak } from "../utils/monkStreakUtils.js";
+import { calculateCompletionStreak, calculateMonkStreak } from "../utils/monkStreakUtils.js";
+import { getTodoSummary } from "../controllers/todoController.js";
+import { validNavbarStats } from "../../client/src/dashboard/navbarResponse.js";
 import { calculateStreak } from "../utils/streakUtils.js";
 import { retainGoalActivityLogs } from "../utils/goalActivityUtils.js";
 import { getWorkoutChecklistSummary, stableExerciseKey } from "../utils/workoutChecklistUtils.js";
@@ -42,7 +44,7 @@ function stubHistory(t, { todayComplete = false, lateDay = null } = {}) {
   const habit = { _id: HABIT_ID, createdAt, startDate: createdAt, frequency: "daily", repeatType: "daily", days: [] };
   const todo = { _id: "000000000000000000000003", createdAt, startDate: createdAt, repeatType: "daily", dayStates: days.map(dayKey => ({ dayKey, status: "completed", lateCompleted: dayKey === lateDay })) };
   const assertUser = (filter) => assert.equal(String(filter.userId), USER_ID);
-  t.mock.method(Journal, "findOne", filter => { assertUser(filter); assert.equal(filter.dayKey, "2026-10-10"); return query(todayComplete ? {} : null); });
+  t.mock.method(Journal, "findOne", filter => { assertUser(filter); assert.equal(filter.$or[0].dayKey, "2026-10-10"); return query(todayComplete ? {} : null); });
   t.mock.method(Journal, "find", filter => { assertUser(filter); return query([]); });
   t.mock.method(Journal, "countDocuments", async filter => { assertUser(filter); return days.length; });
   t.mock.method(Journal, "aggregate", async pipeline => {
@@ -110,7 +112,109 @@ test("archived habits retain their historical contribution to Monk Streak", asyn
   stubHistory(t);
   const archived = { _id: HABIT_ID, createdAt: new Date("2026-10-07T00:00:00+05:30"), endDate: new Date("2026-10-09T00:00:00+05:30"), repeatType: "daily" };
   t.mock.method(Habit, "find", filter => query(filter.$and ? [] : [archived]));
-  assert.equal((await call(getNavbarConsistency)).monkStreakDays, 3);
+  const data = await call(getNavbarConsistency);
+  assert.equal(data.monkStreakDays, 3);
+  assert.equal(data.sections.habit.fullCompletionStreakDays, 3);
+  assert.equal(validNavbarStats(data), true);
+});
+
+test("archived/deleted schedules preserve all three header streaks without active schedules", async t => {
+  stubHistory(t);
+  const start = new Date("2026-10-07T00:00:00+05:30");
+  const habit = { _id: HABIT_ID, createdAt: start, startDate: start, endDate: new Date("2026-10-09T00:00:00+05:30"), repeatType: "daily" };
+  const todo = { _id: "000000000000000000000003", createdAt: start, startDate: start,
+    deletedAt: new Date("2026-10-10T00:00:00+05:30"), repeatType: "daily",
+    dayStates: DAYS.map(dayKey => ({ dayKey, status: "completed", lateCompleted: false })) };
+  t.mock.method(Habit, "find", filter => query(filter.$and ? [] : [habit]));
+  t.mock.method(Todo, "find", async filter => Object.hasOwn(filter, "deletedAt") ? [] : [todo]);
+  const data = await call(getNavbarConsistency);
+  assert.equal(data.monkStreakDays, 3);
+  assert.equal(data.sections.journal.currentStreakDays, 3);
+  assert.equal(data.sections.todo.fullCompletionStreakDays, 3);
+  assert.equal(data.sections.habit.fullCompletionStreakDays, 3);
+  assert.equal(data.consistencyScore, 0);
+  assert.equal(data.sections.todo.expectedToday, 0);
+  assert.equal(data.sections.habit.expectedToday, 0);
+  assert.equal(validNavbarStats(data), true);
+  // Section summaries use the same retained history even without the header flag.
+  assert.equal((await call(getTodoSummary)).fullCompletionStreakDays, 3);
+  assert.equal((await call(getHabitConsistency)).fullCompletionStreakDays, 3);
+});
+
+test("deleting an incomplete task does not erase a historical streak break", async t => {
+  stubHistory(t);
+  const start = new Date("2026-10-07T00:00:00+05:30");
+  const active = { _id: "000000000000000000000003", createdAt: start, startDate: start, repeatType: "daily",
+    dayStates: DAYS.map(dayKey => ({ dayKey, status: "completed", lateCompleted: false })) };
+  const archived = { ...active, _id: "000000000000000000000004", deletedAt: new Date("2026-10-10T00:00:00+05:30"),
+    dayStates: active.dayStates.slice(0, 2) };
+  t.mock.method(Todo, "find", async filter => Object.hasOwn(filter, "deletedAt") ? [active] : [active, archived]);
+  const data = await call(getNavbarConsistency);
+  assert.equal(data.sections.todo.fullCompletionStreakDays, 0);
+  assert.equal(data.monkStreakDays, 0);
+  assert.equal(validNavbarStats(data), true);
+});
+
+test("ending an incomplete habit does not erase a historical streak break", async t => {
+  stubHistory(t);
+  const start = new Date("2026-10-07T00:00:00+05:30");
+  const active = { _id: HABIT_ID, createdAt: start, startDate: start, repeatType: "daily" };
+  const archived = { ...active, _id: "000000000000000000000004", endDate: new Date("2026-10-09T00:00:00+05:30") };
+  t.mock.method(Habit, "find", filter => query(filter.$and ? [active] : [active, archived]));
+  t.mock.method(HabitLog, "aggregate", async pipeline => pipeline.at(-1).$count
+    ? [{ count: DAYS.length }] : DAYS.map(_id => ({ _id, completedHabits: 1, habitIds: [HABIT_ID] })));
+  const data = await call(getNavbarConsistency);
+  assert.equal(data.sections.habit.fullCompletionStreakDays, 0);
+  assert.equal(data.monkStreakDays, 0);
+  assert.equal(validNavbarStats(data), true);
+});
+
+test("retained completion streaks deduplicate dates, ignore future dates and break on calendar gaps", () => {
+  assert.equal(calculateCompletionStreak({ todayKey: "2024-03-01", dayKeys: ["2024-02-28", "2024-02-29", "2024-02-29", "2024-03-02"] }), 2);
+  assert.equal(calculateCompletionStreak({ todayKey: "2024-03-01", dayKeys: ["2024-02-27", "2024-02-29", "2024-03-01"] }), 2);
+  assert.equal(calculateCompletionStreak({ todayKey: "2024-03-01" }), 0);
+});
+
+test("header response validates real zeros, partial completion, and complete history", async t => {
+  stubHistory(t, { todayComplete: true });
+  const data = await call(getNavbarConsistency);
+  assert.equal(validNavbarStats(data), true);
+  const legacy = structuredClone(data);
+  delete legacy.serverNow;
+  assert.equal(validNavbarStats(legacy), true);
+  const empty = { ...data, consistencyScore: 0, monkStreakDays: 0, allSectionsComplete: false,
+    sections: { journal: { submittedToday: false, score: 0, currentStreakDays: 0 },
+      todo: { completedToday: 0, expectedToday: 0, score: 0, fullCompletionStreakDays: 0 },
+      habit: { completedToday: 0, expectedToday: 0, score: 0, fullCompletionStreakDays: 0 } } };
+  assert.equal(validNavbarStats(empty), true);
+  const partial = structuredClone(empty);
+  partial.sections.journal = { submittedToday: true, score: 100, currentStreakDays: 1 };
+  partial.sections.todo = { completedToday: 1, expectedToday: 2, score: 50, fullCompletionStreakDays: 0 };
+  partial.consistencyScore = 50;
+  assert.equal(validNavbarStats(partial), true);
+});
+
+test("header response rejects malformed counts, mismatched clocks and inconsistent metrics", async t => {
+  stubHistory(t, { todayComplete: true });
+  const data = await call(getNavbarConsistency);
+  const mutations = [
+    value => { value.sections = null; },
+    value => { value.sections.todo.completedToday = "1"; },
+    value => { value.sections.habit.expectedToday = -1; },
+    value => { value.sections.journal.currentStreakDays = NaN; },
+    value => { value.sections.todo.completedToday = 2; },
+    value => { value.sections.habit.score = 50; },
+    value => { value.consistencyScore = 99; },
+    value => { value.monkStreakDays = 5; },
+    value => { value.monkStreakDays = 0; },
+    value => { value.allSectionsComplete = "true"; },
+    value => { value.timezone = "Invalid/Timezone"; },
+    value => { value.serverNow = {}; },
+    value => { value.serverNow = "2026-10-09T00:00:00Z"; },
+    value => { value.date = "2026-02-30"; }
+  ];
+  for (const mutate of mutations) { const invalid = structuredClone(data); mutate(invalid); assert.equal(validNavbarStats(invalid), false); }
+  for (const invalid of [null, {}, [], "0", 0]) assert.equal(validNavbarStats(invalid), false);
 });
 
 test("Monk Streak requires all three sections, breaks on gaps and handles leap days", () => {

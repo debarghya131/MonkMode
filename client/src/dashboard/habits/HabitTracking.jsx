@@ -6,6 +6,7 @@ import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import { useHabitEnvironment } from "./habitContext";
 import { demoHabitTracking, habitDayKey, isHabitArchived } from "./habitUtils";
+import { validHabitTracking, validHabitYears, validHabitImportant, habitFailureMessage, habitRevision, uncertainHabitWrite } from "./habitResponse";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -23,6 +24,8 @@ export default function HabitTracking() {
   const [loadedPeriod, setLoadedPeriod] = useState("");
   const [busyIds, setBusyIds] = useState(new Set());
   const locks = useRef(new Set());
+  const blockedIds = useRef(new Set());
+  const recoveredRetry = useRef(0);
   const version = useRef(0);
   const live = useRef(true);
   useEffect(() => {
@@ -75,11 +78,13 @@ export default function HabitTracking() {
     }
 
     let cancelled = false;
-    const controller = new AbortController();
+    let controller, sequence = 0;
     const fetchYearOptions = async () => {
+      controller?.abort(); controller = new AbortController(); const current = ++sequence;
       try {
-        const { data } = await api.get("/habits/heatmap", { signal: controller.signal });
-        if (cancelled) return;
+        const { data } = await api.get("/habits/heatmap", { signal: controller.signal, timeout: 15000 });
+        if (cancelled || current !== sequence) return;
+        if (!validHabitYears(data)) throw new Error("Invalid habit years");
         const years = Array.isArray(data?.years)
           ? data.years
               .map((year) => Number.parseInt(String(year), 10))
@@ -89,7 +94,7 @@ export default function HabitTracking() {
         setYearOptions(nextOptions.length ? nextOptions : [CURRENT_YEAR]);
         setYearError("");
       } catch {
-        if (!cancelled) setYearError("Could not refresh available history years. Please retry tracking.");
+        if (!cancelled && current === sequence) setYearError("Could not refresh available history years. Please retry tracking.");
       }
     };
 
@@ -99,7 +104,7 @@ export default function HabitTracking() {
 
     return () => {
       cancelled = true;
-      controller.abort();
+      controller?.abort();
       window.removeEventListener("focus", fetchYearOptions);
       window.removeEventListener("monkmode:habits-updated", fetchYearOptions);
     };
@@ -115,23 +120,25 @@ export default function HabitTracking() {
   useEffect(() => {
     if (isDemoMode) return;
     let cancelled = false;
-    const controller = new AbortController();
+    let controller;
     const fetchTracking = async () => {
       if (locks.current.size) return;
+      controller?.abort(); controller = new AbortController();
       const current = ++version.current;
       try {
-        const { data } = await api.get("/habits/tracking?month=" + (selectedMonth + 1) + "&year=" + selectedYear, { signal: controller.signal });
+        const { data } = await api.get("/habits/tracking?month=" + (selectedMonth + 1) + "&year=" + selectedYear, { signal: controller.signal, timeout: 15000 });
         if (cancelled || current !== version.current) return;
-        if (!Array.isArray(data)) throw new Error("Invalid tracking response");
+        if (!validHabitTracking(data, selectedYear, selectedMonth + 1)) throw new Error("Invalid tracking response");
         setHabits(data.map(h => ({
           ...h, id: h._id?.toString() ?? h.id, completedDays: h.completedDays ?? [],
           startDate: habitDayKey(h.startDate, timezone), endDate: habitDayKey(h.endDate, timezone),
           deletedAt: h.deletedAt || null,
         })));
         setLoadedPeriod(selectedYear + "-" + selectedMonth);
+        if (retry !== recoveredRetry.current) { recoveredRetry.current = retry; blockedIds.current.clear(); setActionErrors({}); }
         setLoadError("");
       } catch (error) {
-        if (!cancelled && current === version.current) setLoadError(error.response?.data?.message || "Could not load this month's tracking data. Please retry.");
+        if (!cancelled && current === version.current) setLoadError(habitFailureMessage(error, "Could not load this month's tracking data. Please retry."));
       } finally {
         if (!cancelled && current === version.current) setLoading(false);
       }
@@ -142,7 +149,7 @@ export default function HabitTracking() {
     window.addEventListener("monkmode:habits-updated", fetchTracking);
     return () => {
       cancelled = true;
-      controller.abort();
+      controller?.abort();
       window.clearInterval(timer);
       window.removeEventListener("focus", fetchTracking);
       window.removeEventListener("monkmode:habits-updated", fetchTracking);
@@ -191,20 +198,23 @@ export default function HabitTracking() {
   };
 
   const toggleImportant = async id => {
-    if (isDemoMode || locks.current.has(id)) return;
+    if (isDemoMode || locks.current.has(id) || blockedIds.current.has(id)) return;
     const habit = habits.find(h => h.id === id);
     if (!habit) return;
     locks.current.add(id);
     version.current += 1;
     setBusyIds(new Set(locks.current));
+    let acknowledged = false;
     try {
-      const { data } = await api.patch("/habits/" + id + "/important", { isImportant: !habit.isImportant }, { signal: requestSignal });
+      const { data } = await api.patch("/habits/" + id + "/important", { isImportant: !habit.isImportant, ...habitRevision(habit) }, { signal: requestSignal, timeout: 20000 });
+      acknowledged = true;
+      if (!validHabitImportant(data, id, !habit.isImportant)) throw new Error("Invalid important confirmation");
       if (live.current) {
-        setHabits(previous => previous.map(h => h.id === id ? { ...h, isImportant: data.isImportant } : h));
+        setHabits(previous => previous.map(h => h.id === id ? { ...h, isImportant: data.isImportant, updatedAt: data.updatedAt } : h));
         setActionErrors(previous => { const next = { ...previous }; delete next[id]; return next; });
       }
     } catch (error) {
-      if (live.current) setActionErrors(previous => ({ ...previous, [id]: error.response?.data?.message || "Important flag was not saved. Please retry." }));
+      if (live.current) { if (uncertainHabitWrite(error, acknowledged)) blockedIds.current.add(id); setActionErrors(previous => ({ ...previous, [id]: habitFailureMessage(error, "Important flag could not be confirmed. Reload using Retry tracking before changing it again.") })); }
     } finally {
       locks.current.delete(id);
       if (live.current) setBusyIds(new Set(locks.current));
@@ -385,7 +395,7 @@ export default function HabitTracking() {
                                 <button
                                   type="button"
                                   onClick={() => toggleImportant(habit._id?.toString() ?? habit.id)}
-                                  disabled={isDemoMode || busyIds.has(habit.id)}
+                                  disabled={isDemoMode || busyIds.has(habit.id) || blockedIds.current.has(habit.id)}
                                   aria-busy={busyIds.has(habit.id)}
                                   aria-pressed={habit.isImportant}
                                   className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${

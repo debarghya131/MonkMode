@@ -259,6 +259,7 @@ function UpdateProgressModal({ exercise, isDemoMode, onClose }) {
   const handleSave = guard(async () => {
     if (date !== appToday) { setError("The app day has changed. Close this form and reopen Today before saving."); return false; }
     const payload = {
+      ...(existing?.savedAt ? { expectedUpdatedAt: existing.savedAt } : {}),
       expectedToday: date,
       date,
       exerciseId:      exKey,

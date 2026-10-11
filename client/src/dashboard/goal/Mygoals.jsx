@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import { useGoalContext } from "./goalContext";
+import { goalFailureMessage } from "./goalResponse";
 import { goalDaysLeft } from "./goalUtils";
 
 const PRIORITY_BADGE = {
@@ -99,7 +100,7 @@ export default function Mygoals({
         }));
       }
     } catch (error) {
-      setSubgoalError(error?.response?.data?.message || "Unable to update sub-goal progress. Please try again.");
+      setSubgoalError(goalFailureMessage(error, "Unable to update sub-goal progress. Please try again."));
     } finally {
       actionLock.current = false;
       setPendingMilestoneActions((prev) => {
@@ -133,7 +134,7 @@ export default function Mygoals({
       setNewSubgoal("");
       setNewDeadline("");
     } catch (error) {
-      setSubgoalError(error?.response?.data?.message || "Unable to save sub-goal. Please try again.");
+      setSubgoalError(goalFailureMessage(error, "Unable to save sub-goal. Please try again."));
     } finally {
       actionLock.current = false;
       setIsSubmittingSubgoal(false);
@@ -156,7 +157,7 @@ export default function Mygoals({
         }));
       }
     } catch (error) {
-      setSubgoalError(error?.response?.data?.message || "Unable to delete sub-goal. Please try again.");
+      setSubgoalError(goalFailureMessage(error, "Unable to delete sub-goal. Please try again."));
     } finally {
       actionLock.current = false;
       setPendingMilestoneActions((prev) => {
@@ -352,6 +353,7 @@ export default function Mygoals({
                       }
                     }}
                     placeholder="e.g. Complete DBMS revision"
+                    maxLength={180}
                     className="w-full rounded-lg border border-amber-100/15 bg-black/20 px-3 py-1.5 text-sm text-stone-100 outline-none transition focus:border-amber-300/35"
                   />
                 </div>

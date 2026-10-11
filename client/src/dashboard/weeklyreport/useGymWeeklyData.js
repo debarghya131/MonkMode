@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api/axios";
+import { validWeeklySummaries, validWeeklyReport, validWeeklyAiResponse, weeklyFailureMessage as failureMessage } from "./weeklyReportResponse";
 import { createDemoGymReports } from "./gymDemoReports";
 import photo1 from "../../assets/transformatiom image 1.webp";
 import photo2 from "../../assets/transformatiom image 2.webp";
@@ -8,7 +9,6 @@ import photo4 from "../../assets/transformatiom image 4.webp";
 const DEMO_GYM_REPORTS = createDemoGymReports([photo1, photo2, photo3, photo4]);
 const DEMO_GYM_SUMMARIES = Object.values(DEMO_GYM_REPORTS).map(({ id, date, workoutDays, stats }) => ({ id, date, workoutDays, exerciseLogs: stats.exerciseLogs, measurementDays: stats.measurementDays, photoCount: stats.photoCount }));
 
-const failureMessage = (error, fallback) => error.response?.data?.error || error.response?.data?.message || fallback;
 export default function useGymWeeklyData(isDemoMode) {
   const [summaries, setSummaries] = useState([]);
   const [loadingSummaries, setLoadingSummaries] = useState(true);
@@ -33,7 +33,7 @@ export default function useGymWeeklyData(isDemoMode) {
     api.get("/weekly-report/gym/summaries", { signal: controller.signal, timeout: 15000 })
       .then(({ data }) => {
         if (controller.signal.aborted) return;
-        if (!Array.isArray(data)) throw new Error("Invalid summary response");
+        if (!validWeeklySummaries(data)) throw new Error("Invalid summary response");
         setSummaries(data);
         setSelectedWeekId(current => data.some(week => week.id === current) ? current : data[0]?.id || null);
       })
@@ -59,13 +59,17 @@ export default function useGymWeeklyData(isDemoMode) {
       api.get("/weekly-report/gym", config)
         .then(({ data }) => {
           if (!alive()) return;
-          if (data?.id !== selectedWeekId || !Array.isArray(data.strengthProgress) || !Array.isArray(data.progressPhotos) || !data.stats) throw new Error("Invalid report response");
+          if (!validWeeklyReport(data, "gym", selectedWeekId)) throw new Error("Invalid report response");
           setDetail({ id: selectedWeekId, data, loading: false, error: "" });
         })
         .catch(error => { if (alive()) setDetail({ id: selectedWeekId, data: null, loading: false, error: failureMessage(error, "Could not load this gym report. Please retry.") }); });
       // Cache-only GET. Generation is an explicit, separately rate-limited POST.
       api.get("/weekly-report/gym/ai-summary", config)
-        .then(({ data }) => { if (alive()) setAnalysis({ text: data.aiSummary || null, stale: Boolean(data.stale), loading: false, error: "", warning: "" }); })
+        .then(({ data }) => {
+          if (!alive()) return;
+          if (!validWeeklyAiResponse(data)) throw new Error("Invalid analysis response");
+          setAnalysis({ text: data.aiSummary, stale: Boolean(data.stale), loading: false, error: "", warning: "" });
+        })
         .catch(error => { if (alive()) setAnalysis(previous => ({ ...previous, loading: false, error: failureMessage(error, "Could not load saved analysis. Please retry.") })); });
     }
     return () => controller.abort();
@@ -80,7 +84,7 @@ export default function useGymWeeklyData(isDemoMode) {
       const { data } = await api.post("/weekly-report/gym/ai-summary", { regenerate: Boolean(analysis.text) },
         { params: { week: selectedWeekId }, signal: current.controller.signal, timeout: 30000 });
       if (context.current !== current || current.controller.signal.aborted) return;
-      if (!data.aiSummary) throw new Error("Empty analysis response");
+      if (!validWeeklyAiResponse(data, true)) throw new Error("Invalid analysis response");
       setAnalysis({ text: data.aiSummary, loading: false, error: "", stale: Boolean(data.stale), warning: data.warning || "" });
     } catch (error) {
       if (context.current === current && !current.controller.signal.aborted)
