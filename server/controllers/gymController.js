@@ -1,3 +1,5 @@
+import { MEASUREMENT_KEYS, measurementFields, validGalleryImage } from "../utils/gymRecordUtils.js";
+import { gymError, gymMutation, validGymDay, requestedGymActive } from "../utils/gymMutationUtils.js";
 import Workout from "../models/Workout.js";
 import WorkoutPlan from "../models/WorkoutPlan.js";
 import WorkoutPlanLog from "../models/WorkoutPlanLog.js";
@@ -7,17 +9,16 @@ import GymCustomExercise from "../models/GymCustomExercise.js";
 import GymDietPlan from "../models/GymDietPlan.js";
 import GymMeasurement from "../models/GymMeasurement.js";
 import mongoose from "mongoose";
+import User from "../models/User.js";
+import { journalMonthDays } from "../../shared/journalAnalysisStats.js";
+import { todoReportDay } from "../../shared/todoWeeklyStats.js";
+import { computeGymAnalysis, GYM_ANALYSIS_NOTE } from "../../shared/gymAnalysisStats.js";
+import { GYM_EXERCISE_FIELDS, GYM_MEASUREMENT_FIELDS } from "../utils/gymWeeklyReportUtils.js";
 import { APP_TIMEZONE } from "../config/runtime.js";
 import { getWorkoutChecklistSummary } from "../utils/workoutChecklistUtils.js";
 
 const MAX_GALLERY_IMAGES_PER_REQUEST = 6;
 const MAX_GALLERY_IMAGES_PER_CHECKIN = 12;
-const ALLOWED_IMAGE_MIME_TYPES = new Set([
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/webp"
-]);
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DIET_PLAN_TYPES = new Set(["diet", "workoutNutrition", "supplements", "macros"]);
 const DIET_MEAL_SECTIONS = ["morning", "breakfast", "lunch", "evening", "dinner"];
@@ -73,17 +74,11 @@ const parseDateInput = (value) => {
     ) {
       return parsed;
     }
+    return null;
   }
 
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const isValidImageDataUrl = (value) => {
-  if (typeof value !== "string") return false;
-  const match = value.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/);
-  if (!match) return false;
-  return ALLOWED_IMAGE_MIME_TYPES.has(match[1].toLowerCase());
 };
 
 const normalizeGalleryEntry = (entry) => ({
@@ -263,7 +258,7 @@ const normalizeDietPlan = (plan) => {
   };
 };
 
-const deactivateOtherPlansForDay = async ({ userId, planType, day, currentPlanId }) => {
+const deactivateOtherPlansForDay = async ({ userId, planType, day, currentPlanId, session }) => {
   await GymDietPlan.updateMany(
     {
       userId,
@@ -272,7 +267,8 @@ const deactivateOtherPlansForDay = async ({ userId, planType, day, currentPlanId
       isActive: true,
       _id: { $ne: currentPlanId }
     },
-    { $set: { isActive: false } }
+    { $set: { isActive: false } },
+    { session }
   );
 };
 
@@ -298,197 +294,107 @@ export const createGymDietPlan = async (req, res) => {
   try {
     const planType = normalizePlanTypeValue(req.body?.planType);
     const day = normalizeDayValue(req.body?.day);
-    const copiedFromId = normalizeCopiedFromId(req.body?.copiedFromId);
-    const isActive = Boolean(req.body?.isActive);
-
+    if (req.body.isActive !== undefined && typeof req.body.isActive !== "boolean") throw gymError(400, "isActive must be a boolean");
     const payload = {
-      userId: req.user.id,
-      planType,
-      day,
-      isActive,
-      copiedFromId,
+      userId: req.user.id, planType, day, isActive: req.body.isActive === true,
+      copiedFromId: normalizeCopiedFromId(req.body?.copiedFromId),
       meals: normalizeMealsPayload(planType, req.body?.meals),
       items: planType === "supplements" ? normalizeSupplementItems(req.body?.items) : [],
       values: planType === "macros" ? normalizeMacroValues(req.body?.values) : normalizeMacroValues(null)
     };
-
-    const plan = await GymDietPlan.create(payload);
-
-    if (plan.isActive) {
-      await deactivateOtherPlansForDay({
-        userId: req.user.id,
-        planType: plan.planType,
-        day: plan.day,
-        currentPlanId: plan._id
-      });
-    }
-
-    res.status(201).json(normalizeDietPlan(plan));
+    const saved = await gymMutation(req.user.id, async session => {
+      const [plan] = await GymDietPlan.create([payload], { session });
+      if (plan.isActive) await deactivateOtherPlansForDay({ userId: req.user.id, planType, day, currentPlanId: plan._id, session });
+      return normalizeDietPlan(plan);
+    });
+    res.status(201).json(saved);
   } catch (error) {
-    const status = error?.message?.includes("must be") || error?.message?.includes("required") ? 400 : 500;
-    res.status(status).json({ message: error.message });
+    res.status(error.status || (error.message?.includes("must be") || error.message?.includes("required") ? 400 : 500)).json({ message: error.message });
   }
 };
 
 export const updateGymDietPlan = async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid diet plan id" });
-    }
-
-    const plan = await GymDietPlan.findOne({ _id: req.params.id, userId: req.user.id });
-    if (!plan) {
-      return res.status(404).json({ message: "Diet plan not found" });
-    }
-
-    if (req.body?.planType && req.body.planType !== plan.planType) {
-      return res.status(400).json({ message: "planType cannot be changed for an existing plan" });
-    }
-
-    if (Object.prototype.hasOwnProperty.call(req.body, "day")) {
-      plan.day = normalizeDayValue(req.body.day);
-    }
-    if (Object.prototype.hasOwnProperty.call(req.body, "copiedFromId")) {
-      plan.copiedFromId = normalizeCopiedFromId(req.body.copiedFromId);
-    }
-    if (Object.prototype.hasOwnProperty.call(req.body, "isActive")) {
-      plan.isActive = Boolean(req.body.isActive);
-    }
-
-    if (plan.planType === "diet" || plan.planType === "workoutNutrition") {
-      if (Object.prototype.hasOwnProperty.call(req.body, "meals")) {
-        plan.meals = normalizeMealsPayload(plan.planType, req.body.meals);
-      }
-    } else if (plan.planType === "supplements") {
-      if (Object.prototype.hasOwnProperty.call(req.body, "items")) {
-        plan.items = normalizeSupplementItems(req.body.items);
-      }
-    } else if (plan.planType === "macros") {
-      if (Object.prototype.hasOwnProperty.call(req.body, "values")) {
-        plan.values = normalizeMacroValues(req.body.values);
-      }
-    }
-
-    await plan.save();
-
-    if (plan.isActive) {
-      await deactivateOtherPlansForDay({
-        userId: req.user.id,
-        planType: plan.planType,
-        day: plan.day,
-        currentPlanId: plan._id
-      });
-    }
-
-    res.json(normalizeDietPlan(plan));
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw gymError(400, "Invalid diet plan id");
+    const saved = await gymMutation(req.user.id, async session => {
+      const plan = await GymDietPlan.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
+      if (!plan) throw gymError(404, "Diet plan not found");
+      if (req.body.planType && req.body.planType !== plan.planType) throw gymError(400, "planType cannot be changed for an existing plan");
+      if (req.body.day !== undefined) plan.day = normalizeDayValue(req.body.day);
+      if (req.body.isActive !== undefined) plan.isActive = requestedGymActive(req.body, plan.isActive);
+      if (req.body.copiedFromId !== undefined) plan.copiedFromId = normalizeCopiedFromId(req.body.copiedFromId);
+      if ((plan.planType === "diet" || plan.planType === "workoutNutrition") && req.body.meals !== undefined) plan.meals = normalizeMealsPayload(plan.planType, req.body.meals);
+      if (plan.planType === "supplements" && req.body.items !== undefined) plan.items = normalizeSupplementItems(req.body.items);
+      if (plan.planType === "macros" && req.body.values !== undefined) plan.values = normalizeMacroValues(req.body.values);
+      await plan.save({ session });
+      if (plan.isActive) await deactivateOtherPlansForDay({ userId: req.user.id, planType: plan.planType, day: plan.day, currentPlanId: plan._id, session });
+      return normalizeDietPlan(plan);
+    });
+    res.json(saved);
   } catch (error) {
-    const status = error?.message?.includes("must be") || error?.message?.includes("required") ? 400 : 500;
-    res.status(status).json({ message: error.message });
+    res.status(error.status || (error.message?.includes("must be") || error.message?.includes("required") ? 400 : 500)).json({ message: error.message });
   }
 };
 
 export const toggleGymDietPlanActive = async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid diet plan id" });
-    }
-
-    const plan = await GymDietPlan.findOne({ _id: req.params.id, userId: req.user.id });
-    if (!plan) {
-      return res.status(404).json({ message: "Diet plan not found" });
-    }
-
-    plan.isActive = !plan.isActive;
-    await plan.save();
-
-    if (plan.isActive) {
-      await deactivateOtherPlansForDay({
-        userId: req.user.id,
-        planType: plan.planType,
-        day: plan.day,
-        currentPlanId: plan._id
-      });
-    }
-
-    const plans = await GymDietPlan.find({
-      userId: req.user.id,
-      planType: plan.planType
-    }).sort({ createdAt: -1 });
-
-    res.json(plans.map(normalizeDietPlan));
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw gymError(400, "Invalid diet plan id");
+    if (req.body.isActive !== undefined) requestedGymActive(req.body, false);
+    const plans = await gymMutation(req.user.id, async session => {
+      const plan = await GymDietPlan.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
+      if (!plan) throw gymError(404, "Diet plan not found");
+      plan.isActive = requestedGymActive(req.body, plan.isActive);
+      await plan.save({ session });
+      if (plan.isActive) await deactivateOtherPlansForDay({ userId: req.user.id, planType: plan.planType, day: plan.day, currentPlanId: plan._id, session });
+      const all = await GymDietPlan.find({ userId: req.user.id, planType: plan.planType }).session(session).sort({ createdAt: -1 });
+      return all.map(normalizeDietPlan);
+    });
+    res.json(plans);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.message });
   }
 };
 
 export const copyGymDietPlanToDay = async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid diet plan id" });
-    }
-
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw gymError(400, "Invalid diet plan id");
     const targetDay = normalizeDayValue(req.body?.day);
-    const plan = await GymDietPlan.findOne({ _id: req.params.id, userId: req.user.id });
-    if (!plan) {
-      return res.status(404).json({ message: "Diet plan not found" });
-    }
-
-    const sourceRootId = plan.copiedFromId || String(plan._id);
-    const sourceMatcher = [{ copiedFromId: sourceRootId }];
-    if (mongoose.Types.ObjectId.isValid(sourceRootId)) {
-      sourceMatcher.push({ _id: sourceRootId });
-    }
-
-    const existing = await GymDietPlan.findOne({
-      userId: req.user.id,
-      planType: plan.planType,
-      day: targetDay,
-      $or: sourceMatcher
+    let created = false;
+    const saved = await gymMutation(req.user.id, async session => {
+      const plan = await GymDietPlan.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
+      if (!plan) throw gymError(404, "Diet plan not found");
+      const sourceRootId = plan.copiedFromId || String(plan._id);
+      const sourceMatcher = [{ copiedFromId: sourceRootId }];
+      if (mongoose.Types.ObjectId.isValid(sourceRootId)) sourceMatcher.push({ _id: sourceRootId });
+      const existing = await GymDietPlan.findOne({ userId: req.user.id, planType: plan.planType, day: targetDay, $or: sourceMatcher }).session(session);
+      // A retry after a lost response returns the existing canonical copy.
+      if (existing) { created = false; return normalizeDietPlan(existing); }
+      const [copied] = await GymDietPlan.create([{
+        userId: req.user.id, planType: plan.planType, day: targetDay,
+        isActive: false, copiedFromId: sourceRootId,
+        meals: plan.meals?.toObject ? plan.meals.toObject() : plan.meals,
+        items: Array.isArray(plan.items) ? plan.items.map(item => ({ name: item.name, time: item.time || "" })) : [],
+        values: plan.values?.toObject ? plan.values.toObject() : plan.values
+      }], { session });
+      created = true;
+      return normalizeDietPlan(copied);
     });
-
-    if (existing) {
-      return res.status(409).json({ message: `Plan already copied to ${targetDay}` });
-    }
-
-    const copied = await GymDietPlan.create({
-      userId: req.user.id,
-      planType: plan.planType,
-      day: targetDay,
-      isActive: false,
-      copiedFromId: sourceRootId,
-      meals: plan.meals?.toObject ? plan.meals.toObject() : plan.meals,
-      items: Array.isArray(plan.items) ? plan.items.map((item) => ({
-        name: item.name,
-        time: item.time || ""
-      })) : [],
-      values: plan.values?.toObject ? plan.values.toObject() : plan.values
-    });
-
-    res.status(201).json(normalizeDietPlan(copied));
+    res.status(created ? 201 : 200).json(saved);
   } catch (error) {
-    const status = error?.message?.includes("must be") ? 400 : 500;
-    res.status(status).json({ message: error.message });
+    res.status(error.status || (error.message?.includes("must be") ? 400 : 500)).json({ message: error.message });
   }
 };
 
 export const deleteGymDietPlan = async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid diet plan id" });
-    }
-
-    const plan = await GymDietPlan.findOneAndDelete({
-      _id: req.params.id,
-      userId: req.user.id
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw gymError(400, "Invalid diet plan id");
+    await gymMutation(req.user.id, async session => {
+      const plan = await GymDietPlan.findOneAndDelete({ _id: req.params.id, userId: req.user.id }, { session });
+      if (!plan) throw gymError(404, "Diet plan not found");
     });
-
-    if (!plan) {
-      return res.status(404).json({ message: "Diet plan not found" });
-    }
-
     res.json({ message: "Diet plan deleted" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.message });
   }
 };
 
@@ -539,6 +445,12 @@ export const deleteWorkout = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+};
+
+// Clock metadata must remain available independently of measurement/gallery reads.
+export const getGymClock = (req, res) => {
+  const now = new Date();
+  res.json({ date: toDayKey(now), day: toWeekDayLabel(now), timezone: APP_TIMEZONE, serverNow: now.toISOString() });
 };
 
 export const getGymSummary = async (req, res) => {
@@ -603,6 +515,8 @@ export const getGymSummary = async (req, res) => {
 
     res.json({
       date: todayKey,
+      timezone: APP_TIMEZONE,
+      serverNow: today.toISOString(),
       day: dayLabel,
       progressUpdatesToday,
       completedProgress,
@@ -770,100 +684,53 @@ export const getGymGalleryEntries = async (req, res) => {
 
 export const uploadGymGalleryImages = async (req, res) => {
   try {
-    const resolvedDate = req.body?.date ? parseDateInput(req.body.date) : new Date();
-    if (!resolvedDate) {
-      return res.status(400).json({ message: "date must be a valid YYYY-MM-DD value" });
-    }
-
-    const incomingImages = Array.isArray(req.body?.images) ? req.body.images : [];
-    if (incomingImages.length === 0) {
-      return res.status(400).json({ message: "At least one image is required" });
-    }
-    if (incomingImages.length > MAX_GALLERY_IMAGES_PER_REQUEST) {
-      return res.status(400).json({ message: `You can upload up to ${MAX_GALLERY_IMAGES_PER_REQUEST} images at once` });
-    }
-
-    const normalizedImages = incomingImages
-      .filter((image) => typeof image === "string")
-      .map((image) => image.trim())
-      .filter(Boolean);
-
-    if (normalizedImages.length !== incomingImages.length || normalizedImages.some((image) => !isValidImageDataUrl(image))) {
-      return res.status(400).json({ message: "Only JPG, PNG, and WEBP image uploads are supported" });
-    }
-
-    const checkInDate = getStartOfDay(resolvedDate);
-    let entry = await GymGalleryEntry.findOne({
-      userId: req.user.id,
-      checkInDate
+    const day = req.body?.date || toDayKey();
+    if (!validGymDay(day) || day > toDayKey()) throw gymError(400, "date must be a valid, non-future YYYY-MM-DD value");
+    if (req.body?.expectedToday && (req.body.expectedToday !== toDayKey() || day !== toDayKey())) throw gymError(409, "The app day changed. Review your upload date before retrying.");
+    const incoming = req.body?.images;
+    if (!Array.isArray(incoming) || !incoming.length || incoming.length > MAX_GALLERY_IMAGES_PER_REQUEST) throw gymError(400, "Choose between 1 and 6 images");
+    if (incoming.some(image => !validGalleryImage(image))) throw gymError(400, "Use valid JPG, PNG or WEBP images, at most 2 MB each");
+    const checkInDate = parseDateInput(day);
+    const result = await gymMutation(req.user.id, async session => {
+      let entry = await GymGalleryEntry.findOne({ userId: req.user.id, checkInDate }).session(session);
+      const existing = new Set(entry?.images.map(image => image.src) || []);
+      // Identical bytes within the same check-in are the same photo. This also
+      // makes retry after an unacknowledged successful upload safe.
+      const images = [...new Set(incoming)].filter(src => !existing.has(src)).map(src => ({ src }));
+      const combined = [...(entry?.images || []), ...images];
+      if (combined.reduce((bytes, image) => bytes + Buffer.byteLength(image.src, "utf8"), 0) > 14 * 1024 * 1024) throw gymError(400, "This check-in is too large. Use smaller images (about 10 MB total).");
+      if ((entry?.images.length || 0) + images.length > MAX_GALLERY_IMAGES_PER_CHECKIN) throw gymError(400, "Each check-in can have up to 12 images");
+      if (!entry) {
+        [entry] = await GymGalleryEntry.create([{ userId: req.user.id, checkInDate, images }], { session });
+      } else if (images.length) {
+        entry.images.push(...images);
+        await entry.save({ session });
+      }
+      return normalizeGalleryEntry(entry);
     });
-
-    if (!entry) {
-      entry = new GymGalleryEntry({
-        userId: req.user.id,
-        checkInDate,
-        images: []
-      });
-    }
-
-    const nextImageCount = entry.images.length + normalizedImages.length;
-    if (nextImageCount > MAX_GALLERY_IMAGES_PER_CHECKIN) {
-      return res.status(400).json({
-        message: `Each check-in can have up to ${MAX_GALLERY_IMAGES_PER_CHECKIN} images`
-      });
-    }
-
-    normalizedImages.forEach((src) => {
-      entry.images.push({ src });
-    });
-
-    await entry.save();
-    res.status(201).json(normalizeGalleryEntry(entry));
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+    res.status(201).json(result);
+  } catch (error) { res.status(error.status || 500).json({ message: error.message }); }
 };
 
 export const deleteGymGalleryImage = async (req, res) => {
   try {
     const { entryId, imageId } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(entryId) || !mongoose.Types.ObjectId.isValid(imageId)) {
-      return res.status(400).json({ message: "Invalid gallery id or image id" });
-    }
-
-    const entry = await GymGalleryEntry.findOne({
-      _id: entryId,
-      userId: req.user.id
+    if (!mongoose.Types.ObjectId.isValid(entryId) || !mongoose.Types.ObjectId.isValid(imageId)) throw gymError(400, "Invalid gallery id or image id");
+    const result = await gymMutation(req.user.id, async session => {
+      const entry = await GymGalleryEntry.findOne({ _id: entryId, userId: req.user.id }).session(session);
+      // A repeated deletion has the same outcome, without touching another owner.
+      if (!entry) return { message: "Image deleted", deletedEntryId: entryId };
+      const image = entry.images.id(imageId);
+      if (image) image.deleteOne();
+      if (!entry.images.length) {
+        await entry.deleteOne({ session });
+        return { message: "Image deleted", deletedEntryId: entryId };
+      }
+      if (image) await entry.save({ session });
+      return { message: "Image deleted", entry: normalizeGalleryEntry(entry) };
     });
-
-    if (!entry) {
-      return res.status(404).json({ message: "Gallery entry not found" });
-    }
-
-    const image = entry.images.id(imageId);
-    if (!image) {
-      return res.status(404).json({ message: "Image not found" });
-    }
-
-    image.deleteOne();
-
-    if (entry.images.length === 0) {
-      await entry.deleteOne();
-      return res.json({
-        message: "Image deleted",
-        deletedEntryId: entryId
-      });
-    }
-
-    await entry.save();
-    res.json({
-      message: "Image deleted",
-      entry: normalizeGalleryEntry(entry)
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+    res.json(result);
+  } catch (error) { res.status(error.status || 500).json({ message: error.message }); }
 };
 
 export const getGymGallerySummary = async (req, res) => {
@@ -922,6 +789,8 @@ export const createGymCustomExercise = async (req, res) => {
 
     const normalizedName = name.toLowerCase();
     const normalizedBodyPart = bodyPart.toLowerCase();
+    if (name.length > 180 || bodyPart.length > 180 || bodyGroup.length > 80 || bodySection.length > 80) throw gymError(400, "Workout name or body group is too long");
+    const saved = await gymMutation(req.user.id, async session => {
     const duplicate = await GymCustomExercise.findOne({
       userId: req.user.id,
       $expr: {
@@ -930,94 +799,62 @@ export const createGymCustomExercise = async (req, res) => {
           { $eq: [{ $toLower: "$bodyPart" }, normalizedBodyPart] }
         ]
       }
-    });
-    if (duplicate) {
-      return res.status(409).json({ message: "This workout already exists in your library" });
-    }
+    }).session(session);
+    if (duplicate) return { status: 200, exercise: normalizeCustomExercise(duplicate) };
 
-    const exercise = await GymCustomExercise.create({
+    const [exercise] = await GymCustomExercise.create([{
       userId: req.user.id,
       name,
       bodyGroup,
       bodySection,
       bodyPart
+    }], { session });
+    return { status: 201, exercise: normalizeCustomExercise(exercise) };
     });
-
-    res.status(201).json(normalizeCustomExercise(exercise));
+    res.status(saved.status).json(saved.exercise);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.message });
   }
 };
 
 export const deleteGymCustomExercise = async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid workout id" });
-    }
-
-    const exercise = await GymCustomExercise.findOneAndDelete({
-      _id: req.params.id,
-      userId: req.user.id
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw gymError(400, "Invalid workout id");
+    await gymMutation(req.user.id, async session => {
+      await GymCustomExercise.findOneAndDelete({ _id: req.params.id, userId: req.user.id }).session(session);
     });
-
-    if (!exercise) {
-      return res.status(404).json({ message: "Workout not found" });
-    }
-
     res.json({ message: "Workout removed from library" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+  } catch (error) { res.status(error.status || 500).json({ message: error.message }); }
 };
 
 /* ─── Workout Plan helpers ──────────────────────────────────────────────── */
 
 const VALID_PLAN_DAYS = new Set(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
 const VALID_PLAN_ACTIONS = new Set(["created", "updated", "deleted", "copied", "activated", "deactivated", "restored"]);
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const HH_MM_RE = /^\d{2}:\d{2}$/;
+const HH_MM_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 const sanitizePlanDays = (days) => {
   if (!Array.isArray(days)) return null;
-  const unique = [...new Set(days.filter((d) => typeof d === "string"))];
-  const invalid = unique.filter((d) => !VALID_PLAN_DAYS.has(d));
-  if (invalid.length > 0) return { error: `Invalid days: ${invalid.join(", ")}` };
+  const unique = [...new Set(days.filter((day) => typeof day === "string"))];
+  const invalid = unique.filter((day) => !VALID_PLAN_DAYS.has(day));
+  if (invalid.length) return { error: `Invalid days: ${invalid.join(", ")}` };
   return unique;
 };
 
 const validatePlanBody = (body, isCreate) => {
   const { title, days, startDate, endDate, neverEnds, exercises } = body;
-
-  if (isCreate || title !== undefined) {
-    if (!title || typeof title !== "string" || !title.trim()) {
-      return "Title is required";
-    }
-  }
-
+  if ((isCreate || title !== undefined) && (typeof title !== "string" || !title.trim())) return "Title is required";
   if (isCreate || days !== undefined) {
     const result = sanitizePlanDays(days);
     if (result === null) return "days must be an array";
     if (result.error) return result.error;
-    if (isCreate && result.length === 0) return "At least one day is required";
+    if (!result.length) return "At least one day is required";
   }
-
-  if (startDate !== undefined && startDate && !ISO_DATE_RE.test(startDate)) {
-    return "startDate must be in YYYY-MM-DD format";
-  }
-
-  if (endDate !== undefined && endDate && !ISO_DATE_RE.test(endDate)) {
-    return "endDate must be in YYYY-MM-DD format";
-  }
-
-  const resolvedNeverEnds = neverEnds !== undefined ? Boolean(neverEnds) : true;
-  if (!resolvedNeverEnds && endDate && startDate && endDate < startDate) {
-    return "endDate cannot be before startDate";
-  }
-
-  if (exercises !== undefined && !Array.isArray(exercises)) {
-    return "exercises must be an array";
-  }
-
+  if (startDate !== undefined && startDate && !validGymDay(startDate)) return "startDate must be a valid YYYY-MM-DD date";
+  if (endDate !== undefined && endDate && !validGymDay(endDate)) return "endDate must be a valid YYYY-MM-DD date";
+  if (neverEnds !== undefined && typeof neverEnds !== "boolean") return "neverEnds must be a boolean";
+  if (neverEnds === false && endDate && startDate && endDate < startDate) return "endDate cannot be before startDate";
+  if (exercises !== undefined && !Array.isArray(exercises)) return "exercises must be an array";
   return null;
 };
 
@@ -1066,108 +903,104 @@ export const getWorkoutPlans = async (req, res) => {
 export const createWorkoutPlan = async (req, res) => {
   try {
     const validationError = validatePlanBody(req.body, true);
-    if (validationError) return res.status(400).json({ message: validationError });
-
-    const {
-      title, goalType, workoutSplit, totalEstimatedTime,
-      days, startDate, neverEnds, endDate, difficulty,
-      exercises, copiedFromId,
-    } = req.body;
-
-    const cleanDays = sanitizePlanDays(days);
-
-    const plan = await WorkoutPlan.create({
-      userId: req.user.id,
-      title: title.trim(),
-      goalType: typeof goalType === "string" ? goalType.trim() : "",
-      workoutSplit: typeof workoutSplit === "string" ? workoutSplit.trim() : "",
-      totalEstimatedTime: totalEstimatedTime != null ? String(totalEstimatedTime).trim() : "",
-      days: cleanDays,
-      startDate: typeof startDate === "string" ? startDate.trim() : "",
-      neverEnds: neverEnds !== false,
-      endDate: typeof endDate === "string" ? endDate.trim() : "",
-      difficulty: typeof difficulty === "string" ? difficulty.trim() : "",
-      exercises: Array.isArray(exercises) ? exercises : [],
-      isActive: false,
-      copiedFromId: copiedFromId ? String(copiedFromId) : null,
+    if (validationError) throw gymError(400, validationError);
+    const { title, goalType, workoutSplit, totalEstimatedTime, days, startDate, neverEnds, endDate, difficulty, exercises, copiedFromId } = req.body;
+    let created = false;
+    const saved = await gymMutation(req.user.id, async session => {
+      const cleanDays = sanitizePlanDays(days);
+      if (copiedFromId) {
+        if (!mongoose.Types.ObjectId.isValid(copiedFromId)) throw gymError(400, "Invalid source workout id");
+        const sourceMatcher = [{ _id: copiedFromId }, { copiedFromId }];
+        const source = await WorkoutPlan.findOne({ userId: req.user.id, $or: sourceMatcher }).session(session);
+        if (!source) throw gymError(404, "Source workout not found");
+        if (cleanDays.length !== 1) throw gymError(400, "A copied workout must have one day");
+        const existing = await WorkoutPlan.findOne({ userId: req.user.id, days: cleanDays[0], $or: sourceMatcher }).session(session);
+        if (existing) { created = false; return normalizeWorkoutPlan(existing); }
+      }
+      const [plan] = await WorkoutPlan.create([{
+        userId: req.user.id, title: title.trim(),
+        goalType: typeof goalType === "string" ? goalType.trim() : "",
+        workoutSplit: typeof workoutSplit === "string" ? workoutSplit.trim() : "",
+        totalEstimatedTime: totalEstimatedTime != null ? String(totalEstimatedTime).trim() : "",
+        days: cleanDays, startDate: typeof startDate === "string" ? startDate : "",
+        neverEnds: neverEnds !== false, endDate: typeof endDate === "string" ? endDate : "",
+        difficulty: typeof difficulty === "string" ? difficulty.trim() : "",
+        exercises: Array.isArray(exercises) ? exercises : [], isActive: false,
+        copiedFromId: copiedFromId ? String(copiedFromId) : null,
+      }], { session });
+      created = true;
+      return normalizeWorkoutPlan(plan);
     });
-
-    res.status(201).json(normalizeWorkoutPlan(plan));
+    res.status(created ? 201 : 200).json(saved);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.message });
   }
 };
 
 export const updateWorkoutPlan = async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid plan id" });
-    }
-
-    const plan = await WorkoutPlan.findOne({ _id: req.params.id, userId: req.user.id });
-    if (!plan) return res.status(404).json({ message: "Workout plan not found" });
-
-    const validationError = validatePlanBody(req.body, false);
-    if (validationError) return res.status(400).json({ message: validationError });
-
-    const { title, goalType, workoutSplit, totalEstimatedTime, days, startDate, neverEnds, endDate, difficulty, exercises } = req.body;
-
-    if (title !== undefined) plan.title = title.trim();
-    if (goalType !== undefined) plan.goalType = typeof goalType === "string" ? goalType.trim() : "";
-    if (workoutSplit !== undefined) plan.workoutSplit = typeof workoutSplit === "string" ? workoutSplit.trim() : "";
-    if (totalEstimatedTime !== undefined) plan.totalEstimatedTime = totalEstimatedTime != null ? String(totalEstimatedTime).trim() : "";
-    if (days !== undefined) plan.days = sanitizePlanDays(days);
-    if (startDate !== undefined) plan.startDate = typeof startDate === "string" ? startDate.trim() : "";
-    if (neverEnds !== undefined) plan.neverEnds = Boolean(neverEnds);
-    if (endDate !== undefined) plan.endDate = typeof endDate === "string" ? endDate.trim() : "";
-    if (difficulty !== undefined) plan.difficulty = typeof difficulty === "string" ? difficulty.trim() : "";
-    if (exercises !== undefined) plan.exercises = Array.isArray(exercises) ? exercises : plan.exercises;
-
-    await plan.save();
-    res.json(normalizeWorkoutPlan(plan));
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw gymError(400, "Invalid plan id");
+    const saved = await gymMutation(req.user.id, async session => {
+      const plan = await WorkoutPlan.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
+      if (!plan) throw gymError(404, "Workout plan not found");
+      const merged = { title: plan.title, days: plan.days, startDate: plan.startDate, endDate: plan.endDate, neverEnds: plan.neverEnds, exercises: plan.exercises, ...req.body };
+      const validationError = validatePlanBody(merged, false);
+      if (validationError) throw gymError(400, validationError);
+      if (req.body.startDate !== undefined && plan.startDate && plan.startDate <= toDayKey() && req.body.startDate !== plan.startDate) throw gymError(400, "The start date of an already-started workout cannot be changed");
+      for (const key of ["title", "goalType", "workoutSplit", "difficulty"]) {
+        if (req.body[key] !== undefined) plan[key] = typeof req.body[key] === "string" ? req.body[key].trim() : "";
+      }
+      if (req.body.totalEstimatedTime !== undefined) plan.totalEstimatedTime = String(req.body.totalEstimatedTime ?? "").trim();
+      if (req.body.days !== undefined) plan.days = sanitizePlanDays(req.body.days);
+      if (req.body.startDate !== undefined) plan.startDate = req.body.startDate;
+      if (req.body.endDate !== undefined) plan.endDate = req.body.endDate;
+      if (req.body.neverEnds !== undefined) plan.neverEnds = req.body.neverEnds;
+      if (req.body.exercises !== undefined) plan.exercises = req.body.exercises;
+      await plan.save({ session });
+      if (plan.isActive) await WorkoutPlan.updateMany(
+        { userId: req.user.id, _id: { $ne: plan._id }, days: { $in: plan.days }, isActive: true },
+        { $set: { isActive: false } }, { session }
+      );
+      return normalizeWorkoutPlan(plan);
+    });
+    res.json(saved);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.message });
   }
 };
 
 export const deleteWorkoutPlan = async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid plan id" });
-    }
-
-    const plan = await WorkoutPlan.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
-    if (!plan) return res.status(404).json({ message: "Workout plan not found" });
-
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw gymError(400, "Invalid plan id");
+    await gymMutation(req.user.id, async session => {
+      const plan = await WorkoutPlan.findOneAndDelete({ _id: req.params.id, userId: req.user.id }, { session });
+      if (!plan) throw gymError(404, "Workout plan not found");
+    });
     res.json({ message: "Workout plan deleted" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.message });
   }
 };
 
 export const toggleWorkoutPlanActive = async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid plan id" });
-    }
-
-    const plan = await WorkoutPlan.findOne({ _id: req.params.id, userId: req.user.id });
-    if (!plan) return res.status(404).json({ message: "Workout plan not found" });
-
-    plan.isActive = !plan.isActive;
-    await plan.save();
-
-    if (plan.isActive && Array.isArray(plan.days) && plan.days.length > 0) {
-      await WorkoutPlan.updateMany(
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw gymError(400, "Invalid plan id");
+    if (req.body.isActive !== undefined) requestedGymActive(req.body, false);
+    const plans = await gymMutation(req.user.id, async session => {
+      const plan = await WorkoutPlan.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
+      if (!plan) throw gymError(404, "Workout plan not found");
+      plan.isActive = requestedGymActive(req.body, plan.isActive);
+      await plan.save({ session });
+      if (plan.isActive && plan.days.length) await WorkoutPlan.updateMany(
         { userId: req.user.id, _id: { $ne: plan._id }, days: { $in: plan.days }, isActive: true },
-        { $set: { isActive: false } }
+        { $set: { isActive: false } }, { session }
       );
-    }
-
-    const allPlans = await WorkoutPlan.find({ userId: req.user.id }).sort({ createdAt: -1 });
-    res.json(allPlans.map(normalizeWorkoutPlan));
+      const all = await WorkoutPlan.find({ userId: req.user.id }).session(session).sort({ createdAt: -1 });
+      return all.map(normalizeWorkoutPlan);
+    });
+    res.json(plans);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.message });
   }
 };
 
@@ -1194,7 +1027,7 @@ export const createWorkoutPlanLog = async (req, res) => {
     if (!action || !VALID_PLAN_ACTIONS.has(action)) {
       return res.status(400).json({ message: `action must be one of: ${[...VALID_PLAN_ACTIONS].join(", ")}` });
     }
-    if (!date || !ISO_DATE_RE.test(date)) {
+    if (!validGymDay(date)) {
       return res.status(400).json({ message: "date must be in YYYY-MM-DD format" });
     }
     if (!time || !HH_MM_RE.test(time)) {
@@ -1222,12 +1055,6 @@ export const createWorkoutPlanLog = async (req, res) => {
   }
 };
 
-const MEASUREMENT_KEYS = [
-  "bodyWeight", "chest", "upperChest", "lowerChest", "waist", "upperWaist",
-  "lowerWaist", "shoulders", "neck", "hips", "armsBiceps", "leftArm", "rightArm",
-  "forearms", "leftForearm", "rightForearm", "thighs", "leftThigh", "rightThigh",
-  "calves", "leftCalf", "rightCalf", "ankle",
-];
 const MEASUREMENT_DELETE_UNDO_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 const getMeasurementDeleteUndoMeta = (doc, now = new Date()) => {
@@ -1272,110 +1099,69 @@ export const getMeasurements = async (req, res) => {
 
 export const createMeasurement = async (req, res) => {
   try {
-    const checkInDate = typeof req.body?.checkInDate === "string" ? req.body.checkInDate.trim() : "";
-    if (!checkInDate || !/^\d{4}-\d{2}-\d{2}$/.test(checkInDate)) {
-      return res.status(400).json({ message: "Valid checkInDate (YYYY-MM-DD) is required" });
-    }
-
-    const existing = await GymMeasurement.findOne({ userId: req.user.id, checkInDate });
-    if (existing && !existing.deletedAt) {
-      return res.status(409).json({ message: "A check-in for this date already exists. Use update instead." });
-    }
-
-    const fields = { checkInDate, deletedAt: null };
-    for (const key of MEASUREMENT_KEYS) {
-      if (Object.prototype.hasOwnProperty.call(req.body, key)) {
-        fields[key] = String(req.body[key] ?? "").trim();
+    const checkInDate = req.body?.checkInDate;
+    if (!validGymDay(checkInDate) || checkInDate > toDayKey()) throw gymError(400, "Valid non-future checkInDate (YYYY-MM-DD) is required");
+    if (req.body?.expectedToday && (req.body.expectedToday !== toDayKey() || checkInDate !== toDayKey())) throw gymError(409, "The app day changed. Review today’s check-in before saving.");
+    const fields = measurementFields(req.body);
+    const result = await gymMutation(req.user.id, async session => {
+      const existing = await GymMeasurement.findOne({ userId: req.user.id, checkInDate }).session(session);
+      if (existing) {
+        if (existing.deletedAt) throw gymError(409, "This check-in is deleted. Restore it instead of overwriting its history.");
+        if (MEASUREMENT_KEYS.every(key => String(existing[key] || "") === fields[key])) return { status: 200, entry: normalizeMeasurement(existing) };
+        throw gymError(409, "A check-in for this date already exists. Reload and use update instead.");
       }
-    }
-
-    if (existing && existing.deletedAt) {
-      Object.assign(existing, fields);
-      existing.userId = req.user.id;
-      await existing.save();
-      return res.status(201).json(normalizeMeasurement(existing));
-    }
-
-    const doc = await GymMeasurement.create({ userId: req.user.id, ...fields });
-    return res.status(201).json(normalizeMeasurement(doc));
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+      const [doc] = await GymMeasurement.create([{ userId: req.user.id, checkInDate, ...fields }], { session });
+      return { status: 201, entry: normalizeMeasurement(doc) };
+    });
+    res.status(result.status).json(result.entry);
+  } catch (error) { res.status(error.status || (error.code === 11000 ? 409 : 500)).json({ message: error.code === 11000 ? "A check-in for this date already exists. Reload before editing." : error.message }); }
 };
 
 export const updateMeasurement = async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid measurement id" });
-    }
-
-    const doc = await GymMeasurement.findOne({ _id: req.params.id, userId: req.user.id });
-    if (!doc) return res.status(404).json({ message: "Measurement not found" });
-    if (doc.deletedAt) {
-      return res.status(409).json({ message: "This check-in is deleted. Undo deletion before updating." });
-    }
-
-    for (const key of MEASUREMENT_KEYS) {
-      if (Object.prototype.hasOwnProperty.call(req.body, key)) {
-        doc[key] = String(req.body[key] ?? "").trim();
-      }
-    }
-
-    await doc.save();
-    res.json(normalizeMeasurement(doc));
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw gymError(400, "Invalid measurement id");
+    const result = await gymMutation(req.user.id, async session => {
+      const doc = await GymMeasurement.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
+      if (!doc) throw gymError(404, "Measurement not found");
+      if (doc.deletedAt) throw gymError(409, "This check-in is deleted. Undo deletion before updating.");
+      if (Object.hasOwn(req.body || {}, "checkInDate") && req.body.checkInDate !== doc.checkInDate) throw gymError(400, "A check-in date cannot be changed");
+      if (req.body?.expectedToday && (req.body.expectedToday !== toDayKey() || doc.checkInDate !== toDayKey())) throw gymError(409, "The app day changed. Only today’s check-in can be edited here.");
+      Object.assign(doc, measurementFields(req.body, doc));
+      await doc.save({ session });
+      return normalizeMeasurement(doc);
+    });
+    res.json(result);
+  } catch (error) { res.status(error.status || 500).json({ message: error.message }); }
 };
 
 export const deleteMeasurement = async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid measurement id" });
-    }
-
-    const doc = await GymMeasurement.findOne({ _id: req.params.id, userId: req.user.id });
-    if (!doc) return res.status(404).json({ message: "Measurement not found" });
-
-    doc.deletedAt = new Date();
-    await doc.save();
-
-    res.json({
-      message: "Measurement deleted. Undo available for 48 hours.",
-      entry: normalizeMeasurement(doc)
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw gymError(400, "Invalid measurement id");
+    const result = await gymMutation(req.user.id, async session => {
+      const doc = await GymMeasurement.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
+      if (!doc) throw gymError(404, "Measurement not found");
+      if (!doc.deletedAt) { doc.deletedAt = new Date(); await doc.save({ session }); }
+      return { message: "Measurement deleted. Undo available for 48 hours from its original deletion.", entry: normalizeMeasurement(doc) };
     });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+    res.json(result);
+  } catch (error) { res.status(error.status || 500).json({ message: error.message }); }
 };
 
 export const undoDeleteMeasurement = async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid measurement id" });
-    }
-
-    const doc = await GymMeasurement.findOne({ _id: req.params.id, userId: req.user.id });
-    if (!doc) return res.status(404).json({ message: "Measurement not found" });
-    if (!doc.deletedAt) return res.status(400).json({ message: "This check-in is not deleted." });
-
-    const undoMeta = getMeasurementDeleteUndoMeta(doc);
-    if (!undoMeta.canUndoDelete) {
-      return res.status(409).json({
-        message: "Restore window expired. Check-in can only be restored within 48 hours of deletion."
-      });
-    }
-
-    doc.deletedAt = null;
-    await doc.save();
-
-    res.json({
-      message: "Check-in restored successfully.",
-      entry: normalizeMeasurement(doc)
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw gymError(400, "Invalid measurement id");
+    const result = await gymMutation(req.user.id, async session => {
+      const doc = await GymMeasurement.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
+      if (!doc) throw gymError(404, "Measurement not found");
+      if (doc.deletedAt) {
+        if (!getMeasurementDeleteUndoMeta(doc).canUndoDelete) throw gymError(409, "Restore window expired. Check-in can only be restored within 48 hours of deletion.");
+        doc.deletedAt = null;
+        await doc.save({ session });
+      }
+      return { message: "Check-in restored successfully.", entry: normalizeMeasurement(doc) };
     });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+    res.json(result);
+  } catch (error) { res.status(error.status || 500).json({ message: error.message }); }
 };
 
 /* ─── Exercise Progress ─────────────────────────────────────────────────── */
@@ -1556,7 +1342,7 @@ export const getExerciseProgress = async (req, res) => {
     const query = { userId: req.user.id };
 
     if (req.query.date) {
-      if (!ISO_DATE_RE.test(req.query.date)) {
+      if (!validGymDay(req.query.date)) {
         return res.status(400).json({ message: "date must be in YYYY-MM-DD format" });
       }
       query.date = req.query.date;
@@ -1579,87 +1365,37 @@ export const getExerciseProgress = async (req, res) => {
   }
 };
 
-const MONTH_ABBR_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const DAY_NAMES_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-
 export const getGymAnalysis = async (req, res) => {
+  let days;
+  try { days = journalMonthDays(req.query.year, req.query.month); }
+  catch { return res.status(400).json({ message: "Use a valid year and month (1–12)." }); }
+  const now = new Date(), today = todoReportDay(now, APP_TIMEZONE);
+  const clock = { today, timezone: APP_TIMEZONE, serverNow: now.toISOString() };
+  if (days[0] > today) return res.status(400).json({ message: "Future months are not available for analysis.", ...clock });
   try {
-    const y = parseInt(req.query.year, 10);
-    const m = parseInt(req.query.month, 10);
-    if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) {
-      return res.status(400).json({ message: "Valid year and month (1-12) are required" });
-    }
-
-    const pad = (n) => String(n).padStart(2, "0");
-    const monthStart = `${y}-${pad(m)}-01`;
-    const nextM = m === 12 ? 1 : m + 1;
-    const nextY = m === 12 ? y + 1 : y;
-    const monthEnd = `${nextY}-${pad(nextM)}-01`;
-    const daysInMonth = new Date(y, m, 0).getDate();
-
-    const [docs, macroPlan] = await Promise.all([
-      GymExerciseProgress.find({
-        userId: req.user.id,
-        date: { $gte: monthStart, $lt: monthEnd },
-      }).sort({ date: 1 }),
-      GymDietPlan.findOne({ userId: req.user.id, planType: "macros", isActive: true }),
+    const account = await User.findById(req.user.id).select("createdAt").lean();
+    if (!account) return res.status(404).json({ message: "Account not found." });
+    const through = days.at(-1) < today ? days.at(-1) : today;
+    const [current, baseline, measurements, macroPlans] = await Promise.all([
+      GymExerciseProgress.find({ userId: req.user.id, date: { $gte: days[0], $lte: through } }, GYM_EXERCISE_FIELDS).lean(),
+      // One latest retained pre-period record per exercise: no lifetime exercise history response.
+      GymExerciseProgress.aggregate([
+        { $match: { userId: new mongoose.Types.ObjectId(req.user.id), date: { $lt: days[0] } } },
+        { $sort: { date: -1, updatedAt: -1, createdAt: -1, _id: -1 } },
+        { $group: { _id: "$exerciseId", entry: { $first: "$$ROOT" } } },
+        { $replaceRoot: { newRoot: "$entry" } }, { $project: GYM_EXERCISE_FIELDS },
+      ]),
+      GymMeasurement.find({ userId: req.user.id, deletedAt: null, checkInDate: { $lte: through } }, GYM_MEASUREMENT_FIELDS).lean(),
+      GymDietPlan.find({ userId: req.user.id, planType: "macros", isActive: true },
+        { day: 1, planType: 1, isActive: 1, values: 1, updatedAt: 1, createdAt: 1 }).lean(),
     ]);
-
-    const byDate = new Map();
-    for (const doc of docs) {
-      if (!byDate.has(doc.date)) byDate.set(doc.date, []);
-      byDate.get(doc.date).push(doc);
-    }
-
-    const sessions = [...byDate.entries()].map(([date, exercises]) => {
-      const volume = exercises.reduce((sum, ex) => {
-        const s = parseFloat(ex.sets) || 0;
-        const r = parseFloat(ex.reps) || 0;
-        const w = parseFloat(ex.weight) || 0;
-        return sum + s * r * w;
-      }, 0);
-      const bodyGroups = [...new Set(
-        exercises.map((ex) => toBodyGroup(ex.bodyPart)).filter((g) => g && g !== "Other")
-      )];
-      const dayIndex = new Date(`${date}T00:00:00`).getDay();
-      return {
-        date,
-        day: DAY_NAMES_SHORT[dayIndex],
-        exerciseCount: exercises.length,
-        volume: Math.round(volume),
-        bodyGroups,
-      };
-    });
-
-    const weeklyStats = [];
-    for (let ws = 1; ws <= daysInMonth; ws += 7) {
-      const we = Math.min(ws + 6, daysInMonth);
-      const startStr = `${y}-${pad(m)}-${pad(ws)}`;
-      const endStr = `${y}-${pad(m)}-${pad(we)}`;
-      const weekSessions = sessions.filter((s) => s.date >= startStr && s.date <= endStr);
-      const totalDays = we - ws + 1;
-      weeklyStats.push({
-        weekLabel: `${MONTH_ABBR_NAMES[m - 1]} ${ws}–${we}`,
-        workoutDays: weekSessions.length,
-        totalDays,
-        volume: weekSessions.reduce((sum, s) => sum + s.volume, 0),
-        exerciseCount: weekSessions.reduce((sum, s) => sum + s.exerciseCount, 0),
-        consistencyScore: Math.round((weekSessions.length / totalDays) * 100),
-      });
-    }
-
-    const macros = macroPlan
-      ? {
-          protein: parseFloat(macroPlan.values?.protein) || null,
-          carbs: parseFloat(macroPlan.values?.carbs) || null,
-          fats: parseFloat(macroPlan.values?.fats) || null,
-          calories: parseFloat(macroPlan.values?.calories) || null,
-        }
-      : null;
-
-    res.json({ year: y, month: m, sessions, weeklyStats, macros });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.json({ year: Number(req.query.year), month: Number(req.query.month), ...clock,
+      joinedDay: account.createdAt ? todoReportDay(account.createdAt, APP_TIMEZONE) : null,
+      analysis: computeGymAnalysis({ exercises: [...baseline, ...current], measurements, macroPlans },
+        { year: req.query.year, month: req.query.month, today }),
+      dataNote: GYM_ANALYSIS_NOTE });
+  } catch {
+    return res.status(500).json({ message: "Could not load Gym Analysis. Please retry." });
   }
 };
 
@@ -1667,9 +1403,13 @@ export const upsertExerciseProgress = async (req, res) => {
   try {
     const { date, exerciseId, repsBreakdown, ...rest } = req.body;
 
-    if (!date || !ISO_DATE_RE.test(date)) {
+    if (!validGymDay(date)) {
       return res.status(400).json({ message: "date must be in YYYY-MM-DD format" });
     }
+    if (req.body.expectedToday !== undefined && (req.body.expectedToday !== toDayKey() || date !== toDayKey())) {
+      return res.status(400).json({ message: "The app day has changed. Reload Today before saving progress." });
+    }
+    if (date > toDayKey()) return res.status(400).json({ message: "Progress cannot be recorded for a future date" });
     if (!exerciseId || typeof exerciseId !== "string" || !exerciseId.trim()) {
       return res.status(400).json({ message: "exerciseId is required" });
     }
@@ -1728,11 +1468,16 @@ export const upsertExerciseProgress = async (req, res) => {
       }
     }
 
-    const doc = await GymExerciseProgress.findOneAndUpdate(
-      { userId: req.user.id, date, exerciseId: exerciseId.trim() },
-      { $set: setFields },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
+    const filter = { userId: req.user.id, date, exerciseId: exerciseId.trim() };
+    let doc;
+    try {
+      doc = await GymExerciseProgress.findOneAndUpdate(filter, { $set: setFields },
+        { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true });
+    } catch (failure) {
+      if (failure.code !== 11000) throw failure;
+      doc = await GymExerciseProgress.findOneAndUpdate(filter, { $set: setFields }, { new: true, runValidators: true });
+      if (!doc) throw failure;
+    }
 
     res.status(200).json(normalizeExerciseProgress(doc));
   } catch (error) {

@@ -12,12 +12,6 @@ const shiftISO = (baseDate, offset) => {
   return toISO(next);
 };
 
-const shiftWorkoutIso = (offsetDays) => {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
-};
-
 /* ── TodaysWorkout: Diet summary data ─────────────────────── */
 export const DEMO_FULL_DIET = {
   Mon: { morning: ["Warm lemon water", "Soaked almonds (10)"], breakfast: ["Oats with banana & honey", "2 boiled eggs"], lunch: ["Brown rice (1 cup)", "Grilled chicken (150g)", "Cucumber salad"], evening: ["Whey protein shake", "Apple"], dinner: ["Grilled salmon (120g)", "Steamed broccoli"] },
@@ -532,13 +526,13 @@ export const createDummyLogs = (baseDate) => [
 ];
 
 /* ── gym/Progress: Exercise progress demo data ────────────── */
-export const createDemoWorkoutProgressMap = () => {
+export const createDemoWorkoutProgressMap = (baseDate = new Date()) => {
   const dates = [
-    shiftWorkoutIso(-56),
-    shiftWorkoutIso(-42),
-    shiftWorkoutIso(-28),
-    shiftWorkoutIso(-14),
-    shiftWorkoutIso(-7),
+    shiftISO(baseDate, -56),
+    shiftISO(baseDate, -42),
+    shiftISO(baseDate, -28),
+    shiftISO(baseDate, -14),
+    shiftISO(baseDate, -7),
   ];
 
   const series = [

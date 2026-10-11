@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "./habit-calendar-tooltip.css";
+import { formatHabitDay } from "./habitUtils";
 
 export default function HabitCalendarTooltip({ id, preview, habits, singular, onDismiss }) {
   const tooltipRef = useRef(null);
   const [position, setPosition] = useState(null);
-  const dateLabel = new Date(`${preview.iso}T00:00:00`).toLocaleDateString("en-US", {
+  const dateLabel = formatHabitDay(preview.iso, {
     weekday: "short", month: "short", day: "numeric",
   });
 

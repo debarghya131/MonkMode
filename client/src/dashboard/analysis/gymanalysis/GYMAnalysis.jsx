@@ -1,10 +1,13 @@
-import { AnimatePresence, motion as Motion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion as Motion } from "framer-motion";
 import { useState } from "react";
+import useAuth from "../../../hooks/useAuth";
+import useMobileLowMotion from "../../../hooks/useMobileLowMotion";
+import { GymAnalysisContext } from "./gymAnalysisContext";
+import useGymAnalysisData from "./useGymAnalysisData";
 import WorkoutPerformanceAnalysis from "./WorkoutPerformanceAnalysis";
 import StrengthProgressAnalysis from "./StrengthProgressAnalysis";
 import MeasurementsAnalysis from "./MeasurementsAnalysis";
 import NutritionConsistencyAnalysis from "./NutritionConsistencyAnalysis";
-
 const GYM_ANALYSIS_SECTIONS = [
   { id: "workout-performance", label: "Workout Performance", icon: "💪", component: WorkoutPerformanceAnalysis },
   { id: "strength-progress", label: "Strength Progress", icon: "📈", component: StrengthProgressAnalysis },
@@ -12,20 +15,31 @@ const GYM_ANALYSIS_SECTIONS = [
   { id: "nutrition-consistency", label: "Nutrition & Consistency", icon: "🥗", component: NutritionConsistencyAnalysis },
 ];
 
-export default function GYMAnalysis() {
+export default function GymAnalysis() {
+  const { isDemoMode, user } = useAuth();
+  return <GymSession key={isDemoMode ? "demo" : user?.id || user?._id || "user"} isDemoMode={isDemoMode} />;
+}
+function GymSession({ isDemoMode }) {
+  const resource = useGymAnalysisData(isDemoMode);
+  const lowMotion = useMobileLowMotion();
   const [activeSection, setActiveSection] = useState(GYM_ANALYSIS_SECTIONS[0].id);
   const [menuOpen, setMenuOpen] = useState(false);
   const activeTab =
-    GYM_ANALYSIS_SECTIONS.find((section) => section.id === activeSection) ?? GYM_ANALYSIS_SECTIONS[0];
+    GYM_ANALYSIS_SECTIONS.find((section) => section.id === activeSection) ??
+    GYM_ANALYSIS_SECTIONS[0];
   const ActiveComponent = activeTab.component;
 
   return (
-    <div className="gym-analysis-page space-y-4 sm:space-y-5" data-active={activeSection}>
+    <GymAnalysisContext.Provider value={resource}>
+    <MotionConfig reducedMotion={lowMotion ? "always" : "user"}>
+    <div data-demo-allow="true" data-section={activeSection} data-active={activeSection} className="gym-analysis-page space-y-4 sm:space-y-5">
       {/* Mobile: hamburger dropdown */}
-      <div className="gym-analysis-mobile-nav relative sm:hidden">
+      <div className="gym-analysis-mobile-nav relative sm:hidden" onKeyDown={event => { if (event.key === "Escape") setMenuOpen(false); }}>
         <button
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
+          aria-expanded={menuOpen}
+          aria-label="Gym Analysis section"
           className="flex w-full items-center justify-between gap-2 rounded-2xl border border-amber-100/10 bg-black/20 px-4 py-2.5 text-sm font-semibold text-amber-300 shadow-xl shadow-black/25 backdrop-blur"
         >
           <span className="flex min-w-0 items-center gap-2">
@@ -45,6 +59,7 @@ export default function GYMAnalysis() {
                   key={section.id}
                   type="button"
                   onClick={() => { setActiveSection(section.id); setMenuOpen(false); }}
+                  aria-pressed={activeSection === section.id}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
                     activeSection === section.id
                       ? "bg-amber-500/15 text-amber-300"
@@ -74,7 +89,7 @@ export default function GYMAnalysis() {
               className="dashboard-section-tab flex min-w-[7rem] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold"
             >
               <span className="text-base leading-none">{section.icon}</span>
-              <span>{section.label}</span>
+              <span className="min-w-0 truncate" title={section.label}>{section.label}</span>
             </Motion.button>
           );
         })}
@@ -84,7 +99,7 @@ export default function GYMAnalysis() {
         <Motion.div
           key={activeTab.id}
           className="gym-analysis-content"
-          initial={{ opacity: 0, y: 14 }}
+          initial={lowMotion ? false : { opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.22, ease: "easeInOut" }}
@@ -93,5 +108,7 @@ export default function GYMAnalysis() {
         </Motion.div>
       </AnimatePresence>
     </div>
+    </MotionConfig>
+    </GymAnalysisContext.Provider>
   );
 }

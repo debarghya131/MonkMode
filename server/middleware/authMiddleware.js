@@ -70,7 +70,8 @@ export const protect = async (req, res, next) => {
       id: user._id.toString(),
       name: user.name,
       email: user.email,
-      clerkId: user.clerkId
+      clerkId: user.clerkId,
+      todoImportantCategories: [...(user.todoPreferences?.importantCategories || [])]
     };
 
     next();

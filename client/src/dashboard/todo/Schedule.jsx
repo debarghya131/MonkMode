@@ -10,6 +10,7 @@ import {
 } from "./todoShared";
 import useAuth from "../../hooks/useAuth";
 import api from "../../api/axios";
+import { formatTodoTime, effectiveTodoDay, isTodoArchived, isTodoOnDay, todoTimeOnDay } from "./todoUtils";
 
 const PRIORITIES = ["High", "Medium", "Low"];
 const PRIORITY_EMOJI = {
@@ -44,38 +45,11 @@ const parseISODate = (isoDate) => {
   return new Date(year, month - 1, day);
 };
 
-const toDateOnly = (value) => {
-  if (!value) return "";
-  if (typeof value === "string") return value.slice(0, 10);
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "";
-  return toISODate(parsed);
-};
 
 const getTaskDisplayTime = (task) => task?.pendingTime || task?.time || "";
 
-const getTaskDisplayTimeForDate = (task, dateISO) => {
-  const pendingTime = task?.pendingTime;
-  const effectiveFrom = toDateOnly(task?.timeChangeEffectiveFrom);
-  if (pendingTime && effectiveFrom && dateISO >= effectiveFrom) return pendingTime;
-  return task?.time || "";
-};
+const getTaskDisplayTimeForDate = (task, dateISO, timezone) => todoTimeOnDay(task, dateISO, timezone);
 
-const getTaskDaysForDate = (task, dateISO) => {
-  const baseDays = Array.isArray(task?.days) ? task.days : [];
-  if (task?.repeatType !== "weekdays") return baseDays;
-
-  const pendingDays = Array.isArray(task?.pendingDays) && task.pendingDays.length
-    ? task.pendingDays
-    : null;
-  const effectiveFrom = toDateOnly(task?.daysChangeEffectiveFrom);
-
-  if (pendingDays && effectiveFrom && dateISO >= effectiveFrom) {
-    return pendingDays;
-  }
-
-  return baseDays;
-};
 
 const getTaskDisplayDays = (task) => {
   const pendingDays = Array.isArray(task?.pendingDays) ? task.pendingDays : [];
@@ -83,32 +57,14 @@ const getTaskDisplayDays = (task) => {
   return Array.isArray(task?.days) ? task.days : [];
 };
 
-const isInRange = (dateISO, startDate, endDate) => {
-  const target = parseISODate(dateISO);
-  const start = parseISODate(startDate);
-  if (target < start) return false;
-  if (!endDate) return true;
-  return target <= parseISODate(endDate);
-};
 
-const isTaskOnDate = (task, dateISO) => {
-  if (task.repeatType === "once") return task.date === dateISO;
-  if (!isInRange(dateISO, task.startDate, task.endDate)) return false;
-
-  const targetDay = parseISODate(dateISO).getDay();
-
-  if (task.repeatType === "daily") return true;
-  if (task.repeatType === "weekend") return targetDay === 0 || targetDay === 6;
-  if (task.repeatType === "weekdays") return getTaskDaysForDate(task, dateISO).includes(WEEK_DAYS[targetDay]);
-
-  return false;
-};
+const isTaskOnDate = (task, dateISO, timezone) => isTodoOnDay(task, dateISO, timezone);
 
 const hasOccurrenceInRange = (repeatType, startDate, endDate, days = []) => {
   if (!startDate || !endDate) return true;
   const start = parseISODate(startDate);
   const end = parseISODate(endDate);
-  const rangeDays = Math.floor((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  const rangeDays = Math.round((Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) - Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())) / (24 * 60 * 60 * 1000)) + 1;
   if (rangeDays <= 0) return false;
   if (repeatType === "daily") return true;
 
@@ -138,16 +94,7 @@ const priorityStyles = {
   Medium: "border-yellow-400/40 text-yellow-200 bg-yellow-500/10",
   Low: "border-green-400/40 text-green-200 bg-green-500/10",
 };
-const formatDisplayTime = (timeValue) => {
-  if (!timeValue || typeof timeValue !== "string") return "--";
-  const normalized = timeValue.slice(0, 5);
-  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(normalized)) return "--";
-
-  const [hours, minutes] = normalized.split(":").map(Number);
-  const dateObj = new Date();
-  dateObj.setHours(hours, minutes, 0, 0);
-  return dateObj.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-};
+const formatDisplayTime = formatTodoTime;
 
 const formatRemainingUndo = (remainingMs) => {
   const safeMs = Math.max(0, Number(remainingMs) || 0);
@@ -171,10 +118,6 @@ const getLogTimestamp = (log) => {
   return 0;
 };
 
-const getCurrentTimeKey = () => {
-  const now = new Date();
-  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-};
 
 const maxISODate = (left, right) => {
   if (!left) return right || "";
@@ -190,7 +133,9 @@ export default function Schedule({
   setCategoryOptions = () => {},
   importantCategories = DEFAULT_IMPORTANT_CATEGORIES,
   setImportantCategories = () => {},
-  refreshTasks = () => {},
+  clock,
+  timezone,
+  requestSignal,
 }) {
   const { isDemoMode } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -208,23 +153,26 @@ export default function Schedule({
       return next;
     });
   };
-  const today = useMemo(() => toISODate(new Date()), []);
-  const tomorrow = useMemo(() => {
-    const next = new Date();
-    next.setDate(next.getDate() + 1);
-    return toISODate(next);
-  }, []);
+  const today = clock.date;
+  const [saving, setSaving] = useState(false);
+  const writeLock = useRef(false);
+  const [logsError, setLogsError] = useState("");
+  const [logsLoading, setLogsLoading] = useState(!isDemoMode);
+  const logVersion = useRef(0);
   const calendarSectionRef = useRef(null);
   const formPanelRef = useRef(null);
-  const endedLogQueueRef = useRef(new Set());
 
   const refreshTaskLogs = useCallback(async () => {
     if (isDemoMode) return;
+    const version = ++logVersion.current;
+    setLogsLoading(true);
     try {
       const { data } = await api.get("/todos/logs");
-      setTaskLogs(data);
+      if (version === logVersion.current) { setTaskLogs(data); setLogsError(""); }
     } catch {
-      // keep current logs on transient failure
+      if (version === logVersion.current) setLogsError("Could not load activity logs. Please retry.");
+    } finally {
+      if (version === logVersion.current) setLogsLoading(false);
     }
   }, [isDemoMode]);
 
@@ -241,6 +189,13 @@ export default function Schedule({
 
   useEffect(() => {
     refreshTaskLogs();
+    window.addEventListener("focus", refreshTaskLogs);
+    window.addEventListener("monkmode:todos-updated", refreshTaskLogs);
+    return () => {
+      logVersion.current += 1;
+      window.removeEventListener("focus", refreshTaskLogs);
+      window.removeEventListener("monkmode:todos-updated", refreshTaskLogs);
+    };
   }, [refreshTaskLogs]);
 
   const [showCustomCategory, setShowCustomCategory] = useState(false);
@@ -264,11 +219,12 @@ export default function Schedule({
   const [editingId, setEditingId] = useState(null);
 
   const [viewMonth, setViewMonth] = useState(() => {
-    const now = new Date();
+    const now = parseISODate(today);
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDate, setSelectedDate] = useState(today);
   const [hoveredCalendarDate, setHoveredCalendarDate] = useState(null);
+  const pinnedCalendarDate = useRef(null);
   const [hoveredCalendarPosition, setHoveredCalendarPosition] = useState({ x: 0, y: 0, placement: "bottom" });
 
   const [touched, setTouched] = useState({});
@@ -311,15 +267,15 @@ export default function Schedule({
     );
     tasks.forEach((t) => {
       const isOnceEnded = t.repeatType === "once" && t.date && t.date < today;
-      const isRepeatingEnded = t.repeatType !== "once" && t.endDate && t.endDate <= today;
+      const isRepeatingEnded = t.repeatType !== "once" && t.endDate && t.endDate < today;
       const isDeleted = Boolean(t.deletedAt);
-      const isArchived = Boolean(t.archived);
+      const isArchived = isTodoArchived(t, today);
       if (isDeleted || isArchived || isOnceEnded || isRepeatingEnded) {
         if (!isDeleted && !endedLoggedTaskIds.has(String(t.id))) {
           const endedDate = t.repeatType === "once" ? t.date : (t.endDate || t.startDate);
           let endedTime = t.time || "00:00";
-          if (endedDate === today && endedTime > getCurrentTimeKey()) {
-            endedTime = getCurrentTimeKey();
+          if (endedDate === today && endedTime > clock.time) {
+            endedTime = clock.time;
           }
           ended.push({
             id: `${t.id}-ended`,
@@ -336,41 +292,8 @@ export default function Schedule({
       }
     });
     return { activeTasks: active, endedTaskLogs: ended };
-  }, [tasks, today, taskLogs]);
+  }, [tasks, today, taskLogs, clock.time]);
 
-  useEffect(() => {
-    if (isDemoMode || endedTaskLogs.length === 0) return;
-    const unlogged = endedTaskLogs.filter(
-      (l) => l.todoId && !endedLogQueueRef.current.has(String(l.todoId))
-    );
-    if (!unlogged.length) return;
-    for (const log of unlogged) {
-      endedLogQueueRef.current.add(String(log.todoId));
-    }
-    let cancelled = false;
-    const run = async () => {
-      await Promise.allSettled(
-        unlogged.map((log) =>
-          api.post("/todos/logs", {
-            todoId: log.todoId,
-            title: log.title,
-            date: log.date,
-            time: log.time,
-            action: "ended"
-          })
-        )
-      );
-      if (cancelled) return;
-      try {
-        const { data } = await api.get("/todos/logs");
-        if (!cancelled) setTaskLogs(data);
-      } catch {
-        // keep current logs if the refresh fails
-      }
-    };
-    run();
-    return () => { cancelled = true; };
-  }, [endedTaskLogs, isDemoMode]);
 
   const archivedTasks = useMemo(
     () => tasks.filter((task) => !activeTasks.some((activeTask) => activeTask.id === task.id)),
@@ -418,15 +341,15 @@ export default function Schedule({
     if (!hoveredCalendarDate) return [];
 
     return activeTasks
-      .filter((task) => isTaskOnDate(task, hoveredCalendarDate))
+      .filter((task) => isTaskOnDate(task, hoveredCalendarDate, timezone))
       .sort((left, right) => {
-        const leftTime = String(getTaskDisplayTimeForDate(left, hoveredCalendarDate) || "");
-        const rightTime = String(getTaskDisplayTimeForDate(right, hoveredCalendarDate) || "");
+        const leftTime = String(getTaskDisplayTimeForDate(left, hoveredCalendarDate, timezone) || "");
+        const rightTime = String(getTaskDisplayTimeForDate(right, hoveredCalendarDate, timezone) || "");
         const timeCompare = leftTime.localeCompare(rightTime);
         if (timeCompare !== 0) return timeCompare;
         return String(left?.title || "").localeCompare(String(right?.title || ""));
       });
-  }, [hoveredCalendarDate, activeTasks]);
+  }, [hoveredCalendarDate, activeTasks, timezone]);
 
   const formatLogTime = (timeValue) => {
     return formatDisplayTime(timeValue);
@@ -451,6 +374,7 @@ export default function Schedule({
 
   const handleAddCustomCategory = () => {
     const normalized = customCategory.trim();
+    if (normalized.length > 80) { setCategoryError("Category names cannot exceed 80 characters."); return; }
     if (!normalized) {
       setCategoryError("Please enter a category name.");
       return;
@@ -523,21 +447,22 @@ export default function Schedule({
     if (!form.priority) return "Priority is required.";
     if (!form.repeatType) return "Repeat type is required.";
     if (!form.time) return "Time is required.";
+    if (!editingId && (form.repeatType === "once" ? form.date : form.startDate) < today) return "New tasks cannot start in the past.";
 
     if (form.repeatType === "once") {
       if (!form.date) return "Date is required for one-time tasks.";
-      if (!editingId && form.date === today && form.time <= getCurrentTimeKey()) {
+      if (!editingId && form.date === today && form.time <= clock.time) {
         return "Time for today is already over. You need to start this task from the next day.";
       }
       return "";
     }
 
     if (!form.startDate) return "Start date is required.";
-    if (!editingId && form.startDate === today && form.time <= getCurrentTimeKey()) {
+    if (!editingId && form.startDate === today && form.time <= clock.time) {
       return "Time for today is already over. You need to start this task from the next day.";
     }
     if (!form.neverEnds && !form.endDate) return "End date is required or select Never.";
-    if (editingId && !form.neverEnds && form.endDate <= today) return "End date must be after today.";
+    if (editingId && !form.neverEnds && form.endDate < today) return "End date cannot be before today.";
     if (!form.neverEnds && form.endDate < form.startDate) return "End date cannot be earlier than start date.";
     if (!form.neverEnds && !hasOccurrenceInRange(form.repeatType, form.startDate, form.endDate, form.days)) {
       if (form.repeatType === "weekend") {
@@ -567,208 +492,100 @@ export default function Schedule({
     }));
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async event => {
     event.preventDefault();
-    setUpdateInfo("");
+    if (isDemoMode || writeLock.current) return;
     setTouched({ title: true, category: true, priority: true, repeatType: true, time: true, date: true, startDate: true });
     const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
-    const apiPayload = {
-      title: form.title.trim(),
-      description: form.description,
-      category: form.category,
-      priority: form.priority,
-      time: form.time,
-      repeatType: form.repeatType,
-      ...(form.repeatType === "once"
-        ? { date: form.date }
-        : {
-            startDate: form.startDate,
-            neverEnds: form.neverEnds,
-            endDate: form.neverEnds ? null : form.endDate,
-            days: form.repeatType === "weekdays" ? form.days : [],
-          }),
+    if (validationError) { setError(validationError); return; }
+    const payload = {
+      title: form.title.trim(), description: form.description, category: form.category, priority: form.priority, time: form.time, repeatType: form.repeatType,
+      ...(form.repeatType === "once" ? { date: form.date } : { startDate: form.startDate, neverEnds: form.neverEnds, endDate: form.neverEnds ? null : form.endDate, days: form.repeatType === "weekdays" ? form.days : [] }),
     };
-
-    if (!isDemoMode) {
-      try {
-        if (editingId) {
-          const { data } = await api.patch(`/todos/${editingId}`, apiPayload);
-          if (data?.reflectFromNextDay && data?.reflectDaysFromNextDay) {
-            setUpdateInfo("Update successful. Time and custom days will reflect from next day.");
-          } else if (data?.reflectFromNextDay) {
-            setUpdateInfo("Update successful. Time will reflect from next day.");
-          } else if (data?.reflectDaysFromNextDay) {
-            setUpdateInfo("Update successful. Custom days will reflect from next day.");
-          } else {
-            setUpdateInfo("");
-          }
-          setEditingId(null);
-        } else {
-          await api.post("/todos", apiPayload);
-          if (form.repeatType === "once") {
-            setSelectedDate(form.date);
-            setViewMonth(new Date(parseISODate(form.date).getFullYear(), parseISODate(form.date).getMonth(), 1));
-          } else {
-            setSelectedDate(form.startDate);
-            setViewMonth(new Date(parseISODate(form.startDate).getFullYear(), parseISODate(form.startDate).getMonth(), 1));
-          }
-          setUpdateInfo("");
-        }
-        refreshTasks();
-        refreshTaskLogs();
-        window.dispatchEvent(new Event("monkmode:todos-updated"));
-        resetFormAfterSubmit();
-      } catch (err) {
-        setError(err.response?.data?.message || "Failed to save task.");
-      }
-      return;
-    }
-
-    // Demo mode — local state only
-    if (editingId) {
-      const updatedFields = {
-        title: form.title.trim(),
-        description: form.description,
-        category: form.category,
-        priority: form.priority,
-        time: form.time,
-        repeatType: form.repeatType,
-        ...(form.repeatType === "once"
-          ? { date: form.date, startDate: undefined, endDate: undefined, days: undefined }
-          : {
-              startDate: form.startDate,
-              endDate: form.neverEnds ? null : form.endDate,
-              days: form.repeatType === "weekdays" ? form.days : undefined,
-              date: undefined,
-            }),
-      };
-      setTasks((prev) => prev.map((t) => (t.id === editingId ? { ...t, ...updatedFields } : t)));
-      setTaskLogs((prev) => [
-        {
-          id: `${editingId}-edited-${Date.now()}`,
-          title: form.title.trim(),
-          date: form.repeatType === "once" ? form.date : form.startDate,
-          time: form.time,
-          action: "edited",
-        },
-        ...prev,
-      ]);
+    writeLock.current = true;
+    setSaving(true);
+    setError("");
+    try {
+      const options = { signal: requestSignal };
+      const { data } = editingId ? await api.patch(`/todos/${editingId}`, payload, options) : await api.post("/todos", payload, options);
+      setTasks(previous => editingId ? previous.map(task => task.id === editingId ? data : task) : [data, ...previous]);
       setEditingId(null);
+      const date = form.repeatType === "once" ? form.date : form.startDate;
+      setSelectedDate(date);
+      setViewMonth(new Date(parseISODate(date).getFullYear(), parseISODate(date).getMonth(), 1));
       resetFormAfterSubmit();
-      return;
-    }
-
-    const baseTask = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      title: form.title.trim(),
-      description: form.description.trim(),
-      category: form.category,
-      priority: form.priority,
-      repeatType: form.repeatType,
-      time: form.time,
-    };
-
-    let task = baseTask;
-    if (form.repeatType === "once") {
-      task = { ...baseTask, date: form.date };
-      setSelectedDate(form.date);
-      setViewMonth(new Date(parseISODate(form.date).getFullYear(), parseISODate(form.date).getMonth(), 1));
-    } else {
-      task = {
-        ...baseTask,
-        startDate: form.startDate,
-        endDate: form.neverEnds ? null : form.endDate,
-      };
-      if (form.repeatType === "weekdays") task.days = form.days;
-      setSelectedDate(form.startDate);
-      setViewMonth(new Date(parseISODate(form.startDate).getFullYear(), parseISODate(form.startDate).getMonth(), 1));
-    }
-
-    setTasks((prev) => [task, ...prev]);
-    const logDate = task.repeatType === "once" ? task.date : task.startDate;
-    setTaskLogs((prev) => [{ id: `${task.id}-log`, title: task.title, date: logDate, time: task.time }, ...prev]);
-    resetFormAfterSubmit();
+      setUpdateInfo(data.auditWarning || (data.reflectFromNextDay || data.reflectDaysFromNextDay ? "Saved. Updated time/custom days take effect tomorrow." : "Task saved."));
+      window.dispatchEvent(new Event("monkmode:todos-updated"));
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to save task. Your form has been kept; please retry.");
+    } finally { writeLock.current = false; setSaving(false); }
   };
 
-  const handleDelete = async (id) => {
-    const task = tasks.find((t) => t.id === id);
-    if (!task) return;
-
-    if (!isDemoMode) {
-      try {
-        await api.delete(`/todos/${id}`);
-        if (editingId === id) setEditingId(null);
-        refreshTasks();
-        refreshTaskLogs();
-        window.dispatchEvent(new Event("monkmode:todos-updated"));
-      } catch (err) {
-        console.error("Failed to delete task:", err);
-      }
-      return;
-    }
-
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-    setTaskLogs((prev) => [
-      { id: `${id}-deleted-${Date.now()}`, title: task.title, date: task.date ?? task.startDate, time: task.time, action: "deleted", deletedItem: task },
-      ...prev,
-    ]);
-    if (editingId === id) setEditingId(null);
-  };
-
-  const handleUndoDelete = async (logId) => {
-    const log = taskLogs.find((l) => l.id === logId);
-    if (!log?.deletedItem) return;
-    const item = log.deletedItem;
-
-    if (!isDemoMode) {
-      if (!item?.id) {
-        setUndoError("Undo unavailable for this log entry.");
-        setTimeout(() => setUndoError(""), 3500);
-        return;
-      }
-
-      if (!log.canUndoDelete) {
-        setUndoError(`Undo expired — "${item.title || log.title}" can only be restored within 48 hours of deletion.`);
-        setTimeout(() => setUndoError(""), 4000);
-        return;
-      }
-
-      setRestoringLogId(logId);
-      try {
-        await api.patch(`/todos/${item.id}/restore`);
-        refreshTaskLogs();
-        setUndoError("");
-        refreshTasks();
-        window.dispatchEvent(new Event("monkmode:todos-updated"));
-      } catch (err) {
-        setUndoError(err?.response?.data?.message || `Could not restore "${item.title || log.title}".`);
-      } finally {
-        setRestoringLogId(null);
-      }
-      return;
-    }
-
-    const nowDate = toISODate(new Date());
-    const nowTime = new Date().toTimeString().slice(0, 5);
-    let expired = false;
-    if (item.repeatType === "once") {
-      expired = item.date < nowDate || (item.date === nowDate && item.time < nowTime);
-    } else if (!item.neverEnds && item.endDate) {
-      expired = item.endDate < nowDate || (item.endDate === nowDate && item.time < nowTime);
-    }
-    if (expired) {
-      setUndoError(`Undo not possible — "${item.title}" has already passed its end date/time.`);
-      setTimeout(() => setUndoError(""), 4000);
-      return;
-    }
+  const handleDelete = async id => {
+    if (isDemoMode || writeLock.current) return;
+    writeLock.current = true;
+    setSaving(true);
     setUndoError("");
-    setTasks((prev) => [item, ...prev]);
-    setTaskLogs((prev) => prev.filter((l) => l.id !== logId));
+    try {
+      const { data } = await api.delete(`/todos/${id}`, { signal: requestSignal });
+      setTasks(previous => previous.map(task => task.id === id ? data.todo : task));
+      if (editingId === id) { setEditingId(null); resetFormAfterSubmit(); }
+      if (data.auditWarning) setUndoError(data.auditWarning);
+      window.dispatchEvent(new Event("monkmode:todos-updated"));
+    } catch (err) { setUndoError(err.response?.data?.message || "Could not delete task. Please retry."); }
+    finally { writeLock.current = false; setSaving(false); }
+  };
+
+  const handleUndoDelete = async logId => {
+    const log = taskLogs.find(item => item.id === logId) || { deletedItem: tasks.find(task => task.id === logId && task.deletedAt) };
+    if (isDemoMode || writeLock.current || !log?.deletedItem?.id) return;
+    writeLock.current = true;
+    setSaving(true);
+    setRestoringLogId(logId);
+    setUndoError("");
+    try {
+      const { data } = await api.patch(`/todos/${log.deletedItem.id}/restore`, {}, { signal: requestSignal });
+      setTasks(previous => previous.map(task => task.id === data.id ? data : task));
+      if (data.auditWarning) setUndoError(data.auditWarning);
+      window.dispatchEvent(new Event("monkmode:todos-updated"));
+    } catch (err) { setUndoError(err.response?.data?.message || "Could not restore task. Please retry."); }
+    finally { writeLock.current = false; setSaving(false); setRestoringLogId(null); }
+  };
+
+  const previewCalendarDate = (isoDate, event) => {
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        const containerRect = calendarSectionRef.current?.getBoundingClientRect();
+                        const tooltipWidth = 256;
+                        const tooltipHeight = 96;
+                        const gap = 8;
+
+                        if (!containerRect) {
+                          setHoveredCalendarDate(isoDate);
+                          setHoveredCalendarPosition({
+                            x: rect.left + rect.width / 2,
+                            y: rect.bottom + gap,
+                            placement: "bottom",
+                          });
+                          return;
+                        }
+
+                        const preferredX = rect.left - containerRect.left + rect.width / 2;
+                        const minX = tooltipWidth / 2;
+                        const maxX = containerRect.width - tooltipWidth / 2;
+                        const clampedX = Math.min(Math.max(preferredX, minX), maxX);
+
+                        const spaceBelow = containerRect.bottom - rect.bottom;
+                        const showAbove = spaceBelow < tooltipHeight + gap;
+                        const y = showAbove
+                          ? rect.top - containerRect.top - gap
+                          : rect.bottom - containerRect.top + gap;
+
+                        setHoveredCalendarDate(isoDate);
+                        setHoveredCalendarPosition({
+                          x: clampedX,
+                          y,
+                          placement: showAbove ? "top" : "bottom",
+                        });
   };
 
   const startEdit = (task) => {
@@ -817,6 +634,7 @@ export default function Schedule({
         <div ref={formPanelRef} data-schedule-panel="create" className="schedule-main journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
           <h3 className="mb-4 text-sm font-semibold text-amber-200">{editingId ? "Edit Task" : "Create Task"}</h3>
           <form className="space-y-3" onSubmit={handleSubmit}>
+            <fieldset disabled={saving} className="min-w-0 space-y-3 border-0 p-0">
             {/* Row 1: Title */}
             <div>
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Title *</label>
@@ -1066,7 +884,7 @@ export default function Schedule({
                   {!form.neverEnds && (
                     <div>
                       <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">End</label>
-<DashboardDateTimeInput id="task-end" type="date" value={form.endDate} min={maxISODate(form.startDate || "", editingId ? tomorrow : "") || undefined} onChange={(e) => handleInputChange("endDate", e.target.value)} className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
+<DashboardDateTimeInput id="task-end" type="date" value={form.endDate} min={maxISODate(form.startDate || "", editingId ? today : "") || undefined} onChange={(e) => handleInputChange("endDate", e.target.value)} className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
                     </div>
                   )}
                 </div>
@@ -1095,14 +913,17 @@ export default function Schedule({
 
             <button
               type="submit"
+              disabled={saving}
+              aria-busy={saving}
               className="dashboard-card-action w-full"
               data-tone="warning"
             >
-              {editingId ? "Update Task" : "Add Task"}
+              {saving ? "Saving…" : editingId ? "Update Task" : "Add Task"}
             </button>
             {editingId && (
               <button
                 type="button"
+                disabled={saving}
                 onClick={() => { setEditingId(null); setError(""); setTouched({}); setForm((prev) => ({ ...prev, title: "", description: "", category: "", priority: "", repeatType: "", time: "", date: "" })); }}
                 className="dashboard-card-action mt-1.5 w-full"
                 data-tone="neutral"
@@ -1110,6 +931,7 @@ export default function Schedule({
                 Cancel Edit
               </button>
             )}
+            </fieldset>
           </form>
         </div>
 
@@ -1154,7 +976,7 @@ export default function Schedule({
                   task.archiveReason === "ended" ||
                   Boolean(task.archived) ||
                   (task.repeatType === "once" && task.date && task.date < today) ||
-                  (task.repeatType !== "once" && task.endDate && task.endDate <= today)
+                  (task.repeatType !== "once" && task.endDate && task.endDate < today)
                 );
 
                 return (
@@ -1172,9 +994,12 @@ export default function Schedule({
                           </span>
                           {!isArchiveView && (
                             <div className="schedule-task-actions flex items-center gap-1.5">
-                              <button type="button" onClick={() => startEdit(task)} className="dashboard-card-action" data-tone="warning">Edit</button>
-                              <button type="button" onClick={() => handleDelete(task.id)} className="dashboard-card-action" data-tone="danger">Delete</button>
+                              <button type="button" disabled={saving} onClick={() => startEdit(task)} className="dashboard-card-action" data-tone="warning">Edit</button>
+                              <button type="button" disabled={saving} onClick={() => handleDelete(task.id)} className="dashboard-card-action" data-tone="danger">Delete</button>
                             </div>
+                          )}
+                          {isArchiveView && isDeletedTask && task.canUndoDelete && Date.parse(task.deleteUndoExpiresAt) > Date.now() && (
+                            <button type="button" disabled={saving} onClick={() => handleUndoDelete(task.id)} className="dashboard-card-action" data-tone="warning">Restore</button>
                           )}
                         </div>
                       </div>
@@ -1203,6 +1028,8 @@ export default function Schedule({
                               {DAY_SHORT[day]}
                             </span>
                           ))}
+                          {task.pendingTime && task.timeChangeEffectiveFrom && <span className="text-amber-200/80">New time from {effectiveTodoDay(task.timeChangeEffectiveFrom, timezone)}</span>}
+                          {task.pendingDays?.length > 0 && task.daysChangeEffectiveFrom && <span className="text-amber-200/80">New days from {effectiveTodoDay(task.daysChangeEffectiveFrom, timezone)}</span>}
                         </div>
                       </div>
                   </article>
@@ -1245,50 +1072,22 @@ export default function Schedule({
                 {calendarCells.map((cellDate, idx) => {
                   if (!cellDate) return <div key={`empty-${idx}`} className="h-8 rounded" />;
                   const isoDate = toISODate(cellDate);
-                  const count = activeTasks.reduce((acc, task) => (isTaskOnDate(task, isoDate) ? acc + 1 : acc), 0);
+                  const count = activeTasks.reduce((acc, task) => (isTaskOnDate(task, isoDate, timezone) ? acc + 1 : acc), 0);
                   const isToday = isoDate === today;
                   const isSelected = isoDate === selectedDate;
                   return (
                     <button
                       key={isoDate}
                       type="button"
-                      onClick={() => setSelectedDate(isoDate)}
-                      onMouseEnter={(event) => {
-                        const rect = event.currentTarget.getBoundingClientRect();
-                        const containerRect = calendarSectionRef.current?.getBoundingClientRect();
-                        const tooltipWidth = 256;
-                        const tooltipHeight = 96;
-                        const gap = 8;
-
-                        if (!containerRect) {
-                          setHoveredCalendarDate(isoDate);
-                          setHoveredCalendarPosition({
-                            x: rect.left + rect.width / 2,
-                            y: rect.bottom + gap,
-                            placement: "bottom",
-                          });
-                          return;
-                        }
-
-                        const preferredX = rect.left - containerRect.left + rect.width / 2;
-                        const minX = tooltipWidth / 2;
-                        const maxX = containerRect.width - tooltipWidth / 2;
-                        const clampedX = Math.min(Math.max(preferredX, minX), maxX);
-
-                        const spaceBelow = containerRect.bottom - rect.bottom;
-                        const showAbove = spaceBelow < tooltipHeight + gap;
-                        const y = showAbove
-                          ? rect.top - containerRect.top - gap
-                          : rect.bottom - containerRect.top + gap;
-
-                        setHoveredCalendarDate(isoDate);
-                        setHoveredCalendarPosition({
-                          x: clampedX,
-                          y,
-                          placement: showAbove ? "top" : "bottom",
-                        });
-                      }}
-                      onMouseLeave={() => setHoveredCalendarDate((current) => (current === isoDate ? null : current))}
+                      aria-label={`${isoDate}, ${count} tasks scheduled`}
+                      aria-pressed={isSelected}
+                      aria-describedby={hoveredCalendarDate === isoDate ? "todo-calendar-preview" : undefined}
+                      onClick={event => { pinnedCalendarDate.current = isoDate; setSelectedDate(isoDate); previewCalendarDate(isoDate, event); }}
+                      onMouseEnter={event => previewCalendarDate(isoDate, event)}
+                      onFocus={event => { pinnedCalendarDate.current = null; previewCalendarDate(isoDate, event); }}
+                      onBlur={() => { if (!pinnedCalendarDate.current) setHoveredCalendarDate(null); }}
+                      onKeyDown={event => { if (event.key === "Escape") { pinnedCalendarDate.current = null; setHoveredCalendarDate(null); } }}
+                      onMouseLeave={() => setHoveredCalendarDate(current => current === isoDate && pinnedCalendarDate.current !== isoDate ? null : current)}
                       className={`relative h-8 rounded text-[11px] transition sm:text-xs ${
                         isSelected
                           ? "border border-amber-300/60 bg-amber-400/15 text-amber-100"
@@ -1305,6 +1104,8 @@ export default function Schedule({
               </div>
               {hoveredCalendarDate ? (
                 <div
+                  id="todo-calendar-preview"
+                  role="tooltip"
                   className="pointer-events-none absolute z-[80] w-64 -translate-x-1/2 rounded-xl border border-amber-100/10 bg-stone-950/95 p-3 shadow-2xl shadow-black/60 backdrop-blur-sm"
                   style={{
                     left: hoveredCalendarPosition.x,
@@ -1319,18 +1120,19 @@ export default function Schedule({
                   ) : hoveredCalendarTasks.length === 1 ? (
                     <p className="text-[11px] text-stone-200">
                       <span className="font-semibold text-amber-200">{hoveredCalendarTasks[0].title}</span>{" "}
-                      scheduled
+                      · {formatDisplayTime(getTaskDisplayTimeForDate(hoveredCalendarTasks[0], hoveredCalendarDate, timezone))}
                     </p>
                   ) : (
                     <div className="space-y-1">
                       <p className="text-[11px] font-semibold text-amber-200">
                         {hoveredCalendarTasks.length} tasks scheduled
                       </p>
-                      {hoveredCalendarTasks.map((task) => (
+                      {hoveredCalendarTasks.slice(0, 5).map((task) => (
                         <p key={`${hoveredCalendarDate}-${task.id}`} className="truncate text-[10px] text-stone-300">
-                          {formatDisplayTime(getTaskDisplayTimeForDate(task, hoveredCalendarDate))} · {task.title}
+                          {formatDisplayTime(getTaskDisplayTimeForDate(task, hoveredCalendarDate, timezone))} · {task.title}
                         </p>
                       ))}
+                      {hoveredCalendarTasks.length > 5 && <p className="text-[10px] text-stone-400">+{hoveredCalendarTasks.length - 5} more tasks</p>}
                     </div>
                   )}
                 </div>
@@ -1343,11 +1145,13 @@ export default function Schedule({
             {/* Task Logs — fills remaining height */}
             <section data-schedule-panel="logs" className="schedule-logs flex min-h-0 flex-1 flex-col">
               <p className="mb-2 shrink-0 text-sm font-semibold tracking-wide text-amber-200">Task Logs</p>
+              {logsError && <div role="alert" className="mb-2 text-xs text-rose-300">{logsError} <button type="button" onClick={refreshTaskLogs} className="underline">Retry logs</button></div>}
+              {logsLoading && <p role="status" className="mb-2 text-xs text-stone-400">Loading activity logs…</p>}
               {undoError && (
                 <p className="mb-2 shrink-0 rounded-md border border-rose-400/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-300">{undoError}</p>
               )}
               {allLogs.length === 0 ? (
-                <p className="text-sm text-stone-400">No task logs yet.</p>
+                <p className="text-sm text-stone-400">{!logsLoading && !logsError ? "No task logs yet." : ""}</p>
               ) : (
                 <div className="journal-scroll min-h-0 flex-1 space-y-1.5 overflow-x-hidden overflow-y-auto scroll-smooth pr-1">
                   {allLogs.map((log) => {
@@ -1382,12 +1186,12 @@ export default function Schedule({
                         </span>{" "}
                         <span className="break-all font-semibold text-stone-100">{log.title}</span> on {log.date} at {formatLogTime(log.time)}
                       </p>
-                      {log.action === "deleted" && log.deletedItem && (isDemoMode || log.canUndoDelete) && (
+                      {log.action === "deleted" && log.deletedItem && (isDemoMode || (log.canUndoDelete && runtimeUndoRemainingMs > 0)) && (
                         <>
                           <button
                             type="button"
                             onClick={() => handleUndoDelete(log.id)}
-                            disabled={restoringLogId === log.id}
+                            disabled={saving}
                             className="dashboard-card-action"
                             data-tone="warning"
                             title="Undo delete (available for 48 hours)"

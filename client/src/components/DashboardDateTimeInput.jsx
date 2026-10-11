@@ -44,6 +44,7 @@ export default function DashboardDateTimeInput({
   name,
   min,
   max,
+  today: appToday,
   disabled = false,
   readOnly = false,
   required = false,
@@ -83,7 +84,7 @@ export default function DashboardDateTimeInput({
     const maxHeight = Math.min(wantedHeight, Math.max(48, placeBelow ? below : above));
 
     if (isDate) {
-      const date = parseDate(value) || parseDate(todayISO());
+      const date = parseDate(value) || parseDate(appToday || todayISO());
       setViewMonth(new Date(date.getFullYear(), date.getMonth(), 1));
       setYearDraft(String(date.getFullYear()));
     } else {
@@ -229,7 +230,7 @@ export default function DashboardDateTimeInput({
                       disabled={Boolean((min && nextValue < min) || (max && nextValue > max))}
                       aria-label={new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(new Date(viewMonth.getFullYear(), viewMonth.getMonth(), day))}
                       aria-pressed={nextValue === value}
-                      data-today={nextValue === todayISO() || undefined}
+                      data-today={nextValue === (appToday || todayISO()) || undefined}
                       onClick={() => choose(nextValue)}
                     >{day}</button>
                   );
@@ -237,7 +238,7 @@ export default function DashboardDateTimeInput({
               </div>
               <div className="dashboard-datetime-footer">
                 <button type="button" onClick={() => choose("")}>Clear</button>
-                <button type="button" disabled={Boolean((min && todayISO() < min) || (max && todayISO() > max))} onClick={() => choose(todayISO())}>Today</button>
+                <button type="button" disabled={Boolean((min && (appToday || todayISO()) < min) || (max && (appToday || todayISO()) > max))} onClick={() => choose(appToday || todayISO())}>Today</button>
               </div>
             </>
           ) : (

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
-import { useCallback, useEffect, useState } from "react";
+import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import ToDoNavbar from "./ToDoNavbar";
 import { TODO_TABS } from "./todoTabs";
@@ -7,30 +7,15 @@ import Today from "./Today";
 import Upcomming from "./Upcomming";
 import Schedule from "./Schedule";
 import Important from "./Important";
-import {
-  DEFAULT_CATEGORIES,
-  DEFAULT_IMPORTANT_CATEGORIES,
-  IMPORTANT_TODO_CATEGORIES_STORAGE_KEY,
-  TODO_CATEGORY_STORAGE_KEY
-} from "./todoShared";
+import useTodoData from "./useTodoData";
+import { shiftTodoDay, todoClock } from "./todoUtils";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
-import api from "../../api/axios";
 
-const toISODate = (dateObj) => {
-  const year = dateObj.getFullYear();
-  const month = String(dateObj.getMonth() + 1).padStart(2, "0");
-  const day = String(dateObj.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
 
-const addDaysISO = (offsetDays) => {
-  const dateObj = new Date();
-  dateObj.setDate(dateObj.getDate() + offsetDays);
-  return toISODate(dateObj);
-};
-
-const DEMO_TASKS = [
+function createDemoTasks(today) {
+  const addDaysISO = offset => shiftTodoDay(today, offset);
+  return [
   {
     id: "demo-task-1",
     title: "Morning Run",
@@ -74,41 +59,15 @@ const DEMO_TASKS = [
     date: addDaysISO(-1),
     time: "18:15",
   },
-];
-
-const loadImportantCategories = () => {
-  if (typeof window === "undefined") return DEFAULT_IMPORTANT_CATEGORIES;
-  try {
-    const raw = window.localStorage.getItem(IMPORTANT_TODO_CATEGORIES_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    const custom = Array.isArray(parsed)
-      ? parsed
-          .map((value) => (typeof value === "string" ? value.trim() : ""))
-          .filter(Boolean)
-      : [];
-    const merged = [...new Set([...DEFAULT_IMPORTANT_CATEGORIES, ...custom])];
-    return merged.length ? merged : DEFAULT_IMPORTANT_CATEGORIES;
-  } catch {
-    return DEFAULT_IMPORTANT_CATEGORIES;
-  }
-};
-
-const loadStoredCategories = () => {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(TODO_CATEGORY_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed)
-      ? parsed
-          .map((value) => (typeof value === "string" ? value.trim() : ""))
-          .filter(Boolean)
-      : [];
-  } catch {
-    return [];
-  }
-};
+  ];
+}
 
 export default function Todo() {
+  const { isDemoMode, user } = useAuth();
+  return <TodoContent key={`${isDemoMode ? "demo" : "real"}:${user?.id || "guest"}`} />;
+}
+
+function TodoContent() {
   const { isDemoMode } = useAuth();
   const lowMotion = useMobileLowMotion();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -125,134 +84,19 @@ export default function Todo() {
       return next;
     });
   };
-  const [tasks, setTasks] = useState(isDemoMode ? DEMO_TASKS : []);
-  const [consistency, setConsistency] = useState({
-    todayCompleted: 0,
-    todayTotal: 0,
-    lifetimeCompleted: 0,
-    lifetimeTotal: 0,
-    lifetimeConsistency: 0
-  });
-  const [importantCategories, setImportantCategories] = useState(loadImportantCategories);
-  const [categoryOptions, setCategoryOptions] = useState(() => {
-    const stored = loadStoredCategories();
-    const merged = new Map();
-    [...DEFAULT_CATEGORIES, ...stored, ...loadImportantCategories()].forEach((category) => {
-      const key = String(category || "").toLowerCase();
-      if (!key || merged.has(key)) return;
-      merged.set(key, category);
-    });
-    return [...merged.values()];
-  });
-
-  const fetchTasks = useCallback(async () => {
-    try {
-      const { data } = await api.get("/todos");
-      setTasks(data);
-      const fetchedCategories = [...new Set(data.map((t) => t.category).filter(Boolean))];
-      const merged = [...new Set([
-        ...DEFAULT_CATEGORIES,
-        ...loadStoredCategories(),
-        ...importantCategories,
-        ...fetchedCategories
-      ])];
-      setCategoryOptions(merged);
-    } catch (err) {
-      console.error("Failed to fetch tasks:", err);
-    }
-  }, [importantCategories]);
-
-  const fetchConsistency = useCallback(async () => {
-    try {
-      const { data } = await api.get("/todos/summary", {
-        params: { importantCategories: importantCategories.join(",") }
-      });
-      setConsistency({
-        todayCompleted: Number(data?.today?.completed || 0),
-        todayTotal: Number(data?.today?.total || 0),
-        lifetimeCompleted: Number(data?.totalCompletedLifetime || data?.lifetime?.completed || 0),
-        lifetimeTotal: Number(data?.totalExpectedLifetime || data?.lifetime?.total || 0),
-        lifetimeConsistency: Number(data?.lifetimeConsistency || 0)
-      });
-    } catch {
-      // keep existing values
-    }
-  }, [importantCategories]);
-
-  useEffect(() => {
-    if (isDemoMode) return;
-    fetchTasks();
-    fetchConsistency();
-  }, [fetchConsistency, fetchTasks, isDemoMode]);
-
-  useEffect(() => {
-    if (isDemoMode) return;
-
-    const refreshTodoSummary = () => {
-      fetchConsistency();
-    };
-
-    window.addEventListener("focus", refreshTodoSummary);
-    window.addEventListener("monkmode:todos-updated", refreshTodoSummary);
-
-    return () => {
-      window.removeEventListener("focus", refreshTodoSummary);
-      window.removeEventListener("monkmode:todos-updated", refreshTodoSummary);
-    };
-  }, [fetchConsistency, isDemoMode]);
-
-  const refreshTasks = useCallback(() => {
-    if (!isDemoMode) {
-      fetchTasks();
-      fetchConsistency();
-    }
-  }, [fetchConsistency, fetchTasks, isDemoMode]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const customOnly = importantCategories.filter(
-      (category) =>
-        !DEFAULT_IMPORTANT_CATEGORIES.some(
-          (defaultCategory) => defaultCategory.toLowerCase() === category.toLowerCase()
-        )
-    );
-    window.localStorage.setItem(
-      IMPORTANT_TODO_CATEGORIES_STORAGE_KEY,
-      JSON.stringify(customOnly)
-    );
-  }, [importantCategories]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const customOnly = categoryOptions.filter(
-      (category) =>
-        !DEFAULT_CATEGORIES.some(
-          (defaultCategory) => defaultCategory.toLowerCase() === category.toLowerCase()
-        )
-    );
-    window.localStorage.setItem(
-      TODO_CATEGORY_STORAGE_KEY,
-      JSON.stringify(customOnly)
-    );
-  }, [categoryOptions]);
-
-  useEffect(() => {
-    setCategoryOptions((prev) => {
-      const merged = new Map();
-      [...DEFAULT_CATEGORIES, ...prev, ...importantCategories].forEach((category) => {
-        const key = String(category || "").toLowerCase();
-        if (!key || merged.has(key)) return;
-        merged.set(key, category);
-      });
-      return [...merged.values()];
-    });
-  }, [importantCategories]);
+  const demoDay = todoClock().date;
+  const demoTasks = useMemo(() => createDemoTasks(demoDay), [demoDay]);
+  const data = useTodoData(isDemoMode, demoTasks);
+  const { tasks, setTasks, consistency, categoryOptions, setCategoryOptions, importantCategories, setImportantCategories, refreshTasks, clock, timezone } = data;
 
   const section = {
-    today: <Today lowMotion={lowMotion} consistency={consistency} />,
-    upcoming: <Upcomming lowMotion={lowMotion} />,
+    today: <Today key={clock.date} lowMotion={lowMotion} consistency={consistency} tasks={data.todayTasks} clock={clock} onUpdateStatus={data.updateStatus} busyIds={data.busyIds} />,
+    upcoming: <Upcomming lowMotion={lowMotion} tasks={tasks} clock={clock} timezone={timezone} />,
     schedule: (
       <Schedule
+        requestSignal={data.requestSignal}
+        clock={clock}
+        timezone={timezone}
         tasks={tasks}
         setTasks={setTasks}
         categoryOptions={categoryOptions}
@@ -264,6 +108,8 @@ export default function Todo() {
     ),
     important: (
       <Important
+        clock={clock}
+        timezone={timezone}
         tasks={tasks}
         importantCategories={importantCategories}
         setImportantCategories={setImportantCategories}
@@ -281,8 +127,16 @@ export default function Todo() {
         </div>
       </div>
 
+      {(data.error || data.preferencesError) && (
+        <div role="alert" className="mb-3 rounded-xl border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-200">
+          <p>{data.error || data.preferencesError}</p>
+          <button type="button" className="mt-2 underline" data-demo-allow="true" onClick={data.error ? refreshTasks : data.retryPreferences}>Retry</button>
+        </div>
+      )}
+      {data.loading && !data.ready && <p role="status" className="p-6 text-sm text-stone-400">Loading tasks and account settings…</p>}
+
       {/* CONTENT */}
-      {lowMotion ? (
+      {data.ready && (lowMotion ? (
         <div key={active} className="todo-content">{section[active]}</div>
       ) : (
         <AnimatePresence mode="wait">
@@ -297,7 +151,7 @@ export default function Todo() {
             {section[active]}
           </Motion.div>
         </AnimatePresence>
-      )}
+      ))}
 
     </div>
   );

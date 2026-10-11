@@ -1,6 +1,7 @@
 import { AnimatePresence, MotionConfig, motion as Motion } from "framer-motion";
 import { useState } from "react";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
+import useAuth from "../../hooks/useAuth";
 import GYMWeeklyReport from "./GYMWeeklyReport";
 import GoalWeeklyReport from "./GoalWeeklyReport";
 import HabitWeeklyReport from "./HabitWeeklyReport";
@@ -16,6 +17,11 @@ const REPORT_TABS = [
 ];
 
 export default function WeeklyReport() {
+  const { isDemoMode, user } = useAuth();
+  return <WeeklyReportContent key={isDemoMode ? "demo" : user?.id || "guest"} />;
+}
+
+function WeeklyReportContent() {
   const lowMotion = useMobileLowMotion();
   const [activeTab, setActiveTab] = useState("journal");
   const [menuOpen, setMenuOpen] = useState(false);

@@ -1,6 +1,6 @@
 import { AnimatePresence, MotionConfig, motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import GymNav from "./gymNav";
 import TodaysWorkout from "./TodaysWorkout";
 import AddWorkout from "./AddWorkout";
@@ -9,6 +9,10 @@ import Measurements from "./Measurements";
 import ExerciseLibrary from "./ExerciseLibrary";
 import Progress from "./Progress";
 import Gallery from "./Gallery";
+import useAuth from "../../hooks/useAuth";
+import { GymContext } from "./gymContext";
+import useGymData from "./useGymData";
+import GymNotice from "./GymNotice";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 
 const GYM_SECTIONS = new Set([
@@ -22,7 +26,15 @@ const GYM_SECTIONS = new Set([
 ]);
 
 export default function Gym() {
+  const { isDemoMode, user } = useAuth();
+  return <GymContent key={isDemoMode ? "demo" : user?.id || "guest"} />;
+}
+
+function GymContent() {
+  const { isDemoMode, user } = useAuth();
+  const environment = useGymData(isDemoMode, user?.id);
   const location = useLocation();
+  const [, setSearchParams] = useSearchParams();
   const lowMotion = useMobileLowMotion();
   const routeTab = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -52,18 +64,27 @@ export default function Gym() {
     "gallery":        <Gallery />,
   };
 
+  const requestedSections = GYM_SECTIONS.has(active);
   return (
+    <GymContext.Provider value={environment}>
     <MotionConfig reducedMotion={lowMotion ? "always" : "user"}>
     <div className="gym-page w-full" data-active={active} data-low-motion={lowMotion ? "true" : "false"}>
 
       {/* TOP ROW */}
       <div className="gym-top-row flex items-center gap-3">
         <div className="flex-1 min-w-0">
-          <GymNav active={active} onChange={setActive} />
+          <GymNav active={active} onChange={tab => {
+            if (environment.busy) return;
+            setActive(tab);
+            setSearchParams(previous => { const next = new URLSearchParams(previous); next.set("tab", tab); return next; }, { replace: true });
+          }} />
         </div>
       </div>
 
       {/* CONTENT */}
+      {requestedSections && <GymNotice />}
+      <fieldset disabled={environment.busy} className="m-0 min-w-0 border-0 p-0 contents" aria-busy={environment.busy}>
+      {(!requestedSections || environment.ready) && <>
       {lowMotion ? (
         <div key={active} className="gym-content">{section[active]}</div>
       ) : (
@@ -81,7 +102,10 @@ export default function Gym() {
         </AnimatePresence>
       )}
 
+      </>}
+      </fieldset>
     </div>
     </MotionConfig>
+    </GymContext.Provider>
   );
 }

@@ -18,6 +18,7 @@ import {
   getGymAnalysis,
   getGymHeatmap,
   getGymSummary,
+  getGymClock,
   getWorkouts,
   getWorkoutPlans,
   getWorkoutPlanLogs,
@@ -49,7 +50,7 @@ const galleryUploadLimiter = createRateLimiterChain([
   {
     keyPrefix: "gym-gallery-upload-daily",
     windowMs: Number(process.env.GYM_GALLERY_RATE_LIMIT_DAILY_WINDOW_MS || 86_400_000),
-    max: Number(process.env.GYM_GALLERY_RATE_LIMIT_DAILY_MAX || 1),
+    max: Number(process.env.GYM_GALLERY_RATE_LIMIT_DAILY_MAX || 8),
     message: "You have reached the daily gallery upload limit for this portfolio project. Please try again tomorrow.",
   },
 ]);
@@ -77,7 +78,7 @@ const measurementWriteLimiter = createRateLimiterChain([
   {
     keyPrefix: "gym-measurement-write-daily",
     windowMs: Number(process.env.GYM_MEASUREMENT_RATE_LIMIT_DAILY_WINDOW_MS || 86_400_000),
-    max: Number(process.env.GYM_MEASUREMENT_RATE_LIMIT_DAILY_MAX || 2),
+    max: Number(process.env.GYM_MEASUREMENT_RATE_LIMIT_DAILY_MAX || 60),
     message: "You have reached the daily measurement update limit for this portfolio project. Please try again tomorrow.",
   },
 ]);
@@ -95,6 +96,7 @@ router.use(protect);
 router.get("/analysis", getGymAnalysis);
 router.get("/heatmap", getGymHeatmap);
 router.get("/summary", getGymSummary);
+router.get("/clock", getGymClock);
 router.get("/plans/logs", getWorkoutPlanLogs);
 router.post("/plans/logs", workoutDietWriteLimiter, createWorkoutPlanLog);
 router.get("/plans", getWorkoutPlans);

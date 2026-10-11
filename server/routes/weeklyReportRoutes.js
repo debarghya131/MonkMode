@@ -65,12 +65,20 @@ router.get("/weeks", getWeeksList);
 
 // Habit
 router.get("/habits/summaries", getHabitSummaries);
-router.get("/habits/ai-summary", habitAiSummaryLimiter, generateHabitAiSummary);
+router.get("/habits/ai-summary", (req, res, next) => {
+  if (req.query.regenerate === "true") return habitAiSummaryLimiter(req, res, next);
+  next();
+}, generateHabitAiSummary);
+router.post("/habits/ai-summary", habitAiSummaryLimiter, generateHabitAiSummary);
 router.get("/habits", getHabitWeeklyReport);
 
 // Todo
 router.get("/todos/summaries", getTodoSummaries);
-router.get("/todos/ai-summary", todoAiSummaryLimiter, generateTodoAiSummary);
+router.get("/todos/ai-summary", (req, res, next) => {
+  if (req.query.regenerate === "true") return todoAiSummaryLimiter(req, res, next);
+  next();
+}, generateTodoAiSummary);
+router.post("/todos/ai-summary", todoAiSummaryLimiter, generateTodoAiSummary);
 router.get("/todos", getTodoWeeklyReport);
 
 // Journal — detailed stats for one week
@@ -81,17 +89,29 @@ router.get("/journal/summaries", getJournalSummaries);
 router.get("/journal/missed-days", getMissedJournalDays);
 // Journal — save reason for a missed day
 router.post("/journal/missed-reason", journalMissedReasonLimiter, saveJournalMissedReason);
-// Journal — generate Little Monk's AI analysis for a week
-router.get("/journal/ai-summary", journalAiSummaryLimiter, generateJournalAiSummary);
+// Journal — cache-only reads; explicit generation/legacy regeneration is limited
+router.get("/journal/ai-summary", (req, res, next) => {
+  if (req.query.regenerate === "true") return journalAiSummaryLimiter(req, res, next);
+  next();
+}, generateJournalAiSummary);
+router.post("/journal/ai-summary", journalAiSummaryLimiter, generateJournalAiSummary);
 
 // Goals
 router.get("/goals/summaries", getGoalSummaries);
-router.get("/goals/ai-summary", goalAiSummaryLimiter, generateGoalAiSummary);
+router.get("/goals/ai-summary", (req, res, next) => {
+  if (req.query.regenerate === "true") return goalAiSummaryLimiter(req, res, next);
+  next();
+}, generateGoalAiSummary);
+router.post("/goals/ai-summary", goalAiSummaryLimiter, generateGoalAiSummary);
 router.get("/goals", getGoalWeeklyReport);
 
 // Gym
 router.get("/gym/summaries", getGymSummaries);
-router.get("/gym/ai-summary", gymAiSummaryLimiter, generateGymAiSummary);
+router.get("/gym/ai-summary", (req, res, next) => {
+  if (req.query.regenerate === "true") return gymAiSummaryLimiter(req, res, next);
+  next();
+}, generateGymAiSummary);
+router.post("/gym/ai-summary", gymAiSummaryLimiter, generateGymAiSummary);
 router.get("/gym", getGymWeeklyReport);
 
 export default router;

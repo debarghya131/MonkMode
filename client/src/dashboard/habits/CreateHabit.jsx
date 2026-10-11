@@ -7,6 +7,8 @@ import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import HabitCalendarTooltip from "./HabitCalendarTooltip";
+import { useHabitEnvironment } from "./habitContext";
+import { DEFAULT_HABIT_TIMEZONE, formatHabitTime, habitCategoryStorageKey, habitClock, habitDayKey, isHabitOnDay } from "./habitUtils";
 
 /* ─── Constants ─────────────────────────────────────── */
 const PRIORITIES = ["High", "Medium", "Low"];
@@ -37,7 +39,7 @@ const DAY_SHORT = { Sun: "Su", Mon: "M", Tue: "T", Wed: "W", Thu: "Th", Fri: "F"
 const DEFAULT_CATEGORIES = [
   "Mindfulness", "Fitness", "Learning", "Discipline", "Health", "Productivity", "Personal",
 ];
-const CATEGORY_STORAGE_KEY = "monkmode.habit.custom_categories.v1";
+
 
 const toISO = (d) => {
   const y = d.getFullYear();
@@ -45,12 +47,7 @@ const toISO = (d) => {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 };
-const parseISO = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
-const inRange = (iso, start, end) => {
-  const t = parseISO(iso), s = parseISO(start);
-  if (t < s) return false;
-  return end ? t <= parseISO(end) : true;
-};
+const parseISO = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d, 12); };
 const addDays = (n, startISO) => {
   if (!startISO) return "";
   const d = parseISO(startISO);
@@ -61,24 +58,15 @@ const fixedEndDate = (durationDays, startISO) => addDays(Math.max(durationDays -
 const totalDaysInclusive = (startISO, endISO) => {
   if (!startISO || !endISO) return 0;
   const msPerDay = 24 * 60 * 60 * 1000;
-  const start = parseISO(startISO);
-  const end = parseISO(endISO);
-  return Math.floor((end - start) / msPerDay) + 1;
+  const start = new Date(startISO + "T12:00:00Z");
+  const end = new Date(endISO + "T12:00:00Z");
+  return Math.round((end - start) / msPerDay) + 1;
 };
 const FIXED_DURATION = { "7days": 7, "21days": 21 };
-const isHabitOnDate = (h, iso) => {
-  if (!inRange(iso, h.startDate, h.endDate)) return false;
-  const wd = parseISO(iso).getDay();
-  if (h.repeatType === "daily" || h.repeatType === "7days" || h.repeatType === "21days") return true;
-  if (h.repeatType === "weekend") return wd === 0 || wd === 6;
-  if (h.repeatType === "weekdays") return h.days.includes(WEEK_DAYS[wd]);
-  return false;
-};
 const hasOccurrenceInRange = (repeatType, startISO, endISO, days = []) => {
   if (!startISO || !endISO) return true;
   const start = parseISO(startISO);
-  const end = parseISO(endISO);
-  const rangeDays = Math.floor((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  const rangeDays = totalDaysInclusive(startISO, endISO);
   if (rangeDays <= 0) return false;
   if (repeatType === "daily" || repeatType === "7days" || repeatType === "21days") return true;
 
@@ -102,12 +90,7 @@ const hasOccurrenceInRange = (repeatType, startISO, endISO, days = []) => {
 
   return true;
 };
-const fmtTime = (t) => {
-  if (!t) return "--";
-  const [h, m] = t.split(":").map(Number);
-  const d = new Date(); d.setHours(h, m);
-  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-};
+const fmtTime = formatHabitTime;
 
 const PANEL_H = "650px";
 const DELETE_UNDO_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -116,12 +99,6 @@ const toLogAtISO = (dateStr, timeStr = "00:00") => {
   const d = new Date(`${dateStr}T${timeStr}:00`);
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString();
-};
-
-const getLocalHHMM = (iso) => {
-  if (!iso) return "00:00";
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
 
 const getDeleteUndoMeta = (deletedAt) => {
@@ -165,18 +142,12 @@ const emitHabitsUpdated = () => {
 };
 
 /* ─── normalizeHabit ─────────────────────────────────── */
-const toDateStr = (d) => {
-  if (!d) return null;
-  if (typeof d === "string") return d.length > 10 ? d.slice(0, 10) : d;
-  return toISO(new Date(d));
-};
-
-const normalizeHabit = (h, todayStr) => ({
+const normalizeHabit = (h, todayStr, timezone = DEFAULT_HABIT_TIMEZONE) => ({
   ...h,
   id: h._id?.toString() ?? h.id,
   reason: h.note ?? h.reason ?? "",
-  startDate: toDateStr(h.startDate) || toDateStr(h.createdAt) || todayStr,
-  endDate: toDateStr(h.endDate),
+  startDate: habitDayKey(h.startDate, timezone) || habitDayKey(h.createdAt, timezone) || todayStr,
+  endDate: habitDayKey(h.endDate, timezone),
   repeatType: h.repeatType ?? h.frequency ?? "daily",
   timeOfDay: h.timeOfDay ?? "",
   days: h.days ?? [],
@@ -186,62 +157,10 @@ const normalizeHabit = (h, todayStr) => ({
   deleteUndoRemainingMs: Number.isFinite(Number(h.deleteUndoRemainingMs)) ? Number(h.deleteUndoRemainingMs) : 0,
 });
 
-/* ─── Demo data ──────────────────────────────────────── */
-const buildDemoHabits = (today) => [
-  {
-    id: "demo-habit-1",
-    title: "DSA",
-    reason: "Build problem-solving consistency.",
-    isImportant: true,
-    targetStreak: 21,
-    timeOfDay: "Morning",
-    category: "Fitness",
-    priority: "High",
-    repeatType: "21days",
-    time: "11:01",
-    startDate: today,
-    endDate: fixedEndDate(21, today),
-  },
-  {
-    id: "demo-habit-2",
-    title: "Evening Walk",
-    reason: "Improve energy and sleep quality.",
-    isImportant: false,
-    targetStreak: 14,
-    timeOfDay: "Evening",
-    category: "Health",
-    priority: "Medium",
-    repeatType: "daily",
-    time: "19:00",
-    startDate: today,
-    endDate: null,
-  },
-  {
-    id: "demo-habit-3-archived",
-    title: "Cold Shower",
-    reason: "Build resilience and discipline.",
-    isImportant: false,
-    targetStreak: 7,
-    timeOfDay: "Morning",
-    category: "Discipline",
-    priority: "Low",
-    repeatType: "7days",
-    time: "06:10",
-    startDate: addDays(-10, today),
-    endDate: addDays(-3, today),
-  },
-];
-
-const buildDemoLogs = (today) => [
-  { id: "demo-habit-log-1", title: "DSA", date: today, time: "11:01" },
-  { id: "demo-habit-log-2", title: "Evening Walk", date: today, time: "19:00", action: "edited" },
-  { id: "demo-habit-log-3", title: "Meditation", date: today, time: "06:45", action: "deleted" },
-];
-
-const loadStoredCategories = () => {
+const loadStoredCategories = (storageKey) => {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(CATEGORY_STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -255,8 +174,23 @@ const loadStoredCategories = () => {
 
 /* ─── Component ─────────────────────────────────────── */
 export default function CreateHabit({ entity = "habit" }) {
-  const today = useMemo(() => toISO(new Date()), []);
-  const { isDemoMode } = useAuth();
+  const { isDemoMode, user } = useAuth();
+  const { clock, timezone, demoHabits, requestSignal } = useHabitEnvironment();
+  const today = clock.date;
+  const storageKey = habitCategoryStorageKey(user?.id, isDemoMode);
+  const toDateStr = useCallback(value => habitDayKey(value, timezone), [timezone]);
+  const getLocalHHMM = value => habitClock(new Date(value), timezone).time;
+  const isHabitOnDate = useCallback((habit, day) => isHabitOnDay(habit, day, timezone), [timezone]);
+  const writeLock = useRef(false);
+  const version = useRef(0);
+  const live = useRef(true);
+  const readyRef = useRef(isDemoMode);
+  const [loadError, setLoadError] = useState("");
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    live.current = true;
+    return () => { live.current = false; version.current += 1; confirmResolveRef.current?.(false); };
+  }, []);
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedMobileView = searchParams.get("habitCreate");
   const mobileView = CREATE_HABIT_VIEWS.some((view) => view.id === requestedMobileView)
@@ -292,7 +226,7 @@ export default function CreateHabit({ entity = "habit" }) {
 
   /* categories */
   const [categoryOptions, setCategoryOptions] = useState(() => {
-    const stored = loadStoredCategories();
+    const stored = isDemoMode ? [] : loadStoredCategories(storageKey);
     const merged = new Map();
     [...DEFAULT_CATEGORIES, ...stored].forEach((category) => {
       const key = category.toLowerCase();
@@ -318,12 +252,13 @@ export default function CreateHabit({ entity = "habit" }) {
   const confirmResolveRef = useRef(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || isDemoMode) return;
     const customOnly = categoryOptions.filter(
       (category) => !DEFAULT_CATEGORIES.some((defaultCat) => defaultCat.toLowerCase() === category.toLowerCase())
     );
-    window.localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(customOnly));
-  }, [categoryOptions]);
+    try { window.localStorage.setItem(storageKey, JSON.stringify(customOnly)); }
+    catch { setCatError("Custom categories could not be stored on this browser."); }
+  }, [categoryOptions, storageKey, isDemoMode]);
 
   useEffect(() => {
     if (!toast) return;
@@ -350,8 +285,8 @@ export default function CreateHabit({ entity = "habit" }) {
   };
 
   /* habits list */
-  const [habits, setHabits] = useState(() => isDemoMode ? buildDemoHabits(toISO(new Date())) : []);
-  const [habitLogs, setHabitLogs] = useState(() => isDemoMode ? buildDemoLogs(toISO(new Date())) : []);
+  const [habits, setHabits] = useState(() => isDemoMode ? demoHabits : []);
+  const [habitLogs, setHabitLogs] = useState([]);
   const [loading, setLoading] = useState(!isDemoMode);
   const [editingId, setEditingId] = useState(null);
   const formPanelRef = useRef(null);
@@ -360,12 +295,16 @@ export default function CreateHabit({ entity = "habit" }) {
   useEffect(() => {
     if (isDemoMode) return;
     let cancelled = false;
+    const controller = new AbortController();
     const fetchHabits = async () => {
+      if (writeLock.current) return;
+      const current = ++version.current;
       try {
-        const { data } = await api.get("/habits?view=all");
-        if (cancelled) return;
-        const todayStr = toISO(new Date());
-        const normalized = data.map((h) => normalizeHabit(h, todayStr));
+        const { data } = await api.get("/habits?view=all", { signal: controller.signal });
+        if (cancelled || current !== version.current) return;
+        if (!Array.isArray(data)) throw new Error("Invalid habit response");
+        const todayStr = today;
+        const normalized = data.map((h) => normalizeHabit(h, todayStr, timezone));
         setHabits(normalized);
 
         const persistedLogs = normalized.flatMap((habit) => {
@@ -381,7 +320,7 @@ export default function CreateHabit({ entity = "habit" }) {
             const action = entry?.action || "created";
             const at = entry?.at || habit.updatedAt || habit.createdAt || new Date().toISOString();
             const date = toDateStr(at) || todayStr;
-            const time = getLocalHHMM(at);
+            const time = habitClock(new Date(at), timezone).time;
             const logAt = new Date(at).toISOString();
 
             if (action === "deleted") {
@@ -421,19 +360,30 @@ export default function CreateHabit({ entity = "habit" }) {
         });
 
         setHabitLogs(persistedLogs);
-      } catch {
-        // silently fail — leave state empty
+        readyRef.current = true;
+        setLoadError("");
+        setCategoryOptions(previous => [...new Map([...previous, ...normalized.map(h => h.category).filter(Boolean)].map(name => [name.toLowerCase(), name])).values()]);
+      } catch (error) {
+        if (!cancelled && current === version.current) setLoadError(error.response?.data?.message || "Could not load habits and activity logs. Please retry.");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && current === version.current) setLoading(false);
       }
     };
     fetchHabits();
-    return () => { cancelled = true; };
-  }, [isDemoMode]);
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") fetchHabits(); }, 60000);
+    window.addEventListener("focus", fetchHabits);
+    window.addEventListener("monkmode:habits-updated", fetchHabits);
+    return () => {
+      cancelled = true; controller.abort();
+      window.clearInterval(timer);
+      window.removeEventListener("focus", fetchHabits);
+      window.removeEventListener("monkmode:habits-updated", fetchHabits);
+    };
+  }, [isDemoMode, today, timezone, retry, toDateStr]);
 
   /* calendar */
   const [viewMonth, setViewMonth] = useState(() => {
-    const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1);
+    const n = parseISO(today); return new Date(n.getFullYear(), n.getMonth(), 1);
   });
   const [selectedDate, setSelectedDate] = useState(today);
   const [calendarPreview, setCalendarPreview] = useState(null);
@@ -454,12 +404,20 @@ export default function CreateHabit({ entity = "habit" }) {
   const [undoError, setUndoError] = useState("");
   const [habitsView, setHabitsView] = useState("active");
 
+  const previousToday = useRef(today);
+  useEffect(() => {
+    const previous = previousToday.current;
+    previousToday.current = today;
+    if (previous !== today && !editingId) setForm(current => !current.title && current.startDate === previous ? { ...current, startDate: today } : current);
+    if (isDemoMode) setHabits(demoHabits);
+  }, [today, editingId, isDemoMode, demoHabits]);
+
   /* ── derived ── */
   const activeHabits = useMemo(() => {
     const active = [];
     habits.forEach((h) => {
       const isDeleted = Boolean(h.deletedAt && h.archivedReason === "deleted");
-      const isEnded = h.archivedReason === "ended" || (h.endDate && h.endDate <= today);
+      const isEnded = h.archivedReason === "ended" || (h.endDate && h.endDate < today);
 
       if (isDeleted) {
         return;
@@ -521,7 +479,7 @@ export default function CreateHabit({ entity = "habit" }) {
   }, [activeHabits]);
   const sortedArchivedHabits = useMemo(() => {
     const archived = habits.filter((h) =>
-      h.deletedAt || h.archivedReason === "ended" || (h.endDate && h.endDate <= today)
+      h.deletedAt || h.archivedReason === "ended" || (h.endDate && h.endDate < today)
     );
     return [...archived].sort((a, b) => Number(Boolean(b.isImportant)) - Number(Boolean(a.isImportant)));
   }, [habits, today]);
@@ -546,7 +504,7 @@ export default function CreateHabit({ entity = "habit" }) {
   const previewDate = calendarPreview?.iso;
   const previewHabits = useMemo(
     () => previewDate ? displayedHabits.filter((habit) => isHabitOnDate(habit, previewDate)) : [],
-    [displayedHabits, previewDate]
+    [displayedHabits, previewDate, isHabitOnDate]
   );
 
   /* ── helpers ── */
@@ -570,6 +528,8 @@ export default function CreateHabit({ entity = "habit" }) {
   const addCustomCategory = () => {
     const name = customCat.trim();
     if (!name) { setCatError("Please enter a category name."); return; }
+    if (name.length > 80) { setCatError("Category name must be 80 characters or fewer."); return; }
+    if (isDemoMode) return;
     const existing = categoryOptions.find((c) => c.toLowerCase() === name.toLowerCase());
     if (!existing) {
       setCategoryOptions((p) => [...p, name]);
@@ -582,6 +542,7 @@ export default function CreateHabit({ entity = "habit" }) {
 
   const deleteCategory = (name) => {
     if (DEFAULT_CATEGORIES.includes(name)) { setCatDeleteError("Default categories cannot be deleted."); return; }
+    if (isDemoMode) return;
     setCategoryOptions((p) => p.filter((c) => c.toLowerCase() !== name.toLowerCase()));
     setCatDeleteError("");
     setForm((p) => ({ ...p, category: p.category.toLowerCase() === name.toLowerCase() ? "" : p.category }));
@@ -589,7 +550,7 @@ export default function CreateHabit({ entity = "habit" }) {
 
   const validate = () => {
     if (!form.title.trim()) return "Title is required.";
-    if (form.targetStreak && Number(form.targetStreak) < 1) return "Target streak must be at least 1 day.";
+    if (form.targetStreak && (!Number.isInteger(Number(form.targetStreak)) || Number(form.targetStreak) < 1)) return "Target streak must be a whole number of at least 1 day.";
     if (form.targetStreak) {
       const fixedDays = FIXED_DURATION[form.repeatType];
       if (fixedDays && form.startDate) {
@@ -612,8 +573,8 @@ export default function CreateHabit({ entity = "habit" }) {
     if (!form.time) return "Time is required.";
     if (!form.startDate) return "Start date is required.";
     if (!form.neverEnds && !form.endDate) return "End date is required or select Never.";
-    if (!form.neverEnds && form.endDate <= today) return "End date must be after today.";
-    if (!form.neverEnds && form.endDate <= form.startDate) return "End date must be after the start date.";
+    if (!form.neverEnds && form.endDate < today) return "End date cannot be before today.";
+    if (!form.neverEnds && form.endDate < form.startDate) return "End date cannot be before the start date.";
     if (form.repeatType === "weekdays" && form.days.length === 0) return "Select at least one day.";
     if (!form.neverEnds && !hasOccurrenceInRange(form.repeatType, form.startDate, form.endDate, form.days)) {
       if (form.repeatType === "weekend") return "Selected range has no weekend day. Choose a later end date.";
@@ -622,430 +583,109 @@ export default function CreateHabit({ entity = "habit" }) {
     return "";
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (submitting) return;
-    setTouched({ title:true, timeOfDay:true, category:true, priority:true, repeatType:true, time:true, startDate:true });
-    const err = validate();
-    if (err) { setError(err); return; }
+  const resetForm = () => {
+    setEditingId(null);
+    setTouched({});
+    setForm({ title: "", reason: "", targetStreak: "", timeOfDay: "", category: "", priority: "", repeatType: "", startDate: today, endDate: "", neverEnds: true, time: "", days: ["Mon", "Wed", "Fri"] });
+  };
+
+  const handleSubmit = async event => {
+    event.preventDefault();
+    if (isDemoMode || writeLock.current || !readyRef.current) return;
+    setTouched({ title: true, timeOfDay: true, category: true, priority: true, repeatType: true, time: true, startDate: true });
+    const validationError = validate();
+    if (validationError) { setError(validationError); return; }
+    writeLock.current = true;
+    version.current += 1;
     setSubmitting(true);
-
-    if (editingId) {
-      const editId = editingId;
-      const previousHabit = habits.find((h) => h.id === editId);
-      if (!previousHabit) {
-        setSubmitting(false);
-        return;
-      }
-
-      const fixedDays2 = FIXED_DURATION[form.repeatType];
-      const hasStarted = Boolean(previousHabit.startDate && previousHabit.startDate <= today);
-      const timeChanged = String(previousHabit.time || "") !== String(form.time || "");
-      const previousEffectiveDays = Array.isArray(previousHabit.pendingDays) ? previousHabit.pendingDays : (previousHabit.days || []);
-      const nextDaysForEdit = form.repeatType === "weekdays" ? (form.days || []) : [];
-      const daysChanged = form.repeatType === "weekdays"
-        && JSON.stringify(previousEffectiveDays) !== JSON.stringify(nextDaysForEdit);
-      const shouldDeferTimeLocally = !isDemoMode && hasStarted && timeChanged;
-      const shouldDeferDaysLocally = !isDemoMode && hasStarted && daysChanged && form.repeatType === "weekdays";
-      const updated = {
-        title: form.title.trim(), reason: form.reason.trim(),
-        targetStreak: form.targetStreak ? Number(form.targetStreak) : null,
-        timeOfDay: form.timeOfDay, category: form.category, priority: form.priority,
-        time: form.time, repeatType: form.repeatType,
-        ...(fixedDays2
-          ? { startDate: form.startDate, endDate: fixedEndDate(fixedDays2, form.startDate) }
-          : { startDate: form.startDate, endDate: form.neverEnds ? null : form.endDate,
-              ...(form.repeatType === "weekdays" ? { days: form.days } : {}) }),
-      };
-      const optimisticUpdated = shouldDeferTimeLocally
-        ? {
-            ...updated,
-            time: previousHabit.time,
-            pendingTime: form.time,
-            timeChangeEffectiveFrom: new Date(Date.now() + (24 * 60 * 60 * 1000)).toISOString()
-          }
-        : updated;
-      const optimisticWithDeferredDays = shouldDeferDaysLocally
-        ? {
-            ...optimisticUpdated,
-            days: previousHabit.days || [],
-            pendingDays: [...nextDaysForEdit],
-            daysChangeEffectiveFrom: new Date(Date.now() + (24 * 60 * 60 * 1000)).toISOString()
-          }
-        : optimisticUpdated;
-
-      // Optimistic update
-      setHabits((p) => p.map((h) => h.id === editId ? { ...h, ...optimisticWithDeferredDays } : h));
-      const editLoggedAt = new Date();
-      const optimisticLogId = `${editId}-edit-${Date.now()}`;
-      setHabitLogs((p) => [{
-        id: optimisticLogId,
-        title:form.title.trim(),
-        date: toDateStr(editLoggedAt) || today,
-        time: getLocalHHMM(editLoggedAt),
-        action:"edited",
-        logAt: editLoggedAt.toISOString()
-      }, ...p]);
-      setEditingId(null);
-      setError(""); setTouched({});
-      setForm((p) => ({ ...p, title:"", reason:"", targetStreak:"", timeOfDay:"", category:"", priority:"", repeatType:"", time:"" }));
-
-      if (!isDemoMode) {
-        try {
-          const payload = {
-            title: form.title.trim(),
-            note: form.reason.trim(),
-            targetStreak: form.targetStreak ? Number(form.targetStreak) : null,
-            timeOfDay: form.timeOfDay,
-            category: form.category,
-            priority: form.priority,
-            time: form.time,
-            repeatType: form.repeatType,
-            startDate: form.startDate || null,
-            endDate: fixedDays2
-              ? fixedEndDate(fixedDays2, form.startDate)
-              : (form.neverEnds ? null : (form.endDate || null)),
-            days: form.repeatType === "weekdays" ? form.days : [],
-          };
-          const { data } = await api.patch(`/habits/${editId}`, payload);
-          const todayStr = toISO(new Date());
-          const normalized = normalizeHabit(data, todayStr);
-          const splitApplied = Boolean(data?.splitApplied) || (normalized.id && normalized.id !== editId);
-          const splitAtISO = data?.splitAt || new Date().toISOString();
-          if (splitApplied) {
-            const splitDate = toDateStr(splitAtISO) || todayStr;
-            setHabits((p) => {
-              const withoutCurrent = p.filter((h) => h.id !== editId && h.id !== normalized.id);
-              const endedHabit = {
-                ...previousHabit,
-                endDate: splitDate,
-                archivedReason: "ended",
-                deletedAt: null,
-                canUndoDelete: false,
-                deleteUndoExpiresAt: null,
-                deleteUndoRemainingMs: 0
-              };
-              return [normalized, endedHabit, ...withoutCurrent];
-            });
-            setHabitLogs((p) => [{
-              id: `${editId}-ended-${Date.now()}`,
-              title: previousHabit.title,
-              date: splitDate,
-              time: getLocalHHMM(splitAtISO),
-              action: "ended",
-              logAt: splitAtISO
-            }, ...p]);
-            showToast(`${singular} updated. Changes will continue from tomorrow.`);
-          } else {
-            setHabits((p) => p.map((h) => {
-              if (h.id !== editId) return h;
-              if (data?.reflectFromNextDay) {
-                const withDeferredTime = {
-                  ...h,
-                  ...normalized,
-                  pendingTime: form.time,
-                  timeChangeEffectiveFrom: data?.reflectsFromDate || normalized.timeChangeEffectiveFrom || h.timeChangeEffectiveFrom
-                };
-                if (data?.reflectDaysFromNextDay) {
-                  return {
-                    ...withDeferredTime,
-                    pendingDays: [...nextDaysForEdit],
-                    daysChangeEffectiveFrom: data?.reflectsDaysFromDate || normalized.daysChangeEffectiveFrom || h.daysChangeEffectiveFrom
-                  };
-                }
-                return withDeferredTime;
-              }
-              if (data?.reflectDaysFromNextDay) {
-                return {
-                  ...h,
-                  ...normalized,
-                  pendingDays: [...nextDaysForEdit],
-                  daysChangeEffectiveFrom: data?.reflectsDaysFromDate || normalized.daysChangeEffectiveFrom || h.daysChangeEffectiveFrom
-                };
-              }
-              return {
-                ...h,
-                ...normalized,
-                pendingTime: null,
-                timeChangeEffectiveFrom: null,
-                pendingDays: null,
-                daysChangeEffectiveFrom: null
-              };
-            }));
-            if (data?.reflectFromNextDay && data?.reflectDaysFromNextDay) {
-              showToast(`${singular} updated. Time and custom days will reflect from next day.`);
-            } else if (data?.reflectFromNextDay) {
-              showToast(`${singular} updated. Time will reflect from next day.`);
-            } else if (data?.reflectDaysFromNextDay) {
-              showToast(`${singular} updated. Custom days will reflect from next day.`);
-            } else {
-              showToast(`${singular} updated.`);
-            }
-          }
-          emitHabitsUpdated();
-        } catch (err) {
-          const backendMessage = err?.response?.data?.message;
-          setHabits((p) => p.map((h) => h.id === editId ? previousHabit : h));
-          setHabitLogs((p) => p.filter((log) => log.id !== optimisticLogId));
-          setError(backendMessage || `Could not update "${previousHabit.title}". Please try again.`);
-          setTimeout(() => setError(""), 4000);
-        }
-      }
-      if (isDemoMode) {
-        emitHabitsUpdated();
-        showToast(`${singular} updated.`);
-      }
-      setSubmitting(false);
-      return;
-    }
-
+    setError("");
+    const editId = editingId;
     const fixedDays = FIXED_DURATION[form.repeatType];
-    const base = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
-      title: form.title.trim(),
-      reason: form.reason.trim(),
-      isImportant: false,
-      targetStreak: form.targetStreak ? Number(form.targetStreak) : null,
-      timeOfDay: form.timeOfDay,
-      category: form.category, priority: form.priority,
-      repeatType: form.repeatType, time: form.time,
+    const endDate = fixedDays ? fixedEndDate(fixedDays, form.startDate) : (form.neverEnds ? null : form.endDate || null);
+    const payload = {
+      title: form.title.trim(), note: form.reason.trim(),
+      targetStreak: form.targetStreak ? Number(form.targetStreak) : (editId ? null : endDate ? Math.min(21, totalDaysInclusive(form.startDate, endDate)) : 21),
+      timeOfDay: form.timeOfDay, category: form.category, priority: form.priority,
+      time: form.time, repeatType: form.repeatType, startDate: form.startDate || null,
+      endDate, days: form.repeatType === "weekdays" ? form.days : [],
     };
-    const habit = fixedDays
-      ? { ...base, startDate: form.startDate, endDate: fixedEndDate(fixedDays, form.startDate) }
-      : { ...base, startDate: form.startDate, endDate: form.neverEnds ? null : form.endDate,
-          ...(form.repeatType === "weekdays" ? { days: form.days } : {}) };
-
-    if (isDemoMode) {
-      setHabits((p) => [habit, ...p]);
-      const createdLoggedAt = new Date();
-      const logDate = toDateStr(createdLoggedAt) || today;
-      setHabitLogs((p) => [{
-        id: `${habit.id}-log`,
-        title: habit.title,
-        date: logDate,
-        time: getLocalHHMM(createdLoggedAt),
-        action: "created",
-        logAt: createdLoggedAt.toISOString()
-      }, ...p]);
-      setSelectedDate(habit.startDate);
-      setViewMonth(new Date(parseISO(habit.startDate).getFullYear(), parseISO(habit.startDate).getMonth(), 1));
+    try {
+      const options = { signal: requestSignal };
+      const { data } = editId ? await api.patch("/habits/" + editId, payload, options) : await api.post("/habits", payload, options);
+      if (!live.current) return;
+      const normalized = normalizeHabit(data, today, timezone);
+      setHabits(previous => editId ? previous.map(h => h.id === editId ? normalized : h) : [normalized, ...previous]);
+      const at = new Date();
+      setHabitLogs(previous => [{ id: normalized.id + "-activity-" + at.getTime(), title: normalized.title, action: editId ? "edited" : "created", date: toDateStr(at), time: getLocalHHMM(at), logAt: at.toISOString() }, ...previous]);
+      resetForm();
+      showToast(data.reflectFromNextDay || data.reflectDaysFromNextDay ? "Habit saved. Schedule changes take effect tomorrow." : (editId ? "Habit updated." : "Habit created."));
+    } catch (error) {
+      if (live.current) setError(error.response?.data?.message || "Could not save this habit. Your draft is kept; please retry.");
+    } finally {
+      writeLock.current = false;
+      if (live.current) setSubmitting(false);
       emitHabitsUpdated();
-      showToast(`${singular} created.`);
-      setError("");
-      setTouched({});
-      setForm((p) => ({
-        ...p,
-        title:"",
-        reason:"",
-        targetStreak:"",
-        timeOfDay:"",
-        category:"",
-        priority:"",
-        repeatType:"",
-        time:"",
-      }));
-    } else {
-      // API create
-      try {
-        const payload = {
-          title: form.title.trim(),
-          note: form.reason.trim(),
-          targetStreak: form.targetStreak ? Number(form.targetStreak) : 21,
-          timeOfDay: form.timeOfDay,
-          category: form.category,
-          priority: form.priority,
-          time: form.time,
-          repeatType: form.repeatType,
-          startDate: form.startDate || null,
-          endDate: fixedDays
-            ? fixedEndDate(fixedDays, form.startDate)
-            : (form.neverEnds ? null : (form.endDate || null)),
-          days: form.repeatType === "weekdays" ? form.days : [],
-        };
-        const { data } = await api.post("/habits", payload);
-        const todayStr = toISO(new Date());
-        const normalized = normalizeHabit(data, todayStr);
-        setHabits((p) => [normalized, ...p]);
-        const createdLoggedAt = new Date(data?.createdAt || new Date());
-        const logDate = toDateStr(createdLoggedAt) || todayStr;
-        setHabitLogs((p) => [{
-          id: `${normalized.id}-log`,
-          title: normalized.title,
-          date: logDate,
-          time: getLocalHHMM(createdLoggedAt),
-          action: "created",
-          logAt: createdLoggedAt.toISOString()
-        }, ...p]);
-        const selectedLogDate = normalized.startDate || todayStr;
-        setSelectedDate(selectedLogDate);
-        setViewMonth(new Date(parseISO(selectedLogDate).getFullYear(), parseISO(selectedLogDate).getMonth(), 1));
-        emitHabitsUpdated();
-        showToast(`${singular} created.`);
-        setError("");
-        setTouched({});
-        setForm((p) => ({
-          ...p,
-          title:"",
-          reason:"",
-          targetStreak:"",
-          timeOfDay:"",
-          category:"",
-          priority:"",
-          repeatType:"",
-          time:"",
-        }));
-      } catch {
-        setError(`Could not create ${lowerSingular}. Please try again.`);
-        setTimeout(() => setError(""), 4000);
-      }
     }
-    setSubmitting(false);
   };
 
-  const handleDelete = async (id) => {
-    const h = habits.find((x) => x.id === id);
-    if (!h) return;
-    if (deletingHabitId || restoringLogId) return;
-    const confirmedDelete = await openConfirm({
-      title: `Delete "${h.title}"?`,
-      message: "This will remove the habit from active lists and update today/consistency/heatmap totals from today onward. You can undo within 48 hours.",
-      confirmLabel: "Delete Habit",
-      tone: "danger"
-    });
-    if (!confirmedDelete) return;
+  const handleDelete = async id => {
+    if (isDemoMode || writeLock.current) return;
+    const habit = habits.find(h => h.id === id);
+    if (!habit) return;
+    writeLock.current = true;
+    const confirmed = await openConfirm({ title: 'Delete "' + habit.title + '"?', message: "This removes the habit from active lists. You can restore it within 48 hours.", confirmLabel: "Delete Habit", tone: "danger" });
+    if (!confirmed || !live.current) { writeLock.current = false; return; }
+    version.current += 1;
     setDeletingHabitId(id);
-
-    const deletedAtISO = new Date().toISOString();
-    const localUndoMeta = getDeleteUndoMeta(deletedAtISO);
-    const deletedItem = {
-      ...h,
-      deletedAt: deletedAtISO,
-      archivedReason: "deleted",
-      canUndoDelete: localUndoMeta.canUndoDelete,
-      deleteUndoExpiresAt: localUndoMeta.deleteUndoExpiresAt
-    };
-    const logId = `${id}-del-${Date.now()}`;
-
-    setHabits((p) => p.filter((x) => x.id !== id));
-    setHabitLogs((p) => [{
-      id: logId,
-      title: h.title,
-      date: toDateStr(deletedAtISO) || today,
-      time: getLocalHHMM(deletedAtISO),
-      action: "deleted",
-      deletedAt: deletedAtISO,
-      canUndoDelete: localUndoMeta.canUndoDelete,
-      deleteUndoExpiresAt: localUndoMeta.deleteUndoExpiresAt,
-      logAt: deletedAtISO,
-      deletedItem
-    }, ...p]);
-    emitHabitsUpdated();
-    showToast(`${h.title} deleted. Undo available for 48h.`, "warning");
-
-    if (!isDemoMode) {
-      try {
-        const { data } = await api.delete(`/habits/${id}`);
-        const serverDeletedAt = data?.habit?.deletedAt || deletedAtISO;
-        const serverUndoMeta = {
-          canUndoDelete: typeof data?.canUndoDelete === "boolean"
-            ? data.canUndoDelete
-            : getDeleteUndoMeta(serverDeletedAt).canUndoDelete,
-          deleteUndoExpiresAt: data?.deleteUndoExpiresAt || getDeleteUndoMeta(serverDeletedAt).deleteUndoExpiresAt
-        };
-
-        setHabitLogs((p) => p.map((log) => {
-          if (log.id !== logId) return log;
-          return {
-            ...log,
-            date: toDateStr(serverDeletedAt) || log.date,
-            time: getLocalHHMM(serverDeletedAt),
-            deletedAt: serverDeletedAt,
-            logAt: serverDeletedAt,
-            ...serverUndoMeta,
-            deletedItem: {
-              ...log.deletedItem,
-              deletedAt: serverDeletedAt,
-              archivedReason: "deleted",
-              ...serverUndoMeta
-            }
-          };
-        }));
-      } catch {
-        setHabits((p) => [h, ...p.filter((habitItem) => habitItem.id !== h.id)]);
-        setHabitLogs((p) => p.filter((log) => log.id !== logId));
-        emitHabitsUpdated();
-        setError(`Could not delete "${h.title}". Please try again.`);
-        setTimeout(() => setError(""), 4000);
-      }
+    setError("");
+    try {
+      const { data } = await api.delete("/habits/" + id, { signal: requestSignal });
+      if (!live.current) return;
+      const deleted = normalizeHabit(data.habit, today, timezone);
+      setHabits(previous => previous.map(h => h.id === id ? deleted : h));
+      const at = deleted.deletedAt;
+      setHabitLogs(previous => [{ id: id + "-del-" + Date.now(), title: habit.title, date: toDateStr(at), time: getLocalHHMM(at), action: "deleted", deletedAt: at, deletedItem: deleted, logAt: at, ...getDeleteUndoMeta(at) }, ...previous]);
+      if (editingId === id) resetForm();
+      showToast(habit.title + " deleted. Restore available for 48h.", "warning");
+    } catch (error) {
+      if (live.current) setError(error.response?.data?.message || "Could not delete this habit. It remains unchanged; please retry.");
+    } finally {
+      writeLock.current = false;
+      if (live.current) setDeletingHabitId(null);
+      emitHabitsUpdated();
     }
-    if (editingId === id) setEditingId(null);
-    setDeletingHabitId(null);
   };
 
-  const handleUndoDelete = async (logId) => {
-    const log = habitLogs.find((l) => l.id === logId);
-    if (!log?.deletedItem) return;
-    if (deletingHabitId || restoringLogId) return;
-    const item = log.deletedItem;
-    const confirmedUndo = await openConfirm({
-      title: `Restore "${item.title}"?`,
-      message: "This will move the habit back to active lists and update today/consistency/heatmap totals from today onward.",
-      confirmLabel: "Restore Habit",
-      tone: "success"
-    });
-    if (!confirmedUndo) return;
+  const handleUndoDelete = async (logId, fallbackItem = null) => {
+    const log = habitLogs.find(entry => entry.id === logId);
+    const item = log?.deletedItem || fallbackItem;
+    if (!item || isDemoMode || writeLock.current) return;
+    if (!getDeleteUndoMeta(item.deletedAt).canUndoDelete) { setUndoError("Restore expired. Deleted habits can only be restored within 48 hours."); return; }
+    writeLock.current = true;
+    const confirmed = await openConfirm({ title: 'Restore "' + item.title + '"?', message: "This restores the habit. If its end date has passed, it will remain in Archive.", confirmLabel: "Restore Habit", tone: "success" });
+    if (!confirmed || !live.current) { writeLock.current = false; return; }
+    version.current += 1;
     setRestoringLogId(logId);
-
-    const undoMeta = getDeleteUndoMeta(log.deletedAt || item.deletedAt);
-    const canUndoDelete = typeof log.canUndoDelete === "boolean" ? log.canUndoDelete : undoMeta.canUndoDelete;
-    const deleteUndoExpiresAt = log.deleteUndoExpiresAt || item.deleteUndoExpiresAt || undoMeta.deleteUndoExpiresAt;
-    const expiredByTime = deleteUndoExpiresAt ? new Date() > new Date(deleteUndoExpiresAt) : !canUndoDelete;
-    const nowDate = toISO(new Date());
-    const expiredByEndDate = item.endDate && item.endDate < nowDate;
-
-    if (expiredByTime) {
-      setUndoError(`Undo expired — "${item.title}" can only be restored within 48 hours of deletion.`);
-      setTimeout(() => setUndoError(""), 4000);
-      setRestoringLogId(null);
-      return;
-    }
-
-    if (expiredByEndDate) {
-      setUndoError(`Undo not possible — "${item.title}" has already passed its end date.`);
-      setTimeout(() => setUndoError(""), 4000);
-      setRestoringLogId(null);
-      return;
-    }
-
-    const restoredItem = {
-      ...item,
-      deletedAt: null,
-      archivedReason: null,
-      canUndoDelete: false,
-      deleteUndoExpiresAt: null
-    };
-
-    if (!isDemoMode) {
-      try {
-        await api.patch(`/habits/${item.id}/restore`);
-      } catch (err) {
-        const backendMessage = err?.response?.data?.message;
-        setUndoError(backendMessage || `Could not restore "${item.title}". Please try again.`);
-        setTimeout(() => setUndoError(""), 4000);
-        setRestoringLogId(null);
-        return;
-      }
-    }
-
     setUndoError("");
-    setHabits((p) => [restoredItem, ...p]);
-    setHabitLogs((p) => p.filter((l) => l.id !== logId));
-    emitHabitsUpdated();
-    showToast(`${item.title} restored.`);
-    setRestoringLogId(null);
+    try {
+      const { data } = await api.patch("/habits/" + item.id + "/restore", {}, { signal: requestSignal });
+      if (!live.current) return;
+      const restored = normalizeHabit(data, today, timezone);
+      setHabits(previous => [restored, ...previous.filter(h => h.id !== item.id)]);
+      setHabitLogs(previous => previous.filter(entry => entry.id !== logId));
+      showToast(item.title + " restored.");
+    } catch (error) {
+      if (live.current) setUndoError(error.response?.data?.message || "Could not restore this habit. Please retry.");
+    } finally {
+      writeLock.current = false;
+      if (live.current) setRestoringLogId(null);
+      emitHabitsUpdated();
+    }
   };
 
   const startEdit = (h) => {
+    if (isDemoMode || writeLock.current) return;
+    setError("");
     setEditingId(h.id);
     const nextEdit = {
       title: h.title,
@@ -1073,10 +713,11 @@ export default function CreateHabit({ entity = "habit" }) {
 
 
   const startDateLocked = Boolean(editingId && form.startDate && form.startDate <= today);
-  const tomorrow = addDays(1, today);
-  const minEndDate = form.startDate && form.startDate >= tomorrow ? addDays(1, form.startDate) : tomorrow;
+  const minEndDate = form.startDate && form.startDate >= today ? form.startDate : today;
 
   /* ─── Loading state ──────────────────────────────── */
+  if (!readyRef.current && loadError) return <div role="alert" className="rounded-xl border border-rose-400/25 p-4 text-sm text-rose-200">{loadError} <button type="button" className="ml-2 underline" onClick={() => setRetry(value => value + 1)}>Retry habits</button></div>;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -1088,6 +729,8 @@ export default function CreateHabit({ entity = "habit" }) {
   /* ─── Render ─────────────────────────────────────── */
   return (
     <div className="habits-create-view space-y-5" data-mobile-view={mobileView}>
+      {loadError && <div role="alert" className="rounded-xl border border-rose-400/25 p-3 text-sm text-rose-200">{loadError} <button type="button" className="ml-2 underline" onClick={() => setRetry(value => value + 1)}>Retry habits</button></div>}
+      {(error || undoError) && <div role="alert" className="rounded-xl border border-rose-400/25 p-3 text-sm text-rose-200">{error} {undoError}</div>}
       <nav className="habit-create-mobile-nav" aria-label="Create habit sections" data-demo-allow="true">
         {CREATE_HABIT_VIEWS.map((view) => (
           <button
@@ -1119,7 +762,8 @@ export default function CreateHabit({ entity = "habit" }) {
           className="schedule-main habits-create-form journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5"
         >
           <h3 className="mb-4 text-sm font-semibold text-amber-200">{editingId ? `Edit ${singular}` : `New ${singular}`}</h3>
-          <form className="space-y-3" onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit}>
+          <fieldset className="space-y-3 min-w-0" disabled={submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}>
 
             {/* Title */}
             <div>
@@ -1299,7 +943,7 @@ export default function CreateHabit({ entity = "habit" }) {
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Time <span className="text-red-400">*</span>
                 </label>
-<DashboardDateTimeInput
+<DashboardDateTimeInput today={today}
                   type="time"
                   value={form.time}
                   onChange={(e) => setField("time", e.target.value)}
@@ -1317,7 +961,7 @@ export default function CreateHabit({ entity = "habit" }) {
                       Start Date {!startDateLocked && <span className="text-red-400">*</span>}
                       {startDateLocked && <span className="ml-1 text-stone-500">🔒 Locked</span>}
                     </label>
-<DashboardDateTimeInput type="date" value={form.startDate}
+<DashboardDateTimeInput today={today} type="date" value={form.startDate}
                       readOnly={startDateLocked}
                       onChange={startDateLocked ? undefined : (e) => setField("startDate", e.target.value)}
                       className={`w-full rounded-lg border px-2 py-1 text-xs outline-none transition ${startDateLocked ? "cursor-not-allowed border-amber-100/10 bg-white/[0.03] text-stone-400" : "border-amber-100/15 bg-white/5 text-stone-100 focus:border-amber-300/35"}`}
@@ -1325,7 +969,7 @@ export default function CreateHabit({ entity = "habit" }) {
                   </div>
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">End Date (Auto)</label>
-<DashboardDateTimeInput type="date" value={fixedEndDate(FIXED_DURATION[form.repeatType], form.startDate)} readOnly
+<DashboardDateTimeInput today={today} type="date" value={fixedEndDate(FIXED_DURATION[form.repeatType], form.startDate)} readOnly
                       className="w-full cursor-not-allowed rounded-lg border border-amber-100/10 bg-white/[0.03] px-2 py-1 text-xs text-stone-400 outline-none" />
                   </div>
                 </div>
@@ -1342,7 +986,7 @@ export default function CreateHabit({ entity = "habit" }) {
                       Start
                       {startDateLocked && <span className="ml-1 text-stone-500">🔒 Locked</span>}
                     </label>
-<DashboardDateTimeInput type="date" value={form.startDate}
+<DashboardDateTimeInput today={today} type="date" value={form.startDate}
                       readOnly={startDateLocked}
                       onChange={startDateLocked ? undefined : (e) => setField("startDate", e.target.value)}
                       className={`w-full rounded-lg border px-2 py-1 text-xs outline-none transition ${startDateLocked ? "cursor-not-allowed border-amber-100/10 bg-white/[0.03] text-stone-400" : "border-amber-100/15 bg-white/5 text-stone-100 focus:border-amber-300/35"}`}
@@ -1352,7 +996,7 @@ export default function CreateHabit({ entity = "habit" }) {
                   {!form.neverEnds && (
                     <div>
                       <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">End</label>
-<DashboardDateTimeInput type="date" value={form.endDate} min={minEndDate} onChange={(e) => setField("endDate", e.target.value)}
+<DashboardDateTimeInput today={today} type="date" value={form.endDate} min={minEndDate} onChange={(e) => setField("endDate", e.target.value)}
                         className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
                     </div>
                   )}
@@ -1374,8 +1018,6 @@ export default function CreateHabit({ entity = "habit" }) {
               </div>
             ) : null}
 
-            {error && <p className="text-xs text-red-300">{error}</p>}
-
             <button type="submit"
               disabled={submitting}
               className="w-full rounded-lg border border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 px-4 py-2 text-xs font-semibold text-amber-200 transition hover:from-amber-400/25 hover:to-orange-400/20">
@@ -1383,11 +1025,12 @@ export default function CreateHabit({ entity = "habit" }) {
             </button>
             {editingId && (
               <button type="button"
-                onClick={() => { setEditingId(null); setError(""); setTouched({}); setForm((p) => ({ ...p, title:"", reason:"", targetStreak:"", timeOfDay:"", category:"", priority:"", repeatType:"", time:"" })); }}
+                onClick={resetForm}
                 className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-300 transition hover:text-stone-100">
                 Cancel Edit
               </button>
             )}
+          </fieldset>
           </form>
         </div>
 
@@ -1431,7 +1074,7 @@ export default function CreateHabit({ entity = "habit" }) {
                 const isDeletedHabit = Boolean(h.deletedAt && h.archivedReason === "deleted");
                 const isEndedHabit = !isDeletedHabit && (
                   h.archivedReason === "ended" ||
-                  Boolean(h.endDate && h.endDate <= today)
+                  Boolean(h.endDate && h.endDate < today)
                 );
 
                 return (
@@ -1468,16 +1111,21 @@ export default function CreateHabit({ entity = "habit" }) {
                           </div>
                           {!isArchiveView && (
                             <div className="habit-item-actions flex flex-wrap items-center gap-1.5 sm:justify-end">
-                              <button type="button" onClick={() => startEdit(h)}
+                              <button type="button" onClick={() => startEdit(h)} disabled={submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
                                 className="dashboard-card-action" data-tone="warning">
                                 Edit
                               </button>
                               <button type="button" onClick={() => handleDelete(h.id)}
-                                disabled={deletingHabitId === h.id || restoringLogId != null}
+                                disabled={submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
                                 className="dashboard-card-action" data-tone="danger">
                                 {deletingHabitId === h.id ? "Deleting..." : "Delete"}
                               </button>
                             </div>
+                          )}
+                          {isArchiveView && h.deletedAt && getDeleteUndoMeta(h.deletedAt).canUndoDelete && (
+                            <button type="button" className="dashboard-card-action" data-tone="warning"
+                              disabled={submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
+                              onClick={() => handleUndoDelete(h.id + "-archive", h)}>Restore</button>
                           )}
                         </div>
                       </div>
@@ -1502,14 +1150,16 @@ export default function CreateHabit({ entity = "habit" }) {
                         <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
                           {REPEAT_TYPES.find((r) => r.value===h.repeatType)?.label ?? h.repeatType}
                         </span>
-                        <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">{fmtTime(h.pendingTime || h.time)}</span>
+                        <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">{fmtTime(h.time)}</span>
+                        {h.pendingTime && h.timeChangeEffectiveFrom && <span className="text-amber-200">New time {fmtTime(h.pendingTime)} from {toDateStr(h.timeChangeEffectiveFrom)}</span>}
                         <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
                           {h.startDate}
                         </span>
                         <span className={`rounded-full border px-2 py-0.5 font-semibold ${h.endDate ? "border-rose-400/25 bg-rose-500/10 text-rose-200" : "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"}`}>
                           {h.endDate ? `Ends ${h.endDate}` : "Never Ends"}
                         </span>
-                        {h.repeatType==="weekdays" && (h.pendingDays || h.days || []).map((d) => (
+                        {h.pendingDays && h.daysChangeEffectiveFrom && <span className="text-amber-200">New days {h.pendingDays.join(", ")} from {toDateStr(h.daysChangeEffectiveFrom)}</span>}
+                        {h.repeatType==="weekdays" && (h.days || []).map((d) => (
                           <span key={d} className="rounded-full border border-amber-300/25 bg-amber-500/10 px-2 py-0.5 font-semibold text-amber-200">
                             {DAY_SHORT[d]}
                           </span>
@@ -1567,7 +1217,7 @@ export default function CreateHabit({ entity = "habit" }) {
                       }}
                       onPointerLeave={() => setCalendarPreview((preview) => preview?.iso === iso && preview.source === "hover" ? null : preview)}
                       onFocus={(event) => showCalendarPreview(event, iso, "focus")}
-                      onBlur={() => setCalendarPreview((preview) => preview?.iso === iso ? null : preview)}
+                      onBlur={() => setCalendarPreview((preview) => preview?.iso === iso && preview.source !== "tap" ? null : preview)}
                       aria-label={`${iso}: ${count} ${lowerSingular}${count === 1 ? "" : "s"} scheduled`}
                       aria-describedby={calendarPreview?.iso === iso ? calendarTooltipId : undefined}
                       aria-current={isToday ? "date" : undefined}
@@ -1596,9 +1246,6 @@ export default function CreateHabit({ entity = "habit" }) {
             {/* Habit Logs */}
             <section data-habit-create-panel="logs" className="habits-create-logs flex min-h-0 flex-1 flex-col">
               <p className="mb-2 shrink-0 text-sm font-semibold tracking-wide text-amber-200">{`${singular} Logs`}</p>
-              {undoError && (
-                <p className="mb-2 shrink-0 rounded-md border border-rose-400/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-300">{undoError}</p>
-              )}
               {allLogs.length === 0 ? (
                 <p className="text-sm text-stone-400">{`No ${lowerSingular} logs yet.`}</p>
               ) : (

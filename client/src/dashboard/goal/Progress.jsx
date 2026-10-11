@@ -1,6 +1,8 @@
 import { motion as Motion } from "framer-motion";
 import { useState } from "react";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
+import { useGoalContext } from "./goalContext";
+import { goalDaysLeft } from "./goalUtils";
 
 const PRIORITY_BADGE = {
   High: "border-red-400/30 bg-red-500/10 text-red-200",
@@ -11,14 +13,6 @@ const PRIORITY_BADGE = {
 const TYPE_BADGE = {
   "Long-term": "border-violet-400/30 bg-violet-500/10 text-violet-200",
   "Short-term": "border-cyan-400/30 bg-cyan-500/10 text-cyan-200",
-};
-
-const getDaysLeft = (deadlineISO) => {
-  const [y, m, d] = deadlineISO.split("-").map(Number);
-  const deadline = new Date(y, m - 1, d);
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  return Math.floor((deadline - todayStart) / (24 * 60 * 60 * 1000));
 };
 
 const getBarColor = (pct) => {
@@ -34,6 +28,8 @@ const isImportantGoal = (goal, importantByGoal) =>
   Boolean(importantByGoal[goal.id] ?? goal.isImportant);
 
 export default function Progress({ goals = [], importantByGoal = {}, milestonesByGoal = {} }) {
+  const { today } = useGoalContext();
+  const getDaysLeft = deadline => goalDaysLeft(deadline, today);
   const lowMotion = useMobileLowMotion();
   const ProgressCard = lowMotion ? "article" : Motion.article;
   const ProgressBar = lowMotion ? "div" : Motion.div;
@@ -236,7 +232,7 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
                           : "text-rose-300"
                     }`}
                   >
-                    {daysLeft > 0
+                    {daysLeft === null ? "No deadline" : daysLeft > 0
                       ? `${daysLeft} days left`
                       : daysLeft === 0
                         ? "Due today"

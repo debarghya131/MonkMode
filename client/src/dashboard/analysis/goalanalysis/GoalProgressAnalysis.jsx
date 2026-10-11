@@ -1,339 +1,42 @@
-import { useEffect, useState } from "react";
-import DashboardSelect from "../../../components/DashboardSelect";
-import { motion as Motion } from "framer-motion";
-import littleMonkLogo from "../../../assets/littlemonklogo.webp";
-import api from "../../../api/axios";
-import useAuth from "../../../hooks/useAuth";
-import { buildDemoGoalAnalysis } from "./demoGoalAnalysis";
-
-const FILTERS = ["All", "Short Term", "Long Term", "High", "Medium", "Low"];
-const MONTH_OPTIONS = [
-  { value: "01", label: "January" },
-  { value: "02", label: "February" },
-  { value: "03", label: "March" },
-  { value: "04", label: "April" },
-  { value: "05", label: "May" },
-  { value: "06", label: "June" },
-  { value: "07", label: "July" },
-  { value: "08", label: "August" },
-  { value: "09", label: "September" },
-  { value: "10", label: "October" },
-  { value: "11", label: "November" },
-  { value: "12", label: "December" },
-];
-
-const NOW = new Date();
-const YEARS = Array.from({ length: NOW.getFullYear() - 2023 }, (_, i) => String(NOW.getFullYear() - i));
-const CURRENT_MONTH = String(NOW.getMonth() + 1).padStart(2, "0");
-
-const round = (value, precision = 1) => Number(value.toFixed(precision));
-const average = (values) => (values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : 0);
-const getDaysInMonth = (year, month) => new Date(Number(year), Number(month), 0).getDate();
-const buildEmptySubgoalSeries = (daysInMonth) =>
-  Array.from({ length: daysInMonth }, (_, index) => ({
-    day: index + 1,
-    completed: 0,
-  }));
-
-function InsightRail({ insights }) {
-  const [selectedInsight, setSelectedInsight] = useState(null);
-
-  return (
-    <aside className="flex w-full flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-white/6 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl">
-      <div className="shrink-0 p-4 pb-3 sm:p-5 sm:pb-4">
-        <div className="flex items-center gap-3">
-          <Motion.div className="relative grid h-14 w-14 place-items-center" animate={{ y: [0, -4, 0] }} transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}>
-            <Motion.span className="absolute inset-2 rounded-full bg-amber-400/15 blur-md" animate={{ opacity: [0.35, 0.8, 0.35], scale: [0.9, 1.12, 0.9] }} transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }} />
-            <Motion.img src={littleMonkLogo} alt="Little Monk AI Assistant" className="relative z-10 h-16 w-16 object-contain drop-shadow-[0_10px_18px_rgba(245,158,11,0.16)]" whileHover={{ scale: 1.08, rotate: -3 }} transition={{ type: "spring", stiffness: 260, damping: 14 }} />
-          </Motion.div>
-          <div>
-            <h3 className="text-label-md">Little Monk's Analysis</h3>
-            <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-amber-300/70">AI Assistant</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="journal-scroll min-h-0 flex-1 space-y-2.5 overflow-y-auto px-4 pb-4 pr-3 sm:px-5 sm:pb-5 sm:pr-4">
-        {insights.map((insight) => {
-          const isSelected = selectedInsight === insight.title;
-          return (
-            <Motion.div key={insight.title} layout className={`rounded-xl border p-2.5 text-sm transition-colors ${isSelected ? "border-sky-400/30 bg-sky-500/8" : "border-sky-100/10 bg-stone-950/45 hover:border-sky-300/20"}`}>
-              <div className="goal-analysis-insight-row grid items-start gap-3 sm:grid-cols-[1fr_auto]">
-                <div className="min-w-0">
-                  <span className="text-xs font-semibold text-sky-200">{insight.title}</span>
-                  <p className="text-sm font-semibold text-stone-200">{insight.value}</p>
-                  {isSelected ? (
-                    <Motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="mt-1.5 text-xs leading-relaxed text-stone-400">
-                      {insight.description}
-                    </Motion.p>
-                  ) : null}
-                </div>
-                <button type="button" onClick={() => setSelectedInsight(isSelected ? null : insight.title)} className={`w-full rounded-full border px-3 py-1 text-xs font-semibold transition-colors sm:w-fit ${isSelected ? "border-sky-400/40 bg-sky-400/15 text-sky-100" : "border-sky-400/20 text-sky-200 hover:border-sky-300/45 hover:bg-sky-400/10"}`}>
-                  {isSelected ? "Hide" : "View"}
-                </button>
-              </div>
-            </Motion.div>
-          );
-        })}
-      </div>
-    </aside>
-  );
-}
-
-function GoalProgressGraph({ goals, activeFilter, onFilterChange }) {
-  const filtered = goals.filter((g) =>
-    activeFilter === "All" || g.type === activeFilter || g.priority === activeFilter
-  );
-
-  return (
-    <section className="rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Active Goals</p>
-          <h4 className="mt-2 text-xl font-semibold text-sky-50">Goal Progress Analysis</h4>
-        </div>
-        <div className="flex flex-wrap items-center gap-1 rounded-full border border-amber-100/10 bg-stone-900/60 p-0.5">
-          {FILTERS.map((filter) => (
-            <button key={filter} type="button" onClick={() => onFilterChange(filter)} className={`rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors ${activeFilter === filter ? "bg-amber-500/20 text-amber-300" : "text-stone-500 hover:text-stone-300"}`}>
-              {filter}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-6 overflow-x-auto">
-        <div className="min-w-[760px]">
-          <div className="sticky top-0 z-10 ml-44 grid grid-cols-6 rounded-md bg-stone-950/80 py-1 text-[10px] font-semibold text-stone-500 backdrop-blur">
-            {[0, 20, 40, 60, 80, 100].map((tick) => <span key={tick} className="text-right">{tick}</span>)}
-          </div>
-          <div className="relative">
-            <div className="mt-2 min-h-40 space-y-4 pr-3">
-              {filtered.map((goal, index) => (
-                <div key={goal.title} className="grid grid-cols-[11rem_1fr] items-center gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold text-stone-200">{goal.title}</p>
-                    <p className="mt-0.5 text-[10px] text-stone-500">{goal.type} • {goal.priority}</p>
-                  </div>
-                  <div className="relative border-l border-white/8 pl-3">
-                    <div className="absolute bottom-0 top-0 grid w-[calc(100%-0.75rem)] grid-cols-5">
-                      {[20, 40, 60, 80, 100].map((tick) => <span key={tick} className="border-r border-dashed border-white/6" />)}
-                    </div>
-                    <div className="relative flex items-center gap-2">
-                      <Motion.div className="h-4 rounded-full border border-emerald-200/25 bg-gradient-to-r from-emerald-900/95 to-emerald-300/90" initial={{ width: 0 }} animate={{ width: `${goal.progress}%` }} transition={{ duration: 0.45, delay: index * 0.04 }} />
-                      <span className="w-10 text-[10px] font-semibold text-emerald-200">{goal.progress}%</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {filtered.length === 0 && (
-                <div className="grid grid-cols-[11rem_1fr] items-center gap-3 opacity-60">
-                  <div className="h-8 rounded-lg border border-dashed border-white/8 bg-white/[0.02]" />
-                  <div className="relative h-12 border-l border-white/8 pl-3">
-                    <div className="absolute bottom-0 top-0 grid w-[calc(100%-0.75rem)] grid-cols-5">
-                      {[20, 40, 60, 80, 100].map((tick) => <span key={tick} className="border-r border-dashed border-white/6" />)}
-                    </div>
-                    <div className="relative top-4 h-4 rounded-full border border-white/8 bg-white/[0.03]" />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          {filtered.length > 5 && (
-            <p className="mt-2 text-center text-[10px] text-stone-600">{filtered.length} goals</p>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SubgoalLineGraph({ series, daysInMonth }) {
-  const [hovered, setHovered] = useState(null);
-  const width = Math.max(920, daysInMonth * 30);
-  const height = 304;
-  const pad = { top: 24, right: 22, bottom: 42, left: 42 };
-  const chartW = width - pad.left - pad.right;
-  const chartH = height - pad.top - pad.bottom;
-  const maxValue = Math.max(5, ...series.map((item) => item.completed));
-  const yMarks = Array.from({ length: maxValue + 1 }, (_, i) => i).filter((v) => v % Math.max(1, Math.floor(maxValue / 5)) === 0 || v === maxValue);
-  const xOf = (index) => (series.length === 1 ? pad.left + chartW / 2 : pad.left + (index / (series.length - 1)) * chartW);
-  const yOf = (value) => pad.top + ((maxValue - value) / maxValue) * chartH;
-  const linePath = series.map((point, index) => `${index === 0 ? "M" : "L"}${xOf(index).toFixed(1)},${yOf(point.completed).toFixed(1)}`).join(" ");
-
-  return (
-    <section className="rounded-[1.4rem] border border-sky-100/10 bg-stone-950/30 p-4 shadow-xl shadow-black/20 sm:rounded-[1.75rem] sm:p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">Sub Goals</p>
-          <h4 className="mt-2 text-xl font-semibold text-sky-50">Sub Goal Completion Analysis</h4>
-          <p className="mt-1 text-[11px] text-stone-400">Cumulative sub-goals completed through the month.</p>
-        </div>
-        <span className="flex items-center gap-2 text-xs text-stone-400"><span className="h-2.5 w-2.5 rounded-full bg-sky-400" />Cumulative completed</span>
-      </div>
-
-      <div className="mt-6 overflow-x-auto">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ minWidth: `${width}px` }}>
-          {yMarks.map((mark) => {
-            const y = yOf(mark);
-            return <g key={mark}><line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke="rgba(255,255,255,0.08)" strokeDasharray="4 6" /><text x={pad.left - 10} y={y + 4} textAnchor="end" fontSize="10" fill="rgba(255,255,255,0.45)">{mark}</text></g>;
-          })}
-          <Motion.path d={linePath} fill="none" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round" initial={{ pathLength: 0, opacity: 0 }} animate={{ pathLength: 1, opacity: 1 }} transition={{ duration: 2.4, ease: "easeInOut" }} />
-          {series.map((point, index) => (
-            <circle key={point.day} cx={xOf(index)} cy={yOf(point.completed)} r={hovered === index ? 7 : 4.2} fill={hovered === index ? "#38bdf8" : "#0f172a"} stroke="#7dd3fc" strokeWidth="2" style={{ transition: "r 0.15s ease, fill 0.15s ease" }} />
-          ))}
-          {series.map((point, index) => <text key={`x-${point.day}`} x={xOf(index)} y={height - 12} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.42)">{point.day}</text>)}
-          {series.map((point, index) => {
-            const stepW = series.length > 1 ? chartW / (series.length - 1) : chartW;
-            return (
-              <rect key={`hit-${point.day}`} x={Math.max(pad.left, xOf(index) - stepW / 2)} y={pad.top} width={stepW} height={chartH} fill="rgba(255,255,255,0.001)" style={{ cursor: "crosshair" }} onMouseEnter={() => setHovered(index)} onMouseMove={() => setHovered(index)} onMouseLeave={() => setHovered(null)} />
-            );
-          })}
-          {hovered !== null && series[hovered] ? (
-            <g style={{ pointerEvents: "none" }}>
-              <line x1={xOf(hovered)} y1={pad.top} x2={xOf(hovered)} y2={pad.top + chartH} stroke="rgba(56,189,248,0.4)" strokeWidth="1" strokeDasharray="4 3" />
-              <rect x={Math.min(Math.max(xOf(hovered) - 54, pad.left + 2), width - pad.right - 108)} y={Math.max(yOf(series[hovered].completed) - 48, pad.top + 2)} width="108" height="38" rx="7" fill="rgba(15,23,42,0.94)" stroke="rgba(56,189,248,0.45)" strokeWidth="1" />
-              <text x={Math.min(Math.max(xOf(hovered), pad.left + 56), width - pad.right - 54)} y={Math.max(yOf(series[hovered].completed) - 28, pad.top + 22)} textAnchor="middle" fontSize="11" fontWeight="700" fill="#bae6fd">Day {series[hovered].day}</text>
-              <text x={Math.min(Math.max(xOf(hovered), pad.left + 56), width - pad.right - 54)} y={Math.max(yOf(series[hovered].completed) - 14, pad.top + 36)} textAnchor="middle" fontSize="10" fill="rgba(226,232,240,0.86)">{series[hovered].completed} completed</text>
-            </g>
-          ) : null}
-        </svg>
-      </div>
-    </section>
-  );
-}
+import { AnalysisChart } from "../journalanalysis/AnalysisUI";
+import { AnalysisView, GoalFilter } from "./GoalAnalysisUI";
+import { percentLabel } from "./goalAnalysisFormatters";
+import { filterAnalysisGoals } from "./goalAnalysisFilters";
+import useGoalAnalysis from "./goalAnalysisContext";
 
 export default function GoalProgressAnalysis() {
-  const { isDemoMode, user } = useAuth();
-  const [selectedYear, setSelectedYear] = useState(String(NOW.getFullYear()));
-  const [selectedMonth, setSelectedMonth] = useState(isDemoMode ? "05" : CURRENT_MONTH);
-  const [goalFilter, setGoalFilter] = useState("All");
-  const [apiData, setApiData] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!user && !isDemoMode) {
-      setApiData(null);
-      setLoading(false);
-      return;
-    }
-    if (isDemoMode) {
-      setApiData(buildDemoGoalAnalysis(selectedYear, selectedMonth));
-      setLoading(false);
-      return;
-    }
-
-    let active = true;
-
-    async function loadGoalAnalysis() {
-      setLoading(true);
-      setApiData(null);
-      try {
-        const res = await api.get("/goals/analysis", { params: { year: selectedYear, month: selectedMonth } });
-        if (active) setApiData(res.data);
-      } catch {
-        if (active) setApiData(null);
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-
-    const refreshAnalysis = () => {
-      loadGoalAnalysis();
-    };
-
-    loadGoalAnalysis();
-    window.addEventListener("focus", refreshAnalysis);
-    window.addEventListener("storage", refreshAnalysis);
-    window.addEventListener("monkmode:goals-updated", refreshAnalysis);
-
-    return () => {
-      active = false;
-      window.removeEventListener("focus", refreshAnalysis);
-      window.removeEventListener("storage", refreshAnalysis);
-      window.removeEventListener("monkmode:goals-updated", refreshAnalysis);
-    };
-  }, [isDemoMode, user, selectedYear, selectedMonth]);
-
-  const goals = apiData?.goals ?? [];
-  const daysInMonth = getDaysInMonth(selectedYear, selectedMonth);
-  const subgoalByDay = apiData?.subgoalByDay?.length
-    ? apiData.subgoalByDay
-    : buildEmptySubgoalSeries(daysInMonth);
-
-  const totalGoals = goals.length;
-  const completedGoals = goals.filter((g) => g.isCompleted).length;
-  const totalSubgoals = goals.reduce((sum, g) => sum + g.totalSubgoals, 0);
-  const completedSubgoals = goals.reduce((sum, g) => sum + g.completedSubgoals, 0);
-  const lateCompleted = goals.reduce((sum, g) => sum + g.lateCompletedSubgoals, 0);
-  const avgProgress = round(average(goals.map((g) => g.progress)));
-  const mostProgressedGoal = goals.length ? goals.reduce((best, g) => g.progress > best.progress ? g : best) : null;
-  const slowProgressGoal = goals.length ? goals.reduce((slow, g) => g.progress < slow.progress ? g : slow) : null;
-
-  const insights = [
-    { title: "Total Active Goals", value: `${totalGoals} goals`, description: "Total non-deleted goals in your account." },
-    { title: "Goals Completed", value: `${completedGoals} goals`, description: `${completedGoals} of ${totalGoals} goals reached 100% progress or all sub-goals done.` },
-    { title: "Total Sub-Goals", value: `${totalSubgoals} sub-goals`, description: "Total sub-goals across all active goals." },
-    { title: "Sub-Goals Completed", value: `${completedSubgoals} completed`, description: `${completedSubgoals} of ${totalSubgoals} sub-goals have been completed.` },
-    { title: "Late Completed Sub-Goals", value: `${lateCompleted} late`, description: "Sub-goals completed after their planned deadline." },
-    { title: "Avg Progress", value: `${avgProgress}%`, description: "Average progress percentage across all active goals." },
-    {
-      title: "Most Progressed Goal",
-      value: mostProgressedGoal ? `${mostProgressedGoal.title} (${mostProgressedGoal.progress}%)` : "—",
-      description: "Goal with the highest current progress.",
-    },
-    {
-      title: "Slowest Progress Goal",
-      value: slowProgressGoal ? `${slowProgressGoal.title} (${slowProgressGoal.progress}%)` : "—",
-      description: "Goal with the lowest current progress.",
-    },
+  const { data,goalFilter } = useGoalAnalysis(), a = data?.analysis, t = a?.totals;
+  const rows = filterAnalysisGoals(a?.goals||[],goalFilter), known = a?.goals.filter(row=>row.progress!==null)||[];
+  const highest = [...known].sort((a,b)=>b.progress-a.progress || a.id.localeCompare(b.id))[0];
+  const insights = !a ? [] : [
+    {title:"Eligible Retained Goals",value:t.goalCount+" goals",description:"Goals created and started by the selected period's checkpoint, including "+t.deletedGoals+" retained deletions during this month. Deleted goals stop at their deletion date; earlier deletions and future starts are excluded."},
+    {title:"Completed Goals at Checkpoint",value:t.completedGoals+" goals",description:"Completion requires all known milestones done, or the actual numeric value reaching its positive target. A rounded 100% alone does not complete a goal."},
+    {title:"Average Known Progress",value:percentLabel(t.avgProgress),description:t.knownProgressGoals+" comparable goals have known progress; "+t.unknownProgressGoals+" unavailable snapshots are excluded. Each goal contributes equally; targets and milestone units are not summed."},
+    {title:"Known Milestone State",value:t.completedMilestones+" / "+t.totalMilestones,description:"Completed / total milestones across "+t.knownMilestoneGoals+" milestone-based goals with reconstructable counts. Numeric goals are not treated as zero-milestone goals. Unknown milestone denominators are excluded."},
+    {title:"Milestone Completion Check-ins",value:t.milestoneCheckins+" check-ins",description:t.distinctMilestonesCompleted+" distinct milestones were completed at least once this month. Duplicate sources on the same day count once per milestone; recompletion on another day is another check-in. Reopened milestones remain historical activity, not currently completed milestones."},
+    {title:"Late Latest Milestone Completions",value:t.lateMilestones+" late",description:"Compares retained completedAt with a usable unchanged milestone deadline by app-calendar day; the deadline day is on time. "+t.unknownMilestoneTimings+" completed milestone timings have missing or edited deadline history and are not classified."},
+    {title:"Highest Known Progress",value:highest ? highest.label+" · "+percentLabel(highest.progress) : "No data",description:"A percentage comparison at the checkpoint, not proof of the fastest goal or greatest effort. Duplicate names are numbered by stable goal ID."},
   ];
-
-  return (
-    <section className="goal-analysis-section space-y-4">
-      <div className="goal-analysis-filters flex flex-wrap items-center gap-3">
-        <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
-          <span className="text-stone-400">Year</span>
-          <DashboardSelect
-            value={selectedYear}
-            onChange={(e) => {
-              const y = e.target.value;
-              setSelectedYear(y);
-              if (Number(y) === NOW.getFullYear() && Number(selectedMonth) > NOW.getMonth() + 1) {
-                setSelectedMonth(CURRENT_MONTH);
-              }
-            }}
-            className="bg-transparent text-sky-100 outline-none"
-          >
-            {YEARS.map((year) => <option key={year} value={year} className="bg-stone-950 text-stone-200">{year}</option>)}
-          </DashboardSelect>
-        </label>
-        <label className="flex w-full items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-stone-300 sm:w-auto">
-          <span className="text-stone-400">Month</span>
-          <DashboardSelect value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-transparent text-sky-100 outline-none">
-            {(Number(selectedYear) < NOW.getFullYear() ? MONTH_OPTIONS : MONTH_OPTIONS.filter((m) => Number(m.value) <= NOW.getMonth() + 1))
-              .map((month) => <option key={month.value} value={month.value} className="bg-stone-950 text-stone-200">{month.label}</option>)}
-          </DashboardSelect>
-        </label>
-      </div>
-
-      {loading ? (
-        <div className="flex h-64 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
-        </div>
-      ) : (
-        <div className="goal-analysis-layout flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
-          <div className="goal-analysis-chart-column journal-scroll min-w-0 flex-1 rounded-[1.6rem] border border-sky-100/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur sm:rounded-[2rem]">
-            <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
-              <SubgoalLineGraph series={subgoalByDay} daysInMonth={daysInMonth} />
-              <GoalProgressGraph goals={goals} activeFilter={goalFilter} onFilterChange={setGoalFilter} />
-            </div>
-          </div>
-
-          <div className="goal-analysis-side-column journal-scroll self-start flex w-full flex-col gap-2 lg:max-w-[380px] lg:shrink-0">
-            <InsightRail insights={insights} />
-          </div>
-        </div>
-      )}
+  return <AnalysisView insights={insights}>{a && <>
+    <GoalFilter/>
+    <AnalysisChart title="Goal Progress Analysis" subtitle="Known checkpoint progress · milestone ratio or numeric value / target · unknown history is a gap"
+      rows={rows.map(row=>({...row,status:row.deleted ? "deleted · "+row.asOf : row.isCompleted ? "completed" : row.progress===null ? "history unavailable" : "not completed"}))}
+      type="bar" max={100} series={[{key:"progress",label:"Progress",color:"#38bdf8",unit:"%"}]}/>
+    {!rows.length && <p role="status" className="text-sm text-stone-400">No eligible goals match this chart filter.</p>}
+    <AnalysisChart title="Sub Goal Completion Analysis" subtitle="All eligible goals · cumulative recorded milestone check-ins this month, not net completed milestone state"
+      rows={a.days} max={Math.max(1,t.milestoneCheckins)} integerTicks
+      series={[{key:"cumulativeMilestoneCheckins",label:"Cumulative check-ins",color:"#34d399"}]}/>
+    <section className="rounded-2xl border border-white/10 p-4">
+      <h4 className="font-semibold text-stone-100">Goal Snapshot Details</h4>
+      <p className="mt-2 text-xs text-stone-400">Filtered goals · titles and definitions are retained metadata, not immutable historical snapshots.</p>
+      <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-xs text-stone-300">
+        <thead><tr>{["Goal","Progress","Basis","Milestones","Checkpoint"].map(label=><th key={label} className="p-2">{label}</th>)}</tr></thead>
+        <tbody>{rows.map(row=><tr key={row.id} className="border-t border-white/10">
+          <td className="p-2">{row.label}<br/>{row.type} · {row.priority}</td><td className="p-2">{percentLabel(row.progress)}<br/>{row.deleted ? "Deleted" : row.isCompleted ? "Completed" : "Not completed"}</td>
+          <td className="p-2">{row.progressBasis}</td><td className="p-2">{!row.milestoneBased ? "Numeric goal" : row.total===null || row.completed===null ? "History unavailable" : row.completed+" / "+row.total}</td>
+          <td className="p-2">{row.asOf}</td>
+        </tr>)}</tbody>
+      </table></div>
     </section>
-  );
+  </>}</AnalysisView>;
 }
