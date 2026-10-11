@@ -7,6 +7,7 @@ import { APP_TIMEZONE } from "../config/runtime.js";
 import { addCalendarDays, calendarDaysBetween } from "../utils/calendarUtils.js";
 import { journalMonthDays } from "../../shared/journalAnalysisStats.js";
 import { computeTodoAnalysis } from "../../shared/todoAnalysisStats.js";
+import { calculateCompletionStreak } from "../utils/monkStreakUtils.js";
 
 const DELETE_UNDO_WINDOW_MS = 48 * 60 * 60 * 1000;
 const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -110,6 +111,7 @@ const normalizeRepeatType = (value) => {
 const normalizeDays = (value) => {
   if (value === null || value === undefined) return [];
   if (!Array.isArray(value)) throw new Error("days must be an array");
+  if (!value.every(item => typeof item === "string" && WEEK_DAYS.includes(item.trim()))) throw new Error("days must contain valid weekday names");
 
   const cleaned = value
     .map((item) => (typeof item === "string" ? item.trim() : ""))
@@ -150,6 +152,7 @@ const hasOccurrenceInRange = (repeatType, startDate, endDate, days = []) => {
 };
 
 const normalizeDayStatus = (value) => {
+  if (typeof value !== "string") throw new Error("status must be text");
   const status = String(value || "").trim();
   if (!["pending", "completed", "missed"].includes(status)) {
     throw new Error("status must be pending, completed, or missed");
@@ -186,6 +189,30 @@ const createAuditLog = async (userId, task, action, at = new Date()) => {
 
 const auditWarning = log => log ? {} : { auditWarning: "Task saved, but its activity log could not be recorded." };
 
+const guardTaskRevision = (task, req) => {
+  const expected = req.body?.expectedUpdatedAt;
+  if (expected === undefined) return;
+  if (typeof expected !== "string" || !Number.isFinite(Date.parse(expected))) throw Object.assign(new Error("expectedUpdatedAt must be a valid timestamp"), { status: 400 });
+  if (!task.updatedAt || new Date(task.updatedAt).getTime() !== Date.parse(expected)) throw Object.assign(new Error("This task changed in another request. Reload tasks before trying again."), { status: 409 });
+  // Mongoose adds these fields to the atomic save filter, not a JS $where query.
+  task.$where = { ...(task.$where || {}), userId: new mongoose.Types.ObjectId(req.user.id), updatedAt: new Date(expected) };
+};
+
+const saveTask = async task => {
+  if (task.$where?.updatedAt) {
+    task.updatedAt = new Date(Math.max(Date.now(), new Date(task.$where.updatedAt).getTime() + 1));
+    await task.save({ timestamps: false });
+    task.$where.updatedAt = new Date(task.updatedAt);
+  } else await task.save();
+};
+
+const todoWriteFailure = (res, error, fallback, persistenceStarted = true) => {
+  if (error.status === 400 || error.status === 409) return res.status(error.status).json({ message: error.message });
+  if (["DocumentNotFoundError", "VersionError"].includes(error.name)) return res.status(409).json({ message: "This task changed in another request. Reload tasks before trying again." });
+  if (["ValidationError", "CastError"].includes(error.name)) return res.status(400).json({ message: "Invalid task values. Please check the form." });
+  return res.status(persistenceStarted ? 503 : 400).json({ message: persistenceStarted ? "The task update could not be confirmed. Reload tasks before trying again." : error.message || fallback });
+};
+
 export const getTodoPreferences = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("todoPreferences").lean();
@@ -197,13 +224,15 @@ export const getTodoPreferences = async (req, res) => {
 };
 
 export const saveTodoPreferences = async (req, res) => {
+  let preferences;
+  try { preferences = normalizeTodoPreferences(req.body); }
+  catch (error) { return res.status(400).json({ message: error.message || "Invalid todo preferences" }); }
   try {
-    const preferences = normalizeTodoPreferences(req.body);
     const user = await User.findByIdAndUpdate(req.user.id, { $set: { todoPreferences: preferences } }, { new: true, runValidators: true });
     if (!user) return res.status(404).json({ message: "User not found" });
     return res.json(preferences);
-  } catch (error) {
-    return res.status(400).json({ message: error.message || "Could not save todo preferences" });
+  } catch {
+    return res.status(503).json({ message: "Category changes could not be confirmed. Retry to sync your account." });
   }
 };
 
@@ -223,7 +252,7 @@ const getDeleteUndoMeta = (task, now = new Date()) => {
   };
 };
 
-const applyDeferredTaskChangesIfDue = async (task, todayStart = getStartOfDay(new Date())) => {
+const applyDeferredTaskChangesIfDue = (task, todayStart = getStartOfDay(new Date())) => {
   if (!task) return false;
 
   let changed = false;
@@ -248,9 +277,9 @@ const applyDeferredTaskChangesIfDue = async (task, todayStart = getStartOfDay(ne
     }
   }
 
-  if (!changed) return false;
-  await task.save();
-  return true;
+  // Materialize only in a mutation's working document. Its final guarded save
+  // persists these fields along with the requested change, after validation.
+  return changed;
 };
 
 const isTaskScheduledOnDay = (task, dayKey) => {
@@ -321,11 +350,14 @@ const getExistingDayState = (task, dayKey) => {
   return task.dayStates.find((state) => state?.dayKey === dayKey) || null;
 };
 
+const taskTimeForDay = (task, dayKey) => task.pendingTime && task.timeChangeEffectiveFrom
+  && dayKey >= toDayKey(task.timeChangeEffectiveFrom) ? task.pendingTime : task.time;
+
 const hasTaskTimePassedForToday = (task, dayKey, now = new Date()) => {
   const todayKey = toDayKey(now);
   if (dayKey !== todayKey) return false;
 
-  const taskTime = String(task?.time || "").slice(0, 5);
+  const taskTime = String(taskTimeForDay(task, dayKey) || "").slice(0, 5);
   if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(taskTime)) return false;
 
   const nowTime = getCurrentTimeKey(now);
@@ -338,7 +370,7 @@ const isLateCompletionForDay = (task, dayKey, todayKey, completedAt = "") => {
   if (dayKey < todayKey) return true;
   if (dayKey > todayKey) return false;
 
-  const taskTime = String(task?.time || "").slice(0, 5);
+  const taskTime = String(taskTimeForDay(task, dayKey) || "").slice(0, 5);
   if (!isValidTimeKey(taskTime)) return false;
 
   const completionTime = isValidTimeKey(completedAt)
@@ -397,6 +429,7 @@ const applyDayStatus = (task, dayKey, status, todayKey = toDayKey(new Date()), c
 };
 
 const buildTaskPayload = (body, fallbackDate = new Date()) => {
+  if (body.neverEnds !== undefined && typeof body.neverEnds !== "boolean") throw new Error("neverEnds must be true or false");
   const title = normalizeTitle(body.title);
   const description = normalizeText(body.description, 2500);
   const category = normalizeText(body.category || "Others", 80) || "Others";
@@ -517,6 +550,7 @@ const toClientTask = (task, selectedDayKey = null, todayKey = toDayKey(new Date(
 };
 
 export const createTodo = async (req, res) => {
+  let persistenceStarted = false;
   try {
     const now = new Date();
     const payload = buildTaskPayload(req.body, new Date());
@@ -535,6 +569,7 @@ export const createTodo = async (req, res) => {
       });
     }
 
+    persistenceStarted = true;
     const todo = await Todo.create({
       userId: req.user.id,
       ...payload
@@ -542,7 +577,7 @@ export const createTodo = async (req, res) => {
     const log = await createAuditLog(req.user.id, todo, "created", new Date());
     return res.status(201).json({ ...toClientTask(todo), ...auditWarning(log) });
   } catch (error) {
-    return res.status(400).json({ message: error.message || "Invalid todo payload" });
+    return todoWriteFailure(res, error, "Invalid todo payload", persistenceStarted);
   }
 };
 
@@ -562,10 +597,6 @@ export const getTodos = async (req, res) => {
     const includeUnscheduled = String(req.query.include_unscheduled || "") === "1";
 
     const todos = await Todo.find({ userId: req.user.id }).sort({ createdAt: -1, _id: -1 });
-    const todayStart = getStartOfDay(new Date());
-    for (const todo of todos) {
-      await applyDeferredTaskChangesIfDue(todo, todayStart);
-    }
     let result = todos.map((todo) => toClientTask(todo, selectedDayKey, todayKey));
 
     if (view === "active") {
@@ -592,18 +623,21 @@ export const getTodos = async (req, res) => {
     }
 
     return res.json(result);
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+  } catch {
+    return res.status(500).json({ message: "Could not load tasks. Please retry." });
   }
 };
 
 export const updateTodo = async (req, res) => {
+  let persistenceStarted = true;
   try {
     const todo = await Todo.findOne({ _id: req.params.id, userId: req.user.id });
     if (!todo) {
       return res.status(404).json({ message: "Todo not found" });
     }
+    guardTaskRevision(todo, req);
     await applyDeferredTaskChangesIfDue(todo, getStartOfDay(new Date()));
+    persistenceStarted = false;
     const archiveTodayKey = toDayKey(new Date());
     if (isTaskArchived(todo, archiveTodayKey)) {
       return res.status(400).json({ message: "Archived tasks cannot be edited." });
@@ -632,6 +666,9 @@ export const updateTodo = async (req, res) => {
       const currentDate = todo.date || todo.startDate || todo.createdAt;
       const currentKey = currentDate ? toDayKey(currentDate) : null;
       const nextKey = payload.date ? toDayKey(payload.date) : null;
+      if (currentKey > todayKey && (nextKey < todayKey || (nextKey === todayKey && payload.time <= getCurrentTimeKey()))) {
+        return res.status(400).json({ message: "Rescheduled tasks cannot start in the past or at an elapsed time." });
+      }
       if (currentKey && nextKey && currentKey <= todayKey && currentKey !== nextKey) {
         return res.status(400).json({ message: "Date cannot be changed after the task has begun." });
       }
@@ -643,6 +680,9 @@ export const updateTodo = async (req, res) => {
       const currentStart = todo.startDate || todo.createdAt;
       const currentStartKey = currentStart ? toDayKey(currentStart) : null;
       const nextStartKey = payload.startDate ? toDayKey(payload.startDate) : null;
+      if (currentStartKey > todayKey && (nextStartKey < todayKey || (nextStartKey === todayKey && payload.time <= getCurrentTimeKey()))) {
+        return res.status(400).json({ message: "Rescheduled tasks cannot start in the past or at an elapsed time." });
+      }
       if (currentStartKey && nextStartKey && currentStartKey <= todayKey && currentStartKey !== nextStartKey) {
         return res.status(400).json({ message: "Start date cannot be changed after the task has begun." });
       }
@@ -696,7 +736,8 @@ export const updateTodo = async (req, res) => {
     }
 
     Object.assign(todo, payload);
-    await todo.save();
+    persistenceStarted = true;
+    await saveTask(todo);
     const log = await createAuditLog(req.user.id, todo, "edited", new Date());
 
     return res.json({
@@ -709,17 +750,20 @@ export const updateTodo = async (req, res) => {
       reflectsDaysFromDate: reflectDaysFromNextDay ? tomorrowStart.toISOString() : null
     });
   } catch (error) {
-    return res.status(400).json({ message: error.message || "Invalid todo payload" });
+    return todoWriteFailure(res, error, "Invalid todo payload", persistenceStarted);
   }
 };
 
 export const toggleTodo = async (req, res) => {
+  let persistenceStarted = true;
   try {
-    const todo = await Todo.findOne({ _id: req.params.id, userId: req.user.id });
+    const todo = await Todo.findOne({ _id: req.params.id, userId: req.user.id, deletedAt: null });
     if (!todo) {
       return res.status(404).json({ message: "Todo not found" });
     }
+    guardTaskRevision(todo, req);
     await applyDeferredTaskChangesIfDue(todo, getStartOfDay(new Date()));
+    persistenceStarted = false;
 
     const selectedDate = req.body?.date ? parseDateInput(req.body.date) : new Date();
     if (!selectedDate) {
@@ -728,6 +772,7 @@ export const toggleTodo = async (req, res) => {
 
     const dayKey = toDayKey(selectedDate);
     const todayKey = toDayKey(new Date());
+    if (dayKey > todayKey) return res.status(400).json({ message: "Future task status cannot be changed." });
 
     if (!isTaskScheduledOnDay(todo, dayKey)) {
       return res.status(400).json({ message: "Task is not scheduled for the selected date" });
@@ -738,22 +783,26 @@ export const toggleTodo = async (req, res) => {
     const completedAt = completionTimeForDay(nextStatus, dayKey, todayKey, req.body?.completedAt);
 
     applyDayStatus(todo, dayKey, nextStatus, todayKey, completedAt);
-    await todo.save();
+    persistenceStarted = true;
+    await saveTask(todo);
 
     const normalized = toClientTask(todo, dayKey, todayKey);
     return res.json(normalized);
   } catch (error) {
-    return res.status(400).json({ message: error.message || "Could not update todo status" });
+    return todoWriteFailure(res, error, "Could not update todo status", persistenceStarted);
   }
 };
 
 export const setTodoStatus = async (req, res) => {
+  let persistenceStarted = true;
   try {
-    const todo = await Todo.findOne({ _id: req.params.id, userId: req.user.id });
+    const todo = await Todo.findOne({ _id: req.params.id, userId: req.user.id, deletedAt: null });
     if (!todo) {
       return res.status(404).json({ message: "Todo not found" });
     }
+    guardTaskRevision(todo, req);
     await applyDeferredTaskChangesIfDue(todo, getStartOfDay(new Date()));
+    persistenceStarted = false;
 
     const selectedDate = req.body?.date ? parseDateInput(req.body.date) : new Date();
     if (!selectedDate) {
@@ -763,19 +812,22 @@ export const setTodoStatus = async (req, res) => {
     const status = normalizeDayStatus(req.body?.status);
     const dayKey = toDayKey(selectedDate);
     const todayKey = toDayKey(new Date());
+    if (dayKey > todayKey) return res.status(400).json({ message: "Future task status cannot be changed." });
 
     if (!isTaskScheduledOnDay(todo, dayKey)) {
       return res.status(400).json({ message: "Task is not scheduled for the selected date" });
     }
 
     const completedAt = completionTimeForDay(status, dayKey, todayKey, req.body?.completedAt);
+    if (status !== "pending" && getExistingDayState(todo, dayKey)?.status === status) return res.json(toClientTask(todo, dayKey, todayKey));
     applyDayStatus(todo, dayKey, status, todayKey, completedAt);
-    await todo.save();
+    persistenceStarted = true;
+    await saveTask(todo);
 
     const normalized = toClientTask(todo, dayKey, todayKey);
     return res.json(normalized);
   } catch (error) {
-    return res.status(400).json({ message: error.message || "Could not set todo status" });
+    return todoWriteFailure(res, error, "Could not set todo status", persistenceStarted);
   }
 };
 
@@ -785,9 +837,9 @@ export const deleteTodo = async (req, res) => {
     if (!todo) {
       return res.status(404).json({ message: "Todo not found" });
     }
-
+    guardTaskRevision(todo, req);
     todo.deletedAt = new Date();
-    await todo.save();
+    await saveTask(todo);
     const log = await createAuditLog(req.user.id, todo, "deleted", todo.deletedAt);
 
     const normalized = toClientTask(todo);
@@ -800,7 +852,7 @@ export const deleteTodo = async (req, res) => {
       deleteUndoRemainingMs: normalized.deleteUndoRemainingMs,
     });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return todoWriteFailure(res, error, "Could not delete task");
   }
 };
 
@@ -813,6 +865,7 @@ export const restoreTodo = async (req, res) => {
     if (!todo.deletedAt) {
       return res.status(400).json({ message: "Todo is not deleted" });
     }
+    guardTaskRevision(todo, req);
 
     if (!getDeleteUndoMeta(todo).canUndoDelete) {
       return res.status(410).json({
@@ -821,12 +874,12 @@ export const restoreTodo = async (req, res) => {
     }
 
     todo.deletedAt = null;
-    await todo.save();
+    await saveTask(todo);
     const log = await createAuditLog(req.user.id, todo, "restored", new Date());
 
     return res.json({ ...toClientTask(todo), ...auditWarning(log) });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return todoWriteFailure(res, error, "Could not restore task");
   }
 };
 
@@ -858,14 +911,6 @@ export const getTodoSummary = async (req, res) => {
       Todo.find({ userId: req.user.id, deletedAt: null }),
       Todo.find({ userId: req.user.id })
     ]);
-    const deferredSeen = new Set();
-    const summaryTodayStart = getStartOfDay(new Date());
-    for (const todo of [...activeTodos, ...allTodos]) {
-      const id = todo?._id?.toString?.();
-      if (!id || deferredSeen.has(id)) continue;
-      deferredSeen.add(id);
-      await applyDeferredTaskChangesIfDue(todo, summaryTodayStart);
-    }
     const todaySummary = { total: 0, completed: 0, pending: 0, missed: 0, important: 0 };
 
     for (const todo of activeTodos) {
@@ -930,68 +975,10 @@ export const getTodoSummary = async (req, res) => {
       }
     }
 
-    const streakExpectedByDay = new Map();
-    const streakCompletedByDay = new Map();
-    if (activeTodos.length > 0) {
-      const earliestActive = activeTodos.reduce((min, todo) => {
-        const candidate = todo.date || todo.startDate || todo.createdAt;
-        return !min || candidate < min ? candidate : min;
-      }, null);
-
-      const streakRangeStart = getStartOfDay(earliestActive || selectedDate);
-      const streakRangeEnd = addCalendarDays(getStartOfDay(selectedDate), 1);
-
-      for (
-        let cursor = new Date(streakRangeStart);
-        cursor < streakRangeEnd;
-        cursor = addCalendarDays(cursor, 1)
-      ) {
-        const dayKey = toDayKey(cursor);
-        for (const todo of activeTodos) {
-          if (!isTaskScheduledOnDay(todo, dayKey)) continue;
-          streakExpectedByDay.set(dayKey, (streakExpectedByDay.get(dayKey) || 0) + 1);
-
-          const status = getTodoStatusForDay(todo, dayKey, todayKey);
-          if (status !== "completed") continue;
-
-          const dayState = getExistingDayState(todo, dayKey);
-          const isLate = Boolean(dayState?.lateCompleted);
-          if (!isLate) {
-            streakCompletedByDay.set(dayKey, (streakCompletedByDay.get(dayKey) || 0) + 1);
-          }
-        }
-      }
-    }
-
-    let fullCompletionStreakDays = 0;
-    const selectedDay = getStartOfDay(selectedDate);
-    const streakStart = activeTodos.length > 0
-      ? getStartOfDay(
-          activeTodos.reduce((min, todo) => {
-            const candidate = todo.date || todo.startDate || todo.createdAt;
-            return !min || candidate < min ? candidate : min;
-          }, null) || selectedDay
-        )
-      : selectedDay;
-
-    const streakStartCursor = new Date(selectedDay);
-    const streakDayKey = toDayKey(selectedDay);
-    const selectedExpected = Number(streakExpectedByDay.get(streakDayKey) || 0);
-    const selectedCompleted = Number(streakCompletedByDay.get(streakDayKey) || 0);
-
-    // Keep yesterday's streak visible right after midnight if today's scheduled
-    // tasks are not finished yet.
-    if (selectedExpected <= 0 || selectedCompleted < selectedExpected) {
-      streakStartCursor.setDate(streakStartCursor.getDate() - 1);
-    }
-
-    for (let cursor = new Date(streakStartCursor); cursor >= streakStart; cursor = addCalendarDays(cursor, -1)) {
-      const dayKey = toDayKey(cursor);
-      const expected = Number(streakExpectedByDay.get(dayKey) || 0);
-      const completed = Number(streakCompletedByDay.get(dayKey) || 0);
-      if (expected <= 0 || completed < expected) break;
-      fullCompletionStreakDays += 1;
-    }
+    const fullCompletionStreakDays = calculateCompletionStreak({
+      dayKeys: completedDayKeys,
+      todayKey: selectedDayKey
+    });
 
     const normalizedTotalExpectedLifetime = Math.max(lifetime.total, lifetime.completed);
     const lifetimeConsistency = normalizedTotalExpectedLifetime > 0
@@ -1013,8 +1000,8 @@ export const getTodoSummary = async (req, res) => {
       totalExpectedLifetime: normalizedTotalExpectedLifetime,
       lifetimeConsistency
     });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+  } catch {
+    return res.status(500).json({ message: "Could not load task statistics. Please retry." });
   }
 };
 
@@ -1034,11 +1021,6 @@ export const getTodoHeatmap = async (req, res) => {
     const todos = await Todo.find({ userId: req.user.id }).select(
       "date startDate endDate repeatType days pendingDays daysChangeEffectiveFrom time pendingTime timeChangeEffectiveFrom dayStates createdAt completed deletedAt"
     );
-
-    const heatmapTodayStart = getStartOfDay(new Date());
-    for (const todo of todos) {
-      await applyDeferredTaskChangesIfDue(todo, heatmapTodayStart);
-    }
 
     const today = getStartOfDay(new Date());
     const todayKey = toDayKey(today);
@@ -1114,8 +1096,8 @@ export const getTodoHeatmap = async (req, res) => {
       years,
       totalActiveDays: values.length
     });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+  } catch {
+    return res.status(500).json({ message: "Could not load task activity. Please retry." });
   }
 };
 
@@ -1133,14 +1115,16 @@ export const getTodoCategories = async (req, res) => {
         .map((item) => String(item?._id || "").trim())
         .filter(Boolean)
     });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+  } catch {
+    return res.status(500).json({ message: "Could not load task categories. Please retry." });
   }
 };
 
 export const getTodoLogs = async (req, res) => {
   try {
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const requestedLimit = req.query.limit === undefined ? 50 : Number(req.query.limit);
+    if (!Number.isSafeInteger(requestedLimit) || requestedLimit < 1) return res.status(400).json({ message: "limit must be a positive integer" });
+    const limit = Math.min(requestedLimit, 100);
     const rawLogs = await TodoLog.find({ userId: req.user.id })
       .sort({ createdAt: -1 })
       .limit(limit * 3)
@@ -1219,26 +1203,38 @@ export const getTodoLogs = async (req, res) => {
         };
       })
     );
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+  } catch {
+    return res.status(500).json({ message: "Could not load task logs. Please retry." });
   }
 };
 
 export const createTodoLog = async (req, res) => {
+  let persistenceStarted = false;
   try {
     const { title, date, time, action, todoId } = req.body;
     if (!title || typeof title !== "string" || !title.trim()) {
       return res.status(400).json({ message: "title is required" });
     }
     const validActions = ["created", "edited", "deleted", "restored", "ended"];
-    const normalizedAction = validActions.includes(action) ? action : "created";
+    if (action !== undefined && !validActions.includes(action)) return res.status(400).json({ message: "Invalid log action" });
+    const normalizedAction = action || "created";
+    if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !parseDateInput(date)) return res.status(400).json({ message: "Log date must be a valid YYYY-MM-DD value" });
+    const logTime = normalizeTime(time);
+    if (!logTime) return res.status(400).json({ message: "Log time is required" });
+    if (todoId !== undefined && todoId !== null) {
+      if (typeof todoId !== "string" || !mongoose.isValidObjectId(todoId)) return res.status(400).json({ message: "Invalid task ID" });
+      persistenceStarted = true;
+      const task = await Todo.findOne({ _id: todoId, userId: req.user.id });
+      if (!task) return res.status(404).json({ message: "Task not found" });
+    }
 
+    persistenceStarted = true;
     const log = await TodoLog.create({
       todoId: mongoose.isValidObjectId(todoId) ? todoId : null,
       userId: req.user.id,
       title: title.trim().slice(0, 180),
-      date: typeof date === "string" ? date.slice(0, 10) : "",
-      time: typeof time === "string" ? time.slice(0, 5) : "",
+      date,
+      time: logTime,
       action: normalizedAction,
     });
 
@@ -1251,7 +1247,7 @@ export const createTodoLog = async (req, res) => {
       action: log.action === "created" ? undefined : log.action,
     });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    return todoWriteFailure(res, error, "Could not save task log", persistenceStarted);
   }
 };
 

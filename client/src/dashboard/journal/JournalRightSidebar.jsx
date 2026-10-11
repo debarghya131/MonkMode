@@ -4,6 +4,7 @@ import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import { MOCK_HISTORY } from "../../../data/JournalDummyData";
 import { formatJournalDay } from "./journalUtils";
+import { validJournalEntries, journalEntries, validJournalMissedDays, journalFailureMessage } from "./journalResponse";
 
 const MOOD_EMOJI = {
   Motivated: "🔥",
@@ -51,8 +52,8 @@ const normalizeEntry = (entry) => {
       emoji: MOOD_EMOJI[moodLabel] || "🙂"
     },
     wakeUpTime: entry?.wakeUpTime || "--:--",
-    energyLevel: Number(entry?.energyLevel || 0),
-    overallRating: Number(entry?.overallRating || 0),
+    energyLevel: entry?.energyLevel ?? null,
+    overallRating: entry?.overallRating ?? null,
     summary: entry?.summary || entry?.content || "",
     wins: Array.isArray(entry?.wins) ? entry.wins : [],
     mistakes: Array.isArray(entry?.mistakes) ? entry.mistakes : [],
@@ -69,13 +70,15 @@ const normalizeEntry = (entry) => {
 
 function EntryModal({ entry, onClose }) {
   const energyLabel =
-    entry.energyLevel >= 80 ? "Fully charged 🔋"
+    entry.energyLevel === null ? "Not recorded"
+    : entry.energyLevel >= 80 ? "Fully charged 🔋"
     : entry.energyLevel >= 50 ? "Decent energy ⚡"
     : entry.energyLevel >= 30 ? "Running low 😮‍💨"
     : "Drained 😴";
 
   const ratingLabel =
-    entry.overallRating >= 80 ? "Exceptional day 🌟"
+    entry.overallRating === null ? "Not recorded"
+    : entry.overallRating >= 80 ? "Exceptional day 🌟"
     : entry.overallRating >= 60 ? "Solid day 👍"
     : entry.overallRating >= 40 ? "Average day 🤝"
     : "Rough day, but you showed up 💪";
@@ -108,7 +111,7 @@ function EntryModal({ entry, onClose }) {
             <p className="text-sm font-bold text-amber-200">📔 Journal Entry</p>
             <p className="mt-0.5 break-words pr-2 text-xs leading-5 text-stone-500">{formattedDate}</p>
           </div>
-          <button type="button" onClick={onClose}
+          <button type="button" onClick={onClose} aria-label="Close journal entry"
             className="shrink-0 rounded-full border border-amber-100/10 bg-white/5 p-1.5 text-stone-400 transition hover:border-amber-400/30 hover:text-amber-300">
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M18 6L6 18M6 6l12 12" />
@@ -137,7 +140,7 @@ function EntryModal({ entry, onClose }) {
             <div>
               <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">⚡ Energy Level</p>
               <div className="dashboard-glow-card rounded-xl border border-amber-100/10 bg-white/5 px-3 py-3 text-center sm:px-4">
-                <p className="text-[2rem] font-bold text-amber-200 sm:text-3xl">{entry.energyLevel}</p>
+                <p className="text-[2rem] font-bold text-amber-200 sm:text-3xl">{entry.energyLevel ?? "—"}</p>
                 <p className="mt-1 text-xs text-stone-400">{energyLabel}</p>
               </div>
             </div>
@@ -240,11 +243,11 @@ function EntryModal({ entry, onClose }) {
           <div>
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300/70">⭐ Overall Day Rating</p>
             <div className="rounded-xl border border-amber-100/10 bg-white/5 px-3 py-3 text-center sm:px-4">
-              <p className="text-[2.2rem] font-bold text-amber-200 sm:text-4xl">{entry.overallRating}</p>
+              <p className="text-[2.2rem] font-bold text-amber-200 sm:text-4xl">{entry.overallRating ?? "—"}</p>
               <p className="mt-1 text-xs text-stone-400">{ratingLabel}</p>
               <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
                 <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400 transition-all duration-500"
-                  style={{ width: `${entry.overallRating}%` }} />
+                  style={{ width: `${entry.overallRating ?? 0}%` }} />
               </div>
             </div>
           </div>
@@ -289,6 +292,10 @@ function JournalRightSidebar({ refreshToken = 0 }) {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const historyVersion = useRef(0);
+  const historyRequest = useRef(null);
+  const loadingMoreRef = useRef(false);
+  const reasonRequest = useRef(null);
+  const reasonSaving = useRef(false);
 
   const [missedDays, setMissedDays] = useState([]);
   const [missedLoading, setMissedLoading] = useState(!isDemoMode);
@@ -311,40 +318,44 @@ function JournalRightSidebar({ refreshToken = 0 }) {
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
+    historyRequest.current?.abort();
+    historyRequest.current = controller;
+    loadingMoreRef.current = false;
     const loadEntries = async () => {
       setLoading(true);
       try {
-        const res = await api.get("/journal?page=1&limit=14");
-        if (cancelled) return;
-        const entries = Array.isArray(res?.data?.entries)
-          ? res.data.entries
-          : Array.isArray(res?.data)
-          ? res.data
-          : [];
+        const res = await api.get("/journal?page=1&limit=14", { signal: controller.signal, timeout: 15000 });
+        if (controller.signal.aborted) return;
+        if (!validJournalEntries(res.data, 1)) throw new Error("Invalid history response");
+        const entries = journalEntries(res.data);
         setHistory(entries.map(normalizeEntry));
         setHasMore(Number(res?.data?.totalPages || 1) > 1);
       } catch {
-        if (!cancelled) setHistoryError("Could not load past entries. Your saved journals have not been deleted.");
+        if (!controller.signal.aborted) setHistoryError("Could not load past entries. Your saved journals have not been deleted.");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
     loadEntries();
-    return () => { cancelled = true; if (historyVersion.current === version) historyVersion.current += 1; };
+    return () => { controller.abort(); historyRequest.current?.abort(); if (historyVersion.current === version) historyVersion.current += 1; };
   }, [isDemoMode, refreshToken, historyAttempt]);
 
   const loadOlderEntries = async () => {
-    if (isDemoMode || loading || loadingMore || !hasMore) return;
+    if (isDemoMode || loading || loadingMoreRef.current || !hasMore) return;
     const version = historyVersion.current;
+    loadingMoreRef.current = true;
+    const controller = new AbortController();
+    historyRequest.current = controller;
     setLoadingMore(true);
     setHistoryError("");
     try {
       const nextPage = historyPage + 1;
-      const res = await api.get(`/journal?page=${nextPage}&limit=14`);
-      if (version !== historyVersion.current) return;
-      const nextEntries = Array.isArray(res.data?.entries) ? res.data.entries.map(normalizeEntry) : [];
+      const res = await api.get(`/journal?page=${nextPage}&limit=14`, { signal: controller.signal, timeout: 15000 });
+      if (controller.signal.aborted || version !== historyVersion.current) return;
+      if (!validJournalEntries(res.data, nextPage)) throw new Error("Invalid older entries");
+      const nextEntries = res.data.entries.map(normalizeEntry);
       setHistory(previous => {
         const merged = new Map(previous.map(entry => [entry._id || entry.dayKey || entry.date, entry]));
         nextEntries.forEach(entry => merged.set(entry._id || entry.dayKey || entry.date, entry));
@@ -353,35 +364,39 @@ function JournalRightSidebar({ refreshToken = 0 }) {
       setHistoryPage(nextPage);
       setHasMore(nextPage < Number(res.data?.totalPages || nextPage));
     } catch {
-      if (version === historyVersion.current) setHistoryError("Could not load older entries. Try again.");
+      if (!controller.signal.aborted && version === historyVersion.current) setHistoryError("Could not load older entries. Try again.");
     } finally {
-      if (version === historyVersion.current) setLoadingMore(false);
+      if (version === historyVersion.current) { loadingMoreRef.current = false; setLoadingMore(false); }
     }
   };
 
   useEffect(() => {
     setMissedError("");
+    reasonSaving.current = false;
+    setSaving(false);
     if (isDemoMode) {
       setMissedDays([]);
       setMissedLoading(false);
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
     const loadMissedDays = async () => {
       setMissedLoading(true);
       try {
-        const res = await api.get("/weekly-report/journal/missed-days");
-        if (!cancelled) setMissedDays(Array.isArray(res.data) ? res.data : []);
+        const res = await api.get("/weekly-report/journal/missed-days", { signal: controller.signal, timeout: 15000 });
+        if (controller.signal.aborted) return;
+        if (!validJournalMissedDays(res.data)) throw new Error("Invalid missed days");
+        setMissedDays(res.data);
       } catch {
-        if (!cancelled) setMissedError("Could not check missed days. Please retry.");
+        if (!controller.signal.aborted) setMissedError("Could not check missed days. Please retry.");
       } finally {
-        if (!cancelled) setMissedLoading(false);
+        if (!controller.signal.aborted) setMissedLoading(false);
       }
     };
 
     loadMissedDays();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); reasonRequest.current?.abort(); };
   }, [isDemoMode, refreshToken, missedAttempt]);
 
   const handleStartEdit = (day) => {
@@ -392,18 +407,26 @@ function JournalRightSidebar({ refreshToken = 0 }) {
   };
 
   const handleSaveReason = async (dayKey) => {
-    if (isDemoMode || saving || !reasonDraft.trim()) return;
+    if (isDemoMode || reasonSaving.current || !reasonDraft.trim()) return;
+    reasonSaving.current = true;
+    const controller = new AbortController();
+    reasonRequest.current = controller;
     setSaving(true);
     setReasonError("");
     try {
-      const res = await api.post("/weekly-report/journal/missed-reason", { dayKey, reason: reasonDraft });
+      const res = await api.post("/weekly-report/journal/missed-reason", { dayKey, reason: reasonDraft }, { signal: controller.signal, timeout: 15000 });
+      if (controller.signal.aborted) return;
+      if (typeof res.data?.reason !== "string") throw new Error("Invalid reason confirmation");
       setMissedDays(prev => prev.map(d => d.date === dayKey ? { ...d, reason: res.data.reason } : d));
       setEditingDay(null);
       setReasonDraft("");
     } catch (error) {
-      setReasonError(error?.response?.data?.error || error?.response?.data?.message || "Could not save the reason. Your text is still here; please retry.");
+      if (!controller.signal.aborted) setReasonError(journalFailureMessage(error, "Could not save the reason. Your text is still here; please retry."));
     } finally {
-      setSaving(false);
+      if (reasonRequest.current === controller) {
+        reasonSaving.current = false;
+        setSaving(false);
+      }
     }
   };
 
@@ -526,8 +549,8 @@ function JournalRightSidebar({ refreshToken = 0 }) {
                   {/* Stats row */}
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-stone-500">
                     <span>🌅 {item.wakeUpTime}</span>
-                    <span>⚡ {item.energyLevel}</span>
-                    <span>⭐ {item.overallRating}</span>
+                    <span>⚡ {item.energyLevel ?? "—"}</span>
+                    <span>⭐ {item.overallRating ?? "—"}</span>
                     <span>😴 {item.sleepTime}</span>
                     <span>✅ {item.wins.length} wins</span>
                   </div>

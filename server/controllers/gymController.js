@@ -1,5 +1,5 @@
 import { MEASUREMENT_KEYS, measurementFields, validGalleryImage } from "../utils/gymRecordUtils.js";
-import { gymError, gymMutation, validGymDay, requestedGymActive } from "../utils/gymMutationUtils.js";
+import { gymError, gymMutation, gymFailure, checkGymRevision, saveGymRecord, validGymDay, requestedGymActive } from "../utils/gymMutationUtils.js";
 import Workout from "../models/Workout.js";
 import WorkoutPlan from "../models/WorkoutPlan.js";
 import WorkoutPlanLog from "../models/WorkoutPlanLog.js";
@@ -104,7 +104,7 @@ const normalizeCustomExercise = (exercise) => ({
 const normalizeTimeValue = (value) => {
   if (value === null || value === undefined || value === "") return "";
   if (typeof value !== "string" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)) {
-    throw new Error("Time must be in HH:mm format");
+    throw gymError(400, "Time must be in HH:mm format");
   }
   return value;
 };
@@ -112,7 +112,7 @@ const normalizeTimeValue = (value) => {
 const normalizeDayValue = (value) => {
   const day = typeof value === "string" ? value.trim() : "";
   if (!WEEK_DAYS.includes(day)) {
-    throw new Error("day must be one of Mon, Tue, Wed, Thu, Fri, Sat, Sun");
+    throw gymError(400, "day must be one of Mon, Tue, Wed, Thu, Fri, Sat, Sun");
   }
   return day;
 };
@@ -120,7 +120,7 @@ const normalizeDayValue = (value) => {
 const normalizePlanTypeValue = (value) => {
   const planType = typeof value === "string" ? value.trim() : "";
   if (!DIET_PLAN_TYPES.has(planType)) {
-    throw new Error("planType must be diet, workoutNutrition, supplements, or macros");
+    throw gymError(400, "planType must be diet, workoutNutrition, supplements, or macros");
   }
   return planType;
 };
@@ -133,11 +133,11 @@ const normalizeCopiedFromId = (value) => {
 
 const normalizeMealEntries = (value, sectionName) => {
   if (value === null || value === undefined) return [];
-  if (!Array.isArray(value)) throw new Error(`${sectionName} must be an array`);
+  if (!Array.isArray(value) || value.length > 100) throw gymError(400, `${sectionName} must be an array of at most 100 entries`);
 
   return value.map((entry) => {
     const rawName = typeof entry?.name === "string" ? entry.name.trim() : "";
-    if (!rawName) throw new Error(`${sectionName} meal name is required`);
+    if (!rawName || rawName.length > 180) throw gymError(400, `${sectionName} meal name is required and must be at most 180 characters`);
     return {
       name: rawName.slice(0, 180),
       time: normalizeTimeValue(entry?.time)
@@ -158,7 +158,7 @@ const normalizeMealsPayload = (planType, payload) => {
 
   if (planType !== "diet" && planType !== "workoutNutrition") return mealMap;
   if (payload !== null && payload !== undefined && (typeof payload !== "object" || Array.isArray(payload))) {
-    throw new Error("meals must be an object");
+    throw gymError(400, "meals must be an object");
   }
 
   const sections = planType === "diet" ? DIET_MEAL_SECTIONS : WORKOUT_NUTRITION_SECTIONS;
@@ -171,11 +171,11 @@ const normalizeMealsPayload = (planType, payload) => {
 
 const normalizeSupplementItems = (value) => {
   if (value === null || value === undefined) return [];
-  if (!Array.isArray(value)) throw new Error("items must be an array");
+  if (!Array.isArray(value) || value.length > 100) throw gymError(400, "items must be an array of at most 100 entries");
 
   return value.map((entry) => {
     const rawName = typeof entry?.name === "string" ? entry.name.trim() : "";
-    if (!rawName) throw new Error("Supplement name is required");
+    if (!rawName || rawName.length > 180) throw gymError(400, "Supplement name is required and must be at most 180 characters");
     return {
       name: rawName.slice(0, 180),
       time: normalizeTimeValue(entry?.time)
@@ -185,10 +185,11 @@ const normalizeSupplementItems = (value) => {
 
 const normalizeMacroFieldValue = (value, fieldName) => {
   if (value === null || value === undefined || value === "") return "";
+  if (!["string", "number"].includes(typeof value)) throw gymError(400, `${fieldName} must be a non-negative number`);
   const normalized = String(value).trim();
   if (!normalized) return "";
-  if (!/^\d+(?:\.\d+)?$/.test(normalized)) {
-    throw new Error(`${fieldName} must be a non-negative number`);
+  if (!/^\d+(?:\.\d+)?$/.test(normalized) || !Number.isFinite(Number(normalized)) || Number(normalized) > Number.MAX_SAFE_INTEGER || normalized.length > 24) {
+    throw gymError(400, `${fieldName} must be a valid non-negative number`);
   }
   return normalized.slice(0, 24);
 };
@@ -198,7 +199,7 @@ const normalizeMacroValues = (value) => {
     return Object.fromEntries(MACRO_FIELDS.map((field) => [field, ""]));
   }
   if (typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("values must be an object");
+    throw gymError(400, "values must be an object");
   }
 
   return Object.fromEntries(
@@ -285,8 +286,7 @@ export const getGymDietPlans = async (req, res) => {
     const plans = await GymDietPlan.find(query).sort({ createdAt: -1 });
     res.json(plans.map(normalizeDietPlan));
   } catch (error) {
-    const status = error?.message?.includes("must be") ? 400 : 500;
-    res.status(status).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -309,7 +309,7 @@ export const createGymDietPlan = async (req, res) => {
     });
     res.status(201).json(saved);
   } catch (error) {
-    res.status(error.status || (error.message?.includes("must be") || error.message?.includes("required") ? 400 : 500)).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -319,6 +319,7 @@ export const updateGymDietPlan = async (req, res) => {
     const saved = await gymMutation(req.user.id, async session => {
       const plan = await GymDietPlan.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
       if (!plan) throw gymError(404, "Diet plan not found");
+      checkGymRevision(plan, req.body);
       if (req.body.planType && req.body.planType !== plan.planType) throw gymError(400, "planType cannot be changed for an existing plan");
       if (req.body.day !== undefined) plan.day = normalizeDayValue(req.body.day);
       if (req.body.isActive !== undefined) plan.isActive = requestedGymActive(req.body, plan.isActive);
@@ -326,13 +327,13 @@ export const updateGymDietPlan = async (req, res) => {
       if ((plan.planType === "diet" || plan.planType === "workoutNutrition") && req.body.meals !== undefined) plan.meals = normalizeMealsPayload(plan.planType, req.body.meals);
       if (plan.planType === "supplements" && req.body.items !== undefined) plan.items = normalizeSupplementItems(req.body.items);
       if (plan.planType === "macros" && req.body.values !== undefined) plan.values = normalizeMacroValues(req.body.values);
-      await plan.save({ session });
+      await saveGymRecord(plan, req.body, session);
       if (plan.isActive) await deactivateOtherPlansForDay({ userId: req.user.id, planType: plan.planType, day: plan.day, currentPlanId: plan._id, session });
       return normalizeDietPlan(plan);
     });
     res.json(saved);
   } catch (error) {
-    res.status(error.status || (error.message?.includes("must be") || error.message?.includes("required") ? 400 : 500)).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -343,15 +344,16 @@ export const toggleGymDietPlanActive = async (req, res) => {
     const plans = await gymMutation(req.user.id, async session => {
       const plan = await GymDietPlan.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
       if (!plan) throw gymError(404, "Diet plan not found");
+      checkGymRevision(plan, req.body);
       plan.isActive = requestedGymActive(req.body, plan.isActive);
-      await plan.save({ session });
+      await saveGymRecord(plan, req.body, session);
       if (plan.isActive) await deactivateOtherPlansForDay({ userId: req.user.id, planType: plan.planType, day: plan.day, currentPlanId: plan._id, session });
       const all = await GymDietPlan.find({ userId: req.user.id, planType: plan.planType }).session(session).sort({ createdAt: -1 });
       return all.map(normalizeDietPlan);
     });
     res.json(plans);
   } catch (error) {
-    res.status(error.status || 500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -381,7 +383,7 @@ export const copyGymDietPlanToDay = async (req, res) => {
     });
     res.status(created ? 201 : 200).json(saved);
   } catch (error) {
-    res.status(error.status || (error.message?.includes("must be") ? 400 : 500)).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -389,12 +391,17 @@ export const deleteGymDietPlan = async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw gymError(400, "Invalid diet plan id");
     await gymMutation(req.user.id, async session => {
+      if (req.body?.expectedUpdatedAt !== undefined) {
+        const current = await GymDietPlan.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
+        if (!current) throw gymError(404, "Diet plan not found");
+        checkGymRevision(current, req.body);
+      }
       const plan = await GymDietPlan.findOneAndDelete({ _id: req.params.id, userId: req.user.id }, { session });
       if (!plan) throw gymError(404, "Diet plan not found");
     });
-    res.json({ message: "Diet plan deleted" });
+    res.json({ message: "Diet plan deleted", deletedId: req.params.id });
   } catch (error) {
-    res.status(error.status || 500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -417,7 +424,7 @@ export const createWorkout = async (req, res) => {
 
     res.status(201).json(workout);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -426,7 +433,7 @@ export const getWorkouts = async (req, res) => {
     const workouts = await Workout.find({ userId: req.user.id }).sort({ date: -1 });
     res.json(workouts);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -443,7 +450,7 @@ export const deleteWorkout = async (req, res) => {
 
     res.json({ message: "Workout deleted" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -527,15 +534,15 @@ export const getGymSummary = async (req, res) => {
       lastMeasurementCheckIn: todaysMeasurement ? todayKey : null
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
 export const getGymHeatmap = async (req, res) => {
   try {
     const { year } = req.query;
-    const parsedYear = Number.parseInt(year, 10);
-    const hasYearFilter = Number.isFinite(parsedYear);
+    const parsedYear = Number(year);
+    const hasYearFilter = typeof year === "string" && /^\d+$/.test(year) && Number.isSafeInteger(parsedYear) && parsedYear >= 1970 && parsedYear <= 3000;
 
     if (year !== undefined && !hasYearFilter) {
       return res.status(400).json({ message: "Year must be a valid number" });
@@ -668,7 +675,7 @@ export const getGymHeatmap = async (req, res) => {
       totalProgressUpdates
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -678,7 +685,7 @@ export const getGymGalleryEntries = async (req, res) => {
     const normalized = entries.map(normalizeGalleryEntry);
     res.json(normalized);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -709,7 +716,7 @@ export const uploadGymGalleryImages = async (req, res) => {
       return normalizeGalleryEntry(entry);
     });
     res.status(201).json(result);
-  } catch (error) { res.status(error.status || 500).json({ message: error.message }); }
+  } catch (error) { gymFailure(res, error); }
 };
 
 export const deleteGymGalleryImage = async (req, res) => {
@@ -730,7 +737,7 @@ export const deleteGymGalleryImage = async (req, res) => {
       return { message: "Image deleted", entry: normalizeGalleryEntry(entry) };
     });
     res.json(result);
-  } catch (error) { res.status(error.status || 500).json({ message: error.message }); }
+  } catch (error) { gymFailure(res, error); }
 };
 
 export const getGymGallerySummary = async (req, res) => {
@@ -757,7 +764,7 @@ export const getGymGallerySummary = async (req, res) => {
       lastUploadedDate
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -766,7 +773,7 @@ export const getGymCustomExercises = async (req, res) => {
     const exercises = await GymCustomExercise.find({ userId: req.user.id }).sort({ createdAt: -1 });
     res.json(exercises.map(normalizeCustomExercise));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -813,7 +820,7 @@ export const createGymCustomExercise = async (req, res) => {
     });
     res.status(saved.status).json(saved.exercise);
   } catch (error) {
-    res.status(error.status || 500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -823,8 +830,8 @@ export const deleteGymCustomExercise = async (req, res) => {
     await gymMutation(req.user.id, async session => {
       await GymCustomExercise.findOneAndDelete({ _id: req.params.id, userId: req.user.id }).session(session);
     });
-    res.json({ message: "Workout removed from library" });
-  } catch (error) { res.status(error.status || 500).json({ message: error.message }); }
+    res.json({ message: "Workout removed from library", deletedId: req.params.id });
+  } catch (error) { gymFailure(res, error); }
 };
 
 /* ─── Workout Plan helpers ──────────────────────────────────────────────── */
@@ -835,6 +842,7 @@ const HH_MM_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 const sanitizePlanDays = (days) => {
   if (!Array.isArray(days)) return null;
+  if (days.some(day => typeof day !== "string")) return { error: "Each workout day must be a weekday string" };
   const unique = [...new Set(days.filter((day) => typeof day === "string"))];
   const invalid = unique.filter((day) => !VALID_PLAN_DAYS.has(day));
   if (invalid.length) return { error: `Invalid days: ${invalid.join(", ")}` };
@@ -842,19 +850,43 @@ const sanitizePlanDays = (days) => {
 };
 
 const validatePlanBody = (body, isCreate) => {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return "Workout details must be an object";
   const { title, days, startDate, endDate, neverEnds, exercises } = body;
   if ((isCreate || title !== undefined) && (typeof title !== "string" || !title.trim())) return "Title is required";
+  if (typeof title === "string" && title.trim().length > 180) return "Workout title must be at most 180 characters";
+  for (const field of ["goalType", "workoutSplit", "difficulty", "totalEstimatedTime"]) {
+    if (body[field] !== undefined && (typeof body[field] !== "string" || body[field].length > 180)) return `${field} must be a string of at most 180 characters`;
+  }
   if (isCreate || days !== undefined) {
     const result = sanitizePlanDays(days);
     if (result === null) return "days must be an array";
     if (result.error) return result.error;
     if (!result.length) return "At least one day is required";
   }
-  if (startDate !== undefined && startDate && !validGymDay(startDate)) return "startDate must be a valid YYYY-MM-DD date";
-  if (endDate !== undefined && endDate && !validGymDay(endDate)) return "endDate must be a valid YYYY-MM-DD date";
+  if (startDate !== undefined && startDate !== "" && !validGymDay(startDate)) return "startDate must be a valid YYYY-MM-DD date";
+  if (endDate !== undefined && endDate !== "" && !validGymDay(endDate)) return "endDate must be a valid YYYY-MM-DD date";
   if (neverEnds !== undefined && typeof neverEnds !== "boolean") return "neverEnds must be a boolean";
   if (neverEnds === false && endDate && startDate && endDate < startDate) return "endDate cannot be before startDate";
+  if (neverEnds === false && !endDate) return "endDate is required unless the workout never ends";
   if (exercises !== undefined && !Array.isArray(exercises)) return "exercises must be an array";
+  if (Array.isArray(exercises)) {
+    if (exercises.length > 100) return "A workout can contain at most 100 exercises";
+    const ids = new Set();
+    for (const ex of exercises) {
+      if (!ex || typeof ex !== "object" || Array.isArray(ex) || !["string", "number"].includes(typeof ex.id) || (typeof ex.id === "number" && !Number.isFinite(ex.id)) || !String(ex.id).trim() || String(ex.id).trim().length > 180 || typeof ex.name !== "string" || !ex.name.trim() || ex.name.length > 180) return "Each exercise needs an id and a name of at most 180 characters";
+      if (ids.has(String(ex.id))) return "Exercise ids must be unique within a workout";
+      ids.add(String(ex.id));
+      if (ex.bodyPart !== undefined && (typeof ex.bodyPart !== "string" || ex.bodyPart.length > 180)) return "Exercise bodyPart must be a string of at most 180 characters";
+      for (const [key, max] of [["sets", 20], ["reps", 200], ["weight", 1000], ["duration", 600], ["restTime", 3600]]) {
+        if (key === "reps" && typeof ex.reps === "string" && /^\d+\s*-\s*\d+$/.test(ex.reps)) {
+          const [low, high] = ex.reps.split("-").map(Number);
+          if (low > high || high > max) return "Exercise rep range must be ordered and no greater than 200";
+          continue;
+        }
+        if (ex[key] !== undefined && ex[key] !== "" && (!["string", "number"].includes(typeof ex[key]) || !/^\d+(?:\.\d+)?$/.test(String(ex[key])) || !Number.isFinite(Number(ex[key])) || Number(ex[key]) > max || (["sets", "reps"].includes(key) && !Number.isInteger(Number(ex[key]))))) return `Exercise ${key} must be a valid non-negative number no greater than ${max}`;
+      }
+    }
+  }
   return null;
 };
 
@@ -896,7 +928,7 @@ export const getWorkoutPlans = async (req, res) => {
     const plans = await WorkoutPlan.find({ userId: req.user.id }).sort({ createdAt: -1 });
     res.json(plans.map(normalizeWorkoutPlan));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -933,7 +965,7 @@ export const createWorkoutPlan = async (req, res) => {
     });
     res.status(created ? 201 : 200).json(saved);
   } catch (error) {
-    res.status(error.status || 500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -943,6 +975,7 @@ export const updateWorkoutPlan = async (req, res) => {
     const saved = await gymMutation(req.user.id, async session => {
       const plan = await WorkoutPlan.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
       if (!plan) throw gymError(404, "Workout plan not found");
+      checkGymRevision(plan, req.body);
       const merged = { title: plan.title, days: plan.days, startDate: plan.startDate, endDate: plan.endDate, neverEnds: plan.neverEnds, exercises: plan.exercises, ...req.body };
       const validationError = validatePlanBody(merged, false);
       if (validationError) throw gymError(400, validationError);
@@ -956,7 +989,7 @@ export const updateWorkoutPlan = async (req, res) => {
       if (req.body.endDate !== undefined) plan.endDate = req.body.endDate;
       if (req.body.neverEnds !== undefined) plan.neverEnds = req.body.neverEnds;
       if (req.body.exercises !== undefined) plan.exercises = req.body.exercises;
-      await plan.save({ session });
+      await saveGymRecord(plan, req.body, session);
       if (plan.isActive) await WorkoutPlan.updateMany(
         { userId: req.user.id, _id: { $ne: plan._id }, days: { $in: plan.days }, isActive: true },
         { $set: { isActive: false } }, { session }
@@ -965,7 +998,7 @@ export const updateWorkoutPlan = async (req, res) => {
     });
     res.json(saved);
   } catch (error) {
-    res.status(error.status || 500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -973,12 +1006,17 @@ export const deleteWorkoutPlan = async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw gymError(400, "Invalid plan id");
     await gymMutation(req.user.id, async session => {
+      if (req.body?.expectedUpdatedAt !== undefined) {
+        const current = await WorkoutPlan.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
+        if (!current) throw gymError(404, "Workout plan not found");
+        checkGymRevision(current, req.body);
+      }
       const plan = await WorkoutPlan.findOneAndDelete({ _id: req.params.id, userId: req.user.id }, { session });
       if (!plan) throw gymError(404, "Workout plan not found");
     });
-    res.json({ message: "Workout plan deleted" });
+    res.json({ message: "Workout plan deleted", deletedId: req.params.id });
   } catch (error) {
-    res.status(error.status || 500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -989,8 +1027,9 @@ export const toggleWorkoutPlanActive = async (req, res) => {
     const plans = await gymMutation(req.user.id, async session => {
       const plan = await WorkoutPlan.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
       if (!plan) throw gymError(404, "Workout plan not found");
+      checkGymRevision(plan, req.body);
       plan.isActive = requestedGymActive(req.body, plan.isActive);
-      await plan.save({ session });
+      await saveGymRecord(plan, req.body, session);
       if (plan.isActive && plan.days.length) await WorkoutPlan.updateMany(
         { userId: req.user.id, _id: { $ne: plan._id }, days: { $in: plan.days }, isActive: true },
         { $set: { isActive: false } }, { session }
@@ -1000,7 +1039,7 @@ export const toggleWorkoutPlanActive = async (req, res) => {
     });
     res.json(plans);
   } catch (error) {
-    res.status(error.status || 500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -1013,7 +1052,7 @@ export const getWorkoutPlanLogs = async (req, res) => {
       .limit(100);
     res.json(logs.map(normalizeWorkoutPlanLog));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -1051,7 +1090,7 @@ export const createWorkoutPlanLog = async (req, res) => {
 
     res.status(201).json(normalizeWorkoutPlanLog(log));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -1093,7 +1132,7 @@ export const getMeasurements = async (req, res) => {
     const docs = await GymMeasurement.find({ userId: req.user.id }).sort({ checkInDate: -1, updatedAt: -1 });
     res.json(docs.map(normalizeMeasurement));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -1114,7 +1153,7 @@ export const createMeasurement = async (req, res) => {
       return { status: 201, entry: normalizeMeasurement(doc) };
     });
     res.status(result.status).json(result.entry);
-  } catch (error) { res.status(error.status || (error.code === 11000 ? 409 : 500)).json({ message: error.code === 11000 ? "A check-in for this date already exists. Reload before editing." : error.message }); }
+  } catch (error) { gymFailure(res, error); }
 };
 
 export const updateMeasurement = async (req, res) => {
@@ -1124,14 +1163,15 @@ export const updateMeasurement = async (req, res) => {
       const doc = await GymMeasurement.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
       if (!doc) throw gymError(404, "Measurement not found");
       if (doc.deletedAt) throw gymError(409, "This check-in is deleted. Undo deletion before updating.");
+      checkGymRevision(doc, req.body);
       if (Object.hasOwn(req.body || {}, "checkInDate") && req.body.checkInDate !== doc.checkInDate) throw gymError(400, "A check-in date cannot be changed");
       if (req.body?.expectedToday && (req.body.expectedToday !== toDayKey() || doc.checkInDate !== toDayKey())) throw gymError(409, "The app day changed. Only today’s check-in can be edited here.");
       Object.assign(doc, measurementFields(req.body, doc));
-      await doc.save({ session });
+      await saveGymRecord(doc, req.body, session);
       return normalizeMeasurement(doc);
     });
     res.json(result);
-  } catch (error) { res.status(error.status || 500).json({ message: error.message }); }
+  } catch (error) { gymFailure(res, error); }
 };
 
 export const deleteMeasurement = async (req, res) => {
@@ -1140,11 +1180,12 @@ export const deleteMeasurement = async (req, res) => {
     const result = await gymMutation(req.user.id, async session => {
       const doc = await GymMeasurement.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
       if (!doc) throw gymError(404, "Measurement not found");
-      if (!doc.deletedAt) { doc.deletedAt = new Date(); await doc.save({ session }); }
+      checkGymRevision(doc, req.body);
+      if (!doc.deletedAt) { doc.deletedAt = new Date(); await saveGymRecord(doc, req.body, session); }
       return { message: "Measurement deleted. Undo available for 48 hours from its original deletion.", entry: normalizeMeasurement(doc) };
     });
     res.json(result);
-  } catch (error) { res.status(error.status || 500).json({ message: error.message }); }
+  } catch (error) { gymFailure(res, error); }
 };
 
 export const undoDeleteMeasurement = async (req, res) => {
@@ -1153,15 +1194,16 @@ export const undoDeleteMeasurement = async (req, res) => {
     const result = await gymMutation(req.user.id, async session => {
       const doc = await GymMeasurement.findOne({ _id: req.params.id, userId: req.user.id }).session(session);
       if (!doc) throw gymError(404, "Measurement not found");
+      checkGymRevision(doc, req.body);
       if (doc.deletedAt) {
         if (!getMeasurementDeleteUndoMeta(doc).canUndoDelete) throw gymError(409, "Restore window expired. Check-in can only be restored within 48 hours of deletion.");
         doc.deletedAt = null;
-        await doc.save({ session });
+        await saveGymRecord(doc, req.body, session);
       }
       return { message: "Check-in restored successfully.", entry: normalizeMeasurement(doc) };
     });
     res.json(result);
-  } catch (error) { res.status(error.status || 500).json({ message: error.message }); }
+  } catch (error) { gymFailure(res, error); }
 };
 
 /* ─── Exercise Progress ─────────────────────────────────────────────────── */
@@ -1187,6 +1229,7 @@ const toNumericValue = (value) => {
 
 const sanitizeIntString = (value, maxValue) => {
   if (value === null || value === undefined || value === "") return "";
+  if (!["string", "number"].includes(typeof value) || !/^\d+$/.test(String(value).trim()) || !Number.isSafeInteger(Number(value)) || Number(value) > maxValue) throw gymError(400, `Use a whole number between 0 and ${maxValue}`);
   const parsed = Number.parseInt(String(value).trim(), 10);
   if (!Number.isFinite(parsed)) return "";
   return String(Math.max(0, Math.min(maxValue, parsed)));
@@ -1194,6 +1237,7 @@ const sanitizeIntString = (value, maxValue) => {
 
 const sanitizeRepsBreakdownValue = (value, maxPerPart) => {
   if (value === null || value === undefined || value === "") return "";
+  if (!["string", "number"].includes(typeof value) || !/^\d+(?:\s*\+\s*\d+)*$/.test(String(value).trim()) || String(value).split("+").some(part => !Number.isSafeInteger(Number(part)) || Number(part) > maxPerPart)) throw gymError(400, `Each rep count must be a whole number between 0 and ${maxPerPart}`);
   const str = String(value).trim();
   const parts = str.split("+").map((p) => p.trim()).filter(Boolean);
   if (parts.length === 0) return "";
@@ -1207,11 +1251,11 @@ const sanitizeRepsBreakdownValue = (value, maxPerPart) => {
 
 const sanitizeFloatString = (value, maxValue) => {
   if (value === null || value === undefined || value === "") return "";
+  if (!["string", "number"].includes(typeof value) || !/^\d+(?:\.\d+)?$/.test(String(value).trim()) || !Number.isFinite(Number(value)) || Number(value) > maxValue) throw gymError(400, `Use a non-negative number no greater than ${maxValue}`);
   const parsed = Number.parseFloat(String(value).trim());
   if (!Number.isFinite(parsed)) return "";
   const clamped = Math.max(0, Math.min(maxValue, parsed));
-  const rounded = Math.round(clamped * 100) / 100;
-  return String(rounded);
+  return String(clamped);
 };
 
 const toExerciseProgressLatestMetrics = (doc) => (
@@ -1333,7 +1377,7 @@ export const getExerciseProgressAnalytics = async (req, res) => {
       selectedExercise,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -1361,7 +1405,7 @@ export const getExerciseProgress = async (req, res) => {
 
     res.json(flat);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };
 
@@ -1402,6 +1446,8 @@ export const getGymAnalysis = async (req, res) => {
 export const upsertExerciseProgress = async (req, res) => {
   try {
     const { date, exerciseId, repsBreakdown, ...rest } = req.body;
+    for (const field of ["exerciseName", "bodyPart", "notes"]) if (rest[field] !== undefined && (typeof rest[field] !== "string" || rest[field].length > (field === "notes" ? 1000 : 180))) throw gymError(400, `${field} must be a string within its length limit`);
+    if (repsBreakdown !== undefined && (!Array.isArray(repsBreakdown) || repsBreakdown.length > MAX_EXERCISE_PROGRESS_SETS)) throw gymError(400, "repsBreakdown must be an array of at most 20 entries");
 
     if (!validGymDay(date)) {
       return res.status(400).json({ message: "date must be in YYYY-MM-DD format" });
@@ -1410,7 +1456,7 @@ export const upsertExerciseProgress = async (req, res) => {
       return res.status(400).json({ message: "The app day has changed. Reload Today before saving progress." });
     }
     if (date > toDayKey()) return res.status(400).json({ message: "Progress cannot be recorded for a future date" });
-    if (!exerciseId || typeof exerciseId !== "string" || !exerciseId.trim()) {
+    if (!exerciseId || typeof exerciseId !== "string" || !exerciseId.trim() || exerciseId.trim().length > 180) {
       return res.status(400).json({ message: "exerciseId is required" });
     }
 
@@ -1469,10 +1515,13 @@ export const upsertExerciseProgress = async (req, res) => {
     }
 
     const filter = { userId: req.user.id, date, exerciseId: exerciseId.trim() };
+    const expected = req.body.expectedUpdatedAt;
+    if (expected !== undefined && (typeof expected !== "string" || !Number.isFinite(Date.parse(expected)))) throw gymError(400, "expectedUpdatedAt must be a valid timestamp");
     let doc;
     try {
-      doc = await GymExerciseProgress.findOneAndUpdate(filter, { $set: setFields },
-        { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true });
+      doc = await GymExerciseProgress.findOneAndUpdate(expected === undefined ? filter : { ...filter, updatedAt: new Date(expected) }, { $set: { ...setFields, updatedAt: new Date(Math.max(Date.now(), expected === undefined ? 0 : Date.parse(expected) + 1)) }, ...(expected === undefined ? { $setOnInsert: { createdAt: new Date() } } : {}) },
+        { upsert: expected === undefined, new: true, setDefaultsOnInsert: true, runValidators: true, timestamps: false });
+      if (!doc) throw gymError(409, "This exercise progress changed in another request. Reload Gym before trying again.");
     } catch (failure) {
       if (failure.code !== 11000) throw failure;
       doc = await GymExerciseProgress.findOneAndUpdate(filter, { $set: setFields }, { new: true, runValidators: true });
@@ -1481,6 +1530,6 @@ export const upsertExerciseProgress = async (req, res) => {
 
     res.status(200).json(normalizeExerciseProgress(doc));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    gymFailure(res, error);
   }
 };

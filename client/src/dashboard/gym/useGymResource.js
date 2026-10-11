@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGymEnvironment } from "./gymContext";
 import { useGymApi } from "./useGymData";
+import { gymFailureMessage } from "./gymResponse";
 
 // Resource requests belong to this tab/account. A late read must not overwrite
 // a confirmed mutation, and a failed refresh must not erase the last good data.
 export default function useGymResource(path, demoData, eventName, initialData = []) {
   const api = useGymApi();
-  const { isDemoMode, busy, setError } = useGymEnvironment();
+  const { isDemoMode, busy } = useGymEnvironment();
   const [data, publish] = useState(() => isDemoMode ? demoData : initialData);
   const [ready, setReady] = useState(isDemoMode);
   const [loading, setLoading] = useState(!isDemoMode);
@@ -34,14 +35,13 @@ export default function useGymResource(path, demoData, eventName, initialData = 
       publish(response.data);
       setReady(true);
       setLoadError("");
-      setError("");
     } catch (failure) {
       if (!state.alive || sequence !== state.sequence || failure.code === "ERR_CANCELED") return;
-      setLoadError(failure.response?.data?.message || failure.message || "Could not load this section. Please retry.");
+      setLoadError(gymFailureMessage(failure, "Could not load this section. Please retry."));
     } finally {
       if (state.alive && sequence === state.sequence) setLoading(false);
     }
-  }, [api, isDemoMode, path, setError]);
+  }, [api, isDemoMode, path]);
 
   useEffect(() => {
     const state = control.current;

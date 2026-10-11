@@ -7,6 +7,7 @@ import { getJournalAnalysis } from "../controllers/journalController.js";
 import { canonicalJournalAnalysisEntries, computeJournalAnalysis, journalMonthDays, journalMood, journalSleepMinutes, JOURNAL_MOODS } from "../../shared/journalAnalysisStats.js";
 import { durationLabel, clockLabel, dayLabel } from "../../client/src/dashboard/analysis/journalanalysis/analysisFormatters.js";
 import { demoJournalAnalysis } from "../../client/src/dashboard/analysis/journalanalysis/journalAnalysisData.js";
+import { journalAnalysisClockValid, validJournalAnalysisResponse } from "../../client/src/dashboard/analysis/journalanalysis/journalAnalysisResponse.js";
 
 const USER="000000000000000000000001", today="2026-10-10", days=journalMonthDays(2026,10);
 const options={year:2026,month:10,today,joinedDay:"2026-10-01"};
@@ -147,4 +148,67 @@ test("clock and duration formatting preserves midnight and rolls rounded minutes
 });
 test("analysis route remains an authenticated read-only GET",()=>{
  assert.ok(journalRoutes.stack[0].handle);const layer=journalRoutes.stack.find(item=>item.route?.path==="/analysis");assert.equal(layer.route.methods.get,true);assert.equal(layer.route.methods.post,undefined);
+});
+
+const response = (month = 4) => ({ ...demoJournalAnalysis(2026, month), serverNow: "2026-10-10T06:00:00Z" });
+test("Journal response validation accepts populated, empty and leap-month wire responses without changing data", () => {
+ for (const month of [2, 3, 4, 5, 10]) {
+  const data = response(month), copy = structuredClone(data);
+  assert.equal(validJournalAnalysisResponse(data, { year: "2026", month }), true);
+  assert.deepEqual(data, copy);
+ }
+ const empty = { ...demoJournalAnalysis(2028, 2), today: "2028-03-01", serverNow: "2028-03-01T06:00:00Z",
+  analysis: computeJournalAnalysis([], { year: 2028, month: 2, today: "2028-03-01", joinedDay: "2026-02-01" }) };
+ assert.equal(validJournalAnalysisResponse(empty, { year: 2028, month: 2 }), true);
+});
+test("real Journal controller response conforms to all nested client contracts", async t => {
+ fixture(t, [doc(today, { mood: "Happy", energyLevel: 70, overallRating: 80, sleepTime: "23:00", wakeUpTime: "06:30", wins: ["A win"] })]);
+ const result = await call();
+ assert.equal(validJournalAnalysisResponse(result.body, { year: 2026, month: 10 }), true);
+});
+test("null nested Journal rows are rejected before any tab renders", () => {
+ for (const key of ["days", "weeks", "moods", "weekdays", "topMistakes", "topDistractions"]) {
+  const data = response();
+  if (!data.analysis[key].length) data.analysis[key].push(null); else data.analysis[key][0] = null;
+  assert.equal(validJournalAnalysisResponse(data, { year: 2026, month: 4 }), false, key);
+ }
+ for (const mutate of [data => { data.entries[0] = null; }, data => { data.analysis.weeks[0].days[0] = null; },
+  data => { data.analysis.highestEnergy = {}; }, data => { data.analysis.highestRatedWeekday = {}; }]) {
+  const data = response(); mutate(data); assert.equal(validJournalAnalysisResponse(data, { year: 2026, month: 4 }), false);
+ }
+});
+test("malformed Journal clocks cannot poison the browser date or future-period correction", () => {
+ for (const mutate of [data => { data.timezone = "Invalid/Zone"; }, data => { data.timezone = {}; },
+  data => { data.serverNow = "invalid"; }, data => { data.today = "2026-02-31"; }, data => { data.today = "2026-10-11"; }]) {
+  const data = response(); mutate(data);
+  assert.equal(journalAnalysisClockValid(data), false);
+  assert.equal(validJournalAnalysisResponse(data, { year: 2026, month: 4 }), false);
+ }
+ assert.equal(journalAnalysisClockValid({ today: "2026-10-11", timezone: "Asia/Kolkata", serverNow: "2026-10-10T19:00:00Z" }), true);
+});
+test("Journal calendar, week blocks and unique dates must reconcile", () => {
+ for (const mutate of [data => data.analysis.days.pop(), data => data.analysis.weeks.pop(),
+  data => { data.analysis.days[1].date = data.analysis.days[0].date; }, data => { data.analysis.weeks[0].to = "2026-04-08"; },
+  data => { data.analysis.weeks[0].days[0].energy = 101; }, data => data.entries.reverse(),
+  data => { data.entries[1].date = data.entries[0].date; }, data => { data.analysis.days[0].logged = false; }]) {
+  const data = response(); mutate(data); assert.equal(validJournalAnalysisResponse(data, { year: 2026, month: 4 }), false);
+ }
+});
+test("Journal scores, reflection tags, mood groups and totals reject invalid nested values", () => {
+ for (const mutate of [data => { data.analysis.avgEnergy = NaN; }, data => { data.analysis.avgWeeklyScore = 101; },
+  data => { data.analysis.longestStreak = -1; }, data => { data.analysis.loggedDays++; },
+  data => { data.analysis.moods[0].energyCount = 100; }, data => { data.analysis.moods[0].color = {}; },
+  data => { data.entries[0].mood = undefined; }, data => { data.entries[0].sleepTime = "25:00"; },
+  data => { data.entries[0].mistakeTags = [null]; }, data => { data.analysis.topMistakes = [{ label: {}, count: 2 }]; },
+  data => { data.analysis.avgWakeTime = "99:99"; }, data => { data.analysis.ratingRecordedDays = 100; }]) {
+  const data = response(); mutate(data); assert.equal(validJournalAnalysisResponse(data, { year: 2026, month: 4 }), false);
+ }
+});
+test("Journal validator rejects invalid period metadata and missing payloads without throwing", () => {
+ for (const data of [null, {}, [], { ...response(), year: 2025 }, { ...response(), dataNote: {} }]) {
+  assert.equal(validJournalAnalysisResponse(data, { year: 2026, month: 4 }), false);
+ }
+ for (const period of [null, {}, { year: "2026x", month: 4 }, { year: 2026, month: 13 }]) {
+  assert.equal(validJournalAnalysisResponse(response(), period), false);
+ }
 });

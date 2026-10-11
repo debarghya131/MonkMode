@@ -8,7 +8,8 @@ import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import HabitCalendarTooltip from "./HabitCalendarTooltip";
 import { useHabitEnvironment } from "./habitContext";
-import { DEFAULT_HABIT_TIMEZONE, formatHabitTime, habitCategoryStorageKey, habitClock, habitDayKey, isHabitOnDay } from "./habitUtils";
+import { DEFAULT_HABIT_TIMEZONE, formatHabitTime, habitCategoryStorageKey, habitClock, habitDayKey, habitDaysOnDay, habitTimeOnDay, isHabitOnDay } from "./habitUtils";
+import { validHabit, validHabits, validHabitDeletion, habitResponseId, habitFailureMessage, habitRevision, uncertainHabitWrite } from "./habitResponse";
 
 /* ─── Constants ─────────────────────────────────────── */
 const PRIORITIES = ["High", "Medium", "Low"];
@@ -182,6 +183,9 @@ export default function CreateHabit({ entity = "habit" }) {
   const getLocalHHMM = value => habitClock(new Date(value), timezone).time;
   const isHabitOnDate = useCallback((habit, day) => isHabitOnDay(habit, day, timezone), [timezone]);
   const writeLock = useRef(false);
+  const [writeBlocked, setWriteBlocked] = useState(false);
+  const editingRevision = useRef({});
+  const reloadHabits = useRef(null);
   const version = useRef(0);
   const live = useRef(true);
   const readyRef = useRef(isDemoMode);
@@ -295,14 +299,16 @@ export default function CreateHabit({ entity = "habit" }) {
   useEffect(() => {
     if (isDemoMode) return;
     let cancelled = false;
-    const controller = new AbortController();
+    let controller;
     const fetchHabits = async () => {
-      if (writeLock.current) return;
+      if (writeLock.current) return false;
+      controller?.abort();
+      controller = new AbortController();
       const current = ++version.current;
       try {
-        const { data } = await api.get("/habits?view=all", { signal: controller.signal });
-        if (cancelled || current !== version.current) return;
-        if (!Array.isArray(data)) throw new Error("Invalid habit response");
+        const { data } = await api.get("/habits?view=all", { signal: controller.signal, timeout: 15000 });
+        if (cancelled || current !== version.current) return false;
+        if (!validHabits(data)) throw new Error("Invalid habit response");
         const todayStr = today;
         const normalized = data.map((h) => normalizeHabit(h, todayStr, timezone));
         setHabits(normalized);
@@ -363,18 +369,21 @@ export default function CreateHabit({ entity = "habit" }) {
         readyRef.current = true;
         setLoadError("");
         setCategoryOptions(previous => [...new Map([...previous, ...normalized.map(h => h.category).filter(Boolean)].map(name => [name.toLowerCase(), name])).values()]);
+        return true;
       } catch (error) {
-        if (!cancelled && current === version.current) setLoadError(error.response?.data?.message || "Could not load habits and activity logs. Please retry.");
+        if (!cancelled && current === version.current) setLoadError(habitFailureMessage(error, "Could not load habits and activity logs. Please retry."));
+        return false;
       } finally {
         if (!cancelled && current === version.current) setLoading(false);
       }
     };
+    reloadHabits.current = fetchHabits;
     fetchHabits();
     const timer = window.setInterval(() => { if (document.visibilityState === "visible") fetchHabits(); }, 60000);
     window.addEventListener("focus", fetchHabits);
     window.addEventListener("monkmode:habits-updated", fetchHabits);
     return () => {
-      cancelled = true; controller.abort();
+      cancelled = true; controller?.abort();
       window.clearInterval(timer);
       window.removeEventListener("focus", fetchHabits);
       window.removeEventListener("monkmode:habits-updated", fetchHabits);
@@ -550,7 +559,7 @@ export default function CreateHabit({ entity = "habit" }) {
 
   const validate = () => {
     if (!form.title.trim()) return "Title is required.";
-    if (form.targetStreak && (!Number.isInteger(Number(form.targetStreak)) || Number(form.targetStreak) < 1)) return "Target streak must be a whole number of at least 1 day.";
+    if (form.targetStreak && (!Number.isSafeInteger(Number(form.targetStreak)) || Number(form.targetStreak) < 1)) return "Target streak must be a whole number of at least 1 day.";
     if (form.targetStreak) {
       const fixedDays = FIXED_DURATION[form.repeatType];
       if (fixedDays && form.startDate) {
@@ -572,6 +581,7 @@ export default function CreateHabit({ entity = "habit" }) {
     if (!form.repeatType) return "Repeat type is required.";
     if (!form.time) return "Time is required.";
     if (!form.startDate) return "Start date is required.";
+    if (!editingId && form.startDate < today) return "New habits cannot start in the past.";
     if (!form.neverEnds && !form.endDate) return "End date is required or select Never.";
     if (!form.neverEnds && form.endDate < today) return "End date cannot be before today.";
     if (!form.neverEnds && form.endDate < form.startDate) return "End date cannot be before the start date.";
@@ -591,7 +601,7 @@ export default function CreateHabit({ entity = "habit" }) {
 
   const handleSubmit = async event => {
     event.preventDefault();
-    if (isDemoMode || writeLock.current || !readyRef.current) return;
+    if (isDemoMode || writeLock.current || writeBlocked || !readyRef.current) return;
     setTouched({ title: true, timeOfDay: true, category: true, priority: true, repeatType: true, time: true, startDate: true });
     const validationError = validate();
     if (validationError) { setError(validationError); return; }
@@ -609,10 +619,13 @@ export default function CreateHabit({ entity = "habit" }) {
       time: form.time, repeatType: form.repeatType, startDate: form.startDate || null,
       endDate, days: form.repeatType === "weekdays" ? form.days : [],
     };
+    let acknowledged = false;
     try {
-      const options = { signal: requestSignal };
-      const { data } = editId ? await api.patch("/habits/" + editId, payload, options) : await api.post("/habits", payload, options);
+      const options = { signal: requestSignal, timeout: 20000 };
+      const { data } = editId ? await api.patch("/habits/" + editId, { ...payload, ...editingRevision.current }, options) : await api.post("/habits", payload, options);
       if (!live.current) return;
+      acknowledged = true;
+      if (!validHabit(data) || (editId && habitResponseId(data) !== editId)) throw new Error("Invalid habit confirmation");
       const normalized = normalizeHabit(data, today, timezone);
       setHabits(previous => editId ? previous.map(h => h.id === editId ? normalized : h) : [normalized, ...previous]);
       const at = new Date();
@@ -620,7 +633,12 @@ export default function CreateHabit({ entity = "habit" }) {
       resetForm();
       showToast(data.reflectFromNextDay || data.reflectDaysFromNextDay ? "Habit saved. Schedule changes take effect tomorrow." : (editId ? "Habit updated." : "Habit created."));
     } catch (error) {
-      if (live.current) setError(error.response?.data?.message || "Could not save this habit. Your draft is kept; please retry.");
+      if (live.current) {
+        const uncertain = uncertainHabitWrite(error, acknowledged);
+        if (uncertain) setWriteBlocked(true);
+        setError(habitFailureMessage(error, uncertain ? "Save could not be confirmed. Reload habits and check the list before saving again. Your draft is kept."
+          : "Could not save this habit. Your draft is kept; please retry."));
+      }
     } finally {
       writeLock.current = false;
       if (live.current) setSubmitting(false);
@@ -629,7 +647,7 @@ export default function CreateHabit({ entity = "habit" }) {
   };
 
   const handleDelete = async id => {
-    if (isDemoMode || writeLock.current) return;
+    if (isDemoMode || writeLock.current || writeBlocked) return;
     const habit = habits.find(h => h.id === id);
     if (!habit) return;
     writeLock.current = true;
@@ -638,9 +656,12 @@ export default function CreateHabit({ entity = "habit" }) {
     version.current += 1;
     setDeletingHabitId(id);
     setError("");
+    let acknowledged = false;
     try {
-      const { data } = await api.delete("/habits/" + id, { signal: requestSignal });
+      const { data } = await api.delete("/habits/" + id, { data: habitRevision(habit), signal: requestSignal, timeout: 20000 });
       if (!live.current) return;
+      acknowledged = true;
+      if (!validHabitDeletion(data, id)) throw new Error("Invalid deletion confirmation");
       const deleted = normalizeHabit(data.habit, today, timezone);
       setHabits(previous => previous.map(h => h.id === id ? deleted : h));
       const at = deleted.deletedAt;
@@ -648,7 +669,7 @@ export default function CreateHabit({ entity = "habit" }) {
       if (editingId === id) resetForm();
       showToast(habit.title + " deleted. Restore available for 48h.", "warning");
     } catch (error) {
-      if (live.current) setError(error.response?.data?.message || "Could not delete this habit. It remains unchanged; please retry.");
+      if (live.current) { if (uncertainHabitWrite(error, acknowledged)) setWriteBlocked(true); setError(habitFailureMessage(error, "Deletion could not be confirmed. Reload habits before trying again.")); }
     } finally {
       writeLock.current = false;
       if (live.current) setDeletingHabitId(null);
@@ -659,7 +680,7 @@ export default function CreateHabit({ entity = "habit" }) {
   const handleUndoDelete = async (logId, fallbackItem = null) => {
     const log = habitLogs.find(entry => entry.id === logId);
     const item = log?.deletedItem || fallbackItem;
-    if (!item || isDemoMode || writeLock.current) return;
+    if (!item || isDemoMode || writeLock.current || writeBlocked) return;
     if (!getDeleteUndoMeta(item.deletedAt).canUndoDelete) { setUndoError("Restore expired. Deleted habits can only be restored within 48 hours."); return; }
     writeLock.current = true;
     const confirmed = await openConfirm({ title: 'Restore "' + item.title + '"?', message: "This restores the habit. If its end date has passed, it will remain in Archive.", confirmLabel: "Restore Habit", tone: "success" });
@@ -667,15 +688,18 @@ export default function CreateHabit({ entity = "habit" }) {
     version.current += 1;
     setRestoringLogId(logId);
     setUndoError("");
+    let acknowledged = false;
     try {
-      const { data } = await api.patch("/habits/" + item.id + "/restore", {}, { signal: requestSignal });
+      const { data } = await api.patch("/habits/" + item.id + "/restore", habitRevision(habits.find(h => h.id === item.id) || item), { signal: requestSignal, timeout: 20000 });
       if (!live.current) return;
+      acknowledged = true;
+      if (!validHabit(data) || habitResponseId(data) !== item.id || data.deletedAt) throw new Error("Invalid restore confirmation");
       const restored = normalizeHabit(data, today, timezone);
       setHabits(previous => [restored, ...previous.filter(h => h.id !== item.id)]);
       setHabitLogs(previous => previous.filter(entry => entry.id !== logId));
       showToast(item.title + " restored.");
     } catch (error) {
-      if (live.current) setUndoError(error.response?.data?.message || "Could not restore this habit. Please retry.");
+      if (live.current) { if (uncertainHabitWrite(error, acknowledged)) setWriteBlocked(true); setUndoError(habitFailureMessage(error, "Restore could not be confirmed. Reload habits before trying again.")); }
     } finally {
       writeLock.current = false;
       if (live.current) setRestoringLogId(null);
@@ -684,7 +708,8 @@ export default function CreateHabit({ entity = "habit" }) {
   };
 
   const startEdit = (h) => {
-    if (isDemoMode || writeLock.current) return;
+    if (isDemoMode || writeLock.current || writeBlocked) return;
+    editingRevision.current = habitRevision(h);
     setError("");
     setEditingId(h.id);
     const nextEdit = {
@@ -731,6 +756,15 @@ export default function CreateHabit({ entity = "habit" }) {
     <div className="habits-create-view space-y-5" data-mobile-view={mobileView}>
       {loadError && <div role="alert" className="rounded-xl border border-rose-400/25 p-3 text-sm text-rose-200">{loadError} <button type="button" className="ml-2 underline" onClick={() => setRetry(value => value + 1)}>Retry habits</button></div>}
       {(error || undoError) && <div role="alert" className="rounded-xl border border-rose-400/25 p-3 text-sm text-rose-200">{error} {undoError}</div>}
+      {writeBlocked && <div role="alert" className="rounded-xl border border-rose-400/25 p-3 text-sm text-rose-200">
+        <p>The last change could not be confirmed or conflicted. Reload the list before another change. Reloading replaces this draft.</p>
+        <button type="button" disabled={submitting} className="mt-2 underline" onClick={async () => {
+          if (writeLock.current) return;
+          setSubmitting(true);
+          try { if (await reloadHabits.current?.()) { setWriteBlocked(false); setError(""); setUndoError(""); resetForm(); } }
+          finally { if (live.current) setSubmitting(false); }
+        }}>Reload habits (replaces draft)</button>
+      </div>}
       <nav className="habit-create-mobile-nav" aria-label="Create habit sections" data-demo-allow="true">
         {CREATE_HABIT_VIEWS.map((view) => (
           <button
@@ -770,6 +804,7 @@ export default function CreateHabit({ entity = "habit" }) {
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">{`${singular} Name *`}</label>
               <input
                 type="text"
+                maxLength={180}
                 value={form.title}
                 onChange={(e) => setField("title", e.target.value)}
                 placeholder="e.g. Morning Meditation"
@@ -782,6 +817,7 @@ export default function CreateHabit({ entity = "habit" }) {
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Reason / Purpose</label>
               <textarea
                 rows={2}
+                maxLength={2500}
                 value={form.reason}
                 onChange={(e) => setField("reason", e.target.value)}
                 placeholder="e.g. Build consistency and reduce stress"
@@ -1019,7 +1055,7 @@ export default function CreateHabit({ entity = "habit" }) {
             ) : null}
 
             <button type="submit"
-              disabled={submitting}
+              disabled={submitting || writeBlocked}
               className="w-full rounded-lg border border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 px-4 py-2 text-xs font-semibold text-amber-200 transition hover:from-amber-400/25 hover:to-orange-400/20">
               {submitting ? "Saving..." : (editingId ? `Update ${singular}` : `Add ${singular}`)}
             </button>
@@ -1111,12 +1147,12 @@ export default function CreateHabit({ entity = "habit" }) {
                           </div>
                           {!isArchiveView && (
                             <div className="habit-item-actions flex flex-wrap items-center gap-1.5 sm:justify-end">
-                              <button type="button" onClick={() => startEdit(h)} disabled={submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
+                              <button type="button" onClick={() => startEdit(h)} disabled={writeBlocked || submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
                                 className="dashboard-card-action" data-tone="warning">
                                 Edit
                               </button>
                               <button type="button" onClick={() => handleDelete(h.id)}
-                                disabled={submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
+                                disabled={writeBlocked || submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
                                 className="dashboard-card-action" data-tone="danger">
                                 {deletingHabitId === h.id ? "Deleting..." : "Delete"}
                               </button>
@@ -1124,7 +1160,7 @@ export default function CreateHabit({ entity = "habit" }) {
                           )}
                           {isArchiveView && h.deletedAt && getDeleteUndoMeta(h.deletedAt).canUndoDelete && (
                             <button type="button" className="dashboard-card-action" data-tone="warning"
-                              disabled={submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
+                              disabled={writeBlocked || submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
                               onClick={() => handleUndoDelete(h.id + "-archive", h)}>Restore</button>
                           )}
                         </div>
@@ -1150,16 +1186,16 @@ export default function CreateHabit({ entity = "habit" }) {
                         <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
                           {REPEAT_TYPES.find((r) => r.value===h.repeatType)?.label ?? h.repeatType}
                         </span>
-                        <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">{fmtTime(h.time)}</span>
-                        {h.pendingTime && h.timeChangeEffectiveFrom && <span className="text-amber-200">New time {fmtTime(h.pendingTime)} from {toDateStr(h.timeChangeEffectiveFrom)}</span>}
+                        <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">{fmtTime(habitTimeOnDay(h, today, timezone))}</span>
+                        {h.pendingTime && toDateStr(h.timeChangeEffectiveFrom) > today && <span className="text-amber-200">New time {fmtTime(h.pendingTime)} from {toDateStr(h.timeChangeEffectiveFrom)}</span>}
                         <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-0.5">
                           {h.startDate}
                         </span>
                         <span className={`rounded-full border px-2 py-0.5 font-semibold ${h.endDate ? "border-rose-400/25 bg-rose-500/10 text-rose-200" : "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"}`}>
                           {h.endDate ? `Ends ${h.endDate}` : "Never Ends"}
                         </span>
-                        {h.pendingDays && h.daysChangeEffectiveFrom && <span className="text-amber-200">New days {h.pendingDays.join(", ")} from {toDateStr(h.daysChangeEffectiveFrom)}</span>}
-                        {h.repeatType==="weekdays" && (h.days || []).map((d) => (
+                        {h.pendingDays && toDateStr(h.daysChangeEffectiveFrom) > today && <span className="text-amber-200">New days {h.pendingDays.join(", ")} from {toDateStr(h.daysChangeEffectiveFrom)}</span>}
+                        {h.repeatType==="weekdays" && habitDaysOnDay(h, today, timezone).map((d) => (
                           <span key={d} className="rounded-full border border-amber-300/25 bg-amber-500/10 px-2 py-0.5 font-semibold text-amber-200">
                             {DAY_SHORT[d]}
                           </span>
@@ -1278,7 +1314,7 @@ export default function CreateHabit({ entity = "habit" }) {
                           <button
                             type="button"
                             onClick={() => handleUndoDelete(log.id)}
-                            disabled={restoringLogId === log.id || deletingHabitId != null}
+                            disabled={writeBlocked || restoringLogId === log.id || deletingHabitId != null}
                             className="shrink-0 rounded border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
                             title="Undo delete (available for 48 hours)"
                           >

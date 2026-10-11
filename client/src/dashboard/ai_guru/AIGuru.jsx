@@ -7,6 +7,7 @@ import mingLogo from "../../assets/minglogo1.webp";
 import mingAvatar from "../../assets/minglogo2.webp";
 import { GURU_MESSAGE_LIMIT, GURU_HISTORY_LIMIT } from "../../../../shared/guruInsightsStats.js";
 import { createDemoGuruInsights, demoGuruReply, guruCards, guruPatterns, guruSuggestions } from "./guruPresentation";
+import { validGuruInsights, validGuruReply, guruFailureMessage } from "./guruResponse";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -14,13 +15,6 @@ const SCOPES = [
   { key: "7d",  label: "7 Days"   },
   { key: "30d", label: "30 Days"  },
   { key: "all", label: "All Time" },
-];
-
-const QUICK_PROMPTS = [
-  { label: "Plan deep work", icon: "◷", prompt: "Plan my next 3 hours for deep work" },
-  { label: "Recover missed tasks", icon: "↻", prompt: "Review my missed tasks and suggest recovery" },
-  { label: "Build consistent habits", icon: "✓", prompt: "Create a habit consistency strategy" },
-  { label: "Plan my gym week", icon: "↗", prompt: "Design a weekly gym discipline plan" },
 ];
 
 const INITIAL_MESSAGES = [
@@ -113,6 +107,7 @@ function GuruSession({ isDemoMode, lowMotion }) {
   const requestRef = useRef(null);
   const [chatError, setChatError] = useState("");
   const [failedPrompt, setFailedPrompt] = useState(null);
+  const [chatRetryable, setChatRetryable] = useState(true);
   const [insightsAttempt, setInsightsAttempt] = useState(0);
 
   useEffect(() => () => requestRef.current?.abort(), []);
@@ -131,12 +126,12 @@ function GuruSession({ isDemoMode, lowMotion }) {
     api.get("/insights/summary", { params: { scope }, signal: controller.signal, timeout: 15000 })
       .then(({ data: result }) => {
         if (controller.signal.aborted) return;
-        if (!result?.journal || !result.habits || !result.todos || !result.goals || !result.gym || result.scope !== scope)
+        if (!validGuruInsights(result, scope))
           throw new Error("Invalid insights response");
         setData(result);
       })
       .catch(err => {
-        if (!controller.signal.aborted) setError(err.response?.data?.error || "Could not load Insights. Please retry.");
+        if (!controller.signal.aborted) setError(guruFailureMessage(err, "Could not load Insights. Please retry."));
       })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
@@ -151,9 +146,10 @@ function GuruSession({ isDemoMode, lowMotion }) {
 
   const sendPrompt = async (value, retry = false) => {
     const clean = value.trim();
-    if (!clean || clean.length > GURU_MESSAGE_LIMIT || requestRef.current) return;
+    if (!clean || clean.length > GURU_MESSAGE_LIMIT || requestRef.current || (retry && (!failedPrompt || !chatRetryable))) return;
     const nextId = (idRef.current += 1);
     setChatError("");
+    setChatRetryable(true);
     setFailedPrompt(null);
     const history = retry ? failedPrompt.history : messages
       .filter(m => m.id !== "greeting")
@@ -174,11 +170,12 @@ function GuruSession({ isDemoMode, lowMotion }) {
       const { data: result } = await api.post("/insights/chat", { message: clean, history, scope },
         { signal: controller.signal, timeout: 75000 });
       if (controller.signal.aborted) return;
-      if (typeof result?.reply !== "string" || !result.reply.trim()) throw new Error("Empty reply");
+      if (!validGuruReply(result, scope)) throw new Error("Invalid reply");
       setMessages(prev => [...prev, { id: `guru-${nextId}`, role: "guru", text: result.reply.trim().slice(0, 8000) }]);
     } catch (err) {
       if (controller.signal.aborted) return;
-      setChatError(err.response?.data?.error || err.response?.data?.message || "Ming could not respond. Please retry.");
+      setChatError(guruFailureMessage(err, "Ming could not respond. Please retry."));
+      setChatRetryable(err.response?.data?.retryable !== false);
       setFailedPrompt({ message: clean, history });
     } finally {
       if (requestRef.current === controller) {
@@ -472,27 +469,6 @@ function GuruSession({ isDemoMode, lowMotion }) {
                 <p className="shrink-0 px-4 pt-2 text-[11px] leading-4 text-stone-400">
                   Context: {SCOPES.find(item => item.key === scope)?.label}. {isDemoMode ? "Demo · Scripted sample replies. No AI requests or saved conversations." : "Send shares your message, recent conversation, and aggregate app statistics with Groq. Notes and photos are not sent automatically. Chat resets when you leave or change accounts."}
                 </p>
-                {/* Quick prompts */}
-                <div className="ai-guru-prompts shrink-0 border-b border-amber-100/10 px-4 py-3 sm:px-5 md:px-6">
-                  <div className="ai-guru-prompt-list grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {QUICK_PROMPTS.map((item) => (
-                      <button
-                        key={item.prompt}
-                        type="button"
-                        onClick={() => setPrompt(item.prompt)}
-                        disabled={chatLoading || Boolean(failedPrompt)}
-                        aria-label={item.prompt}
-                        title={item.prompt}
-                        className="min-h-10 rounded-2xl border border-amber-200/20 bg-amber-500/10 px-3 py-2 text-left text-xs font-semibold leading-5 text-amber-200 transition hover:-translate-y-0.5 hover:border-amber-200/40 hover:bg-amber-500/20"
-                      >
-                        <span className="ai-guru-prompt-icon hidden" aria-hidden="true">{item.icon}</span>
-                        <span className="ai-guru-prompt-short hidden">{item.label}</span>
-                        <span className="ai-guru-prompt-full">{item.prompt}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Messages */}
                 <div className="ai-guru-messages-region relative min-h-0 flex-1 overflow-hidden">
                   <div ref={messagesScrollRef} role="log" aria-label="Conversation with Ming" aria-live="polite" aria-relevant="additions" className="ai-guru-messages-scroll journal-scroll scrollbar-none flex h-full min-h-0 flex-col gap-2.5 overflow-y-auto px-4 py-4 sm:gap-3 sm:px-5 md:px-6">
@@ -524,7 +500,7 @@ function GuruSession({ isDemoMode, lowMotion }) {
                 {chatError && (
                   <div className="shrink-0 border-t border-red-400/20 px-4 py-2 text-xs text-red-200">
                     <p role="alert">{chatError}</p>
-                    <button type="button" disabled={chatLoading} onClick={() => sendPrompt(failedPrompt.message, true)} className="mr-3 mt-1 rounded border px-2 py-1">Retry message</button>
+                    <button type="button" disabled={chatLoading || !chatRetryable} onClick={() => sendPrompt(failedPrompt.message, true)} className="mr-3 mt-1 rounded border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50">Retry message</button>
                     <button type="button" onClick={() => {
                       setPrompt(failedPrompt.message);
                       setMessages(prev => prev.slice(0, -1));

@@ -23,15 +23,17 @@ const normalizeDayName = (value) => {
   return DAY_NAMES.includes(short) ? short : null;
 };
 
-const buildExplicitDaysSet = (habit) => {
-  if (!Array.isArray(habit?.days) || habit.days.length === 0) return null;
-  const normalized = habit.days.map(normalizeDayName).filter(Boolean);
+const buildExplicitDaysSet = (habit, date) => {
+  const days = Array.isArray(habit?.pendingDays) && habit.daysChangeEffectiveFrom && toDayKey(date) >= toDayKey(habit.daysChangeEffectiveFrom)
+    ? habit.pendingDays : habit?.days;
+  if (!Array.isArray(days) || days.length === 0) return null;
+  const normalized = days.map(normalizeDayName).filter(Boolean);
   if (!normalized.length) return null;
   return new Set(normalized);
 };
 
 const isScheduledOnDate = (habit, date) => {
-  const explicitDays = buildExplicitDaysSet(habit);
+  const explicitDays = buildExplicitDaysSet(habit, date);
   const dayName = DAY_NAMES[date.getDay()];
   const repeatType = habit?.repeatType || "daily";
 
@@ -95,8 +97,7 @@ export const calculateStreak = (logs, habit = {}) => {
     .forEach((log) => {
       const fromDayKey = typeof log?.dayKey === "string" ? log.dayKey : "";
       const fromDate = log?.date ? toDayKey(log.date) : "";
-      if (fromDayKey) completedSet.add(fromDayKey);
-      if (fromDate) completedSet.add(fromDate);
+      if (fromDayKey || fromDate) completedSet.add(fromDayKey || fromDate);
     });
 
   const today = normalizeDate(new Date());

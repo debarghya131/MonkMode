@@ -43,12 +43,16 @@ export function isHabitOnDay(habit, day, timezone = DEFAULT_HABIT_TIMEZONE) {
   const end = habitDayKey(habit.endDate, timezone);
   if ((start && day < start) || (end && day > end)) return false;
   const weekday = new Date(`${day}T12:00:00Z`).getUTCDay();
-  const effective = habitDayKey(habit.daysChangeEffectiveFrom, timezone);
-  const days = effective && day >= effective && Array.isArray(habit.pendingDays) ? habit.pendingDays : habit.days;
+  const days = habitDaysOnDay(habit, day, timezone);
   if (habit.repeatType === "weekend") return weekday === 0 || weekday === 6;
   if (habit.repeatType === "weekdays") return (days?.length ? days : ["Mon", "Tue", "Wed", "Thu", "Fri"]).includes(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][weekday]);
   if (habit.frequency === "weekly" && start) return new Date(`${start}T12:00:00Z`).getUTCDay() === weekday;
   return true;
+}
+
+export function habitDaysOnDay(habit, day, timezone = DEFAULT_HABIT_TIMEZONE) {
+  const effective = habitDayKey(habit.daysChangeEffectiveFrom, timezone);
+  return effective && day >= effective && Array.isArray(habit.pendingDays) ? habit.pendingDays : (habit.days || []);
 }
 
 export function habitTimeOnDay(habit, day, timezone = DEFAULT_HABIT_TIMEZONE) {

@@ -5,7 +5,8 @@ import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import { useHabitEnvironment } from "./habitContext";
-import { formatHabitDay, formatHabitTime, habitDayKey, isHabitOnDay } from "./habitUtils";
+import { formatHabitDay, formatHabitTime, habitDayKey, isHabitOnDay, habitTimeOnDay } from "./habitUtils";
+import { validHabits, validHabitCompletion, habitFailureMessage, uncertainHabitWrite } from "./habitResponse";
 
 const PRIORITY_STYLES = {
   High: "border-red-400/30 bg-red-500/10 text-red-200",
@@ -65,7 +66,7 @@ const getHabitStatus = (habit) => {
   return "pending";
 };
 
-function HabitRow({ habit, status, onUndo, busy = false, index = 0, lowMotion = false }) {
+function HabitRow({ habit, status, onUndo, busy = false, blocked = false, index = 0, lowMotion = false }) {
   const slot = getTimeSlot(habit.time);
   const Row = lowMotion ? "article" : Motion.article;
 
@@ -100,7 +101,7 @@ function HabitRow({ habit, status, onUndo, busy = false, index = 0, lowMotion = 
           <button
             type="button"
             onClick={onUndo}
-            disabled={busy}
+            disabled={busy || blocked}
             aria-busy={busy}
             className="dashboard-card-action"
             data-tone="warning"
@@ -186,6 +187,8 @@ export default function TodaysHabit({ consistency = {} }) {
   const [retry, setRetry] = useState(0);
   const [busyIds, setBusyIds] = useState(new Set());
   const locks = useRef(new Set());
+  const blockedIds = useRef(new Set());
+  const recoveredRetry = useRef(0);
   const version = useRef(0);
   const live = useRef(true);
   const requestedMobileView = searchParams.get("habitToday");
@@ -208,19 +211,22 @@ export default function TodaysHabit({ consistency = {} }) {
   useEffect(() => {
     if (isDemoMode) return;
     let cancelled = false;
-    const controller = new AbortController();
+    let controller;
     const refreshHabits = async () => {
       if (locks.current.size) return;
+      controller?.abort();
+      controller = new AbortController();
       const current = ++version.current;
       try {
-        const res = await api.get("/habits?view=active", { signal: controller.signal });
+        const res = await api.get("/habits?view=active", { signal: controller.signal, timeout: 15000 });
         if (cancelled || current !== version.current) return;
-        if (!Array.isArray(res.data)) throw new Error("Invalid habit response");
-        setHabits(res.data.map(h => ({ ...h, status: h.completedToday ? "completed" : "pending" })));
+        if (!validHabits(res.data)) throw new Error("Invalid habit response");
+        setHabits(res.data.map(h => ({ ...h, time: habitTimeOnDay(h, todayISO, timezone), status: h.completedToday ? "completed" : "pending" })));
+        if (retry !== recoveredRetry.current) { recoveredRetry.current = retry; blockedIds.current.clear(); setActionErrors({}); }
         setReady(true);
         setLoadError("");
       } catch (error) {
-        if (!cancelled && current === version.current) setLoadError(error.response?.data?.message || "Could not load your habits. Please retry.");
+        if (!cancelled && current === version.current) setLoadError(habitFailureMessage(error, "Could not load your habits. Please retry."));
       } finally {
         if (!cancelled && current === version.current) setLoading(false);
       }
@@ -231,12 +237,12 @@ export default function TodaysHabit({ consistency = {} }) {
     window.addEventListener("monkmode:habits-updated", refreshHabits);
     return () => {
       cancelled = true;
-      controller.abort();
+      controller?.abort();
       window.clearInterval(timer);
       window.removeEventListener("focus", refreshHabits);
       window.removeEventListener("monkmode:habits-updated", refreshHabits);
     };
-  }, [isDemoMode, todayISO, retry]);
+  }, [isDemoMode, todayISO, timezone, retry]);
   const todayLabel = formatHabitDay(todayISO, { weekday: "long", month: "short", day: "numeric" });
 
   const visibleHabits = useMemo(
@@ -270,20 +276,29 @@ export default function TodaysHabit({ consistency = {} }) {
   );
 
   const updateCompletion = async (id, completed) => {
-    if (isDemoMode || locks.current.has(id)) return;
+    if (isDemoMode || locks.current.has(id) || blockedIds.current.has(id)) return;
     locks.current.add(id);
     version.current += 1;
     setBusyIds(new Set(locks.current));
+    let acknowledged = false;
     try {
-      const options = { signal: requestSignal };
-      if (completed) await api.post("/habits/" + id + "/complete", { date: todayISO }, options);
-      else await api.delete("/habits/" + id + "/complete", { ...options, data: { date: todayISO } });
+      const options = { signal: requestSignal, timeout: 20000 };
+      const { data } = completed ? await api.post("/habits/" + id + "/complete", { date: todayISO }, options)
+        : await api.delete("/habits/" + id + "/complete", { ...options, data: { date: todayISO } });
+      acknowledged = true;
+      if (!validHabitCompletion(data, id, todayISO, completed)) throw new Error("Invalid completion confirmation");
       if (live.current) {
         setHabits(previous => previous.map(h => (h._id ?? h.id) === id ? { ...h, completedToday: completed, status: completed ? "completed" : "pending" } : h));
         setActionErrors(previous => { const next = { ...previous }; delete next[id]; return next; });
       }
     } catch (error) {
-      if (live.current) setActionErrors(previous => ({ ...previous, [id]: error.response?.data?.message || "Habit update failed. Your saved completion has not changed; please retry." }));
+      if (live.current) {
+        const uncertain = uncertainHabitWrite(error, acknowledged);
+        if (uncertain) blockedIds.current.add(id);
+        setActionErrors(previous => ({ ...previous, [id]: habitFailureMessage(error, uncertain
+          ? "Habit change could not be confirmed. Reload using Retry habits before changing it again."
+          : "Habit change was rejected. Retry habits to reload the latest state.") }));
+      }
     } finally {
       locks.current.delete(id);
       if (live.current) setBusyIds(new Set(locks.current));
@@ -305,7 +320,7 @@ export default function TodaysHabit({ consistency = {} }) {
 
   return (
     <div className="habits-today-page space-y-5" data-mobile-view={mobileView}>
-      {(loadError || Object.keys(actionErrors).length > 0) && <div role="alert" className="rounded-xl border border-rose-400/25 p-3 text-sm text-rose-200">{loadError} {Object.values(actionErrors).join(" ")} {loadError && <button type="button" className="ml-2 underline" onClick={() => setRetry(value => value + 1)}>Retry habits</button>}</div>}
+      {(loadError || Object.keys(actionErrors).length > 0) && <div role="alert" className="rounded-xl border border-rose-400/25 p-3 text-sm text-rose-200">{loadError} {Object.values(actionErrors).join(" ")} <button type="button" className="ml-2 underline" onClick={() => setRetry(value => value + 1)}>Retry habits</button></div>}
       <div className="habit-today-mobile-controls">
         <nav className="habit-today-mobile-nav" aria-label="Today's habit sections">
           <div className="habit-today-mobile-consistency">
@@ -472,7 +487,7 @@ export default function TodaysHabit({ consistency = {} }) {
                             <button
                               type="button"
                               onClick={() => markDone(habit._id ?? habit.id)}
-                              disabled={busyIds.has(habit._id ?? habit.id) || isDemoMode}
+                              disabled={busyIds.has(habit._id ?? habit.id) || blockedIds.current.has(habit._id ?? habit.id) || isDemoMode}
                               aria-busy={busyIds.has(habit._id ?? habit.id)}
                               className="dashboard-card-action"
                               data-tone="success"
@@ -525,6 +540,7 @@ export default function TodaysHabit({ consistency = {} }) {
                         status={getHabitStatus(habit)}
                         onUndo={() => markPending(habit._id ?? habit.id)}
                         busy={busyIds.has(habit._id ?? habit.id) || isDemoMode}
+                        blocked={blockedIds.current.has(habit._id ?? habit.id)}
                         lowMotion={lowMotion}
                       />
                     ))

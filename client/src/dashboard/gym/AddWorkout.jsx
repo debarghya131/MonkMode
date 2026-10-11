@@ -2,6 +2,7 @@ import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
 import DashboardSelect from "../../components/DashboardSelect";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { gymRevision, gymFailureMessage } from "./gymResponse";
 
 import { useGymEnvironment } from "./gymContext";
 import { useGymApi } from "./useGymData";
@@ -249,12 +250,16 @@ export default function AddWorkout({ lowMotion = false }) {
   const [showCustomSplit, setShowCustomSplit] = useState(false);
   const [customSplit, setCustomSplit] = useState("");
   const [customLibraryExercises, setCustomLibraryExercises] = useState([]);
+  const [libraryLoadError, setLibraryLoadError] = useState("");
+  const [logsLoadError, setLogsLoadError] = useState("");
+  const [readAttempt, setReadAttempt] = useState(0);
   const [error, setError] = useState("");
   const [workoutsView, setWorkoutsView] = useState("active");
   const [workoutDayFilter, setWorkoutDayFilter] = useState("all");
   const [mobileSection, setMobileSection] = useState("form");
   const [logs, setLogs] = useState(() => isDemoMode ? createDummyLogs(new Date(`${today}T12:00:00`)) : []);
   const [editingId, setEditingId] = useState(null);
+  const editingRevision = useRef({});
   const [copyWorkout, setCopyWorkout] = useState(null);
   const [copyDays, setCopyDays] = useState([]);
   const [copyError, setCopyError] = useState("");
@@ -300,10 +305,10 @@ export default function AddWorkout({ lowMotion = false }) {
         const { data } = await api.get("/gym/library");
         if (!isMounted) return;
         setCustomLibraryExercises(Array.isArray(data) ? data : []);
+        setLibraryLoadError("");
       } catch (fetchError) {
-        if (!isMounted) return;
-        console.error("Failed to load custom gym library for workout search:", fetchError);
-        setCustomLibraryExercises([]);
+        if (!isMounted || fetchError.code === "ERR_CANCELED") return;
+        setLibraryLoadError(`Custom workout suggestions could not be refreshed. ${gymFailureMessage(fetchError)}`);
       }
     };
 
@@ -316,7 +321,7 @@ export default function AddWorkout({ lowMotion = false }) {
       window.removeEventListener("focus", refreshCustomLibrary);
       window.removeEventListener("monkmode:gym-library-updated", refreshCustomLibrary);
     };
-  }, [api, isDemoMode]);
+  }, [api, isDemoMode, readAttempt]);
 
   useEffect(() => {
     const goals = workouts.map(plan => toGoalOption(plan.goalType)).filter(Boolean);
@@ -329,10 +334,10 @@ export default function AddWorkout({ lowMotion = false }) {
     if (isDemoMode) return;
     let cancelled = false;
     api.get("/gym/plans/logs")
-      .then(({ data }) => { if (!cancelled) setLogs(Array.isArray(data) ? data : []); })
-      .catch(() => {});
+      .then(({ data }) => { if (!cancelled) { setLogs(Array.isArray(data) ? data : []); setLogsLoadError(""); } })
+      .catch(failure => { if (!cancelled && failure.code !== "ERR_CANCELED") setLogsLoadError(`Workout history could not be loaded. ${gymFailureMessage(failure)}`); });
     return () => { cancelled = true; };
-  }, [api, isDemoMode]);
+  }, [api, isDemoMode, readAttempt]);
 
   const persistLog = async (entry) => {
     if (isDemoMode) return;
@@ -535,6 +540,7 @@ export default function AddWorkout({ lowMotion = false }) {
   };
 
   const startEdit = (w) => {
+    editingRevision.current = gymRevision(w);
     setEditingId(w.id);
     setForm({
       title: w.title,
@@ -773,7 +779,7 @@ export default function AddWorkout({ lowMotion = false }) {
     if (err) { setError(err); return; }
 
     const existingWorkout = editingId ? workouts.find((w) => w.id === editingId) : null;
-    const payload = { ...form, title: form.title.trim(), exercises };
+    const payload = { ...(editingId ? editingRevision.current : {}), ...form, title: form.title.trim(), exercises };
 
     if (isDemoMode) {
       const demoPayload = {
@@ -936,6 +942,11 @@ export default function AddWorkout({ lowMotion = false }) {
   return (
     <div className="gym-add-view">
       <GymNotice />
+      {(libraryLoadError || logsLoadError) && <div role="alert" className="mb-3 rounded-xl border border-amber-100/20 bg-black/30 p-3 text-sm text-amber-100">
+        {libraryLoadError && <p>{libraryLoadError}</p>}
+        {logsLoadError && <p>{logsLoadError}</p>}
+        <button type="button" className="mt-2 underline" disabled={busy} onClick={() => setReadAttempt(value => value + 1)}>Reload workout details</button>
+      </div>}
       <div className="gym-add-mobile-tabs" role="tablist" aria-label="Add workout sections">
         <button type="button" role="tab" aria-selected={mobileSection === "form"} onClick={() => setMobileSection("form")}>
           <span>＋ New</span>
@@ -967,6 +978,7 @@ export default function AddWorkout({ lowMotion = false }) {
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Title *</label>
               <input
                 type="text"
+                maxLength={180}
                 value={form.title}
                 onChange={(e) => setField("title", e.target.value)}
                 placeholder="e.g. Push Day A"

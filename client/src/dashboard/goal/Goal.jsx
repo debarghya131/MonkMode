@@ -59,14 +59,18 @@ function GoalContent() {
       <div className="goals-page w-full" data-active={activeTab}>
         <div className="goals-top-row hidden min-w-0 flex-1 sm:block"><GoalNav activeTab={activeTab} onTabChange={changeActiveTab} /></div>
         {(data.loadError || data.logsError) && <div role="alert" className="rounded-xl border border-rose-400/25 bg-rose-950/20 p-3 text-sm text-rose-200">
-          {data.loadError || data.logsError} <button type="button" disabled={data.busy} className="ml-2 underline" onClick={data.refresh}>Retry</button>
+          {data.loadError || data.logsError} <button type="button" disabled={data.saving} className="ml-2 underline" onClick={data.refresh}>Retry</button>
         </div>}
         {data.actionError && <p role="alert" className="p-3 text-sm text-rose-200">{data.actionError}</p>}
+        {data.writeBlocked && <div role="alert" className="p-3 text-sm text-rose-200">
+          <p>The last change could not be confirmed or conflicted. Reload before another change. Reloading replaces open drafts.</p>
+          <button type="button" disabled={data.saving} className="mt-2 underline" onClick={() => data.refresh({ recover: true })}>Reload goals (replaces drafts)</button>
+        </div>}
         {data.warning && <p role="status" className="p-3 text-sm text-amber-200">{data.warning}</p>}
         {!data.ready ? <p className="p-6 text-sm text-stone-400">{data.loadError ? "Your goals could not be loaded." : "Loading your goals..."}</p> : lowMotion ? (
-          <div key={activeTab} className="goals-content">{renderContent()}</div>
+          <div key={`${activeTab}-${data.recoveryEpoch}`} className="goals-content">{renderContent()}</div>
         ) : (
-          <AnimatePresence mode="wait"><Motion.div key={activeTab} className="goals-content" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22, ease: "easeInOut" }}>{renderContent()}</Motion.div></AnimatePresence>
+          <AnimatePresence mode="wait"><Motion.div key={`${activeTab}-${data.recoveryEpoch}`} className="goals-content" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22, ease: "easeInOut" }}>{renderContent()}</Motion.div></AnimatePresence>
         )}
       </div>
     </GoalContext.Provider>

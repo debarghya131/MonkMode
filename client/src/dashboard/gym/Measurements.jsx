@@ -1,6 +1,7 @@
 import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { gymRevision } from "./gymResponse";
 
 import { useGymEnvironment } from "./gymContext";
 import { useGymApi } from "./useGymData";
@@ -194,6 +195,7 @@ export default function Measurements({ lowMotion = false }) {
   const nowMs = Number(now);
   const [selectedId, setSelectedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [editingRevision, setEditingRevision] = useState({});
   const [activeGroupTitle, setActiveGroupTitle] = useState(DEFAULT_GROUP_TITLE);
   const [savedActiveGroupTitle, setSavedActiveGroupTitle] = useState(DEFAULT_GROUP_TITLE);
   const [updateSummary, setUpdateSummary] = useState(null);
@@ -248,7 +250,7 @@ export default function Measurements({ lowMotion = false }) {
 
   const deleteEntry = guard(async (id) => {
     try {
-      const { data } = await api.delete(`/gym/measurements/${id}`);
+      const { data } = await api.delete(`/gym/measurements/${id}`, { data: gymRevision(entries.find(entry => entry.id === id)) });
       const updatedEntry = data?.entry;
       if (updatedEntry?.id) {
         setEntries((current) => sortEntries(
@@ -264,7 +266,7 @@ export default function Measurements({ lowMotion = false }) {
 
   const undoDeleteEntry = guard(async (id) => {
     try {
-      const { data } = await api.patch(`/gym/measurements/${id}/undo-delete`);
+      const { data } = await api.patch(`/gym/measurements/${id}/undo-delete`, gymRevision(entries.find(entry => entry.id === id)));
       const updatedEntry = data?.entry;
       if (updatedEntry?.id) {
         setEntries((current) => sortEntries(
@@ -299,6 +301,7 @@ export default function Measurements({ lowMotion = false }) {
 
   const startEditing = (entry) => {
     if (!entry || entry.checkInDate !== currentDate) return;
+    setEditingRevision(gymRevision(entry));
     setEditingId(entry.id);
     setSelectedId(entry.id);
     setUpdateSummary(null);
@@ -336,6 +339,7 @@ export default function Measurements({ lowMotion = false }) {
       : null;
 
     const payload = {
+      ...(editingId ? editingRevision : {}),
       checkInDate: currentDate,
       expectedToday: currentDate,
       ...Object.fromEntries(MEASUREMENT_FIELDS.map(({ key }) => [key, String(form[key] ?? "").trim()])),

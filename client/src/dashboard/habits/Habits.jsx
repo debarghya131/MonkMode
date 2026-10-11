@@ -11,6 +11,7 @@ import TodaysHabit from "./TodaysHabit";
 import { HABIT_TABS } from "./habitTabs";
 import { HabitContext } from "./habitContext";
 import { buildDemoHabits, DEFAULT_HABIT_TIMEZONE, habitClock } from "./habitUtils";
+import { validHabitConsistency, habitFailureMessage } from "./habitResponse";
 
 export default function Habits() {
   const { isDemoMode, user } = useAuth();
@@ -30,6 +31,7 @@ function HabitContent() {
   const [retry, setRetry] = useState(0);
   const requestController = useRef(new AbortController());
   const clock = habitClock(new Date(tick + clockSkew), timezone);
+  const previousDay = useRef(clock.date);
   const demoHabits = useMemo(() => buildDemoHabits(clock.date), [clock.date]);
   const requestedView = searchParams.get("view");
   const requestedStateTab = location.state?.tab;
@@ -80,13 +82,17 @@ function HabitContent() {
     if (isDemoMode) return;
     let cancelled = false;
     let version = 0;
-    const summaryController = new AbortController();
+    let summaryController;
     const refreshConsistency = async () => {
+      summaryController?.abort();
+      summaryController = new AbortController();
+      const controller = summaryController;
       const current = ++version;
       try {
-        const res = await api.get("/habits/consistency", { signal: summaryController.signal });
+        const res = await api.get("/habits/consistency", { signal: controller.signal, timeout: 15000 });
         if (cancelled || current !== version) return;
-        const zone = res.data.timezone || DEFAULT_HABIT_TIMEZONE;
+        if (!validHabitConsistency(res.data)) throw new Error("Invalid habit consistency response");
+        const zone = res.data.timezone;
         habitClock(new Date(), zone);
         setTimezone(zone);
         if (Number.isFinite(Date.parse(res.data.serverNow))) setClockSkew(Date.parse(res.data.serverNow) - Date.now());
@@ -101,7 +107,7 @@ function HabitContent() {
         setReady(true);
         setSummaryError("");
       } catch (error) {
-        if (!cancelled && current === version) setSummaryError(error.response?.data?.message || "Could not load habit consistency and app date. Please retry.");
+        if (!cancelled && current === version && !controller.signal.aborted) setSummaryError(habitFailureMessage(error, "Could not load habit consistency and app date. Please retry. Last loaded values, if any, are still shown."));
       }
     };
 
@@ -112,12 +118,16 @@ function HabitContent() {
 
     return () => {
       cancelled = true;
-      summaryController.abort();
+      summaryController?.abort();
       window.clearInterval(intervalId);
       window.removeEventListener("focus", refreshConsistency);
       window.removeEventListener("monkmode:habits-updated", refreshConsistency);
     };
   }, [isDemoMode, retry]);
+
+  useEffect(() => {
+    if (previousDay.current !== clock.date) { previousDay.current = clock.date; setRetry(value => value + 1); }
+  }, [clock.date]);
 
   useEffect(() => {
     requestController.current = new AbortController();

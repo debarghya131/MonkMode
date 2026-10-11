@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import api from "../../api/axios";
 import { DEFAULT_CATEGORIES, DEFAULT_IMPORTANT_CATEGORIES } from "./todoShared";
 import { DEFAULT_TODO_TIMEZONE, todoClock, todosOnDay } from "./todoUtils";
+import { validTodoStatusResponse, validTodos, validTodoSummary, validTodoPreferences, todoFailureMessage, todoRevision, uncertainTodoWrite } from "./todoResponse";
 
 export default function useTodoData(isDemoMode, demoTasks) {
   const [storedTasks, setTaskState] = useState([]);
@@ -23,36 +24,50 @@ export default function useTodoData(isDemoMode, demoTasks) {
   const summaryVersion = useRef(0);
   const readyRef = useRef(isDemoMode);
   const lockedIds = useRef(new Set());
+  const blockedIds = useRef(new Set());
+  const tasksRef = useRef([]);
+  const refreshController = useRef(null);
   const preferencesRef = useRef(preferences);
   const pendingPreferences = useRef(null);
   const savingPreferences = useRef(false);
+  const unsyncedPreferences = useRef(false);
   const clock = todoClock(new Date(tick + clockSkew), timezone);
+  const previousDay = useRef(clock.date);
 
   const setTasks = useCallback(update => {
     requestVersion.current += 1;
-    setTaskState(update);
+    setTaskState(previous => {
+      const next = typeof update === "function" ? update(previous) : update;
+      tasksRef.current = next;
+      return next;
+    });
   }, []);
 
   const refreshTasks = useCallback(async () => {
-    if (isDemoMode || lockedIds.current.size || !live.current) return;
+    if (isDemoMode || lockedIds.current.size || !live.current) return false;
+    refreshController.current?.abort();
+    const controller = new AbortController();
+    refreshController.current = controller;
     const version = ++requestVersion.current;
     const statsVersion = ++summaryVersion.current;
+    const previousPreferences = preferencesRef.current;
     if (!readyRef.current) setLoading(true);
     try {
-      const options = { signal: requestController.current.signal };
-      const requests = [api.get("/todos", options), api.get("/todos/summary", options)];
-      if (!readyRef.current) requests.push(api.get("/todos/preferences", options));
+      const options = { signal: controller.signal, timeout: 15000 };
+      const requests = [api.get("/todos", options), api.get("/todos/summary", options), api.get("/todos/preferences", options)];
       const [taskResponse, summaryResponse, preferenceResponse] = await Promise.all(requests);
-      if (!live.current || version !== requestVersion.current) return;
-      if (!Array.isArray(taskResponse.data)) throw new Error("Invalid task response");
-      const nextTimezone = summaryResponse.data.timezone || DEFAULT_TODO_TIMEZONE;
+      if (!live.current || version !== requestVersion.current || controller.signal.aborted) return false;
+      if (!validTodos(taskResponse.data) || !validTodoSummary(summaryResponse.data)
+        || (preferenceResponse && !validTodoPreferences(preferenceResponse.data))) throw new Error("Invalid task snapshot");
+      const nextTimezone = summaryResponse.data.timezone;
       todoClock(new Date(), nextTimezone); // Validate before publishing the snapshot.
       setTaskState(taskResponse.data);
+      tasksRef.current = taskResponse.data;
       if (statsVersion === summaryVersion.current) setSummary(summaryResponse.data);
       setTimezone(nextTimezone);
       if (Number.isFinite(Date.parse(summaryResponse.data.serverNow))) setClockSkew(Date.parse(summaryResponse.data.serverNow) - Date.now());
       setTick(Date.now());
-      if (preferenceResponse) {
+      if (preferenceResponse && preferencesRef.current === previousPreferences && !savingPreferences.current && !pendingPreferences.current && !unsyncedPreferences.current) {
         preferencesRef.current = preferenceResponse.data;
         setPreferences(preferenceResponse.data);
       }
@@ -60,8 +75,11 @@ export default function useTodoData(isDemoMode, demoTasks) {
       setReady(true);
       setError("");
       setActionErrors({});
+      blockedIds.current.clear();
+      return true;
     } catch (err) {
-      if (live.current && version === requestVersion.current) setError(err.response?.data?.message || "Could not load tasks and settings. Please retry.");
+      if (live.current && version === requestVersion.current && !controller.signal.aborted) setError(todoFailureMessage(err, "Could not load tasks and settings. Please retry. Last loaded tasks, if any, are still shown."));
+      return false;
     } finally {
       if (live.current && version === requestVersion.current) setLoading(false);
     }
@@ -81,6 +99,7 @@ export default function useTodoData(isDemoMode, demoTasks) {
     return () => {
       live.current = false;
       requestController.current.abort();
+      refreshController.current?.abort();
       requestVersion.current += 1;
       window.clearInterval(clockTimer);
       window.clearInterval(refreshTimer);
@@ -90,6 +109,10 @@ export default function useTodoData(isDemoMode, demoTasks) {
     };
   }, [refreshTasks]);
 
+  useEffect(() => {
+    if (previousDay.current !== clock.date) { previousDay.current = clock.date; refreshTasks(); }
+  }, [clock.date, refreshTasks]);
+
   const persistPreferences = useCallback(async () => {
     if (isDemoMode || savingPreferences.current) return;
     savingPreferences.current = true;
@@ -98,10 +121,15 @@ export default function useTodoData(isDemoMode, demoTasks) {
         const next = pendingPreferences.current;
         pendingPreferences.current = null;
         try {
-          await api.patch("/todos/preferences", next, { signal: requestController.current.signal });
-          if (live.current) setPreferencesError("");
+          const { data } = await api.patch("/todos/preferences", next, { signal: requestController.current.signal, timeout: 15000 });
+          if (!validTodoPreferences(data)) throw new Error("Invalid preference confirmation");
+          if (live.current) {
+            if (preferencesRef.current === next) { preferencesRef.current = data; setPreferences(data); unsyncedPreferences.current = false; }
+            setPreferencesError("");
+            window.dispatchEvent(new CustomEvent("monkmode:todos-updated", { detail: { source: "todo-preferences" } }));
+          }
         } catch (err) {
-          if (live.current) setPreferencesError(err.response?.data?.message || "Category changes were not saved. Retry to sync your account.");
+          if (live.current) setPreferencesError(todoFailureMessage(err, "Category changes could not be confirmed. Retry to sync your account."));
         }
       }
     } finally {
@@ -114,6 +142,7 @@ export default function useTodoData(isDemoMode, demoTasks) {
     const current = preferencesRef.current;
     const next = { ...current, [field]: typeof update === "function" ? update(current[field]) : update };
     preferencesRef.current = next;
+    unsyncedPreferences.current = true;
     setPreferences(next);
     pendingPreferences.current = next;
     persistPreferences();
@@ -123,19 +152,32 @@ export default function useTodoData(isDemoMode, demoTasks) {
   const retryPreferences = () => { pendingPreferences.current = preferencesRef.current; persistPreferences(); };
 
   const updateStatus = useCallback(async (id, date, status, completedAt = "") => {
-    if (isDemoMode || lockedIds.current.has(id)) return false;
+    if (isDemoMode || lockedIds.current.has(id) || blockedIds.current.has(id)) return false;
+    const original = tasksRef.current.find(task => task.id === id);
+    if (!original) return false;
     lockedIds.current.add(id);
     requestVersion.current += 1;
     summaryVersion.current += 1;
     setBusyIds(new Set(lockedIds.current));
+    let acknowledged = false;
+    let saved = false;
     try {
-      const { data } = await api.patch(`/todos/${id}/status`, { date, status, completedAt }, { signal: requestController.current.signal });
+      const { data } = await api.patch(`/todos/${id}/status`, { date, status, completedAt, ...todoRevision(original) }, { signal: requestController.current.signal, timeout: 20000 });
       if (!live.current) return false;
+      acknowledged = true;
+      if (!validTodoStatusResponse(data, id, date, status)) throw new Error("Invalid task update confirmation");
+      saved = true;
       setTasks(previous => previous.map(task => task.id === id ? data : task));
       setActionErrors(previous => { const next = { ...previous }; delete next[id]; return next; });
       return true;
     } catch (err) {
-      if (live.current) setActionErrors(previous => ({ ...previous, [id]: err.response?.data?.message || "Task update failed. Your task has not been changed; please retry." }));
+      if (live.current) {
+        const uncertain = uncertainTodoWrite(err, acknowledged);
+        if (uncertain) blockedIds.current.add(id);
+        setActionErrors(previous => ({ ...previous, [id]: todoFailureMessage(err, uncertain
+          ? "Task update could not be confirmed. Reload tasks using Retry before changing it again."
+          : "Task update was rejected. Your selection has been kept; please retry.") }));
+      }
       return false;
     } finally {
       lockedIds.current.delete(id);
@@ -144,8 +186,14 @@ export default function useTodoData(isDemoMode, demoTasks) {
         if (!lockedIds.current.size) {
           // Refresh statistics without clearing a failed action's message.
           const statsVersion = ++summaryVersion.current;
-          api.get("/todos/summary", { signal: requestController.current.signal }).then(({ data }) => { if (live.current && statsVersion === summaryVersion.current) setSummary(data); }).catch(() => {
-            if (live.current && statsVersion === summaryVersion.current) setError(current => current || "Task saved, but consistency could not refresh. Retry loading statistics.");
+          api.get("/todos/summary", { signal: requestController.current.signal, timeout: 15000 }).then(({ data }) => {
+            if (!live.current || statsVersion !== summaryVersion.current) return;
+            if (!validTodoSummary(data)) throw new Error("Invalid summary confirmation");
+            setSummary(data);
+          }).catch(() => {
+            if (live.current && statsVersion === summaryVersion.current) setError(current => current || (saved
+              ? "Task saved, but consistency could not refresh. Retry loading statistics."
+              : "Task change was not confirmed, and statistics could not refresh. Retry loading tasks."));
           });
           window.dispatchEvent(new CustomEvent("monkmode:todos-updated", { detail: { source: "todo-status" } }));
         }

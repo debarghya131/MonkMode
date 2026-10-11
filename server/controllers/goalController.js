@@ -3,6 +3,7 @@ import GoalProgressLog from "../models/GoalProgressLog.js";
 import mongoose from "mongoose";
 import User from "../models/User.js";
 import { journalMonthDays } from "../../shared/journalAnalysisStats.js";
+import { validReportDay } from "../../shared/journalWeeklyStats.js";
 import { todoReportDay } from "../../shared/todoWeeklyStats.js";
 import { computeGoalAnalysis, GOAL_ANALYSIS_NOTE } from "../../shared/goalAnalysisStats.js";
 import { GOAL_REPORT_FIELDS, goalProgressFilter } from "../utils/goalWeeklyReportUtils.js";
@@ -45,6 +46,7 @@ const parseDateInput = (value) => {
   if (value instanceof Date && !Number.isNaN(value.getTime())) return new Date(value);
 
   if (typeof value === "string") {
+    if (/^\d{4}-\d{2}-\d{2}/.test(value) && !validReportDay(value.slice(0, 10))) return null;
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
       const [year, month, day] = value.split("-").map((part) => Number.parseInt(part, 10));
       if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
@@ -185,6 +187,29 @@ const recordProgressLog = async (goal, payload) => {
 
 const isValidGoalId = (id) => mongoose.Types.ObjectId.isValid(id);
 
+const checkGoalRevision = (goal, req) => {
+  const expected = req.body?.expectedUpdatedAt;
+  if (expected === undefined) return;
+  if (typeof expected !== "string" || !Number.isFinite(Date.parse(expected))) throw Object.assign(new Error("expectedUpdatedAt must be a valid timestamp"), { status: 400 });
+  if (!goal.updatedAt || Date.parse(expected) !== new Date(goal.updatedAt).getTime()) throw Object.assign(new Error("This goal changed in another request. Reload goals before trying again."), { status: 409 });
+};
+const saveGoal = async (goal, req) => {
+  checkGoalRevision(goal, req);
+  if (goal.updatedAt) {
+    const revision = new Date(goal.updatedAt);
+    goal.$where = { userId: new mongoose.Types.ObjectId(req.user.id), updatedAt: revision };
+    goal.updatedAt = new Date(Math.max(Date.now(), revision.getTime() + 1));
+    await goal.save({ timestamps: false });
+  } else await goal.save();
+};
+const goalFailure = (res, error) => {
+  if ([400, 409].includes(error.status)) return res.status(error.status).json({ message: error.message });
+  if (["DocumentNotFoundError", "VersionError"].includes(error.name)) return res.status(409).json({ message: "This goal changed in another request. Reload goals before trying again." });
+  if (["ValidationError", "CastError"].includes(error.name)) return res.status(400).json({ message: "Invalid goal values. Please check the form." });
+  return res.status(503).json({ message: "The goal request could not be confirmed. Reload goals before trying again." });
+};
+const validProgressNumber = value => ["string", "number"].includes(typeof value) && (typeof value !== "string" || value.trim().length > 0) && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= Number.MAX_SAFE_INTEGER;
+
 const applySubgoalProgressToGoal = (goal, wasCompleted) => {
   const summary = buildSubgoalProgressSummary(goal);
   const previousValue = Number(goal.currentValue) || 0;
@@ -205,21 +230,6 @@ const applySubgoalProgressToGoal = (goal, wasCompleted) => {
     wasCompleted: Boolean(wasCompleted),
     isCompleted
   };
-};
-
-const maybeAppendEndedLogIfDue = async (goal, today = getStartOfDay(new Date())) => {
-  if (!goal || goal.deletedAt || !goal.deadline) return goal;
-
-  const deadlineDay = getStartOfDay(goal.deadline);
-  if (deadlineDay >= today) return goal;
-
-  const hasEndedLog = Array.isArray(goal.activityLogs)
-    && goal.activityLogs.some((entry) => entry?.action === "ended");
-  if (hasEndedLog) return goal;
-
-  appendActivityLog(goal, buildActivityLogEntry("ended", goal.title, deadlineDay));
-  await goal.save();
-  return goal;
 };
 
 const isGoalCompleted = (goal) => {
@@ -252,13 +262,15 @@ export const createGoal = async (req, res) => {
     }
 
     const normalizedTitle = title.trim();
+    if (normalizedTitle.length > 180) return res.status(400).json({ message: "Goal title must be 180 characters or fewer" });
 
     let normalizedDescription = "";
     if (description != null) {
       if (typeof description !== "string") {
         return res.status(400).json({ message: "Description must be a string" });
       }
-      normalizedDescription = description.trim().slice(0, 2500);
+      normalizedDescription = description.trim();
+      if (normalizedDescription.length > 2500) return res.status(400).json({ message: "Description must be 2500 characters or fewer" });
     }
 
     const normalizedGoalType = goalType || "short-term";
@@ -271,12 +283,13 @@ export const createGoal = async (req, res) => {
       return res.status(400).json({ message: "Priority must be High, Medium, or Low" });
     }
 
-    const parsedStartDate = startDate === undefined
+    const parsedStartDate = startDate == null || startDate === ""
       ? getStartOfDay(new Date())
       : parseDateInput(startDate);
     if (startDate !== undefined && startDate !== null && startDate !== "" && !parsedStartDate) {
       return res.status(400).json({ message: "startDate must be a valid date" });
     }
+    if (getStartOfDay(parsedStartDate) < getStartOfDay()) return res.status(400).json({ message: "New goals cannot start in the past." });
 
     const parsedDeadline = parseDateInput(deadline);
     if (deadline != null && deadline !== "" && !parsedDeadline) {
@@ -304,14 +317,14 @@ export const createGoal = async (req, res) => {
     const normalizedTargetValue = targetValue == null || targetValue === ""
       ? 100
       : Number(targetValue);
-    if (!Number.isFinite(normalizedTargetValue) || normalizedTargetValue < 0) {
+    if (!validProgressNumber(targetValue == null || targetValue === "" ? normalizedTargetValue : targetValue)) {
       return res.status(400).json({ message: "targetValue must be a valid non-negative number" });
     }
 
     const normalizedCurrentValue = currentValue == null || currentValue === ""
       ? 0
       : Number(currentValue);
-    if (!Number.isFinite(normalizedCurrentValue) || normalizedCurrentValue < 0) {
+    if (!validProgressNumber(currentValue == null || currentValue === "" ? normalizedCurrentValue : currentValue)) {
       return res.status(400).json({ message: "currentValue must be a valid non-negative number" });
     }
 
@@ -335,7 +348,7 @@ export const createGoal = async (req, res) => {
 
     res.status(201).json(serializeGoal(goal));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return goalFailure(res, error);
   }
 };
 
@@ -361,14 +374,9 @@ export const getGoals = async (req, res) => {
     }
 
     const goals = await Goal.find(filter).sort({ createdAt: -1 });
-    const syncedGoals = [];
-    for (const goal of goals) {
-      const syncedGoal = await maybeAppendEndedLogIfDue(goal, today);
-      syncedGoals.push(syncedGoal);
-    }
-    res.json(syncedGoals.map((goal) => serializeGoal(goal, today)));
+    res.json(goals.map((goal) => serializeGoal(goal, today)));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return goalFailure(res, error);
   }
 };
 
@@ -386,12 +394,16 @@ export const updateGoal = async (req, res) => {
     }
 
     let hasChanges = false;
+    checkGoalRevision(goal, req);
+    const previousValue = Number(goal.currentValue) || 0;
+    const wasCompleted = isGoalCompleted(goal);
 
     if (req.body.title !== undefined) {
       if (typeof req.body.title !== "string" || !req.body.title.trim()) {
         return res.status(400).json({ message: "Title is required" });
       }
       const normalizedTitle = req.body.title.trim();
+      if (normalizedTitle.length > 180) return res.status(400).json({ message: "Goal title must be 180 characters or fewer" });
       if (goal.title !== normalizedTitle) {
         goal.title = normalizedTitle;
         hasChanges = true;
@@ -402,7 +414,8 @@ export const updateGoal = async (req, res) => {
       if (req.body.description != null && typeof req.body.description !== "string") {
         return res.status(400).json({ message: "Description must be a string" });
       }
-      const normalizedDescription = (req.body.description || "").trim().slice(0, 2500);
+      const normalizedDescription = (req.body.description || "").trim();
+      if (normalizedDescription.length > 2500) return res.status(400).json({ message: "Description must be 2500 characters or fewer" });
       if (goal.description !== normalizedDescription) {
         goal.description = normalizedDescription;
         hasChanges = true;
@@ -435,7 +448,7 @@ export const updateGoal = async (req, res) => {
       const nextTargetValue = req.body.targetValue === "" || req.body.targetValue == null
         ? 100
         : Number(req.body.targetValue);
-      if (!Number.isFinite(nextTargetValue) || nextTargetValue < 0) {
+      if (!validProgressNumber(req.body.targetValue == null || req.body.targetValue === "" ? nextTargetValue : req.body.targetValue)) {
         return res.status(400).json({ message: "targetValue must be a valid non-negative number" });
       }
       if (goal.targetValue !== nextTargetValue) {
@@ -448,7 +461,7 @@ export const updateGoal = async (req, res) => {
       const nextCurrentValue = req.body.currentValue === "" || req.body.currentValue == null
         ? 0
         : Number(req.body.currentValue);
-      if (!Number.isFinite(nextCurrentValue) || nextCurrentValue < 0) {
+      if (!validProgressNumber(req.body.currentValue == null || req.body.currentValue === "" ? nextCurrentValue : req.body.currentValue)) {
         return res.status(400).json({ message: "currentValue must be a valid non-negative number" });
       }
       if (goal.currentValue !== nextCurrentValue) {
@@ -490,14 +503,22 @@ export const updateGoal = async (req, res) => {
     const normalizedGoalType = req.body.goalType === undefined
       ? goal.goalType
       : (req.body.goalType || "short-term");
+    const existingStart = getStartOfDay(goal.startDate || goal.createdAt || new Date());
 
     if (
       req.body.startDate !== undefined &&
-      hasGoalStarted(goal.startDate) &&
-      String(goal.startDate || "") !== String(normalizedStartDate || "")
+      hasGoalStarted(existingStart) &&
+      (!normalizedStartDate || existingStart.getTime() !== getStartOfDay(normalizedStartDate).getTime())
     ) {
       return res.status(400).json({ message: "Start date cannot be edited after the goal has started" });
     }
+    if (req.body.startDate !== undefined && (!normalizedStartDate || (!hasGoalStarted(existingStart) && getStartOfDay(normalizedStartDate) < getStartOfDay()))) return res.status(400).json({ message: "Rescheduled goals cannot start in the past." });
+    if (req.body.deadline !== undefined && !normalizedDeadline) return res.status(400).json({ message: "deadline is required" });
+    if ((req.body.startDate !== undefined || req.body.deadline !== undefined) && goal.subgoals.some(subgoal =>
+      (normalizedStartDate && getStartOfDay(subgoal.deadline) < getStartOfDay(normalizedStartDate)) || (normalizedDeadline && getStartOfDay(subgoal.deadline) > getStartOfDay(normalizedDeadline)))) {
+      return res.status(400).json({ message: "Goal dates must contain all existing subgoal deadlines." });
+    }
+    if (goal.subgoals.length && (req.body.currentValue !== undefined || req.body.targetValue !== undefined)) return res.status(400).json({ message: "Use milestone completion to update a goal with subgoals." });
 
     if (
       normalizedStartDate &&
@@ -533,11 +554,16 @@ export const updateGoal = async (req, res) => {
     }
 
     appendActivityLog(goal, buildActivityLogEntry("edited", goal.title));
-    await goal.save();
+    await saveGoal(goal, req);
+    const completedNow = isGoalCompleted(goal);
+    if (previousValue !== Number(goal.currentValue) || wasCompleted !== completedNow) await recordProgressLog(goal, {
+      userId: req.user.id, goalId: goal._id, previousValue, currentValue: goal.currentValue,
+      delta: goal.currentValue - previousValue, completedGoal: !wasCompleted && completedNow, date: new Date()
+    });
 
     res.json(serializeGoal(goal));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return goalFailure(res, error);
   }
 };
 
@@ -555,17 +581,18 @@ export const updateGoalProgress = async (req, res) => {
     }
 
     const parsedCurrentValue = Number(currentValue);
-    if (!Number.isFinite(parsedCurrentValue) || parsedCurrentValue < 0) {
+    if (!validProgressNumber(currentValue)) {
       return res.status(400).json({ message: "currentValue must be a valid non-negative number" });
     }
 
     let resolvedDate = new Date();
     if (req.body?.date != null) {
-      resolvedDate = new Date(req.body.date);
-      if (Number.isNaN(resolvedDate.getTime())) {
+      resolvedDate = parseDateInput(req.body.date);
+      if (!resolvedDate) {
         return res.status(400).json({ message: "date must be a valid date" });
       }
     }
+    if (getStartOfDay(resolvedDate) > getStartOfDay()) return res.status(400).json({ message: "Progress cannot be dated in the future." });
 
     const goal = await Goal.findOne({ _id: goalId, userId: req.user.id, deletedAt: null });
 
@@ -574,12 +601,15 @@ export const updateGoalProgress = async (req, res) => {
     }
 
     const previousValue = Number(goal.currentValue) || 0;
+    checkGoalRevision(goal, req);
+    if (goal.subgoals.length) return res.status(400).json({ message: "Use milestone completion to update a goal with subgoals." });
+    if (getStartOfDay(resolvedDate) < getStartOfDay(goal.startDate || goal.createdAt || new Date())) return res.status(400).json({ message: "Progress cannot be dated before the goal starts." });
     const wasCompleted = isGoalCompleted(goal);
     goal.currentValue = parsedCurrentValue;
     const isCompleted = isGoalCompleted(goal);
 
     appendActivityLog(goal, buildActivityLogEntry("progress_updated", goal.title, resolvedDate));
-    await goal.save();
+    await saveGoal(goal, req);
 
     await recordProgressLog(goal, {
       userId: req.user.id,
@@ -593,7 +623,7 @@ export const updateGoalProgress = async (req, res) => {
 
     res.json(serializeGoal(goal));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return goalFailure(res, error);
   }
 };
 
@@ -610,6 +640,7 @@ export const addGoalSubgoal = async (req, res) => {
     if (!title) {
       return res.status(400).json({ message: "Subgoal title is required" });
     }
+    if (title.length > 180) return res.status(400).json({ message: "Subgoal title must be 180 characters or fewer" });
 
     if (!deadline) {
       return res.status(400).json({ message: "Subgoal deadline is required" });
@@ -622,6 +653,8 @@ export const addGoalSubgoal = async (req, res) => {
     }
 
     const normalizedDeadline = getStartOfDay(deadline);
+    checkGoalRevision(goal, req);
+    if (normalizedDeadline < getStartOfDay()) return res.status(400).json({ message: "New subgoal deadlines cannot be in the past." });
     if (goal.startDate && normalizedDeadline < getStartOfDay(goal.startDate)) {
       return res.status(400).json({ message: "Subgoal deadline cannot be before goal startDate" });
     }
@@ -629,6 +662,7 @@ export const addGoalSubgoal = async (req, res) => {
       return res.status(400).json({ message: "Subgoal deadline cannot be after goal deadline" });
     }
 
+    const wasCompleted = isGoalCompleted(goal);
     goal.subgoals.push({
       title,
       deadline: normalizedDeadline
@@ -644,12 +678,17 @@ export const addGoalSubgoal = async (req, res) => {
       )
     );
 
-    applySubgoalProgressToGoal(goal);
-    await goal.save();
+    const progressChange = applySubgoalProgressToGoal(goal, wasCompleted);
+    await saveGoal(goal, req);
+    if (progressChange.changed) await recordProgressLog(goal, {
+      userId: req.user.id, goalId: goal._id, previousValue: progressChange.previousValue,
+      currentValue: progressChange.nextValue, delta: progressChange.nextValue - progressChange.previousValue,
+      completedGoal: !progressChange.wasCompleted && progressChange.isCompleted, date: new Date()
+    });
 
     res.status(201).json(serializeGoal(goal));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return goalFailure(res, error);
   }
 };
 
@@ -669,6 +708,7 @@ export const updateGoalSubgoalProgress = async (req, res) => {
     }
 
     const subgoal = goal.subgoals.id(subgoalId);
+    checkGoalRevision(goal, req);
     if (!subgoal) {
       return res.status(404).json({ message: "Subgoal not found" });
     }
@@ -702,7 +742,7 @@ export const updateGoalSubgoalProgress = async (req, res) => {
     );
 
     const progressChange = applySubgoalProgressToGoal(goal, wasCompleted);
-    await goal.save();
+    await saveGoal(goal, req);
 
     if (progressChange.changed) {
       await recordProgressLog(goal, {
@@ -718,7 +758,7 @@ export const updateGoalSubgoalProgress = async (req, res) => {
 
     res.json(serializeGoal(goal));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return goalFailure(res, error);
   }
 };
 
@@ -738,6 +778,7 @@ export const deleteGoalSubgoal = async (req, res) => {
     }
 
     const subgoal = goal.subgoals.id(subgoalId);
+    checkGoalRevision(goal, req);
     if (!subgoal) {
       return res.status(404).json({ message: "Subgoal not found" });
     }
@@ -758,7 +799,7 @@ export const deleteGoalSubgoal = async (req, res) => {
     );
 
     const progressChange = applySubgoalProgressToGoal(goal, wasCompleted);
-    await goal.save();
+    await saveGoal(goal, req);
 
     if (progressChange.changed) {
       await recordProgressLog(goal, {
@@ -774,7 +815,7 @@ export const deleteGoalSubgoal = async (req, res) => {
 
     res.json(serializeGoal(goal));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return goalFailure(res, error);
   }
 };
 
@@ -794,15 +835,16 @@ export const toggleGoalImportant = async (req, res) => {
     if (req.body?.isImportant !== undefined && typeof req.body.isImportant !== "boolean") {
       return res.status(400).json({ message: "isImportant must be a boolean" });
     }
+    checkGoalRevision(goal, req);
     const nextImportant = typeof req.body?.isImportant === "boolean" ? req.body.isImportant : !goal.isImportant;
     if (Boolean(goal.isImportant) === nextImportant) return res.json(serializeGoal(goal));
     goal.isImportant = nextImportant;
     appendActivityLog(goal, buildActivityLogEntry("important_toggled", goal.title));
-    await goal.save();
+    await saveGoal(goal, req);
 
     res.json(serializeGoal(goal));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return goalFailure(res, error);
   }
 };
 
@@ -816,18 +858,19 @@ export const deleteGoal = async (req, res) => {
     const existingGoal = await Goal.findOne({
       _id: goalId,
       userId: req.user.id,
-      deletedAt: null
     });
 
     if (!existingGoal) {
       return res.status(404).json({ message: "Goal not found" });
     }
+    if (existingGoal.deletedAt) return res.json({ message: "Goal already deleted", goal: serializeGoal(existingGoal), ...getDeleteUndoMeta(existingGoal.deletedAt) });
+    checkGoalRevision(existingGoal, req);
 
     const deletedAt = new Date();
     existingGoal.deletedAt = deletedAt;
     existingGoal.archivedReason = "deleted";
     appendActivityLog(existingGoal, buildActivityLogEntry("deleted", existingGoal.title, deletedAt));
-    await existingGoal.save();
+    await saveGoal(existingGoal, req);
 
     res.json({
       message: "Goal archived as deleted",
@@ -835,7 +878,7 @@ export const deleteGoal = async (req, res) => {
       ...getDeleteUndoMeta(deletedAt)
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return goalFailure(res, error);
   }
 };
 
@@ -854,6 +897,7 @@ export const restoreGoal = async (req, res) => {
     if (!goal.deletedAt || goal.archivedReason !== "deleted") {
       return res.status(400).json({ message: "Only deleted goals can be restored" });
     }
+    checkGoalRevision(goal, req);
 
     const deleteUndoMeta = getDeleteUndoMeta(goal.deletedAt);
     if (!deleteUndoMeta.canUndoDelete) {
@@ -865,11 +909,11 @@ export const restoreGoal = async (req, res) => {
     goal.deletedAt = null;
     goal.archivedReason = null;
     appendActivityLog(goal, buildActivityLogEntry("restored", goal.title, new Date()));
-    await goal.save();
+    await saveGoal(goal, req);
 
     res.json(serializeGoal(goal));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return goalFailure(res, error);
   }
 };
 
@@ -880,17 +924,6 @@ export const getGoalLogs = async (req, res) => {
       ? Math.max(1, Math.min(requestedLimit, 200))
       : 50;
     const userId = new mongoose.Types.ObjectId(req.user.id);
-
-    const today = getStartOfDay(new Date());
-    const endedCandidates = await Goal.find({
-      userId,
-      deletedAt: null,
-      deadline: { $lt: today }
-    }).select("title deadline deletedAt activityLogs");
-
-    for (const goal of endedCandidates) {
-      await maybeAppendEndedLogIfDue(goal, today);
-    }
 
     const logs = await Goal.aggregate([
       { $match: { userId } },
@@ -941,7 +974,7 @@ export const getGoalLogs = async (req, res) => {
 
     res.json(values);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return goalFailure(res, error);
   }
 };
 
@@ -996,15 +1029,15 @@ export const getGoalSummary = async (req, res) => {
       serverNow: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return goalFailure(res, error);
   }
 };
 
 export const getGoalHeatmap = async (req, res) => {
   try {
     const { year } = req.query;
-    const parsedYear = Number.parseInt(year, 10);
-    const hasYearFilter = Number.isFinite(parsedYear);
+    const parsedYear = Number(year);
+    const hasYearFilter = typeof year === "string" && /^\d+$/.test(year) && Number.isSafeInteger(parsedYear) && parsedYear >= 1970 && parsedYear <= 3000;
 
     if (year !== undefined && !hasYearFilter) {
       return res.status(400).json({ message: "Year must be a valid number" });
@@ -1094,7 +1127,7 @@ export const getGoalHeatmap = async (req, res) => {
       totalContributions
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return goalFailure(res, error);
   }
 };
 

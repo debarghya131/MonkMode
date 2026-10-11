@@ -38,7 +38,7 @@ export function normalizeGoal(goal, timezone, today) {
   return {
     ...goal, id: String(goal.id || goal._id), goalType,
     type: goalType === "long-term" ? "Long-term" : "Short-term",
-    startDate: goalDayKey(goal.startDate, timezone), deadline,
+    startDate: goalDayKey(goal.startDate || goal.createdAt, timezone), deadline,
     status: deleted || (deadline && deadline < today) ? "Archived" : "Active",
     archiveReason: deleted ? "deleted" : deadline && deadline < today ? "ended" : null,
     milestones: (Array.isArray(goal.milestones) ? goal.milestones : []).map(milestone => ({

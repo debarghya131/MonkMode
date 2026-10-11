@@ -43,4 +43,6 @@ const habitSchema = new mongoose.Schema({
   activityLogs: { type: [activityLogSchema], default: [] }
 }, { timestamps: true });
 
+habitSchema.index({ userId: 1, createdAt: -1 });
+
 export default mongoose.model("Habit", habitSchema);

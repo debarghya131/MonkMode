@@ -8,6 +8,7 @@
     "dev": "NODE_ENV=development nodemon server.js",
     "start:production": "NODE_ENV=production node server.js",
     "db:init": "node scripts/initializeDatabase.js",
+    "db:index:habits": "node scripts/ensureHabitAnalysisIndex.js",
     "test": "node --test tests/*.test.js",
     "test:goals": "node --test tests/goalActivityUtils.test.js",
     "migrate:activity-retention": "node scripts/migrateActivityRetention.js",

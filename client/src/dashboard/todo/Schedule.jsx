@@ -11,6 +11,7 @@ import {
 import useAuth from "../../hooks/useAuth";
 import api from "../../api/axios";
 import { formatTodoTime, effectiveTodoDay, isTodoArchived, isTodoOnDay, todoTimeOnDay } from "./todoUtils";
+import { validTodo, validTodoDeletion, validTodoLogs, todoFailureMessage, todoRevision, uncertainTodoWrite } from "./todoResponse";
 
 const PRIORITIES = ["High", "Medium", "Low"];
 const PRIORITY_EMOJI = {
@@ -136,6 +137,7 @@ export default function Schedule({
   clock,
   timezone,
   requestSignal,
+  refreshTasks,
 }) {
   const { isDemoMode } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -156,19 +158,26 @@ export default function Schedule({
   const today = clock.date;
   const [saving, setSaving] = useState(false);
   const writeLock = useRef(false);
+  const [writeBlocked, setWriteBlocked] = useState(false);
+  const editingRevision = useRef({});
   const [logsError, setLogsError] = useState("");
   const [logsLoading, setLogsLoading] = useState(!isDemoMode);
   const logVersion = useRef(0);
+  const logController = useRef(null);
   const calendarSectionRef = useRef(null);
   const formPanelRef = useRef(null);
 
   const refreshTaskLogs = useCallback(async () => {
     if (isDemoMode) return;
     const version = ++logVersion.current;
+    logController.current?.abort();
+    const controller = new AbortController();
+    logController.current = controller;
     setLogsLoading(true);
     try {
-      const { data } = await api.get("/todos/logs");
-      if (version === logVersion.current) { setTaskLogs(data); setLogsError(""); }
+      const { data } = await api.get("/todos/logs", { signal: controller.signal, timeout: 15000 });
+      if (!validTodoLogs(data)) throw new Error("Invalid task logs");
+      if (!controller.signal.aborted && version === logVersion.current) { setTaskLogs(data); setLogsError(""); }
     } catch {
       if (version === logVersion.current) setLogsError("Could not load activity logs. Please retry.");
     } finally {
@@ -193,6 +202,7 @@ export default function Schedule({
     window.addEventListener("monkmode:todos-updated", refreshTaskLogs);
     return () => {
       logVersion.current += 1;
+      logController.current?.abort();
       window.removeEventListener("focus", refreshTaskLogs);
       window.removeEventListener("monkmode:todos-updated", refreshTaskLogs);
     };
@@ -448,6 +458,9 @@ export default function Schedule({
     if (!form.repeatType) return "Repeat type is required.";
     if (!form.time) return "Time is required.";
     if (!editingId && (form.repeatType === "once" ? form.date : form.startDate) < today) return "New tasks cannot start in the past.";
+    const existingAnchor = editingTask?.repeatType === "once" ? editingTask.date : editingTask?.startDate;
+    const nextAnchor = form.repeatType === "once" ? form.date : form.startDate;
+    if (editingId && existingAnchor > today && (nextAnchor < today || (nextAnchor === today && form.time <= clock.time))) return "Rescheduled tasks cannot start in the past or at an elapsed time.";
 
     if (form.repeatType === "once") {
       if (!form.date) return "Date is required for one-time tasks.";
@@ -494,7 +507,7 @@ export default function Schedule({
 
   const handleSubmit = async event => {
     event.preventDefault();
-    if (isDemoMode || writeLock.current) return;
+    if (isDemoMode || writeLock.current || writeBlocked) return;
     setTouched({ title: true, category: true, priority: true, repeatType: true, time: true, date: true, startDate: true });
     const validationError = validateForm();
     if (validationError) { setError(validationError); return; }
@@ -505,9 +518,13 @@ export default function Schedule({
     writeLock.current = true;
     setSaving(true);
     setError("");
+    let acknowledged = false;
     try {
-      const options = { signal: requestSignal };
-      const { data } = editingId ? await api.patch(`/todos/${editingId}`, payload, options) : await api.post("/todos", payload, options);
+      const options = { signal: requestSignal, timeout: 20000 };
+      const { data } = editingId ? await api.patch(`/todos/${editingId}`, { ...payload, ...editingRevision.current }, options) : await api.post("/todos", payload, options);
+      if (requestSignal?.aborted) return;
+      acknowledged = true;
+      if (!validTodo(data) || (editingId && data.id !== editingId)) throw new Error("Invalid save confirmation");
       setTasks(previous => editingId ? previous.map(task => task.id === editingId ? data : task) : [data, ...previous]);
       setEditingId(null);
       const date = form.repeatType === "once" ? form.date : form.startDate;
@@ -517,38 +534,59 @@ export default function Schedule({
       setUpdateInfo(data.auditWarning || (data.reflectFromNextDay || data.reflectDaysFromNextDay ? "Saved. Updated time/custom days take effect tomorrow." : "Task saved."));
       window.dispatchEvent(new Event("monkmode:todos-updated"));
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to save task. Your form has been kept; please retry.");
+      if (requestSignal?.aborted) return;
+      const uncertain = uncertainTodoWrite(err, acknowledged);
+      if (uncertain) setWriteBlocked(true);
+      setError(todoFailureMessage(err, uncertain ? "The save could not be confirmed. Reload tasks and check the list before saving again. Your draft is still here."
+        : "Failed to save task. Your form has been kept; please retry."));
     } finally { writeLock.current = false; setSaving(false); }
   };
 
   const handleDelete = async id => {
-    if (isDemoMode || writeLock.current) return;
+    if (isDemoMode || writeLock.current || writeBlocked) return;
     writeLock.current = true;
     setSaving(true);
     setUndoError("");
+    let acknowledged = false;
     try {
-      const { data } = await api.delete(`/todos/${id}`, { signal: requestSignal });
+      const { data } = await api.delete(`/todos/${id}`, { data: todoRevision(tasks.find(task => task.id === id)), signal: requestSignal, timeout: 20000 });
+      if (requestSignal?.aborted) return;
+      acknowledged = true;
+      if (!validTodoDeletion(data, id)) throw new Error("Invalid deletion confirmation");
       setTasks(previous => previous.map(task => task.id === id ? data.todo : task));
       if (editingId === id) { setEditingId(null); resetFormAfterSubmit(); }
       if (data.auditWarning) setUndoError(data.auditWarning);
       window.dispatchEvent(new Event("monkmode:todos-updated"));
-    } catch (err) { setUndoError(err.response?.data?.message || "Could not delete task. Please retry."); }
+    } catch (err) {
+      if (requestSignal?.aborted) return;
+      if (uncertainTodoWrite(err, acknowledged)) setWriteBlocked(true);
+      setUndoError(todoFailureMessage(err, "Deletion could not be confirmed. Reload tasks before trying again."));
+    }
     finally { writeLock.current = false; setSaving(false); }
   };
 
   const handleUndoDelete = async logId => {
     const log = taskLogs.find(item => item.id === logId) || { deletedItem: tasks.find(task => task.id === logId && task.deletedAt) };
-    if (isDemoMode || writeLock.current || !log?.deletedItem?.id) return;
+    if (isDemoMode || writeLock.current || writeBlocked || !log?.deletedItem?.id) return;
     writeLock.current = true;
     setSaving(true);
     setRestoringLogId(logId);
     setUndoError("");
+    let acknowledged = false;
     try {
-      const { data } = await api.patch(`/todos/${log.deletedItem.id}/restore`, {}, { signal: requestSignal });
+      const id = log.deletedItem.id;
+      const { data } = await api.patch(`/todos/${id}/restore`, todoRevision(tasks.find(task => task.id === id) || log.deletedItem), { signal: requestSignal, timeout: 20000 });
+      if (requestSignal?.aborted) return;
+      acknowledged = true;
+      if (!validTodo(data) || data.id !== id || data.deletedAt) throw new Error("Invalid restore confirmation");
       setTasks(previous => previous.map(task => task.id === data.id ? data : task));
       if (data.auditWarning) setUndoError(data.auditWarning);
       window.dispatchEvent(new Event("monkmode:todos-updated"));
-    } catch (err) { setUndoError(err.response?.data?.message || "Could not restore task. Please retry."); }
+    } catch (err) {
+      if (requestSignal?.aborted) return;
+      if (uncertainTodoWrite(err, acknowledged)) setWriteBlocked(true);
+      setUndoError(todoFailureMessage(err, "Restore could not be confirmed. Reload tasks before trying again."));
+    }
     finally { writeLock.current = false; setSaving(false); setRestoringLogId(null); }
   };
 
@@ -589,6 +627,8 @@ export default function Schedule({
   };
 
   const startEdit = (task) => {
+    if (writeBlocked) return;
+    editingRevision.current = todoRevision(task);
     setEditingId(task.id);
     setForm({
       title: task.title,
@@ -614,6 +654,20 @@ export default function Schedule({
 
   return (
     <div className="todo-schedule-view" data-mobile-view={mobileView}>
+      {writeBlocked && <div role="alert" className="mb-3 rounded-xl border border-rose-400/30 p-3 text-sm text-rose-200">
+        <p>The last change could not be confirmed or conflicted with another request. Reload the task list before making another change. Reloading replaces this form draft.</p>
+        <button type="button" disabled={saving} className="mt-2 underline" onClick={async () => {
+          if (writeLock.current) return;
+          writeLock.current = true;
+          setSaving(true);
+          try {
+            if (await refreshTasks()) {
+              setWriteBlocked(false); setEditingId(null); setUndoError(""); resetFormAfterSubmit();
+              setForm(previous => ({ ...previous, startDate: today, endDate: "", neverEnds: true, days: ["Mon", "Wed", "Fri"] }));
+            }
+          } finally { writeLock.current = false; setSaving(false); }
+        }}>Reload tasks (replaces draft)</button>
+      </div>}
       <nav className="schedule-mobile-nav" aria-label="Schedule sections" data-demo-allow="true">
         {SCHEDULE_VIEWS.map((view) => (
           <button
@@ -908,12 +962,12 @@ export default function Schedule({
               </div>
             )}
 
-            {error ? <p className="text-xs text-red-300">{error}</p> : null}
+            {error ? <p role="alert" className="text-xs text-red-300">{error}</p> : null}
             {updateInfo ? <p className="text-xs text-emerald-300">{updateInfo}</p> : null}
 
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || writeBlocked}
               aria-busy={saving}
               className="dashboard-card-action w-full"
               data-tone="warning"
@@ -994,12 +1048,12 @@ export default function Schedule({
                           </span>
                           {!isArchiveView && (
                             <div className="schedule-task-actions flex items-center gap-1.5">
-                              <button type="button" disabled={saving} onClick={() => startEdit(task)} className="dashboard-card-action" data-tone="warning">Edit</button>
-                              <button type="button" disabled={saving} onClick={() => handleDelete(task.id)} className="dashboard-card-action" data-tone="danger">Delete</button>
+                              <button type="button" disabled={saving || writeBlocked} onClick={() => startEdit(task)} className="dashboard-card-action" data-tone="warning">Edit</button>
+                              <button type="button" disabled={saving || writeBlocked} onClick={() => handleDelete(task.id)} className="dashboard-card-action" data-tone="danger">Delete</button>
                             </div>
                           )}
                           {isArchiveView && isDeletedTask && task.canUndoDelete && Date.parse(task.deleteUndoExpiresAt) > Date.now() && (
-                            <button type="button" disabled={saving} onClick={() => handleUndoDelete(task.id)} className="dashboard-card-action" data-tone="warning">Restore</button>
+                            <button type="button" disabled={saving || writeBlocked} onClick={() => handleUndoDelete(task.id)} className="dashboard-card-action" data-tone="warning">Restore</button>
                           )}
                         </div>
                       </div>
@@ -1148,7 +1202,7 @@ export default function Schedule({
               {logsError && <div role="alert" className="mb-2 text-xs text-rose-300">{logsError} <button type="button" onClick={refreshTaskLogs} className="underline">Retry logs</button></div>}
               {logsLoading && <p role="status" className="mb-2 text-xs text-stone-400">Loading activity logs…</p>}
               {undoError && (
-                <p className="mb-2 shrink-0 rounded-md border border-rose-400/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-300">{undoError}</p>
+                <p role="alert" className="mb-2 shrink-0 rounded-md border border-rose-400/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-300">{undoError}</p>
               )}
               {allLogs.length === 0 ? (
                 <p className="text-sm text-stone-400">{!logsLoading && !logsError ? "No task logs yet." : ""}</p>
@@ -1191,7 +1245,7 @@ export default function Schedule({
                           <button
                             type="button"
                             onClick={() => handleUndoDelete(log.id)}
-                            disabled={saving}
+                            disabled={saving || writeBlocked}
                             className="dashboard-card-action"
                             data-tone="warning"
                             title="Undo delete (available for 48 hours)"

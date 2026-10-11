@@ -86,11 +86,11 @@ function GymContent() {
       <fieldset disabled={environment.busy} className="m-0 min-w-0 border-0 p-0 contents" aria-busy={environment.busy}>
       {(!requestedSections || environment.ready) && <>
       {lowMotion ? (
-        <div key={active} className="gym-content">{section[active]}</div>
+        <div key={`${active}-${environment.recoveryEpoch}`} className="gym-content">{section[active]}</div>
       ) : (
         <AnimatePresence mode="wait">
           <Motion.div
-            key={active}
+            key={`${active}-${environment.recoveryEpoch}`}
             className="gym-content"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}

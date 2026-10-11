@@ -107,6 +107,7 @@ export const getNavbarConsistency = async (req, res) => {
       allSectionsComplete,
       monkStreakDays,
       timezone: APP_TIMEZONE,
+      serverNow: new Date().toISOString(),
       sections: {
         journal: {
           submittedToday: journalTodaySubmitted,

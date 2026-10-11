@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../../../api/axios";
 import { todoReportDay } from "../../../../../shared/todoWeeklyStats.js";
 import { demoJournalAnalysis } from "./journalAnalysisData";
+import { journalAnalysisClockValid, validJournalAnalysisResponse } from "./journalAnalysisResponse";
 
 export default function useJournalAnalysisData(isDemoMode) {
   const [clock, setClock] = useState({ timezone: "Asia/Kolkata", offset: 0 });
@@ -25,20 +26,20 @@ export default function useJournalAnalysisData(isDemoMode) {
     api.get("/journal/analysis", { params: { year: period.year, month: Number(period.month) }, signal: controller.signal, timeout: 15000 })
       .then(({ data }) => {
         if (controller.signal.aborted) return;
-        if (data?.year !== Number(period.year) || data.month !== Number(period.month) || !Array.isArray(data.entries)
-          || !Array.isArray(data.analysis?.days) || !Array.isArray(data.analysis?.weeks) || !Array.isArray(data.analysis?.moods)) throw new Error("Invalid analysis response");
-        if (data.serverNow && data.timezone) setClock({ timezone: data.timezone, offset: Date.parse(data.serverNow) - Date.now() });
+        if (!validJournalAnalysisResponse(data, period)) throw new Error("Invalid analysis response");
+        setClock({ timezone: data.timezone, offset: Date.parse(data.serverNow) - Date.now() });
         setState({ loading: false, error: "", data });
       })
       .catch(err => {
         if (controller.signal.aborted) return;
         const meta = err.response?.data;
-        if (meta?.today && meta?.timezone && meta?.serverNow && `${period.year}-${period.month}` > meta.today.slice(0, 7)) {
+        if (err.response?.status === 400 && journalAnalysisClockValid(meta) && `${period.year}-${period.month}` > meta.today.slice(0, 7)) {
           setClock({ timezone: meta.timezone, offset: Date.parse(meta.serverNow) - Date.now() });
           setPeriod({ year: meta.today.slice(0, 4), month: meta.today.slice(5, 7) });
           return;
         }
-        setState({ loading: false, error: meta?.message || "Could not load Journal Analysis. Please retry.", data: null });
+        setState({ loading: false, error: typeof meta?.message === "string" && meta.message.trim()
+          ? meta.message : "Could not load Journal Analysis. Please retry.", data: null });
       });
     return () => controller.abort();
   }, [period, today, attempt, isDemoMode]);
