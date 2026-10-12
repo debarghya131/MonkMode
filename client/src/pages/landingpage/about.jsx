@@ -30,7 +30,7 @@ function GitHubLogo() {
 
 export default function About() {
   return (
-    <main className="auth-page relative min-h-dvh overflow-x-hidden text-white sm:min-h-screen">
+    <main className="auth-page public-content-page relative min-h-dvh overflow-x-hidden text-white sm:min-h-screen">
       <div className="fixed inset-0">
         <AuthBackground />
       </div>

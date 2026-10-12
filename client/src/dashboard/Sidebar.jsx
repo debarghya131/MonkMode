@@ -229,7 +229,7 @@ export default function Sidebar({ onLogout, onNavigate }) {
              Debarghya 💛
           </p>
         </div>
-        <div className="shrink-0 border-t border-amber-100/10 pt-3 2xl:pt-5">
+        <div className="dashboard-sidebar-footer shrink-0 border-t border-amber-100/10 pt-3 2xl:pt-5">
           <button
             type="button"
             onClick={onLogout}

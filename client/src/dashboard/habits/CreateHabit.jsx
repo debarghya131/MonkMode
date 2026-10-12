@@ -826,7 +826,7 @@ export default function CreateHabit({ entity = "habit" }) {
             </div>
 
             {/* Target Streak + Time of Day */}
-            <div className="habit-form-row grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="habit-form-row habit-form-row-target grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Target Streak (Days)</label>
                 <input
@@ -957,7 +957,7 @@ export default function CreateHabit({ entity = "habit" }) {
             </div>
 
             {/* Repeat + Time */}
-            <div className="habit-form-row grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="habit-form-row habit-form-row-time grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                   Repeat <span className="text-red-400">*</span>

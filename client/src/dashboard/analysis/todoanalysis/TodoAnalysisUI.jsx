@@ -4,14 +4,13 @@ import useTodoAnalysis from "./todoAnalysisContext";
 
 const months = Array.from({ length: 12 }, (_, index) => ({ value: String(index + 1).padStart(2,"0"), label: new Date(Date.UTC(2026,index,1)).toLocaleDateString("en", { month: "long", timeZone: "UTC" }) }));
 
-export function AnalysisView({ children, insights }) {
-  const { data, error, loading, retry, period, setPeriod, today, isDemoMode } = useTodoAnalysis();
+export function TodoPeriodFilters() {
+  const { data, period, setPeriod, today } = useTodoAnalysis();
   const currentYear = Number(today.slice(0, 4));
   const oldest = Math.min(currentYear - 3, Number(data?.joinedDay?.slice(0,4)) || currentYear, Number(period.year));
   const years = Array.from({ length: Math.min(100, currentYear-oldest+1) },(_,index)=>String(currentYear-index));
   const changeYear = year => setPeriod({ year, month: year === today.slice(0,4) && period.month > today.slice(5,7) ? today.slice(5,7) : period.month });
-  return <section className="todo-analysis-section space-y-4">
-    <div className="todo-analysis-filters flex flex-wrap gap-2">
+  return <div className="todo-analysis-filters flex flex-wrap gap-2">
       <label className="flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-stone-300">Year
         <DashboardSelect aria-label="Analysis year" value={period.year} onChange={event=>changeYear(event.target.value)}>
           {years.map(year=><option key={year} value={year}>{year}</option>)}
@@ -22,7 +21,12 @@ export function AnalysisView({ children, insights }) {
           {months.filter(month=>period.year !== today.slice(0,4) || month.value <= today.slice(5,7)).map(month=><option key={month.value} value={month.value}>{month.label}</option>)}
         </DashboardSelect>
       </label>
-    </div>
+    </div>;
+}
+
+export function AnalysisView({ children, insights }) {
+  const { data, error, loading, retry, period, isDemoMode } = useTodoAnalysis();
+  return <section className="todo-analysis-section space-y-4">
     {loading ? <div role="status" className="rounded-2xl border border-white/10 p-8 text-stone-300">Loading ToDo Analysis…</div>
       : error ? <div className="rounded-2xl border border-red-400/20 p-6 text-red-200"><p role="alert">{error}</p><button type="button" onClick={retry} className="mt-3 rounded-lg border px-3 py-2">Retry analysis</button></div>
       : data && <div className="todo-analysis-layout flex min-h-0 flex-col gap-4 lg:flex-row">

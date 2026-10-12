@@ -1,6 +1,7 @@
 import { AnalysisChart } from "../journalanalysis/AnalysisUI";
 import { AnalysisView } from "./HabitAnalysisUI";
 import useHabitAnalysis from "./habitAnalysisContext";
+import { compactChartLabels } from "./habitAnalysisFormatters";
 
 const series = [
   { key: "completionRate", label: "Completed", color: "#34d399", unit: "%" },
@@ -27,7 +28,7 @@ export default function CategPrioTimeAnalysis() {
   ];
   return <AnalysisView insights={insights}>
     {analysis && <>
-      <AnalysisChart title="Category-wise Habit Analysis" subtitle="All retained categories · pending is not missed" rows={analysis.categories} series={series} type="bar" />
+      <AnalysisChart title="Category-wise Habit Analysis" subtitle="All retained categories · pending is not missed" rows={compactChartLabels(analysis.categories)} series={series} type="bar" />
       <AnalysisChart title="Priority-wise Habit Analysis" subtitle="High, Medium & Low · unscheduled priorities have no rate" rows={analysis.priorities} series={series} type="bar" />
       <AnalysisChart title="Time of Day Habit Analysis" subtitle="Configured time of day, not actual check-in time · Unspecified included" rows={analysis.times} series={series} type="bar" />
       <p className="rounded-xl border border-amber-200/20 bg-amber-500/5 p-4 text-sm leading-6 text-stone-300">Time-of-day charts use your habit assignments, not actual completion hours or work duration. Today's reminder time is not a deadline. Retained schedule edits may affect historical groupings.</p>

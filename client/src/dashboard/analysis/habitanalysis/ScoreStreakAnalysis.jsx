@@ -1,6 +1,7 @@
 import { AnalysisChart } from "../journalanalysis/AnalysisUI";
 import { AnalysisView } from "./HabitAnalysisUI";
 import useHabitAnalysis from "./habitAnalysisContext";
+import { compactChartLabels } from "./habitAnalysisFormatters";
 
 export default function ScoreStreakAnalysis() {
   const { data } = useHabitAnalysis();
@@ -28,7 +29,7 @@ export default function ScoreStreakAnalysis() {
       <AnalysisChart title="Full-completion Calendar Streak" subtitle="Separate from per-habit scheduled-occurrence streaks · pink zero points mark inactive days"
         rows={analysis.days.map(row=>({...row,streak:row.fullStreak}))} series={[{key:"streak",label:"Full-completion streak",color:"#38bdf8",unit:" days"}]}
         integerTicks max={Math.max(1,analysis.longestFullCompletionStreak)} />
-      <AnalysisChart title="Individual Habit Occurrence Streaks" subtitle="Scheduled check-ins, not calendar days · old or ended runs are not current" rows={analysis.habits}
+      <AnalysisChart title="Individual Habit Occurrence Streaks" subtitle="Scheduled check-ins, not calendar days · old or ended runs are not current" rows={compactChartLabels(analysis.habits)}
         series={[{key:"longestStreak",label:"Longest in month",color:"#fbbf24",unit:" check-ins"},{key:"currentRun",label:"Current month-local run",color:"#34d399",unit:" check-ins"}]}
         type="bar" integerTicks max={Math.max(1,analysis.longestHabitStreak)} />
     </>}

@@ -133,7 +133,7 @@ function PriorityFilter({ selected, onChange }) {
     return { All: "border-amber-300/50 bg-amber-500/20 text-amber-100", High: "border-red-400/50 bg-red-500/20 text-red-100", Medium: "border-yellow-400/50 bg-yellow-500/20 text-yellow-100", Low: "border-green-400/50 bg-green-500/20 text-green-100" }[level];
   };
   return (
-    <div className="mt-3 flex flex-wrap gap-1.5">
+    <div className="todo-priority-filter mt-3 flex flex-wrap gap-1.5">
       {["All", "High", "Medium", "Low"].map((level) => (
         <button key={level} type="button" onClick={() => onChange(level)}
           className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold leading-5 transition ${colorMap(level, selected === level)}`}>

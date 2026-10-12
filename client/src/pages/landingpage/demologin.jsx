@@ -56,19 +56,19 @@ export default function DemoLogin() {
   const progressPercent = Math.round(safeProgress * 100);
 
   return (
-    <div className="auth-page relative flex min-h-dvh items-center justify-center overflow-x-hidden px-4 py-6 text-white sm:px-6 sm:py-8">
+    <div className="auth-page auth-flow-page relative flex min-h-dvh items-center justify-center overflow-x-hidden px-4 py-6 text-white sm:px-6 sm:py-8">
       {!isEntering && <AuthBackground />}
 
       <div className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center">
         {!isEntering && <AuthFloatingMonk />}
 
         <Motion.div
-          className="-mt-4 w-full overflow-hidden rounded-[1.75rem] border border-amber-100/10 bg-white/6 shadow-2xl shadow-black/25 backdrop-blur sm:-mt-10 sm:rounded-[2rem]"
+          className="auth-panel -mt-4 w-full overflow-hidden rounded-[1.75rem] border border-amber-100/10 bg-white/6 shadow-2xl shadow-black/25 backdrop-blur sm:-mt-10 sm:rounded-[2rem]"
           initial={{ opacity: 0, y: 28 }}
           animate={isEntering ? { opacity: 0, y: -12, scale: 0.97 } : { opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          <div className="p-4 sm:p-8 md:p-10">
+          <div className="auth-panel-body p-4 sm:p-8 md:p-10">
             <div className="mx-auto w-full max-w-md">
               <Motion.p
                 className="auth-overline text-[0.66rem] uppercase tracking-[0.28em] text-amber-200/70 sm:text-[0.72rem] sm:tracking-[0.35em]"
@@ -87,7 +87,7 @@ export default function DemoLogin() {
                 Explore MonkMode
               </Motion.h2>
               <Motion.p
-                className="mt-2.5 text-sm leading-6 text-stone-300 sm:mt-3 sm:leading-7"
+                className="auth-intro mt-2.5 text-sm leading-6 text-stone-300 sm:mt-3 sm:leading-7"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.3 }}
@@ -171,16 +171,16 @@ export default function DemoLogin() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
-            className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top,rgba(255,214,107,0.16),transparent_24%),linear-gradient(180deg,rgba(5,7,14,0.76)_0%,rgba(5,5,10,0.92)_38%,rgba(2,2,6,0.98)_100%)] py-8 backdrop-blur-md"
+            className="demo-entry fixed inset-0 z-40 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top,rgba(255,214,107,0.16),transparent_24%),linear-gradient(180deg,rgba(5,7,14,0.76)_0%,rgba(5,5,10,0.92)_38%,rgba(2,2,6,0.98)_100%)] py-8 backdrop-blur-md"
           >
             <Motion.div
               initial={{ opacity: 0, scale: 0.92, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               transition={{ duration: 0.42, ease: "easeOut" }}
-              className="relative flex w-full max-w-xl flex-col items-center px-6 text-center"
+              className="demo-entry-content relative flex w-full max-w-xl flex-col items-center px-6 text-center"
             >
               {/* Monk + rings — all centered in one wrapper */}
-              <div className="relative flex items-center justify-center">
+              <div className="demo-entry-art relative flex items-center justify-center">
                 <Motion.div
                   className="absolute h-60 w-60 rounded-full bg-[radial-gradient(circle,rgba(255,215,120,0.55),rgba(255,176,66,0.18),transparent_68%)] blur-3xl"
                   animate={{ scale: [0.92, 1.1, 0.96], opacity: [0.62, 0.95, 0.7] }}
@@ -213,7 +213,7 @@ export default function DemoLogin() {
               </div>
 
               <Motion.div
-                className="relative z-10 mt-7"
+                className="demo-entry-copy relative z-10 mt-7"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.32 }}
@@ -229,7 +229,7 @@ export default function DemoLogin() {
                 </p>
               </Motion.div>
 
-              <div className="relative z-10 mt-8 w-full max-w-sm">
+              <div className="demo-entry-progress relative z-10 mt-8 w-full max-w-sm" role="progressbar" aria-label="Entering Monk Mode" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
                 <div className="h-2 overflow-hidden rounded-full bg-white/8">
                   <Motion.div
                     className="h-full rounded-full bg-gradient-to-r from-amber-200 via-yellow-300 to-orange-400"

@@ -23,7 +23,7 @@ export default function StrengthProgressAnalysis() {
     {title:"Exercise-time Change",value:signedLabel(selected.timeChange,"min"),description:"Time is a logged duration, not speed, intensity, or a performance judgement."},
   ];
   return <AnalysisView insights={insights}>{a && <>
-    <div className="flex flex-wrap gap-4">
+    <div className="gym-analysis-metric-grid rounded-2xl border border-amber-100/10 bg-black/10 p-4">
       <MetricPicker label="Body group" value={selectedGroup} onChange={setGroup} options={groups.map(value=>({value,label:value}))}/>
       {selected && <MetricPicker label="Exercise" value={selected.id} onChange={setId} options={options.map(row=>({value:row.id,label:row.label}))}/>}
       <MetricPicker label="Strength metric" value={metric} onChange={setMetric} options={metrics}/>
@@ -31,6 +31,6 @@ export default function StrengthProgressAnalysis() {
     {!selected && <p role="status" className="text-sm text-stone-400">No exercise progress recorded in this period.</p>}
     <AnalysisChart title="Exercise Progress in Selected Month" subtitle={(selected?.label||"No exercise")+" · "+units[metric]+" · only recorded dates; missing readings are gaps"}
       rows={rows} max={Math.max(1,...rows.map(row=>row[metric]||0))} integerTicks={["sets","reps"].includes(metric)}
-      series={[{key:metric,label:metrics.find(row=>row.value===metric).label,color:"#38bdf8",unit:units[metric]}]} />
+      series={[{key:metric,label:metrics.find(row=>row.value===metric).label.replace(/\s*\([^)]*\)$/, ""),color:"#38bdf8",unit:units[metric]}]} />
   </>}</AnalysisView>;
 }

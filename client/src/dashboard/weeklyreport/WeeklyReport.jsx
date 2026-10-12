@@ -1,5 +1,5 @@
 import { AnimatePresence, MotionConfig, motion as Motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import useAuth from "../../hooks/useAuth";
 import GYMWeeklyReport from "./GYMWeeklyReport";
@@ -7,6 +7,7 @@ import GoalWeeklyReport from "./GoalWeeklyReport";
 import HabitWeeklyReport from "./HabitWeeklyReport";
 import JournalWeeklyReport from "./JournalWeeklyReport";
 import ToDoWeeklyReport from "./ToDoWeeklyReport";
+import "./weeklyReport.css";
 
 const REPORT_TABS = [
   { id: "journal", icon: "📝", label: "Journal", Component: JournalWeeklyReport },
@@ -25,8 +26,25 @@ function WeeklyReportContent() {
   const lowMotion = useMobileLowMotion();
   const [activeTab, setActiveTab] = useState("journal");
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuId = useId();
+  const menuTriggerRef = useRef(null);
+  const contentRef = useRef(null);
   const activeReport = REPORT_TABS.find((tab) => tab.id === activeTab) ?? REPORT_TABS[0];
   const ActiveReport = activeReport.Component;
+
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+      contentRef.current.scrollLeft = 0;
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    const desktopNav = window.matchMedia("(min-width: 640px)");
+    const closeMenu = () => setMenuOpen(false);
+    desktopNav.addEventListener("change", closeMenu);
+    return () => desktopNav.removeEventListener("change", closeMenu);
+  }, []);
 
   return (
     <MotionConfig reducedMotion={lowMotion ? "always" : "user"}>
@@ -36,9 +54,23 @@ function WeeklyReportContent() {
       data-low-motion={lowMotion ? "true" : "false"}
     >
       {/* Mobile: hamburger dropdown */}
-      <div className="weekly-report-mobile-nav relative sm:hidden" data-demo-allow="true">
+      <div
+        className="weekly-report-mobile-nav relative sm:hidden"
+        data-demo-allow="true"
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && menuOpen) {
+            event.stopPropagation();
+            setMenuOpen(false);
+            menuTriggerRef.current?.focus();
+          }
+        }}
+      >
         <button
+          ref={menuTriggerRef}
           type="button"
+          aria-expanded={menuOpen}
+          aria-controls={menuOpen ? menuId : undefined}
+          aria-label={`Weekly report section: ${activeReport.label}`}
           onClick={() => setMenuOpen(!menuOpen)}
           className="dashboard-section-trigger flex w-full items-center justify-between gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-xl shadow-black/25"
         >
@@ -53,12 +85,12 @@ function WeeklyReportContent() {
         {menuOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-            <div className="absolute left-0 right-0 top-full z-50 mt-1.5 rounded-2xl border border-amber-100/10 bg-stone-950/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur">
+            <nav id={menuId} aria-label="Weekly report sections" className="weekly-report-menu absolute left-0 right-0 top-full z-50 mt-1.5 rounded-2xl border border-amber-100/10 bg-stone-950/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur">
               {REPORT_TABS.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => { setActiveTab(tab.id); setMenuOpen(false); }}
+                  onClick={() => { setActiveTab(tab.id); setMenuOpen(false); menuTriggerRef.current?.focus(); }}
                   aria-pressed={activeTab === tab.id}
                   className="dashboard-section-tab flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold"
                 >
@@ -66,13 +98,13 @@ function WeeklyReportContent() {
                   {tab.label}
                 </button>
               ))}
-            </div>
+            </nav>
           </>
         )}
       </div>
 
       {/* Desktop: horizontal scrollable nav */}
-      <nav data-demo-allow="true" className="weekly-report-nav hidden sm:flex items-center gap-1 w-full overflow-x-auto rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur scrollbar-none">
+      <nav aria-label="Weekly report sections" data-demo-allow="true" className="weekly-report-nav hidden sm:flex items-center gap-1 w-full overflow-x-auto rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur scrollbar-none">
         {REPORT_TABS.map((tab) => (
             <button
               key={tab.id}
@@ -87,7 +119,7 @@ function WeeklyReportContent() {
         ))}
       </nav>
 
-      <div className="weekly-report-content mt-6">
+      <div ref={contentRef} className="weekly-report-content mt-6">
         {lowMotion ? (
           <div key={activeReport.id} className="weekly-report-active-panel">
             <ActiveReport lowMotion={lowMotion} />

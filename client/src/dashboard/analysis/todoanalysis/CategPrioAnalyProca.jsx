@@ -29,13 +29,18 @@ export default function CategPrioAnalyProca() {
       description: "Uses Health, Bill & Payment, and your custom starred categories. Stars indicate your preferences, not an AI assessment." },
   ];
   const max = rows => Math.max(1,...rows.map(row=>row.total));
+  // Compact axis labels; tooltips, keyboard descriptions and tables retain
+  // the full category name so long custom names cannot overlap the bars.
+  const categoryRows = (analysis?.categories || []).map(row => ({ ...row,
+    chartLabel: row.name.length > 20 ? `${row.name.slice(0,19).trimEnd()}…` : row.name,
+  }));
   return <AnalysisView insights={insights}>
     {analysis && <>
       <AnalysisChart title="Category-wise Task Outcomes" subtitle="All retained categories · stars use your important-category preferences"
-        rows={analysis.categories.map(row=>({...row,label:row.name+(row.important?" ★":"")}))} series={outcomes} type="bar" integerTicks max={max(analysis.categories)} />
+        rows={categoryRows.map(row=>({...row,label:row.name+(row.important?" ★":""),chartLabel:row.chartLabel+(row.important?" ★":"")}))} series={outcomes} type="bar" integerTicks max={max(analysis.categories)} />
       <AnalysisChart title="Priority-wise Task Outcomes" subtitle="High, Medium & Low · pending stays separate from missed" rows={analysis.priorities} series={outcomes} type="bar" integerTicks max={max(analysis.priorities)} />
       <p className="rounded-xl border border-amber-200/20 bg-amber-500/5 p-4 text-sm leading-6 text-stone-300">Procrastination detection: recorded late completion is a possible signal, not proof of intent or cause. Missing timing is unknown, not on time. These charts do not measure work duration.</p>
-      <AnalysisChart title="Recorded Late Completions by Category" subtitle="Counts of saved late flags · unknown timing excluded" rows={analysis.categories} series={[{key:"lateCompleted",label:"Recorded late completions",color:"#fb923c"}]} type="bar" integerTicks max={Math.max(1,...analysis.categories.map(row=>row.lateCompleted))} />
+      <AnalysisChart title="Recorded Late Completions by Category" subtitle="Counts of saved late flags · unknown timing excluded" rows={categoryRows} series={[{key:"lateCompleted",label:"Recorded late completions",color:"#fb923c"}]} type="bar" integerTicks max={Math.max(1,...analysis.categories.map(row=>row.lateCompleted))} />
       <AnalysisChart title="Recorded Late Completions by Weekday" subtitle="Scheduled weekday, not actual completion weekday" rows={analysis.weekdays} series={[{key:"lateCompleted",label:"Recorded late completions",color:"#fb923c"}]} type="bar" integerTicks max={Math.max(1,...analysis.weekdays.map(row=>row.lateCompleted))} />
     </>}
   </AnalysisView>;

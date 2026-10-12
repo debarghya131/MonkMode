@@ -1,0 +1,88 @@
+/* Shared public navigation also appears on About and Features. */
+@media (max-width: 1023px) {
+  :root .landing-navbar .landing-mobile-menu {
+    position: absolute;
+    inset-inline: 0.75rem;
+    top: calc(100% - 0.5rem);
+    margin-top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.625rem;
+    max-height: calc(100dvh - 10rem - env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: rgba(15, 12, 11, 0.97);
+  }
+  :root .landing-navbar .landing-mobile-menu button {
+    flex-shrink: 0;
+    min-height: 2.75rem;
+    padding: 0.625rem 0.875rem;
+    line-height: 1.5;
+  }
+  :root .landing-navbar .landing-mobile-menu > div { margin-block: 0.125rem; }
+  :root .landing-navbar button:focus-visible { outline: 2px solid #fcd34d; outline-offset: 3px; }
+}
+
+@media (max-width: 639px) {
+  :root .landing-page { --landing-control-size: 2.75rem; }
+  :root .landing-navbar { padding: max(0.625rem, env(safe-area-inset-top)) 0.75rem 0.5rem; }
+  :root .landing-navbar .landing-nav-logo { min-height: 2.75rem; }
+  :root .landing-page .landing-hero {
+    flex: 0 0 auto;
+    padding: clamp(1rem, 5dvh, 3rem) 1rem 1.5rem;
+  }
+  :root .landing-page .landing-monk-stage { height: clamp(8rem, 22dvh, 11rem); }
+  :root .landing-page .landing-monk-illustration { width: clamp(9rem, 44vw, 11rem); }
+  :root .landing-page .landing-hero-actions { gap: 0.75rem; }
+  :root .landing-page .landing-hero-actions button { font-size: 0.75rem; letter-spacing: 0.12em; }
+  :root .landing-page .landing-demo-action { width: min(100%, 13rem); }
+  :root .landing-page .landing-signup-action { width: min(100%, 13rem); }
+  :root .landing-page .landing-hero-copy { margin-top: 1.25rem; }
+  :root .landing-page .landing-hero-copy h1 { font-size: clamp(2rem, 9vw, 2.5rem); line-height: 1.2; }
+  :root .landing-page .landing-hero-copy p { margin-top: 0.625rem; font-size: 0.875rem; line-height: 1.5; }
+
+  /* Center the complete auth group when it fits; long/error states grow and scroll. */
+  :root .auth-flow-page {
+    min-height: 100dvh;
+    align-items: center;
+    padding: max(1rem, env(safe-area-inset-top)) 0.75rem max(1rem, env(safe-area-inset-bottom));
+  }
+  :root .auth-flow-page .auth-floating-monk { height: clamp(5rem, 13dvh, 6.5rem); }
+  :root .auth-flow-page .auth-floating-monk img { width: 7.5rem; }
+  :root .auth-flow-page .auth-panel { margin-top: 0; border-radius: 1.25rem; }
+  :root .auth-flow-page .auth-panel-body { padding: 1rem; }
+  :root .auth-flow-page .auth-panel h2 { font-size: clamp(1.5rem, 7vw, 1.875rem); line-height: 1.25; }
+  :root .auth-flow-page .auth-intro { font-size: 0.875rem; line-height: 1.5; }
+  :root .auth-flow-page :is(button, a[href]) { min-height: 2.75rem; }
+  :root .auth-flow-page .auth-footer a { display: inline-flex; align-items: center; }
+  :root .auth-flow-page .auth-callback-content { transform: none; translate: none; }
+
+  :root .demo-entry { padding: max(1rem, env(safe-area-inset-top)) 0 max(1rem, env(safe-area-inset-bottom)); }
+  :root .demo-entry-content { margin-block: auto; padding-inline: 1.25rem; flex-shrink: 0; }
+  :root .demo-entry-art img { width: clamp(6rem, 20dvh, 9rem); }
+  :root .demo-entry-art > div.absolute { max-width: 75vw; max-height: 75vw; }
+  :root .demo-entry-copy { margin-top: 1rem; }
+  :root .demo-entry-copy h2 { margin-top: 0.625rem; font-size: clamp(1.5rem, 7vw, 1.875rem); line-height: 1.25; }
+  :root .demo-entry-copy p:last-child { margin-top: 0.75rem; font-size: 0.875rem; line-height: 1.6; }
+  :root .demo-entry-progress { margin-top: 1.5rem; }
+}
+
+@media (max-width: 639px) and (max-height: 500px) {
+  :root .landing-page .landing-hero { padding-top: 0.5rem; }
+  :root .landing-page .landing-monk-stage { height: 6rem; }
+  :root .landing-page .landing-monk-illustration { width: 7rem; }
+  :root .demo-entry-art img { width: 5rem; }
+  :root .demo-entry-copy, :root .demo-entry-progress { margin-top: 0.75rem; }
+}
+
+/* Phone landscape needs a height-based layout even above the portrait breakpoint. */
+@media (max-width: 1023px) and (max-height: 500px) {
+  :root .demo-entry { padding-block: max(0.75rem, env(safe-area-inset-top)); }
+  :root .demo-entry-content { flex-shrink: 0; margin-block: auto; }
+  :root .demo-entry-art img { width: 5rem; }
+  :root .demo-entry-art > div.absolute { max-width: 12rem; max-height: 12rem; }
+  :root .demo-entry-copy, :root .demo-entry-progress { margin-top: 0.75rem; }
+  :root .demo-entry-copy h2 { margin-top: 0.5rem; font-size: 1.5rem; line-height: 1.25; }
+  :root .demo-entry-copy p:last-child { margin-top: 0.5rem; font-size: 0.875rem; line-height: 1.5; }
+}

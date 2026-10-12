@@ -1,0 +1,37 @@
+@media (max-width: 639px) {
+  :root .dashboard-shell .gym-page .gym-content { margin-top: 0; }
+  :root .dashboard-shell .gym-page :is(.gym-today-mobile-tabs, .gym-add-mobile-tabs, .gym-diet-mobile-tabs, .gym-measurements-mobile-tabs, .gym-progress-tabs) { padding: 0.375rem; gap: 0.375rem; border-radius: 0.875rem; }
+  :root .dashboard-shell .gym-page :is(.gym-today-mobile-tabs, .gym-add-mobile-tabs, .gym-diet-mobile-tabs, .gym-measurements-mobile-tabs, .gym-progress-tabs) button { min-height: 2.75rem; }
+  :root .dashboard-shell .gym-page :is(.gym-day-selector, .gym-add-view-tabs, .gym-add-day-filters, .gym-progress-group-filters, .gym-progress-workout-filters, .gym-library-filters) button { min-height: 2.75rem; flex-shrink: 0; }
+  :root .dashboard-shell .gym-page :is(.gym-workout-panel, .gym-add-form, .gym-add-list, .gym-add-log-panel, .gym-progress-metric-panel, .gym-progress-chart, .gym-progress-history, .gym-progress-workout-panel, .gym-progress-workout-summary, .gym-library-view, .gym-library-toolbar, .gym-library-group, .gym-gallery-toolbar, .gym-gallery-list) { padding: 0.75rem; border-radius: 1rem; }
+  :root .dashboard-shell .gym-page :is(.gym-exercise-card, .gym-add-card, .gym-gallery-checkin) { padding: 0.625rem; border-radius: 0.875rem; }
+  :root .dashboard-shell .gym-page[data-active] :is(.dashboard-card-action, .gym-exercise-actions button, .gym-add-card-actions button, .gym-diet-view-button, .gym-library-actions button, .gym-gallery-summary button) { min-height: 2.75rem; }
+  :root .dashboard-shell .gym-page .gym-exercise-metrics { gap: 0.375rem; }
+  :root .dashboard-shell .gym-page .gym-exercise-actions { margin-top: 0.625rem; gap: 0.375rem; }
+  :root .dashboard-shell .gym-page .gym-diet-grid { gap: 0.625rem; }
+  :root .dashboard-shell .gym-page .gym-diet-card { padding: 0.625rem; gap: 0.375rem; border-radius: 0.875rem; }
+  :root .dashboard-shell .gym-page .gym-add-form > h3 { margin-bottom: 0.625rem; }
+  :root .dashboard-shell .gym-page .gym-add-form :is(form, fieldset).space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.625rem; }
+  :root .dashboard-shell .gym-page :is(.gym-add-form, .gym-diet-view, .gym-measurements-form) :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) { min-height: 2.75rem; font-size: 1rem; }
+  :root .dashboard-shell .gym-page :is(.gym-add-form, .gym-diet-view) button { min-height: 2.75rem; }
+  :root .dashboard-shell .gym-page .gym-add-form label { font-size: 0.6875rem; }
+  :root .dashboard-shell .gym-page .gym-add-option-controls { flex-direction: row; align-items: start; gap: 0.5rem; }
+  :root .dashboard-shell .gym-page .gym-add-option-controls > button { flex-shrink: 0; }
+  :root .dashboard-shell .gym-page .gym-add-list-header { margin-bottom: 0.625rem; }
+  :root .dashboard-shell .gym-page .gym-diet-view section > div:is(.shrink-0, .journal-scroll) { padding: 0.75rem; }
+  :root .dashboard-shell .gym-page :is(.gym-measurements-form-panel, .gym-measurements-saved-panel, .gym-measurements-preview, .gym-measurements-preview-group, .gym-measurements-history) { padding: 0.75rem; border-radius: 1rem; }
+  :root .dashboard-shell .gym-page .gym-measurements-form { margin-top: 0.625rem; padding-right: 0; }
+  :root .dashboard-shell .gym-page .gym-measurements-form > div.rounded-\[1\.4rem\] { padding: 0.75rem; }
+  :root .dashboard-shell .gym-page .gym-measurement-fields { margin-top: 0.625rem; gap: 0.5rem; }
+  :root .dashboard-shell .gym-page .gym-measurements-saved-content { margin-top: 0.625rem; gap: 0.625rem; }
+  :root .dashboard-shell .gym-page :is(.gym-measurements-saved-groups, .gym-measurements-preview-group, .gym-measurements-values) { margin-top: 0.625rem; }
+  :root .dashboard-shell .gym-page :is(.gym-measurements-form, .gym-measurements-saved-groups) button { min-height: 2.75rem; }
+  :root .dashboard-shell .gym-page .gym-measurement-value-grid { gap: 0.5rem; }
+  :root .dashboard-shell .gym-page .gym-library-toolbar-row { gap: 0.625rem; }
+  :root .dashboard-shell .gym-page .gym-library-list { margin-top: 0.625rem; padding: 0.625rem; }
+  :root .dashboard-shell .gym-page .gym-gallery-checkins { gap: 0.625rem; }
+  :root .dashboard-shell .gym-page .gym-gallery-toolbar-row { gap: 0.625rem; }
+  :root .dashboard-shell .gym-page :is(.gym-gallery-upload, .gym-gallery-summary) { padding: 0.625rem; border-radius: 0.875rem; }
+  :root .gym-diet-plan-header { padding: 0.75rem; }
+  :root .gym-diet-plan-header button { min-width: 2.75rem; min-height: 2.75rem; }
+}

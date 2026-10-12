@@ -1,0 +1,304 @@
+/* Keep Journal's toolbar separate from its report instead of flattening
+   nested wrappers into the shared Analysis grid. */
+.dashboard-main.analysis-main:has(.analytics-page[data-active="journal"]) {
+  overflow: hidden;
+}
+
+.analysis-main > .analysis-route:has(.analytics-page[data-active="journal"]),
+.analysis-main .analytics-page[data-active="journal"],
+.analysis-main .analytics-page[data-active="journal"] .journal-analysis-page {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.analysis-main .analytics-page[data-active="journal"] .journal-analysis-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.analysis-main .analytics-page[data-active="journal"] .journal-analysis-page > * {
+  margin: 0;
+}
+
+.journal-analysis-toolbar {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.analysis-main .analytics-page[data-active="journal"] .journal-analysis-toolbar > nav {
+  min-width: 0;
+  margin: 0;
+}
+
+.analysis-main .analytics-page[data-active="journal"] .journal-analysis-toolbar button,
+.analysis-main .analytics-page[data-active="journal"] .journal-analysis-insight-row > button,
+.analysis-main .analytics-page[data-active="journal"] .journal-comparison-controls button {
+  min-height: 2.75rem;
+}
+
+.analysis-main .analytics-page[data-active="journal"] .journal-analysis-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  height: auto;
+  margin: 0;
+}
+
+.analysis-main .analytics-page[data-active="journal"] .journal-analysis-filters > label {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 2.75rem;
+  padding: 0 0.625rem;
+  font-size: 0.8125rem;
+}
+
+.journal-analysis-filters .dashboard-select-root {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.journal-analysis-filters .dashboard-select-trigger {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.analysis-main .analytics-page[data-active="journal"] :is(.journal-analysis-content, .journal-analysis-section) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+.analysis-main .analytics-page[data-active="journal"] .journal-analysis-layout {
+  display: grid;
+  flex: 1 1 0%;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+.analysis-main .analytics-page[data-active="journal"] .journal-analysis-chart-column > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem;
+}
+
+.analysis-main .analytics-page[data-active="journal"] .journal-analysis-chart-column > div > * {
+  margin: 0;
+}
+
+.analysis-main .analytics-page[data-active="journal"] .journal-analysis-side-column > aside {
+  height: auto;
+  min-height: 0;
+}
+
+.analysis-main .analytics-page[data-active="journal"] .journal-analysis-side-column > * {
+  flex: none;
+}
+
+.analysis-main .analytics-page[data-active="journal"] .journal-analysis-insight-row {
+  align-items: center;
+}
+
+.journal-analysis-page .analysis-chart-table summary {
+  display: list-item;
+  min-height: 2.75rem;
+  padding-block: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.journal-analysis-page .analysis-chart-table table {
+  min-width: 24rem;
+}
+
+.journal-analysis-menu {
+  max-height: min(18rem, max(3rem, calc(100dvh - 10rem)));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Keep hover feedback local to Journal Analysis and avoid moving chart SVGs
+   or filter triggers, which would shift their scroll/floating-menu anchors. */
+.analysis-main .journal-analysis-page :is(
+  .analysis-chart-card,
+  .analysis-insight-list > div,
+  .journal-analysis-side-column > section,
+  .journal-comparison-controls,
+  .journal-analysis-filters > label,
+  .journal-analysis-toolbar button,
+  .journal-analysis-insight-row > button,
+  .journal-comparison-controls button,
+  .analysis-chart-table summary
+) {
+  transition: border-color 180ms ease, background-color 180ms ease,
+    box-shadow 180ms ease, color 180ms ease;
+}
+
+.analysis-main .journal-analysis-page :is(button, .analysis-chart-table summary, .analysis-chart-scroll):focus-visible {
+  outline: 2px solid #fbbf24;
+  outline-offset: 2px;
+}
+
+.analysis-main .journal-analysis-page .journal-analysis-filters > label:focus-within {
+  border-color: rgba(251, 191, 36, 0.65);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .analysis-main .journal-analysis-page :is(
+    .analysis-chart-card,
+    .analysis-insight-list > div,
+    .journal-analysis-side-column > section,
+    .journal-comparison-controls
+  ):hover {
+    border-color: rgba(251, 191, 36, 0.38);
+    background-color: rgba(251, 191, 36, 0.045);
+    box-shadow: inset 0 1px 0 rgba(251, 191, 36, 0.08),
+      0 5px 18px rgba(0, 0, 0, 0.14);
+  }
+
+  .analysis-main .journal-analysis-page .journal-analysis-filters > label:hover {
+    border-color: rgba(251, 191, 36, 0.5);
+    background-color: rgba(251, 191, 36, 0.045);
+  }
+
+  .analysis-main .journal-analysis-page :is(
+    .journal-analysis-toolbar button,
+    .journal-analysis-insight-row > button,
+    .journal-comparison-controls button,
+    .analysis-chart-table summary
+  ):hover:not(:disabled, [aria-disabled="true"]) {
+    transform: none;
+    border-color: rgba(251, 191, 36, 0.7);
+    color: #fff1b3;
+    box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.12),
+      0 0 14px rgba(251, 191, 36, 0.1);
+  }
+
+  .analysis-main .journal-analysis-page :is(
+    .journal-analysis-toolbar button,
+    .journal-analysis-insight-row > button,
+    .journal-comparison-controls button,
+    .analysis-chart-table summary
+  ):hover:not(:disabled, [aria-disabled="true"], [aria-pressed="true"]) {
+    background-color: rgba(251, 191, 36, 0.12);
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .analysis-main .journal-analysis-page button:is(:hover, :active) {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journal-analysis-page .journal-scroll {
+    scroll-behavior: auto;
+  }
+
+  .analysis-main .journal-analysis-page :is(button, label, summary, .analysis-chart-card, .analysis-insight-list > div, .journal-analysis-side-column > section, .journal-comparison-controls) {
+    transition: none;
+  }
+
+  .analysis-main .journal-analysis-page button:is(:hover, :active) {
+    transform: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .analysis-main .analytics-page[data-active="journal"] .journal-analysis-content {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-padding-block: 0.75rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .analysis-main .analytics-page[data-active="journal"] :is(.journal-analysis-section, .journal-analysis-layout) {
+    display: flex;
+    height: auto;
+    min-height: 0;
+    flex: none;
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .analysis-main .analytics-page[data-active="journal"] :is(.journal-analysis-chart-column, .journal-analysis-side-column) {
+    width: 100%;
+    height: auto;
+    min-width: 0;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .analysis-main .analytics-page[data-active="journal"] .journal-analysis-chart-column {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .analysis-main .analytics-page[data-active="journal"] .journal-analysis-chart-column > div {
+    padding: 0;
+    gap: 1rem;
+  }
+
+  .journal-analysis-page .analysis-insight-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .journal-analysis-page .analysis-insight-list > * {
+    margin: 0;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .journal-analysis-page .analysis-insight-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .journal-analysis-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .analysis-main .analytics-page[data-active="journal"] .journal-analysis-filters {
+    grid-template-columns: repeat(2, minmax(6.5rem, auto));
+  }
+
+  .analysis-main .analytics-page[data-active="journal"] .journal-analysis-content {
+    overflow: hidden;
+  }
+
+  .analysis-main .analytics-page[data-active="journal"] .journal-analysis-layout {
+    grid-template-columns: minmax(0, 1fr) clamp(17rem, 26%, 22rem);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .analysis-main .analytics-page[data-active="journal"] :is(.journal-analysis-chart-column, .journal-analysis-side-column) {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+}

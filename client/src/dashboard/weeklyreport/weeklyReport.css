@@ -1,0 +1,219 @@
+/* Filters must fit the actual card width, including narrow desktop columns. */
+.weekly-report-main .weekly-report-page[data-active] :is(
+  .weekly-todo-stat-card, .weekly-habit-stat-card,
+  .weekly-goal-progress-card, .weekly-gym-strength-card, .weekly-gym-body-card
+) > div:first-child {
+  flex-wrap: wrap;
+}
+
+.weekly-report-main .weekly-report-page[data-active] :is(
+  .weekly-todo-card-filter, .weekly-habit-card-filter,
+  .weekly-goal-filters, .weekly-gym-progress-filters
+) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Compact reports share one content scroller; selectors remain above it.
+   Scope through the dashboard main to override older per-report phone rules. */
+@media (max-width: 1023px) {
+  .dashboard-main.weekly-report-main:has(.weekly-report-page[data-active]) {
+    overflow: hidden;
+  }
+
+  .weekly-report-main > .weekly-report-route:has(.weekly-report-page[data-active]),
+  .weekly-report-main .weekly-report-page[data-active] {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    max-height: none;
+    overflow: hidden;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] :is(.weekly-report-nav, .weekly-report-mobile-nav) {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] .weekly-report-content {
+    height: auto;
+    min-height: 0;
+    flex: 1 1 0%;
+    margin-top: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-padding-block: 0.75rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] :is(
+    .weekly-report-active-panel,
+    .weekly-journal-view, .weekly-journal-main, .weekly-journal-sidebar,
+    .weekly-todo-view, .weekly-todo-main, .weekly-todo-sidebar,
+    .weekly-habit-view, .weekly-habit-main, .weekly-habit-sidebar,
+    .weekly-goal-view, .weekly-goal-main, .weekly-goal-sidebar,
+    .weekly-gym-view, .weekly-gym-main, .weekly-gym-sidebar
+  ) {
+    width: 100%;
+    height: auto;
+    min-width: 0;
+    min-height: 0;
+    max-height: none;
+    flex: none;
+    overflow: visible;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] :is(
+    .weekly-journal-view, .weekly-todo-view, .weekly-habit-view,
+    .weekly-goal-view, .weekly-gym-view
+  ) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 0.75rem;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] .journal-scroll {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: visible;
+    overscroll-behavior: auto;
+  }
+
+  /* These bounded weekly lists need real heights. Deferred placeholder sizes
+     otherwise move the bottom of the report during a landscape scroll. */
+  .weekly-report-main .weekly-report-page[data-active] :is(
+    section, .dashboard-glow-card,
+    .weekly-journal-week-row, .weekly-journal-missed-row,
+    .weekly-todo-week-row, .weekly-todo-category-row, .weekly-habit-category-row,
+    .weekly-goal-list > *,
+    .weekly-gym-strength-card .journal-scroll > *,
+    .weekly-gym-body-card .journal-scroll > *, .weekly-gym-nutrition-grid > *
+  ) {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] :is(
+    .weekly-todo-stat-card, .weekly-habit-stat-card,
+    .weekly-goal-progress-card, .weekly-gym-strength-card, .weekly-gym-body-card
+  ) > div:first-child {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.625rem;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] :is(
+    .weekly-todo-card-filter, .weekly-habit-card-filter,
+    .weekly-goal-filters, .weekly-gym-progress-filters
+  ) {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] button {
+    min-height: 2.75rem;
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] :is(
+    .weekly-todo-card-filter, .weekly-habit-card-filter,
+    .weekly-goal-filters, .weekly-gym-progress-filters
+  ) > button {
+    flex: 0 0 auto;
+    min-width: 2.75rem;
+    padding-inline: 0.75rem;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] .weekly-report-menu {
+    max-height: min(22rem, max(3rem, calc(100dvh - 10rem - env(safe-area-inset-bottom))));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .weekly-gym-photos-backdrop {
+    padding: max(0.75rem, env(safe-area-inset-top))
+      max(0.75rem, env(safe-area-inset-right))
+      max(0.75rem, env(safe-area-inset-bottom))
+      max(0.75rem, env(safe-area-inset-left));
+  }
+
+  .weekly-gym-photos-modal {
+    max-height: min(82dvh, calc(100dvh - 2rem));
+    overscroll-behavior: contain;
+  }
+
+  :is(.weekly-gym-photos-modal, .weekly-gym-fullscreen) button {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  .weekly-gym-fullscreen {
+    height: 100dvh;
+    overflow: hidden;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+      env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  .weekly-gym-fullscreen > .relative {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 639px) {
+  .weekly-report-main .weekly-report-page[data-active] :is(
+    .weekly-todo-summary-pills, .weekly-habit-summary-pills, .weekly-gym-summary-pills
+  ) > * {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] :is(
+    .weekly-todo-summary-pills, .weekly-habit-summary-pills, .weekly-gym-summary-pills
+  ) p {
+    overflow: visible;
+    font-size: 0.625rem;
+    line-height: 1rem;
+    white-space: normal;
+    text-overflow: clip;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] :is(
+    .weekly-todo-summary-pills, .weekly-habit-summary-pills, .weekly-gym-summary-pills
+  ) span {
+    font-size: 0.75rem;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] :is(
+    .weekly-journal-ai-analysis, .weekly-todo-ai, .weekly-habit-ai, .weekly-gym-ai, .weekly-goal-ai
+  ) .journal-scroll p {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active] :is(
+    .weekly-journal-heading-actions, .weekly-todo-heading-actions, .weekly-habit-heading-actions
+  ) {
+    flex-wrap: wrap;
+  }
+}

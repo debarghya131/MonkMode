@@ -1,5 +1,5 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import useMobileLowMotion from "../hooks/useMobileLowMotion";
@@ -81,6 +81,7 @@ export default function DashboardLayout({ children }) {
   const { isBootstrapping, isAuthenticated, isDemoMode, user, logout } = useAuth();
   const lowMotion = useMobileLowMotion();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const drawerRef = useRef(null);
   const [demoNotice, setDemoNotice] = useState("");
   const [showWelcome, setShowWelcome] = useState(() => {
     if (isDemoMode) return false;
@@ -148,6 +149,36 @@ export default function DashboardLayout({ children }) {
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined;
+    const previousFocus = document.activeElement;
+    const frame = requestAnimationFrame(() => drawerRef.current?.querySelector('button[aria-label="Close menu"]')?.focus());
+    const handleKey = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMobileMenuOpen(false);
+      } else if (event.key === "Tab") {
+        const controls = [...(drawerRef.current?.querySelectorAll('a[href], button:not([disabled])') || [])].filter(element => element.getClientRects().length);
+        const first = controls[0], last = controls.at(-1);
+        if (event.shiftKey && (document.activeElement === first || !drawerRef.current?.contains(document.activeElement))) {
+          event.preventDefault(); last?.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !drawerRef.current?.contains(document.activeElement))) {
+          event.preventDefault(); first?.focus();
+        }
+      }
+    };
+    const desktop = window.matchMedia("(min-width: 1280px)");
+    const handleDesktop = () => { if (desktop.matches) setMobileMenuOpen(false); };
+    document.addEventListener("keydown", handleKey);
+    desktop.addEventListener("change", handleDesktop);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", handleKey);
+      desktop.removeEventListener("change", handleDesktop);
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
   }, [mobileMenuOpen]);
 
   if (isBootstrapping) {
@@ -263,6 +294,10 @@ export default function DashboardLayout({ children }) {
               <Motion.aside
                 key="drawer"
                 id="dashboard-navigation-drawer"
+                ref={drawerRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="MonkMode navigation"
                 initial={{ x: "-100%" }}
                 animate={{ x: 0 }}
                 exit={{ x: "-100%" }}

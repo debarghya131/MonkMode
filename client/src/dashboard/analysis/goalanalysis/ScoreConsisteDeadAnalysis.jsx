@@ -22,6 +22,7 @@ export default function ScoreConsisteDeadAnalysis() {
   ];
   return <AnalysisView insights={insights}>{a && <>
     <GoalFilter/>
+    {!rows.length && <p role="status" className="text-sm text-stone-400">No eligible goals match this chart filter.</p>}
     <AnalysisChart title="Goal Activity Consistency" subtitle="Recorded active dates / each goal's eligible elapsed dates · not daily plan adherence" rows={rows}
       type="bar" max={100} series={[{key:"consistency",label:"Activity consistency",color:"#34d399",unit:"%"}]}/>
     <AnalysisChart title="Progress vs Linear Calendar Pace" subtitle="Checkpoint progress and date-based expected pace · a pacing reference, not a forecast" rows={rows}
@@ -29,9 +30,10 @@ export default function ScoreConsisteDeadAnalysis() {
     <AnalysisChart title="Deadline Analysis" subtitle="Positive blue days remaining; positive pink days overdue · exact signed dates in the table below"
       rows={deadlines} type="bar" integerTicks max={Math.max(1,...deadlines.flatMap(row=>[row.remaining||0,row.overdue||0]))}
       series={[{key:"remaining",label:"Days remaining",color:"#38bdf8",unit:"days"},{key:"overdue",label:"Days overdue",color:"#fb7185",unit:"days"}]}/>
-    <section className="rounded-2xl border border-white/10 p-4">
+    <section className="goal-analysis-detail-card rounded-2xl border border-white/10 p-4">
       <h4 className="font-semibold text-stone-100">Deadline Checkpoints</h4>
-      <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-xs text-stone-300">
+      <p className="mt-2 text-xs text-stone-400 lg:hidden">↔ Swipe or scroll the table to see all columns.</p>
+      <div className="goal-analysis-detail-scroll mt-4 overflow-x-auto" tabIndex={0} role="region" aria-label="Deadline checkpoints"><table className="w-full text-left text-xs text-stone-300">
         <thead><tr>{["Goal","Deadline","Checkpoint","Status","Signed days"].map(label=><th key={label} className="p-2">{label}</th>)}</tr></thead>
         <tbody>{rows.map(row=><tr key={row.id} className="border-t border-white/10"><td className="p-2">{row.label}</td>
           <td className="p-2">{row.deadlineDay||"No known deadline"}</td><td className="p-2">{row.asOf}</td><td className="p-2">{row.deadlineStatus}</td>

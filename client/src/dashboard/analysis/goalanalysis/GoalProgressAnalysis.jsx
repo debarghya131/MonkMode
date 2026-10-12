@@ -26,10 +26,11 @@ export default function GoalProgressAnalysis() {
     <AnalysisChart title="Sub Goal Completion Analysis" subtitle="All eligible goals · cumulative recorded milestone check-ins this month, not net completed milestone state"
       rows={a.days} max={Math.max(1,t.milestoneCheckins)} integerTicks
       series={[{key:"cumulativeMilestoneCheckins",label:"Cumulative check-ins",color:"#34d399"}]}/>
-    <section className="rounded-2xl border border-white/10 p-4">
+    <section className="goal-analysis-detail-card rounded-2xl border border-white/10 p-4">
       <h4 className="font-semibold text-stone-100">Goal Snapshot Details</h4>
       <p className="mt-2 text-xs text-stone-400">Filtered goals · titles and definitions are retained metadata, not immutable historical snapshots.</p>
-      <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-xs text-stone-300">
+      <p className="mt-2 text-xs text-stone-400 lg:hidden">↔ Swipe or scroll the table to see all columns.</p>
+      <div className="goal-analysis-detail-scroll mt-4 overflow-x-auto" tabIndex={0} role="region" aria-label="Goal snapshot details"><table className="w-full text-left text-xs text-stone-300">
         <thead><tr>{["Goal","Progress","Basis","Milestones","Checkpoint"].map(label=><th key={label} className="p-2">{label}</th>)}</tr></thead>
         <tbody>{rows.map(row=><tr key={row.id} className="border-t border-white/10">
           <td className="p-2">{row.label}<br/>{row.type} · {row.priority}</td><td className="p-2">{percentLabel(row.progress)}<br/>{row.deleted ? "Deleted" : row.isCompleted ? "Completed" : "Not completed"}</td>

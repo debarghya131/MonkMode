@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import monkModeLogo from "../../assets/monkmode-logo.webp";
 
@@ -25,6 +25,30 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const headerRef = useRef(null);
+  const menuButtonRef = useRef(null);
+
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+    const dismiss = (event) => {
+      if (event.type === "keydown" && event.key === "Escape") {
+        setMobileOpen(false);
+        menuButtonRef.current?.focus();
+      } else if (event.type === "pointerdown" && !headerRef.current?.contains(event.target)) {
+        setMobileOpen(false);
+      }
+    };
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => { if (desktop.matches) setMobileOpen(false); };
+    document.addEventListener("keydown", dismiss);
+    document.addEventListener("pointerdown", dismiss);
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => {
+      document.removeEventListener("keydown", dismiss);
+      document.removeEventListener("pointerdown", dismiss);
+      desktop.removeEventListener("change", closeOnDesktop);
+    };
+  }, [mobileOpen]);
 
   const navItems = [
     {
@@ -57,10 +81,11 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
 
   return (
     <MotionHeader
+      ref={headerRef}
       initial={{ opacity: 0, y: -18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55 }}
-      className="relative z-30 mx-auto w-full max-w-7xl px-3 py-3 sm:px-6 sm:py-6 md:px-8"
+      className="landing-navbar relative z-30 mx-auto w-full max-w-7xl px-3 py-3 sm:px-6 sm:py-6 md:px-8"
     >
       <div className="flex items-center justify-between gap-2 rounded-[1.5rem] border border-amber-200/10 bg-stone-950/45 px-2.5 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:gap-3 sm:px-4 sm:py-3 md:rounded-[1.75rem] md:px-6">
 
@@ -150,6 +175,7 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
           {/* Hamburger — visible only below lg */}
           <button
             type="button"
+            ref={menuButtonRef}
             onClick={() => setMobileOpen((prev) => !prev)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
@@ -206,7 +232,7 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
             exit={{ opacity: 0, y: -10, scaleY: 0.92 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
             style={{ transformOrigin: "top" }}
-            className="landing-mobile-menu mt-2 overflow-hidden rounded-[1.4rem] border border-amber-200/10 bg-stone-950/80 p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:hidden"
+            className="landing-mobile-menu mt-2 flex flex-col gap-3 overflow-hidden rounded-[1.4rem] border border-amber-200/10 bg-stone-950/80 p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:hidden"
           >
             {navItems.map((item, index) => {
               const isActive = pathname === item.path;

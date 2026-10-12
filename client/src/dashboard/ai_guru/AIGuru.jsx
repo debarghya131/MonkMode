@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useLayoutEffect, useState } from "react";
 import { motion as Motion, AnimatePresence, MotionConfig } from "framer-motion";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
@@ -103,6 +103,24 @@ function GuruSession({ isDemoMode, lowMotion }) {
   const [prompt, setPrompt]     = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const messagesScrollRef = useRef(null);
+  const composerInputRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const resizeInput = () => {
+      const input = composerInputRef.current;
+      if (!input) return;
+      if (!window.matchMedia("(max-width: 1023px)").matches) {
+        input.style.height = "";
+        return;
+      }
+      input.style.height = "0px";
+      const maximum = Number.parseFloat(getComputedStyle(input).maxHeight) || 88;
+      input.style.height = `${Math.min(input.scrollHeight, maximum)}px`;
+    };
+    resizeInput();
+    window.addEventListener("resize", resizeInput);
+    return () => window.removeEventListener("resize", resizeInput);
+  }, [prompt, activeTab]);
   const idRef = useRef(0);
   const requestRef = useRef(null);
   const [chatError, setChatError] = useState("");
@@ -515,6 +533,7 @@ function GuruSession({ isDemoMode, lowMotion }) {
                     <div className="flex min-w-0 flex-1 items-center rounded-[1rem] border border-amber-100/10 bg-black/30 px-3">
                       <img src={mingAvatar} alt="Ming" className="ai-guru-composer-avatar mr-3 h-10 w-auto shrink-0 object-contain" />
                       <textarea
+                        ref={composerInputRef}
                         data-demo-chat="true"
                         aria-label="Message to Ming"
                         maxLength={GURU_MESSAGE_LIMIT}
@@ -522,7 +541,7 @@ function GuruSession({ isDemoMode, lowMotion }) {
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="Ask Ming anything about your discipline system..."
+                        placeholder="Message Ming…"
                         rows={1}
                         className="min-h-[3rem] w-full flex-1 resize-none bg-transparent py-3 text-sm leading-6 text-stone-100 outline-none placeholder:text-stone-500"
                       />
