@@ -12,7 +12,7 @@ const sparkles = [
 
 export default function AuthFloatingMonk() {
   return (
-    <div className="pointer-events-none relative z-20 flex h-[150px] w-full items-end justify-center sm:h-[210px]">
+    <div className="auth-floating-monk pointer-events-none relative z-20 flex h-[150px] w-full items-end justify-center sm:h-[210px]">
       {sparkles.map((sparkle) => (
         <Motion.span
           key={sparkle.id}

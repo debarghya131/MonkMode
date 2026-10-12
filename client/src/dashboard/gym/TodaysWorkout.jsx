@@ -1,5 +1,6 @@
 import { motion as Motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { useGymEnvironment } from "./gymContext";
 import { useGymApi } from "./useGymData";
@@ -47,6 +48,18 @@ const DIET_TYPE_MAP = {
 /* ── Diet Modal ── */
 function DietModal({ type, day, planData, onClose }) {
   const { weekday } = useGymEnvironment();
+  const titleId = useId();
+  const closeRef = useRef(null);
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    closeRef.current?.focus();
+    return () => { if (previousFocus?.isConnected) previousFocus.focus(); };
+  }, []);
+  useEffect(() => {
+    const closeOnEscape = event => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
   const titles = {
     diet:       "Full Day Diet",
     supps:      "Supplements",
@@ -152,7 +165,7 @@ function DietModal({ type, day, planData, onClose }) {
               </div>
             ) : null)}
             {fields.every(([, val]) => val === "" || val == null) && (
-              <p className="col-span-4 text-xs text-stone-500 text-center py-4">No macros set for {day}.</p>
+              <p className="col-span-2 sm:col-span-4 text-xs text-stone-500 text-center py-4">No macros set for {day}.</p>
             )}
           </div>
         );
@@ -162,27 +175,29 @@ function DietModal({ type, day, planData, onClose }) {
     return <p className="text-xs text-stone-400">No active plan for {day}. Add or activate one in Diet Chart.</p>;
   };
 
-  return (
+  return createPortal(
     <div className="gym-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
+        role="dialog" aria-modal="true" aria-labelledby={titleId}
         className="gym-modal-panel flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(28,16,12,0.98),rgba(10,8,8,0.99))] shadow-2xl shadow-black/60"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={event => { if (event.key === "Tab") { event.preventDefault(); closeRef.current?.focus(); } }}
       >
         <div className="shrink-0 flex items-center justify-between gap-3 border-b border-amber-100/10 px-5 py-4">
           <div>
-            <h3 className="text-sm font-semibold text-amber-100">{titles[type]}</h3>
+            <h3 id={titleId} className="text-sm font-semibold text-amber-100">{titles[type]}</h3>
             <p className="mt-0.5 text-xs text-stone-500">{day} — {day === weekday ? "Today" : day}</p>
           </div>
-          <button type="button" onClick={onClose}
+          <button ref={closeRef} type="button" onClick={onClose}
             className="rounded border border-amber-100/15 bg-white/5 px-2.5 py-1 text-xs font-semibold text-stone-300 transition hover:text-stone-100">
             Close
           </button>
         </div>
-        <div className="journal-scroll min-h-0 flex-1 overflow-y-auto p-5">
+        <div className="journal-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">
           {renderContent()}
         </div>
       </div>
-    </div>
+    </div>, document.body
   );
 }
 
@@ -932,7 +947,7 @@ export default function TodaysWorkout({ lowMotion = false }) {
                       {formatDate(selectedDay, weekday)}
                       {hasPlan ? " · Active" : isDemoMode ? "" : " · No plan"}
                     </p>
-                    <DietButton type="button" disabled={!hasPlan}
+                    <DietButton type="button" aria-label={`View ${label}`}
                       onClick={() => setDietModal({ type, day: selectedDay })}
                       {...(lowMotion ? {} : {
                         whileHover: { scale: 1.03, boxShadow: "0 0 12px rgba(255,255,255,0.22)" },

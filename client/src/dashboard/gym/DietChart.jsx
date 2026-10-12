@@ -62,11 +62,11 @@ function PlanViewModal({ title, plans, dayFilter, setDayFilter, copyingId, setCo
     <ModalPortal>
     <div className="gym-diet-plan-modal fixed inset-0 z-[1000] flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-4">
       <div
-        className="flex w-full max-w-2xl flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.97),rgba(12,8,8,0.98))] shadow-2xl shadow-black/60 max-h-[calc(100dvh-1.5rem)] sm:max-h-[85vh]"
+        className="gym-diet-plan-panel flex w-full max-w-2xl flex-col rounded-2xl border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_35%),linear-gradient(180deg,rgba(30,18,14,0.97),rgba(12,8,8,0.98))] shadow-2xl shadow-black/60 max-h-[calc(100dvh-1.5rem)] sm:max-h-[85vh]"
       >
         <fieldset disabled={busy} className="contents min-w-0 border-0 p-0 m-0" aria-busy={busy}>
         {/* Header */}
-        <div className="shrink-0 border-b border-amber-100/10 px-5 pb-4 pt-5">
+        <div className="gym-diet-plan-header shrink-0 border-b border-amber-100/10 px-5 pb-4 pt-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-base font-semibold text-amber-100">{title}</h3>

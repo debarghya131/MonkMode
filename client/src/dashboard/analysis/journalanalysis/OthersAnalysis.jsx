@@ -17,12 +17,12 @@ export default function OthersAnalysis() {
     {title:"Total Missed Days This Month",value:stats?.missedDays || 0,description:`Past eligible days without a journal, excluding future/pre-account dates. Today without a journal is pending (${stats?.pendingDays || 0} day), not missed.`},
   ];
   return <AnalysisView insights={insights}>
-    <AnalysisChart title="Wins, Mistakes & Achievements This Month" subtitle="Monthly reflection · Blank journal days remain gaps" rows={stats?.days || []}
+    <AnalysisChart title="Wins, Mistakes & Achievements This Month" subtitle="Monthly reflection · Blank journal days remain gaps" rows={stats?.days || []} integerTicks
       max={Math.max(1,...(stats?.days || []).flatMap(row=>[row.wins || 0,row.mistakes || 0,row.achievement || 0]))}
       series={[{key:"wins",label:"Wins",color:"#10b981"},{key:"mistakes",label:"Mistakes",color:"#fb7185"},{key:"achievement",label:"Achievements",color:"#f59e0b"}]}/>
-    <AnalysisChart title="Streak Analysis (Past Breaks Shown at 0)" subtitle="Within-month consecutive journal days" rows={stats?.days || []} max={Math.max(1,stats?.longestStreak || 0)}
+    <AnalysisChart title="Streak Analysis (Past Breaks Shown at 0)" subtitle="Within-month consecutive journal days" rows={stats?.days || []} max={Math.max(1,stats?.longestStreak || 0)} integerTicks
       series={[{key:"streak",label:"Journal streak",color:"#38bdf8",unit:" days"}]}/>
-    <AnalysisChart title="Missed Day Analysis" subtitle="Past eligible no-log days by weekday" rows={stats?.weekdays || []} type="bar" max={Math.max(1,...(stats?.weekdays || []).map(row=>row.missed))}
+    <AnalysisChart title="Missed Day Analysis" subtitle="Past eligible no-log days by weekday" rows={stats?.weekdays || []} type="bar" max={Math.max(1,...(stats?.weekdays || []).map(row=>row.missed))} integerTicks
       series={[{key:"missed",label:"Missed logs",color:"#fb7185",unit:" days"}]}/>
     <AnalysisChart title="Month-block Scores" subtitle="Recorded ratings and coverage · All month blocks included" rows={(stats?.weeks || []).map(week=>({...week,value:week.score}))} type="bar"
       series={[{key:"value",label:"Composite score",color:"#fbbf24",unit:"/100"}]}/>

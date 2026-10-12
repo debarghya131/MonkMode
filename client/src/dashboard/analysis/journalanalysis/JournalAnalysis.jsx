@@ -1,5 +1,5 @@
 import { AnimatePresence, MotionConfig, motion as Motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import useAuth from "../../../hooks/useAuth";
 import useMobileLowMotion from "../../../hooks/useMobileLowMotion";
 import { JournalAnalysisContext } from "./journalAnalysisContext";
@@ -7,6 +7,8 @@ import useJournalAnalysisData from "./useJournalAnalysisData";
 import MoodAnalysis from "./MoodAnalysis";
 import OthersAnalysis from "./OthersAnalysis";
 import SleepEnergyAnalysis from "./SleepEnergyAnalysis";
+import { JournalPeriodFilters } from "./AnalysisUI";
+import "./journalAnalysis.css";
 
 const JOURNAL_ANALYSIS_SECTIONS = [
   { id: "mood", label: "Mood", icon: "🙂", component: MoodAnalysis },
@@ -23,21 +25,35 @@ function JournalSession({ isDemoMode }) {
   const lowMotion = useMobileLowMotion();
   const [activeSection, setActiveSection] = useState(JOURNAL_ANALYSIS_SECTIONS[0].id);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuId = useId();
+  const menuTriggerRef = useRef(null);
   const activeTab =
     JOURNAL_ANALYSIS_SECTIONS.find((section) => section.id === activeSection) ??
     JOURNAL_ANALYSIS_SECTIONS[0];
   const ActiveComponent = activeTab.component;
 
+  useEffect(() => {
+    const wideScreen = window.matchMedia("(min-width: 640px)");
+    const closeMenu = () => setMenuOpen(false);
+    wideScreen.addEventListener("change", closeMenu);
+    return () => wideScreen.removeEventListener("change", closeMenu);
+  }, []);
+
   return (
     <JournalAnalysisContext.Provider value={resource}>
     <MotionConfig reducedMotion={lowMotion ? "always" : "user"}>
     <div data-demo-allow="true" data-section={activeSection} className="journal-analysis-page space-y-4 sm:space-y-5">
+      <div className="journal-analysis-toolbar">
       {/* Mobile: hamburger dropdown */}
-      <div className="journal-analysis-mobile-nav relative sm:hidden">
+      <div className="journal-analysis-mobile-nav relative sm:hidden" onKeyDown={event=>{
+        if(event.key==="Escape" && menuOpen){event.stopPropagation();setMenuOpen(false);menuTriggerRef.current?.focus();}
+      }}>
         <button
+          ref={menuTriggerRef}
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-expanded={menuOpen}
+          aria-controls={menuOpen ? menuId : undefined}
           aria-label="Journal Analysis section"
           className="flex w-full items-center justify-between gap-2 rounded-2xl border border-amber-100/10 bg-black/20 px-4 py-2.5 text-sm font-semibold text-amber-300 shadow-xl shadow-black/25 backdrop-blur"
         >
@@ -52,12 +68,12 @@ function JournalSession({ isDemoMode }) {
         {menuOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-            <div className="absolute left-0 right-0 top-full z-50 mt-1.5 rounded-2xl border border-amber-100/10 bg-stone-950/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur">
+            <nav id={menuId} aria-label="Journal Analysis sections" className="journal-analysis-menu absolute left-0 right-0 top-full z-50 mt-1.5 rounded-2xl border border-amber-100/10 bg-stone-950/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur">
               {JOURNAL_ANALYSIS_SECTIONS.map((section) => (
                 <button
                   key={section.id}
                   type="button"
-                  onClick={() => { setActiveSection(section.id); setMenuOpen(false); }}
+                  onClick={() => { setActiveSection(section.id); setMenuOpen(false); menuTriggerRef.current?.focus(); }}
                   aria-pressed={activeSection === section.id}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
                     activeSection === section.id
@@ -69,13 +85,13 @@ function JournalSession({ isDemoMode }) {
                   {section.label}
                 </button>
               ))}
-            </div>
+            </nav>
           </>
         )}
       </div>
 
       {/* Desktop: horizontal scrollable nav */}
-      <nav className="hidden w-full overflow-x-auto rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur scrollbar-none sm:flex sm:items-center sm:gap-1">
+      <nav aria-label="Journal Analysis sections" className="journal-analysis-desktop-nav hidden w-full overflow-x-auto rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur scrollbar-none sm:flex sm:items-center sm:gap-1">
         {JOURNAL_ANALYSIS_SECTIONS.map((section) => {
           const isActive = activeSection === section.id;
           return (
@@ -93,6 +109,9 @@ function JournalSession({ isDemoMode }) {
           );
         })}
       </nav>
+
+      <JournalPeriodFilters />
+      </div>
 
       <AnimatePresence mode="wait">
         <Motion.div

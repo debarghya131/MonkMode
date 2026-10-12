@@ -21,16 +21,17 @@ export default function MeasurementsAnalysis() {
     {title:"Recorded Fields This Month",value:a.measurements.filter(row=>row.latest).length+" fields",description:"Each field retains its own units and dates. Missing readings are unknown, not zero; kilograms and centimetres are never compared on the same scale."},
   ];
   return <AnalysisView insights={insights}>{a && <>
-    <div className="flex flex-wrap gap-4">
+    <div className="gym-analysis-metric-grid rounded-2xl border border-amber-100/10 bg-black/10 p-4">
       <MetricPicker label="Measurement group" value={selectedGroup} onChange={setGroup} options={groups.map(value=>({value,label:value}))}/>
       {selected && <MetricPicker label="Measurement" value={selected.id} onChange={setId} options={options.map(row=>({value:row.id,label:row.label+" ("+row.unit+")"}))}/>}
     </div>
     <AnalysisChart title="Body Measurement Trend" subtitle={(selected?.label||"Measurement")+" · "+(selected?.unit||"")+" · only valid readings this month"}
       rows={rows} max={Math.max(1,...rows.map(row=>row.value||0))} series={[{key:"value",label:selected?.label||"Measurement",color:"#34d399",unit:selected?.unit||""}]} />
-    <section className="rounded-2xl border border-white/10 p-4">
+    <section className="gym-analysis-detail-card rounded-2xl border border-white/10 p-4">
       <h4 className="font-semibold text-stone-100">Measurement Changes</h4>
       <p className="mt-2 text-xs text-stone-400">Neutral, signed comparisons with each field's own baseline date. No reading means no comparison.</p>
-      <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-xs text-stone-300">
+      <p className="mt-2 text-xs text-stone-400 lg:hidden">↔ Swipe or scroll the table to see all columns.</p>
+      <div className="gym-analysis-detail-scroll mt-4 overflow-x-auto" tabIndex={0} role="region" aria-label="Measurement changes"><table className="w-full text-left text-xs text-stone-300">
         <thead><tr>{["Field","Baseline","Latest","Change"].map(label=><th key={label} className="p-2">{label}</th>)}</tr></thead>
         <tbody>{a.measurements.filter(row=>row.latest).map(row=><tr key={row.id} className="border-t border-white/10">
           <td className="p-2">{row.label}</td><td className="p-2">{valueLabel(row.baseline?.value,row.unit)}<br/>{row.baseline?.date}</td>

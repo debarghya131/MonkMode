@@ -6,19 +6,19 @@ import AuthFloatingMonk from "./AuthFloatingMonk";
 
 export default function SsoCallback() {
   return (
-    <div className="auth-page relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-6 text-white sm:px-6 sm:py-8">
+    <div className="auth-page auth-flow-page relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-6 text-white sm:px-6 sm:py-8">
       <AuthBackground />
 
-      <div className="relative z-10 flex w-full max-w-lg -translate-y-4 flex-col items-center sm:-translate-y-6">
+      <div className="auth-callback-content relative z-10 flex w-full max-w-lg -translate-y-4 flex-col items-center sm:-translate-y-6">
         <AuthFloatingMonk />
 
         <Motion.div
-          className="-mt-8 w-full overflow-hidden rounded-[2rem] border border-amber-100/10 bg-white/6 shadow-2xl shadow-black/25 backdrop-blur sm:-mt-10"
+          className="auth-panel -mt-8 w-full overflow-hidden rounded-[2rem] border border-amber-100/10 bg-white/6 shadow-2xl shadow-black/25 backdrop-blur sm:-mt-10"
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          <div className="p-5 sm:p-8 md:p-10">
+          <div className="auth-panel-body p-5 sm:p-8 md:p-10">
             <div className="mx-auto flex w-full max-w-md flex-col items-center text-center">
               <Motion.p
                 className="auth-overline text-[0.72rem] uppercase tracking-[0.35em] text-amber-200/70"
@@ -37,7 +37,7 @@ export default function SsoCallback() {
                 Completing sign-in
               </Motion.h2>
               <Motion.p
-                className="mt-3 text-sm leading-7 text-stone-300"
+                className="auth-intro mt-3 text-sm leading-7 text-stone-300"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.3 }}

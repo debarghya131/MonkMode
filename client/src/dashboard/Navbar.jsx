@@ -1,5 +1,5 @@
 import { motion as Motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import monkLogo from "../assets/monkmode-logo.webp";
 import { INITIAL_HABITS } from "../../data/HabitDummyData";
 import { INITIAL_TASKS } from "../../data/ToDoDummyData";
@@ -62,10 +62,12 @@ function RuleContent({ tooltip }) {
 
 function StreakStat({ label, value, days, suffix = "days", icon, labelClass, valueClass, glowColor, tooltip, mobileExpanded, onMobileToggle, simplifyMotion }) {
   const displayValue = value ?? days;
+  const instructionsId = useId();
 
   return (
     <Motion.div
-      className={`group relative flex min-w-0 flex-col gap-0.5 rounded-[1rem] border border-amber-100/10 bg-white/[0.035] px-3 py-2 sm:px-4 2xl:w-auto 2xl:rounded-xl 2xl:border-y-0 2xl:border-r-0 2xl:border-t-0 2xl:border-l 2xl:border-amber-100/15 2xl:bg-transparent 2xl:px-3 ${mobileExpanded ? "col-span-2" : ""}`}
+      className={`navbar-stat-card group relative flex min-w-0 flex-col gap-0.5 rounded-[1rem] border border-amber-100/10 bg-white/[0.035] px-3 py-2 sm:px-4 2xl:w-auto 2xl:rounded-xl 2xl:border-y-0 2xl:border-r-0 2xl:border-t-0 2xl:border-l 2xl:border-amber-100/15 2xl:bg-transparent 2xl:px-3 ${mobileExpanded ? "col-span-2" : ""}`}
+      data-expanded={mobileExpanded ? "true" : "false"}
       whileHover={simplifyMotion ? undefined : { y: -3, scale: 1.03 }}
       transition={{ type: "spring", stiffness: 320, damping: 22 }}
     >
@@ -79,7 +81,7 @@ function StreakStat({ label, value, days, suffix = "days", icon, labelClass, val
         transition={simplifyMotion ? undefined : { duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
         style={{ backgroundColor: glowColor, opacity: simplifyMotion ? 0.7 : undefined }}
       />
-      <div className="flex min-w-0 items-center justify-between gap-2">
+      <div className="navbar-stat-heading flex min-w-0 items-center justify-between gap-2">
         <p className={`text-body-xs min-w-0 truncate ${labelClass}`}>{label}</p>
         {tooltip && (
           <button
@@ -87,14 +89,15 @@ function StreakStat({ label, value, days, suffix = "days", icon, labelClass, val
             onClick={onMobileToggle}
             aria-label={`${mobileExpanded ? "Hide" : "Show"} ${label} instructions`}
             aria-expanded={mobileExpanded}
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-amber-100/15 bg-black/20 text-[11px] font-bold text-amber-200 transition hover:border-amber-200/35 hover:bg-amber-400/10 2xl:hidden"
+            aria-controls={mobileExpanded ? instructionsId : undefined}
+            className="navbar-stat-info grid h-7 w-7 shrink-0 place-items-center rounded-full border border-amber-100/15 bg-black/20 text-[11px] font-bold text-amber-200 transition hover:border-amber-200/35 hover:bg-amber-400/10 2xl:hidden"
           >
             {mobileExpanded ? "×" : "i"}
           </button>
         )}
       </div>
       <Motion.p
-        className={`text-body-sm break-words font-semibold 2xl:whitespace-nowrap ${valueClass}`}
+        className={`navbar-stat-value text-body-sm break-words font-semibold 2xl:whitespace-nowrap ${valueClass}`}
         animate={simplifyMotion ? undefined : {
           textShadow: [
             "0 0 0px rgba(255,255,255,0)",
@@ -110,7 +113,7 @@ function StreakStat({ label, value, days, suffix = "days", icon, labelClass, val
         </span>
       </Motion.p>
       {tooltip && mobileExpanded && (
-        <div className="mt-2 border-t border-amber-100/10 pt-2 text-left text-[11px] leading-relaxed text-stone-300 2xl:hidden">
+        <div id={instructionsId} className="navbar-stat-instructions mt-2 border-t border-amber-100/10 pt-2 text-left text-[11px] leading-relaxed text-stone-300 2xl:hidden">
           <RuleContent tooltip={tooltip} />
         </div>
       )}
@@ -135,6 +138,8 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
   const todoStreak = isDemoMode ? DEMO_STREAKS.todo : stats.data?.sections.todo.fullCompletionStreakDays;
   const monkLevel = monkStreak == null ? { label: undefined, icon: "" } : getMonkLevel(monkStreak);
   const [showMobileStats, setShowMobileStats] = useState(false);
+  const navbarRef = useRef(null);
+  const statsButtonRef = useRef(null);
   const [activeMobileRule, setActiveMobileRule] = useState("");
   const [animateNavbarStats, setAnimateNavbarStats] = useState(() => window.innerWidth >= 1536);
   const currentDate = formatDate(isDemoMode ? new Date() : `${stats.today}T12:00:00`);
@@ -151,6 +156,26 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  useEffect(() => {
+    if (!showMobileStats) return undefined;
+    const dismiss = (event) => {
+      if (event.type === "keydown" && event.key === "Escape") {
+        setShowMobileStats(false);
+        setActiveMobileRule("");
+        statsButtonRef.current?.focus();
+      } else if (event.type === "pointerdown" && !navbarRef.current?.contains(event.target)) {
+        setShowMobileStats(false);
+        setActiveMobileRule("");
+      }
+    };
+    document.addEventListener("keydown", dismiss);
+    document.addEventListener("pointerdown", dismiss);
+    return () => {
+      document.removeEventListener("keydown", dismiss);
+      document.removeEventListener("pointerdown", dismiss);
+    };
+  }, [showMobileStats]);
+
   const mobileRuleProps = (label) => ({
     mobileExpanded: activeMobileRule === label,
     simplifyMotion: !animateNavbarStats,
@@ -160,7 +185,7 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
   });
 
   return (
-    <div className="relative px-2.5 py-2 sm:px-4 sm:py-2.5 lg:px-5 2xl:px-6">
+    <div ref={navbarRef} className="dashboard-navbar relative px-2.5 py-2 sm:px-4 sm:py-2.5 lg:px-5 2xl:px-6">
       {/* Animated backgrounds — clipped so they never bleed outside the navbar */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
@@ -229,6 +254,9 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
           <button
             type="button"
             aria-label={showMobileStats ? "Hide stats" : "Show stats"}
+            ref={statsButtonRef}
+            aria-expanded={showMobileStats}
+            aria-controls="dashboard-navbar-stats"
             onClick={() => {
               setShowMobileStats((open) => {
                 if (open) setActiveMobileRule("");
@@ -247,10 +275,10 @@ export default function Navbar({ user, onMenuToggle, mobileMenuOpen }) {
         </div>
 
         {/* Right stats */}
-        <div className={`${showMobileStats ? "grid" : "hidden"} journal-scroll absolute left-2.5 right-2.5 top-[calc(100%+6px)] z-20 max-h-[calc(100dvh-5rem)] grid-cols-2 gap-1.5 overflow-y-auto rounded-2xl border border-amber-100/12 bg-[#100a18]/95 p-1.5 shadow-xl shadow-black/40 md:backdrop-blur sm:left-4 sm:right-4 sm:gap-2 sm:p-2 lg:left-auto lg:w-[36rem] 2xl:static 2xl:z-auto 2xl:flex 2xl:w-auto 2xl:flex-nowrap 2xl:items-center 2xl:gap-1 2xl:overflow-visible 2xl:rounded-none 2xl:border-0 2xl:bg-transparent 2xl:p-0 2xl:shadow-none 2xl:backdrop-blur-0`}>
+        <div id="dashboard-navbar-stats" role="region" aria-label="Dashboard statistics" className={`${showMobileStats ? "grid" : "hidden"} journal-scroll absolute left-2.5 right-2.5 top-[calc(100%+6px)] z-20 max-h-[calc(100dvh-5rem)] grid-cols-2 gap-1.5 overflow-y-auto rounded-2xl border border-amber-100/12 bg-[#100a18]/95 p-1.5 shadow-xl shadow-black/40 md:backdrop-blur sm:left-4 sm:right-4 sm:gap-2 sm:p-2 lg:left-auto lg:w-[36rem] 2xl:static 2xl:z-auto 2xl:flex 2xl:w-auto 2xl:flex-nowrap 2xl:items-center 2xl:gap-1 2xl:overflow-visible 2xl:rounded-none 2xl:border-0 2xl:bg-transparent 2xl:p-0 2xl:shadow-none 2xl:backdrop-blur-0`}>
 
           {/* Date */}
-          <div className="col-span-2 flex min-w-0 flex-col gap-0.5 rounded-[1rem] border border-amber-100/10 bg-white/[0.035] px-3 py-2 sm:px-4 2xl:col-span-1 2xl:rounded-none 2xl:border-y-0 2xl:border-r-0 2xl:border-t-0 2xl:border-l 2xl:border-amber-100/15 2xl:bg-transparent 2xl:px-3">
+          <div className="navbar-stat-date col-span-2 flex min-w-0 flex-col gap-0.5 rounded-[1rem] border border-amber-100/10 bg-white/[0.035] px-3 py-2 sm:px-4 2xl:col-span-1 2xl:rounded-none 2xl:border-y-0 2xl:border-r-0 2xl:border-t-0 2xl:border-l 2xl:border-amber-100/15 2xl:bg-transparent 2xl:px-3">
             <p className="text-body-xs text-stone-400">Today</p>
             <p className="text-body-sm truncate font-medium text-amber-50 2xl:whitespace-nowrap">{currentDate}</p>
           </div>

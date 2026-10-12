@@ -126,7 +126,7 @@ function PriorityFilter({ selected, onChange }) {
   };
 
   return (
-    <div className="mt-3 flex flex-wrap gap-1.5">
+    <div className="habit-priority-filter mt-3 flex flex-wrap gap-1.5">
       {["All", "High", "Medium", "Low"].map((level) => (
         <button
           key={level}

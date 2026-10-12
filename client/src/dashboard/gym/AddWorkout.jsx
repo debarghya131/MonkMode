@@ -989,7 +989,7 @@ export default function AddWorkout({ lowMotion = false }) {
             {/* Goal Type */}
             <div>
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Goal Type *</label>
-              <div className="flex flex-col gap-2 sm:flex-row sm:gap-1">
+              <div className="gym-add-option-controls flex flex-col gap-2 sm:flex-row sm:gap-1">
                 <div ref={goalDropRef} className="relative min-w-0 flex-1">
                   <button
                     type="button"
@@ -1070,7 +1070,7 @@ export default function AddWorkout({ lowMotion = false }) {
             {/* Workout Split */}
             <div>
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Workout Split *</label>
-              <div className="flex flex-col gap-2 sm:flex-row sm:gap-1">
+              <div className="gym-add-option-controls flex flex-col gap-2 sm:flex-row sm:gap-1">
                 <div ref={splitDropRef} className="relative min-w-0 flex-1">
                   <button
                     type="button"

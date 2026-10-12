@@ -65,19 +65,19 @@ export default function SignUp() {
   const isSubmitting = fetchStatus === "fetching";
 
   return (
-    <div className="auth-page relative flex min-h-dvh items-center justify-center overflow-x-hidden px-4 py-6 text-white sm:px-6 sm:py-8">
+    <div className="auth-page auth-flow-page relative flex min-h-dvh items-center justify-center overflow-x-hidden px-4 py-6 text-white sm:px-6 sm:py-8">
       <AuthBackground />
 
       <div className="relative z-10 mx-auto flex w-full max-w-xl flex-col items-center">
         <AuthFloatingMonk />
 
         <Motion.div
-          className="-mt-4 w-full overflow-hidden rounded-[1.75rem] border border-amber-100/10 bg-white/6 shadow-2xl shadow-black/25 backdrop-blur sm:-mt-10 sm:rounded-[2rem]"
+          className="auth-panel -mt-4 w-full overflow-hidden rounded-[1.75rem] border border-amber-100/10 bg-white/6 shadow-2xl shadow-black/25 backdrop-blur sm:-mt-10 sm:rounded-[2rem]"
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          <div className="p-4 sm:p-8 md:p-10">
+          <div className="auth-panel-body p-4 sm:p-8 md:p-10">
             <div className="mx-auto w-full max-w-md">
               <Motion.p
                 className="auth-overline text-[0.66rem] uppercase tracking-[0.28em] text-amber-200/70 sm:text-[0.72rem] sm:tracking-[0.35em]"
@@ -96,15 +96,16 @@ export default function SignUp() {
                 Create your account
               </Motion.h2>
               <Motion.p
-                className="mt-2.5 text-sm leading-6 text-stone-300 sm:mt-3 sm:leading-7"
+                className="auth-intro mt-2.5 text-sm leading-6 text-stone-300 sm:mt-3 sm:leading-7"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.3 }}
               >
-                Start your MonkMode journey by connecting your Gmail account. No separate password is needed.
+                <span className="auth-copy-full">Start your MonkMode journey by connecting your Gmail account. No separate password is needed.</span>
+                <span className="auth-copy-compact">Connect your Gmail to start MonkMode. No separate password needed.</span>
               </Motion.p>
 
-              <div className="mt-6 space-y-3.5 sm:mt-8 sm:space-y-4">
+              <div className="auth-actions mt-6 space-y-3.5 sm:mt-8 sm:space-y-4">
                 <Motion.button
                   type="button"
                   onClick={handleGoogleSignup}
@@ -119,12 +120,13 @@ export default function SignUp() {
                 </Motion.button>
 
                 <Motion.p
-                  className="rounded-2xl border border-amber-100/10 bg-black/20 px-4 py-3 text-xs leading-5 text-stone-300 sm:leading-6"
+                  className="auth-notice rounded-2xl border border-amber-100/10 bg-black/20 px-4 py-3 text-xs leading-5 text-stone-300 sm:leading-6"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.34, duration: 0.3 }}
                 >
-                  Signup is Google-only. Clerk will use your Gmail identity and your MonkMode data will still map to the same email on the backend.
+                  <span className="auth-copy-full">Signup is Google-only. Clerk will use your Gmail identity and your MonkMode data will still map to the same email on the backend.</span>
+                  <span className="auth-copy-compact">Google-only signup. Your MonkMode data stays linked to your Gmail address.</span>
                 </Motion.p>
 
                 {error ? (
@@ -141,7 +143,7 @@ export default function SignUp() {
               </div>
 
               <Motion.div
-                className="mt-6 text-center text-sm text-stone-300 sm:mt-8"
+                className="auth-back-link mt-6 text-center text-sm text-stone-300 sm:mt-8"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.41, duration: 0.3 }}
@@ -155,7 +157,7 @@ export default function SignUp() {
               </Motion.div>
 
               <Motion.div
-                className="mt-3 text-center text-sm text-stone-300 sm:mt-4"
+                className="auth-footer mt-3 text-center text-sm text-stone-300 sm:mt-4"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.45, duration: 0.3 }}

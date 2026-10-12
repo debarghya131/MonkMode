@@ -1,0 +1,148 @@
+/* A size-based density adjustment, not device detection or page scaling.
+   Keep the established larger-phone/tablet/desktop layouts unchanged. */
+.auth-copy-compact { display: none; }
+
+@media (max-width: 380px) {
+  :root {
+    --compact-card-pad: 0.75rem;
+    --compact-gap: 0.625rem;
+  }
+
+  /* Authentication: reclaim the large decorative stage and vertical gaps. */
+  :root .auth-flow-page {
+    align-items: flex-start;
+    min-height: 100dvh;
+    overflow-y: auto;
+    padding: max(1rem, env(safe-area-inset-top)) 0.75rem max(1rem, env(safe-area-inset-bottom));
+    padding-top: max(clamp(1rem, 4dvh, 2rem), env(safe-area-inset-top));
+  }
+  :root .auth-flow-page .auth-floating-monk { height: 6.5rem; }
+  :root .auth-flow-page .auth-floating-monk img { width: 7.5rem; }
+  :root .auth-flow-page .auth-callback-content { transform: none; translate: none; }
+  :root .auth-flow-page .auth-panel { margin-top: -0.75rem; border-radius: 1.25rem; }
+  :root .auth-flow-page .auth-panel-body { padding: 1rem; }
+  :root .auth-flow-page .auth-panel h2 {
+    margin-top: 0.5rem;
+    font-size: 1.625rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+  :root .auth-flow-page .auth-intro { margin-top: 0.5rem; font-size: 0.875rem; line-height: 1.5; }
+  :root .auth-flow-page .auth-actions { margin-top: 1rem; }
+  :root .auth-flow-page .auth-actions > :not([hidden]) ~ :not([hidden]) { margin-top: 0.625rem; }
+  :root .auth-flow-page .auth-notice { padding: 0.625rem 0.75rem; line-height: 1.5; }
+  :root .auth-flow-page .auth-panel-body > div > :is(.mt-5, .mt-6, .mt-8) { margin-top: 1rem; }
+  :root .auth-flow-page .auth-back-link { margin-top: 1rem; }
+  :root .auth-flow-page .auth-footer { margin-top: 0.5rem; font-size: 0.8125rem; line-height: 1.5; }
+  :root .auth-flow-page :is(button, a[href]) { min-height: 2.75rem; }
+  :root .auth-flow-page .auth-footer a { display: inline-flex; align-items: center; }
+  :root .auth-flow-page .auth-copy-full { display: none; }
+  :root .auth-flow-page .auth-copy-compact { display: inline; }
+
+  /* Public content keeps text readable while reducing decorative spacing. */
+  :root .landing-page .landing-hero { padding-block: 0.875rem; }
+  :root .landing-page .landing-monk-stage { height: clamp(8rem, 23dvh, 11.5rem); }
+  :root .landing-page .landing-monk-illustration { width: clamp(9rem, 44vw, 10.5rem); }
+  :root .landing-page .landing-hero-copy { margin-top: 1rem; }
+  :root .landing-page .landing-hero-copy h1 { font-size: 2rem; line-height: 1.2; }
+  :root .landing-page .landing-hero-copy p { font-size: 0.8125rem; line-height: 1.5; }
+  :root .landing-page { --landing-control-size: 2.75rem; }
+  :root .public-content-page .public-feature-card { padding: 0.75rem; }
+  :root .public-content-page h2 { font-size: 1.375rem; line-height: 1.3; }
+  :root .public-content-page > .relative > section { padding-top: 0.75rem; }
+
+  /* Shared dashboard chrome: do not reserve space for a nonexistent footer. */
+  :root .dashboard-shell .dashboard-navbar { padding-block: 0.25rem; }
+  :root .dashboard-shell .dashboard-navbar button:is([aria-controls="dashboard-navigation-drawer"], [aria-label="Show stats"], [aria-label="Hide stats"]) {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  :root .dashboard-shell .dashboard-main {
+    padding: 0.5rem 0.5rem max(0.5rem, env(safe-area-inset-bottom));
+  }
+  :root .dashboard-shell .dashboard-main :is(h2.text-heading-xl, h2.text-2xl, h3.text-2xl) {
+    font-size: 1.25rem;
+    line-height: 1.3;
+  }
+  :root .dashboard-shell .dashboard-main :is(
+    .overview-summary-panel, .overview-status-card,
+    .today-scroll-card, .today-sidebar > section, .upcoming-mobile-panel,
+    .important-main, .schedule-main, .schedule-sidebar-card,
+    .habits-create-form, .habits-track-panel, .goal-create-form,
+    .goals-my-view, .goal-progress-view, .goal-card, .goal-progress-card,
+    .gym-add-form, .gym-diet-form, .gym-library-view, .gym-progress-workout-panel,
+    .gym-progress-metric-panel, .gym-measurements-form-panel,
+    .gym-measurements-saved-panel, .journal-step-card, .journal-progress
+  ) { padding: var(--compact-card-pad); }
+  :root .dashboard-shell .dashboard-main :is(
+    .overview-page-layout, .overview-status-grid, .today-layout,
+    .habits-create-layout, .goal-create-layout, .gym-add-layout,
+    .gym-measurements-layout, .gym-progress-workouts, .gym-progress-measurement-layout
+  ) { gap: var(--compact-gap); }
+  :root .dashboard-shell .overview-summary-heading { padding-bottom: 0.75rem; }
+  :root .dashboard-shell .overview-status-grid { margin-top: 0.75rem; }
+  :root .dashboard-shell .overview-card-body { margin-top: 0.75rem; }
+  :root .dashboard-shell .overview-metric-value { font-size: 1.875rem; }
+  :root .dashboard-shell .overview-card-actions { margin-top: 0.75rem; }
+  :root .dashboard-shell .journal-step-body h2 { margin-bottom: 0.625rem; font-size: 1.25rem; }
+  :root .dashboard-shell .journal-step-body > p.mb-8 { margin-bottom: 1rem; }
+  :root .dashboard-shell .journal-step-nav { margin-top: 0.875rem; gap: 0.5rem; }
+  :root .dashboard-shell .dashboard-main :is(.habits-create-form, .goal-create-form, .gym-add-form) > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.75rem;
+  }
+  :root .dashboard-shell .dashboard-main :is(.schedule-form-row, .habit-form-row) { gap: 0.625rem; }
+  :root .dashboard-shell .dashboard-main :is(.schedule-main, .habits-create-form, .goal-create-form, .gym-add-form, .gym-measurements-form) input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]) {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+
+  /* Analysis controls stay fixed, and charts retain their readable SVG size. */
+  :root .dashboard-shell .analytics-page[data-active] > [data-section] { gap: 0.5rem; }
+  :root .dashboard-shell .analytics-page[data-active] :is(
+    .analysis-chart-card, .analysis-insight-rail, .goal-analysis-filter-card,
+    .goal-analysis-detail-card, .gym-analysis-metric-grid, .gym-analysis-detail-card
+  ) { padding: var(--compact-card-pad); border-radius: 1.125rem; }
+  :root .dashboard-shell .analytics-page[data-active] .analysis-chart-card > h4 { font-size: 1rem; line-height: 1.35; }
+  :root .dashboard-shell .analytics-page[data-active] .analysis-chart-card > p:first-child { letter-spacing: 0.14em; }
+  :root .dashboard-shell .analytics-page[data-active] .analysis-chart-card > div.mt-3 { margin-top: 0.5rem; gap: 0.5rem; }
+  :root .dashboard-shell .analytics-page[data-active] .analysis-chart-card > p[role="status"] {
+    min-height: 2rem;
+    margin-top: 0.5rem;
+    line-height: 1.5;
+  }
+  :root .dashboard-shell .analytics-page[data-active] .analysis-insight-rail > div:first-child { margin-bottom: 0.75rem; }
+  :root .dashboard-shell .analytics-page[data-active] .analysis-insight-list { gap: 0.5rem; }
+  :root .dashboard-shell .analytics-page[data-active] :is(
+    .journal-analysis-chart-column, .todo-analysis-chart-column,
+    .habit-analysis-chart-column, .goal-analysis-chart-column, .gym-analysis-chart-column
+  ) > div { gap: 0.75rem; }
+  :root .dashboard-shell .gym-analysis-metric-grid { gap: 0.625rem; }
+
+  /* Reports use the same compact card rhythm without changing their data. */
+  :root .dashboard-shell .weekly-report-main .weekly-report-page[data-active] { gap: 0.5rem; }
+  :root .dashboard-shell .weekly-report-main .weekly-report-page[data-active] :is(
+    .weekly-journal-overview, .weekly-journal-main > section,
+    .weekly-todo-overview, .weekly-todo-ai, .weekly-todo-stat-card,
+    .weekly-todo-weeks-card, .weekly-todo-category-card,
+    .weekly-habit-overview, .weekly-habit-ai, .weekly-habit-stat-card,
+    .weekly-habit-weeks-card, .weekly-habit-category-card,
+    .weekly-goal-overview, .weekly-goal-progress-card,
+    .weekly-gym-overview, .weekly-gym-strength-card, .weekly-gym-body-card
+  ) { padding: var(--compact-card-pad); }
+
+  /* Ming's identity, tabs and composer remain fixed; messages still scroll. */
+  :root .dashboard-shell .ai-guru-page .ai-guru-profile { padding: 0.5rem 0.625rem; gap: 0.5rem; }
+  :root .dashboard-shell .ai-guru-page .ai-guru-content-header { padding: 0.625rem; }
+  :root .dashboard-shell .ai-guru-page .ai-guru-composer { padding: 0.625rem; }
+  :root .dashboard-shell .ai-guru-page .ai-guru-tabs button { min-height: 2.75rem; }
+
+  /* Portal dialogs: reduce decoration, not usable controls or scroll height. */
+  :root :is(.gym-modal-panel, .gym-library-modal-panel, .weekly-gym-photos-modal) { padding: 0.75rem; }
+  :root .gym-diet-plan-panel .gym-diet-plan-header { padding: 0.75rem; }
+  :root .gym-diet-plan-header > div:first-child > button { min-height: 2.75rem; min-width: 2.75rem; }
+  :root .dashboard-shell .gym-diet-view section > div:is(.shrink-0, .journal-scroll) { padding: var(--compact-card-pad); }
+  :root .dashboard-shell #dashboard-navigation-drawer > div:first-child > button { width: 2.75rem; height: 2.75rem; }
+  :root .welcome-card .welcome-content { padding: 0.75rem; }
+  :root .welcome-card .welcome-content > div.mt-6 { margin-top: 1rem; }
+  :root .welcome-card { border-radius: 1.25rem; }
+}

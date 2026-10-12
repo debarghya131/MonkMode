@@ -384,7 +384,7 @@ export default function Measurements({ lowMotion = false }) {
     <>
       <GymResourceNotice resource={resource} />
       {form.checkInDate !== currentDate && <div role="alert" className="mb-3 rounded-xl border border-amber-300/30 p-3 text-sm text-amber-100">The app day changed. This draft is from {form.checkInDate}. <button type="button" onClick={resetForm} className="underline">Start today’s check-in</button></div>}
-      <div className="gym-measurements-mobile-tabs" role="tablist" aria-label="Measurement sections">
+      <div className="gym-measurements-mobile-tabs" role="tablist" aria-label="Measurement sections" data-demo-allow="true">
         <button type="button" role="tab" aria-selected={mobilePanel === "add"} onClick={() => setMobilePanel("add")}>
           <span className="gym-measurements-mobile-tab-icon" aria-hidden="true">＋</span>
           <span>Add Measurements</span>

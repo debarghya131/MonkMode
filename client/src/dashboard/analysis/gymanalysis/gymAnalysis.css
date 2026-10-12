@@ -1,0 +1,334 @@
+/* Keep the controls outside the report scroller, overriding the legacy
+   shared Analysis grid that flattens the content wrappers. */
+.dashboard-main.analysis-main:has(.analytics-page[data-active="gym"]) {
+  overflow: hidden;
+}
+
+.analysis-main > .analysis-route:has(.analytics-page[data-active="gym"]),
+.analysis-main .analytics-page[data-active="gym"],
+.analysis-main .analytics-page[data-active="gym"] .gym-analysis-page {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.analysis-main .analytics-page[data-active="gym"] .gym-analysis-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.analysis-main .analytics-page[data-active="gym"] .gym-analysis-page > * {
+  margin: 0;
+}
+
+.gym-analysis-toolbar {
+  display: grid;
+  flex: none;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.analysis-main .gym-analysis-toolbar > nav {
+  min-width: 0;
+  margin: 0;
+}
+
+.analysis-main .gym-analysis-page button {
+  min-height: 2.75rem;
+}
+
+.analysis-main .analytics-page[data-active="gym"] .gym-analysis-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  height: auto;
+  margin: 0;
+}
+
+.analysis-main .analytics-page[data-active="gym"] .gym-analysis-filters > label {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 2.75rem;
+  padding: 0 0.625rem;
+  font-size: 0.8125rem;
+}
+
+.gym-analysis-filters .dashboard-select-root {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.gym-analysis-filters .dashboard-select-trigger {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.analysis-main .analytics-page[data-active="gym"] :is(.gym-analysis-content, .gym-analysis-section) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+.analysis-main .analytics-page[data-active="gym"] .gym-analysis-layout {
+  display: grid;
+  flex: 1 1 0%;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+.analysis-main .gym-analysis-chart-column > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem;
+}
+
+.analysis-main .analytics-page[data-active="gym"] .gym-analysis-chart-column > div > * {
+  margin: 0;
+}
+
+.analysis-main .gym-analysis-side-column > aside {
+  flex: none;
+  height: auto;
+  min-height: 0;
+}
+
+.gym-analysis-page .journal-analysis-insight-row {
+  align-items: center;
+}
+
+.gym-analysis-page .analysis-chart-table summary {
+  display: list-item;
+  min-height: 2.75rem;
+  padding-block: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.gym-analysis-page .analysis-chart-table table {
+  min-width: 24rem;
+}
+
+.gym-analysis-menu {
+  max-height: min(20rem, max(5rem, calc(100dvh - 12rem)));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.analysis-main .gym-analysis-page :is(.analysis-chart-card, .gym-analysis-detail-card, .gym-analysis-metric-grid, .analysis-insight-list > div, .gym-analysis-filters > label, button, .analysis-chart-table summary) {
+  transition: border-color 180ms ease, background-color 180ms ease,
+    box-shadow 180ms ease, color 180ms ease;
+}
+
+.analysis-main .gym-analysis-page :is(button, .analysis-chart-table summary, .analysis-chart-scroll, .gym-analysis-detail-scroll):focus-visible {
+  outline: 2px solid #fbbf24;
+  outline-offset: 2px;
+}
+
+.analysis-main .gym-analysis-page .gym-analysis-filters > label:focus-within {
+  border-color: rgba(251, 191, 36, 0.65);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .analysis-main .gym-analysis-page :is(.analysis-chart-card, .gym-analysis-detail-card, .gym-analysis-metric-grid, .analysis-insight-list > div):hover {
+    border-color: rgba(251, 191, 36, 0.38);
+    background-color: rgba(251, 191, 36, 0.045);
+    box-shadow: inset 0 1px 0 rgba(251, 191, 36, 0.08), 0 5px 18px rgba(0, 0, 0, 0.14);
+  }
+
+  .analysis-main .gym-analysis-page .gym-analysis-filters > label:hover {
+    border-color: rgba(251, 191, 36, 0.5);
+    background-color: rgba(251, 191, 36, 0.045);
+  }
+
+  .analysis-main .gym-analysis-page :is(button, .analysis-chart-table summary):hover:not(:disabled, [aria-disabled="true"]) {
+    transform: none;
+    border-color: rgba(251, 191, 36, 0.7);
+    color: #fff1b3;
+    box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.12), 0 0 14px rgba(251, 191, 36, 0.1);
+  }
+
+  .analysis-main .gym-analysis-page :is(button, .analysis-chart-table summary):hover:not(:disabled, [aria-disabled="true"], [aria-pressed="true"]) {
+    background-color: rgba(251, 191, 36, 0.12);
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .analysis-main .gym-analysis-page button:is(:hover, :active) {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gym-analysis-page .journal-scroll {
+    scroll-behavior: auto;
+  }
+
+  .analysis-main .gym-analysis-page :is(button, label, summary, .analysis-chart-card, .gym-analysis-detail-card, .gym-analysis-metric-grid, .analysis-insight-list > div) {
+    transition: none;
+  }
+
+  .analysis-main .gym-analysis-page button:is(:hover, :active) {
+    transform: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .analysis-main .analytics-page[data-active="gym"] .gym-analysis-content {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-padding-block: 0.75rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .analysis-main .analytics-page[data-active="gym"] :is(.gym-analysis-section, .gym-analysis-layout) {
+    display: flex;
+    height: auto;
+    min-height: 0;
+    flex: none;
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .analysis-main .analytics-page[data-active="gym"] :is(.gym-analysis-chart-column, .gym-analysis-side-column) {
+    width: 100%;
+    height: auto;
+    min-width: 0;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .analysis-main .analytics-page[data-active="gym"] .gym-analysis-chart-column {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .analysis-main .gym-analysis-chart-column > div {
+    padding: 0;
+    gap: 1rem;
+  }
+
+  .gym-analysis-page .analysis-insight-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .analysis-main .analytics-page[data-active="gym"] .analysis-insight-list > * {
+    margin: 0;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .gym-analysis-page .analysis-insight-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+
+  .analysis-main .analytics-page[data-active="gym"] .gym-analysis-filters {
+    grid-template-columns: repeat(2, minmax(6.5rem, auto));
+  }
+
+  .analysis-main .analytics-page[data-active="gym"] .gym-analysis-content {
+    overflow: hidden;
+  }
+
+  .analysis-main .analytics-page[data-active="gym"] .gym-analysis-layout {
+    grid-template-columns: minmax(0, 1fr) clamp(17rem, 26%, 22rem);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .analysis-main .analytics-page[data-active="gym"] :is(.gym-analysis-chart-column, .gym-analysis-side-column) {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+}
+
+.gym-analysis-metric-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  min-width: 0;
+}
+.gym-analysis-metric-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.gym-analysis-metric-picker > span:first-child {
+  font-size: 0.75rem;
+  color: #a8a29e;
+}
+.gym-analysis-metric-picker .dashboard-select-root {
+  display: block;
+  min-width: 0;
+}
+.analysis-main .gym-analysis-metric-picker .dashboard-select-trigger {
+  width: 100%;
+  height: auto;
+  min-height: 2.75rem;
+  justify-content: space-between;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid rgba(251, 191, 36, 0.16);
+  border-radius: 0.75rem;
+  background-color: rgba(0, 0, 0, 0.18);
+}
+.gym-analysis-metric-picker .dashboard-select-value {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.gym-analysis-detail-scroll {
+  min-width: 0;
+  overscroll-behavior-x: contain;
+}
+.gym-analysis-detail-scroll table {
+  min-width: 30rem;
+}
+.gym-analysis-detail-scroll td {
+  overflow-wrap: anywhere;
+}
+@media (min-width: 640px) {
+  .analysis-main .gym-analysis-toolbar > .gym-analysis-desktop-nav {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.25rem;
+  }
+  .gym-analysis-desktop-nav button {
+    min-width: 0;
+    gap: 0.375rem;
+    padding-inline: 0.5rem;
+  }
+  .gym-analysis-metric-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  }
+}
+@media (min-width: 1280px) {
+  .gym-analysis-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}

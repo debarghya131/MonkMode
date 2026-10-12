@@ -1,6 +1,7 @@
 import { AnalysisChart } from "../journalanalysis/AnalysisUI";
 import { AnalysisView } from "./HabitAnalysisUI";
 import useHabitAnalysis from "./habitAnalysisContext";
+import { compactChartLabels } from "./habitAnalysisFormatters";
 
 const percent = value => value === null || value === undefined ? "No data" : `${value}%`;
 const outcomes = [
@@ -30,7 +31,7 @@ export default function ComplationMissAnalysis() {
   return <AnalysisView insights={insights}>
     {analysis && <>
       <AnalysisChart title="Completion, Missed & Pending by Weekday" subtitle="All scheduled check-ins in the selected month · occurrence-weighted rates" rows={analysis.weekdays} series={outcomes} type="bar" />
-      <AnalysisChart title="Habit-wise Completion & Miss Analysis" subtitle="Separate habit IDs · numbered labels distinguish duplicate names" rows={analysis.habits} series={outcomes} type="bar" />
+      <AnalysisChart title="Habit-wise Completion & Miss Analysis" subtitle="Separate habit IDs · numbered labels distinguish duplicate names" rows={compactChartLabels(analysis.habits)} series={outcomes} type="bar" />
       <AnalysisChart title="Daily Habit Outcomes" subtitle="Complete calendar month · today's unfinished check-ins remain pending"
         rows={analysis.days.map(row => ({...row,completed:row.future?null:row.completed,missed:row.future?null:row.missed,pending:row.future?null:row.pending}))}
         series={[{key:"completed",label:"Completed",color:"#34d399"},{key:"missed",label:"Missed",color:"#fb7185"},{key:"pending",label:"Pending",color:"#fbbf24"}]}
