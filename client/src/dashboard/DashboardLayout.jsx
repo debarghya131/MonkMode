@@ -271,7 +271,7 @@ export default function DashboardLayout({ children }) {
       <div className="flex min-h-0 flex-1 overflow-hidden">
 
         {/* Desktop sidebar */}
-        <aside className="hidden min-h-0 w-[clamp(13rem,15vw,16rem)] shrink-0 flex-col overflow-hidden border-r border-amber-100/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur xl:flex">
+        <aside className="dashboard-desktop-sidebar hidden min-h-0 w-[clamp(13rem,15vw,16rem)] shrink-0 flex-col overflow-hidden border-r border-amber-100/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur xl:flex">
           <Sidebar onLogout={handleLogout} />
         </aside>
 

@@ -1,0 +1,51 @@
+/* Filter chips only: navigation, period selectors, inputs and actions retain
+   their independent sizing. Keep existing grid/scroll layouts and colors. */
+:root .dashboard-shell .dashboard-main :is(.todo-page, .habits-page, .goals-page, .gym-page, .analytics-page, .weekly-report-page)[data-active] :is(
+  .dashboard-filter-controls, .todo-priority-filter, .important-priority-filter,
+  .habit-priority-filter, .habit-time-slot-filter, .habit-track-filters,
+  .goal-progress-filter-group, .gym-add-view-tabs, .gym-add-day-filters,
+  .gym-library-filters, .gym-progress-workout-filters, .gym-progress-group-filters,
+  .weekly-todo-card-filter, .weekly-habit-card-filter, .weekly-goal-filters,
+  .weekly-gym-progress-filters
+) > button[type="button"]:not([role="tab"]),
+:root .gym-diet-plan-modal .dashboard-filter-controls > button[type="button"] {
+  height: auto;
+  min-height: 24px;
+  min-width: 0;
+  padding: 3px 6px;
+  font-size: 10px;
+  line-height: 1.4;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+:root .dashboard-shell .dashboard-main :is(.todo-page, .habits-page, .goals-page, .gym-page, .analytics-page, .weekly-report-page)[data-active] :is(
+  .dashboard-filter-controls, .todo-priority-filter, .important-priority-filter,
+  .habit-priority-filter, .habit-time-slot-filter, .habit-track-filters,
+  .goal-progress-filter-group, .gym-add-view-tabs, .gym-add-day-filters,
+  .gym-library-filters, .gym-progress-workout-filters, .gym-progress-group-filters,
+  .weekly-todo-card-filter, .weekly-habit-card-filter, .weekly-goal-filters,
+  .weekly-gym-progress-filters
+),
+:root .gym-diet-plan-modal .dashboard-filter-controls {
+  gap: 4px;
+}
+
+:root .dashboard-shell .dashboard-main .goals-page[data-active="progress"] .goal-progress-filters {
+  gap: 6px;
+}
+
+:root .dashboard-shell .dashboard-main .goals-page[data-active="progress"] .goal-progress-filter-label {
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+@media (max-width: 639px) {
+  :root .dashboard-shell .dashboard-main .goals-page[data-active="progress"] .goal-progress-filters {
+    padding: 6px;
+  }
+
+  :root .dashboard-shell .dashboard-main .habits-page[data-active="today"] .habit-today-mobile-time-filter {
+    padding: 4px;
+  }
+}

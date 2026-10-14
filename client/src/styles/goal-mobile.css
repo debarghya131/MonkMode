@@ -37,3 +37,50 @@
 @media (min-width: 350px) and (max-width: 639px) {
   :root .dashboard-shell .goals-page :is(.goal-type-options, .goal-date-fields) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Created goals: separate the heading, details, and compact action row. */
+:root .dashboard-shell .dashboard-main .goals-page[data-active="create-goals"] .goal-create-list-header {
+  margin-bottom: 10px;
+}
+
+:root .dashboard-shell .dashboard-main .goals-page[data-active="create-goals"] .goal-created-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+}
+
+:root .dashboard-shell .dashboard-main .goals-page[data-active="create-goals"] .goal-created-card-controls {
+  width: auto;
+  justify-content: flex-end;
+}
+
+:root .dashboard-shell .dashboard-main .goals-page[data-active="create-goals"] .goal-created-card-title {
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+:root .dashboard-shell .dashboard-main .goals-page[data-active="create-goals"] .goal-created-card-description {
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+:root .dashboard-shell .dashboard-main .goals-page[data-active="create-goals"] .goal-created-card-meta {
+  margin-top: 8px;
+  gap: 4px;
+  font-size: 10px;
+}
+
+:root .dashboard-shell .dashboard-main .goals-page[data-active="create-goals"] .goal-created-card-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  gap: 6px;
+}
+
+:root .dashboard-shell .dashboard-main .goals-page[data-active="create-goals"] .goal-created-card-actions .dashboard-card-action:not(.dashboard-edit-delete-action) {
+  width: auto;
+  min-width: max-content;
+  flex-shrink: 0;
+  white-space: nowrap;
+}

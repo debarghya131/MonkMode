@@ -1,6 +1,5 @@
-import { AnalysisChart } from "../journalanalysis/AnalysisUI";
-import { AnalysisView, GoalFilter } from "./GoalAnalysisUI";
-import { percentLabel, deadlineLabel } from "./goalAnalysisFormatters";
+import { GoalChart as AnalysisChart, AnalysisView, GoalFilter } from "./GoalAnalysisUI";
+import { percentLabel, deadlineLabel, countLabel } from "./goalAnalysisFormatters";
 import { filterAnalysisGoals } from "./goalAnalysisFilters";
 import useGoalAnalysis from "./goalAnalysisContext";
 
@@ -16,9 +15,9 @@ export default function ScoreConsisteDeadAnalysis() {
     {title:"Most Recorded Activity Goal",value:highest ? highest.label+" · "+percentLabel(highest.consistency) : "No data",description:highest ? highest.activeDays+" dates with updates across "+highest.eligibleDays+" eligible calendar dates. Each goal has its own created/start/deletion bounds." : "No eligible goals in this period."},
     {title:"Month Activity Score",value:percentLabel(t.activityScore),description:t.activeGoals+" of "+t.goalCount+" eligible goals have a recorded update this month. This engagement percentage is distinct from progress, pace and daily consistency."},
     {title:"Checkpoint Progress/Pace Score",value:t.score===null ? "No data" : t.score+" / 100",description:a.scoreNote},
-    {title:"Overdue Incomplete Goals",value:t.overdueGoals+" goals",description:"Deadline is before the goal's selected checkpoint, not before today's date for a past-month report. Completed and deleted goals are not overdue. Unknown completion or edited deadline history is not classified."},
-    {title:"Goals Due on Checkpoint Day",value:t.dueTodayGoals+" goals",description:"A zero-day difference means due on that app-calendar date, not already overdue. Deadlines are date-based; no hourly cutoff is inferred."},
-    {title:"Retained Progress Updates",value:t.progressUpdates+" updates",description:"Numeric audit entries and matching embedded progress events within one second are deduplicated. Decreases are genuine updates, not automatically missed days. Milestone completions and their automatic numeric updates can appear in both event categories; activity coverage counts their date once."},
+    {title:"Overdue Incomplete Goals",value:countLabel(t.overdueGoals,"goal"),description:"Deadline is before the goal's selected checkpoint, not before today's date for a past-month report. Completed and deleted goals are not overdue. Unknown completion or edited deadline history is not classified."},
+    {title:"Goals Due on Checkpoint Day",value:countLabel(t.dueTodayGoals,"goal"),description:"A zero-day difference means due on that app-calendar date, not already overdue. Deadlines are date-based; no hourly cutoff is inferred."},
+    {title:"Retained Progress Updates",value:countLabel(t.progressUpdates,"update"),description:"Numeric audit entries and matching embedded progress events within one second are deduplicated. Decreases are genuine updates, not automatically missed days. Milestone completions and their automatic numeric updates can appear in both event categories; activity coverage counts their date once."},
   ];
   return <AnalysisView insights={insights}>{a && <>
     <GoalFilter/>

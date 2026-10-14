@@ -55,3 +55,18 @@
     align-self: center;
   }
 }
+
+/* Important's priority controls use rounded-lg, rather than rounded-full,
+   so they need an explicit compact treatment at every viewport. */
+:root .dashboard-shell .dashboard-main .todo-page[data-active="important"] .important-priority-filter {
+  gap: 0.25rem;
+  margin-bottom: 0.625rem;
+}
+:root .dashboard-shell .dashboard-main .todo-page[data-active="important"] .important-priority-filter > button {
+  min-height: 1.75rem;
+  height: auto;
+  min-width: 0;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.65625rem;
+  line-height: 1.4;
+}

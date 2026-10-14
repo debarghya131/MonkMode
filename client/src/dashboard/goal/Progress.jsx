@@ -56,8 +56,7 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
     <div className="goal-progress-view flex flex-col rounded-[1.6rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-[2rem] sm:p-6">
       <header className="goal-progress-heading">
         <div className="goal-progress-heading-copy">
-          <p className="text-label-lg">Progress</p>
-          <h2 className="mt-2 text-2xl font-bold text-amber-100">Goal Progress</h2>
+          <h2 className="text-2xl font-bold text-amber-100">Goal Progress</h2>
         </div>
         <span className="goal-progress-count rounded-full border border-amber-100/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
           {filtered.length} goals
@@ -101,6 +100,7 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
                 key={opt}
                 type="button"
                 onClick={() => setStatusFilter(opt)}
+                aria-pressed={statusFilter === opt}
                 className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${
                   statusFilter === opt
                     ? "border-amber-300/50 bg-amber-500/20 text-amber-100"
@@ -118,6 +118,7 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
                 key={opt}
                 type="button"
                 onClick={() => setPriorityFilter(opt)}
+                aria-pressed={priorityFilter === opt}
                 className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${
                   priorityFilter === opt
                     ? opt === "High"

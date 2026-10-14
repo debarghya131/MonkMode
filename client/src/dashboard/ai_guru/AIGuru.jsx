@@ -308,25 +308,27 @@ function GuruSession({ isDemoMode, lowMotion }) {
                   {activeTab === "insights" ? "Your Discipline Overview" : "Your Discipline Co-Pilot"}
                 </h3>
               </div>
-              {activeTab === "chat" && (
-                <button type="button" className="rounded-lg border border-amber-100/20 px-2 py-1 text-xs text-stone-300" onClick={() => {
-                  requestRef.current?.abort(); requestRef.current = null;
-                  setMessages(INITIAL_MESSAGES); setPrompt(""); setChatError("");
-                  setFailedPrompt(null); setChatLoading(false);
-                }}>Clear chat</button>
-              )}
-              <Motion.span
-                className="ai-guru-beta-status relative shrink-0 overflow-hidden rounded-full border border-emerald-300/30 bg-emerald-500/10 px-3 py-1 text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-emerald-200"
-                animate={lowMotion ? {} : { boxShadow: ["0 0 0px rgba(52,211,153,0)", "0 0 12px rgba(52,211,153,0.36)", "0 0 0px rgba(52,211,153,0)"] }}
-                transition={{ boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
-              >
+              <div className="ai-guru-header-actions ml-auto flex shrink-0 items-center gap-2">
+                {activeTab === "chat" && (
+                  <button type="button" className="ai-guru-clear-chat rounded-lg border border-amber-100/20 px-2 py-1 text-xs text-stone-300" onClick={() => {
+                    requestRef.current?.abort(); requestRef.current = null;
+                    setMessages(INITIAL_MESSAGES); setPrompt(""); setChatError("");
+                    setFailedPrompt(null); setChatLoading(false);
+                  }}>Clear chat</button>
+                )}
                 <Motion.span
-                  className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
-                  animate={lowMotion ? {} : { left: ["-40%", "130%"] }}
-                  transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
-                />
-                <span className="relative z-10">{isDemoMode ? "Demo" : "Beta"}</span>
-              </Motion.span>
+                  className="ai-guru-beta-status relative shrink-0 overflow-hidden rounded-full border border-emerald-300/30 bg-emerald-500/10 px-3 py-1 text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-emerald-200"
+                  animate={lowMotion ? {} : { boxShadow: ["0 0 0px rgba(52,211,153,0)", "0 0 12px rgba(52,211,153,0.36)", "0 0 0px rgba(52,211,153,0)"] }}
+                  transition={{ boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
+                >
+                  <Motion.span
+                    className="pointer-events-none absolute inset-y-0 left-[-40%] w-[30%] -skew-x-12 bg-white/25 blur-sm"
+                    animate={lowMotion ? {} : { left: ["-40%", "130%"] }}
+                    transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.5, ease: "easeInOut" }}
+                  />
+                  <span className="relative z-10">{isDemoMode ? "Demo" : "Beta"}</span>
+                </Motion.span>
+              </div>
             </div>
           </div>
 

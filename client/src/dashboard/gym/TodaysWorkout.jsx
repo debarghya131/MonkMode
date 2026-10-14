@@ -670,6 +670,7 @@ export default function TodaysWorkout({ lowMotion = false }) {
   const todayWorkouts = allWorkouts.filter(
     (w) => workoutOnDay(w, today, selectedDay)
   );
+  const exerciseCount = todayWorkouts.reduce((sum, w) => sum + (w.exercises?.length || 0), 0);
 
   const inactiveScheduledWorkouts = allWorkouts.filter(
     (w) => w.days?.includes(selectedDay) && !w.isActive
@@ -703,10 +704,10 @@ export default function TodaysWorkout({ lowMotion = false }) {
       <div className="gym-today-view flex min-h-0 flex-col gap-4">
 
         {/* Day selector */}
-        <div className="gym-day-selector shrink-0 flex flex-wrap items-center gap-2 rounded-[1.4rem] border border-amber-100/10 bg-black/20 px-3 py-3 sm:rounded-2xl sm:px-4">
+        <div className="gym-day-selector dashboard-filter-controls shrink-0 flex flex-wrap items-center gap-2 rounded-[1.4rem] border border-amber-100/10 bg-black/20 px-3 py-3 sm:rounded-2xl sm:px-4" role="group" aria-label="Workout day">
           <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">Day</span>
           {WEEK_DAYS.map((day) => (
-            <button key={day} type="button" onClick={() => { setSelectedDay(day); setBodyFilter("all"); }}
+            <button key={day} type="button" onClick={() => { setSelectedDay(day); setBodyFilter("all"); }} aria-pressed={selectedDay === day}
               className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
                 selectedDay === day
                   ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
@@ -742,18 +743,36 @@ export default function TodaysWorkout({ lowMotion = false }) {
 
           {/* Workout column */}
           <div className="gym-workout-panel flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.06),transparent_40%),linear-gradient(180deg,rgba(20,12,10,0.97),rgba(10,8,8,0.98))] sm:rounded-2xl">
-            <div className="shrink-0 border-b border-amber-100/10 px-4 py-3 sm:px-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="gym-workout-panel-header shrink-0 border-b border-amber-100/10 px-4 py-3 sm:px-5">
+              <div className="gym-workout-panel-heading flex flex-wrap items-center justify-between gap-3">
                 <h3 className="text-sm font-semibold text-stone-100">{formatDate(selectedDay, weekday)}'s Workouts</h3>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-amber-300/20 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-amber-200">
                     {todayWorkouts.length} plan{todayWorkouts.length !== 1 ? "s" : ""}
                   </span>
                   <span className="rounded-full border border-stone-500/20 bg-white/5 px-2.5 py-0.5 text-[10px] font-semibold text-stone-400">
-                    {todayWorkouts.reduce((sum, w) => sum + (w.exercises?.length || 0), 0)} exercises
+                    {exerciseCount} exercise{exerciseCount !== 1 ? "s" : ""}
                   </span>
                 </div>
               </div>
+              {allBodyGroups.length > 0 && (
+                <div className="gym-today-body-filters dashboard-filter-controls mt-2 flex gap-1.5 overflow-x-auto pb-0.5" role="group" aria-label="Workout body group">
+                  <button type="button" onClick={() => setBodyFilter("all")} aria-pressed={bodyFilter === "all"}
+                    className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold transition ${
+                      bodyFilter === "all" ? "border-amber-300/45 bg-amber-500/15 text-amber-100" : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-stone-200"
+                    }`}>
+                    All
+                  </button>
+                  {allBodyGroups.map((g) => (
+                    <button key={g} type="button" onClick={() => setBodyFilter(g)} aria-pressed={bodyFilter === g}
+                      className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold transition ${
+                        bodyFilter === g ? "border-amber-300/45 bg-amber-500/15 text-amber-100" : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-stone-200"
+                      }`}>
+                      {g}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="gym-workout-scroll journal-scroll min-h-0 flex-1 overflow-y-auto p-3 pr-1.5 scroll-smooth sm:p-4 sm:pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/20 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/40">
@@ -790,7 +809,7 @@ export default function TodaysWorkout({ lowMotion = false }) {
                   )}
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="gym-workout-list space-y-4">
                   {filteredWorkouts.map((workout, wi) => (
                     <WorkoutCard
                       key={workout.id}
@@ -803,65 +822,43 @@ export default function TodaysWorkout({ lowMotion = false }) {
                       })}
                     >
                       {/* Workout header */}
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <h4 className="text-sm font-semibold text-stone-100">{workout.title}</h4>
-                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                            {workout.difficulty && (
-                              <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${DIFFICULTY_STYLES[workout.difficulty] || "border-amber-100/10 text-stone-400 bg-white/5"}`}>
-                                {workout.difficulty}
-                              </span>
-                            )}
-                            {workout.goalType && (
-                              <span className="rounded-full border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-400">
-                                {GOAL_LABELS[workout.goalType] || workout.goalType}
-                              </span>
-                            )}
-                            {workout.workoutSplit && (
-                              <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300">
-                                {getSplitLabel(workout.workoutSplit)}
-                              </span>
-                            )}
-                            {workout.totalEstimatedTime && (
-                              <span className="rounded-full border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-400">
-                                ~{workout.totalEstimatedTime} min
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                      <div className="gym-workout-heading flex items-start justify-between gap-2">
+                        <h4 className="min-w-0 flex-1 text-sm font-semibold text-stone-100">{workout.title}</h4>
                         {workout.isActive && (
                           <span className="dashboard-card-status" data-tone="success">
                             Active
                           </span>
                         )}
                       </div>
-
-                      {/* Body group filter */}
-                      {allBodyGroups.length > 0 && (
-                        <div className="mt-2.5 flex gap-1.5 overflow-x-auto pb-0.5">
-                          <button type="button" onClick={() => setBodyFilter("all")}
-                            className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold transition ${
-                              bodyFilter === "all" ? "border-amber-300/45 bg-amber-500/15 text-amber-100" : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-stone-200"
-                            }`}>
-                            All
-                          </button>
-                          {allBodyGroups.map((g) => (
-                            <button key={g} type="button" onClick={() => setBodyFilter(g)}
-                              className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold transition ${
-                                bodyFilter === g ? "border-amber-300/45 bg-amber-500/15 text-amber-100" : "border-amber-100/10 bg-white/5 text-stone-400 hover:text-stone-200"
-                              }`}>
-                              {g}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      <div className="gym-workout-meta mt-1.5 flex flex-wrap items-center gap-1.5">
+                        {workout.difficulty && (
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${DIFFICULTY_STYLES[workout.difficulty] || "border-amber-100/10 text-stone-400 bg-white/5"}`}>
+                            {workout.difficulty}
+                          </span>
+                        )}
+                        {workout.goalType && (
+                          <span className="rounded-full border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-400">
+                            {GOAL_LABELS[workout.goalType] || workout.goalType}
+                          </span>
+                        )}
+                        {workout.workoutSplit && (
+                          <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300">
+                            {getSplitLabel(workout.workoutSplit)}
+                          </span>
+                        )}
+                        {workout.totalEstimatedTime && (
+                          <span className="rounded-full border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-stone-400">
+                            ~{workout.totalEstimatedTime} min
+                          </span>
+                        )}
+                      </div>
 
                       {/* Exercise list */}
                       <div className="gym-exercise-list journal-scroll mt-3 max-h-[380px] space-y-2 overflow-y-auto scroll-smooth pr-1.5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-400/25 hover:[&::-webkit-scrollbar-thumb]:bg-amber-400/45 md:max-h-[460px]">
                         {workout.exercises.map((ex, idx) => (
                           <ExerciseCard
                             key={ex.id}
-                            className="gym-exercise-card rounded-xl border border-amber-100/8 bg-black/20 px-3 py-2.5"
+                            className="gym-exercise-card rounded-xl border border-amber-100/10 bg-black/20 px-3 py-2.5"
                             {...(lowMotion ? {} : {
                               initial: { opacity: 0, x: -8 },
                               animate: { opacity: 1, x: 0 },

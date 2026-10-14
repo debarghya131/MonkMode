@@ -158,8 +158,8 @@ function MiniChart({ points, unit, gradientId = "mcg" }) {
     : [...new Set([0, Math.floor(lastIndex / 3), Math.floor(lastIndex * 2 / 3), lastIndex])];
 
   return (
-    <div className="overflow-hidden rounded-xl border border-amber-100/8 bg-black/20">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 90 }} preserveAspectRatio="none">
+    <div className="gym-progress-mini-chart overflow-hidden rounded-xl border border-amber-100/10 bg-black/20">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "var(--gym-progress-chart-height, 90px)" }} preserveAspectRatio="none">
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="rgb(251,191,36)" stopOpacity="0.22" />
@@ -250,6 +250,7 @@ function WorkoutProgress({ workouts, lowMotion = false }) {
               key={group}
               type="button"
               onClick={() => setGroupFilter(group)}
+              aria-pressed={groupFilter === group}
               className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
                 groupFilter === group
                   ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
@@ -267,6 +268,8 @@ function WorkoutProgress({ workouts, lowMotion = false }) {
               key={exercise.exerciseId}
               type="button"
               onClick={() => setSelectedExerciseId(exercise.exerciseId)}
+              aria-pressed={selectedExerciseId === exercise.exerciseId}
+              title={exercise.name}
               initial={lowMotion ? false : { opacity: 0, x: -8 }}
               animate={lowMotion ? undefined : { opacity: 1, x: 0 }}
               transition={lowMotion ? { duration: 0 } : { delay: ei * 0.04, duration: 0.18 }}
@@ -294,7 +297,7 @@ function WorkoutProgress({ workouts, lowMotion = false }) {
       <div className="gym-progress-workout-detail min-w-0 space-y-4">
         {selectedExercise && (
           <div className="gym-progress-workout-summary rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+            <div className="gym-progress-summary-heading flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-stone-100">{selectedExercise.name}</p>
                 <p className="mt-1 text-xs text-stone-500">{selectedExercise.bodyPart || selectedExercise.bodyGroup}</p>
@@ -318,12 +321,12 @@ function WorkoutProgress({ workouts, lowMotion = false }) {
             return (
               <Motion.div
                 key={metric.key}
-                className="rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl"
+                className="gym-progress-workout-chart rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl"
                 initial={lowMotion ? false : { opacity: 0, y: 8 }}
                 animate={lowMotion ? undefined : { opacity: 1, y: 0 }}
                 transition={lowMotion ? { duration: 0 } : { delay: mi * 0.06, duration: 0.2 }}
               >
-                <div className="mb-2 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="gym-progress-chart-heading mb-2 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs font-semibold text-stone-200">{metric.label}</p>
                   <span className="text-[10px] font-semibold text-amber-200">
                     Latest: {formatMetricValue(latest, metric.unit)}
@@ -382,7 +385,7 @@ function MeasurementsProgress({ lowMotion = false }) {
       {/* Group filter */}
       <div className="gym-progress-group-filters flex gap-1.5 overflow-x-auto">
         {MEAS_GROUPS.map((g) => (
-          <button key={g} type="button" onClick={() => setGroupFilter(g)}
+          <button key={g} type="button" onClick={() => setGroupFilter(g)} aria-pressed={groupFilter === g}
             className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
               groupFilter === g
                 ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
@@ -404,11 +407,11 @@ function MeasurementsProgress({ lowMotion = false }) {
               const latest = vals.length ? vals[vals.length - 1] : null;
               const diff = vals.length > 1 ? vals[vals.length - 1] - vals[0] : null;
               return (
-                <button key={f.key} type="button" onClick={() => setSelectedField(f.key)}
+                <button key={f.key} type="button" onClick={() => setSelectedField(f.key)} aria-pressed={selectedField === f.key} title={f.label}
                   className={`gym-progress-metric-option flex w-full flex-col items-start gap-2 rounded-xl border px-3 py-2 text-left transition sm:flex-row sm:items-center sm:justify-between sm:gap-3 ${
                     selectedField === f.key
                       ? "border-amber-300/40 bg-amber-500/10"
-                      : "border-amber-100/8 bg-white/3 hover:bg-white/6"
+                      : "border-amber-100/10 bg-white/5 hover:bg-white/10"
                   }`}>
                   <span className="text-xs font-semibold text-stone-200">{f.label}</span>
                   <div className="text-left sm:shrink-0 sm:text-right">
@@ -430,7 +433,7 @@ function MeasurementsProgress({ lowMotion = false }) {
         {/* Chart + history */}
         <div className="gym-progress-measurement-detail space-y-4">
           <div className="gym-progress-chart rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-4 sm:rounded-2xl">
-            <div className="mb-2 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="gym-progress-chart-heading mb-2 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs font-semibold text-stone-200">{activeField?.label} over time</p>
               {points.length > 1 && (
                 <span className="text-[10px] text-stone-500">{points.length} data points</span>
@@ -459,26 +462,26 @@ function MeasurementsProgress({ lowMotion = false }) {
                 return (
                   <Motion.div
                     key={entry.id}
-                    className="rounded-xl border border-amber-100/10 bg-black/15 p-3"
+                    className="gym-progress-history-entry rounded-xl border border-amber-100/10 bg-black/15 p-3"
                     initial={lowMotion ? false : { opacity: 0, y: 8 }}
                     animate={lowMotion ? undefined : { opacity: 1, y: 0 }}
                     transition={lowMotion ? { duration: 0 } : { delay: idx * 0.06, duration: 0.2 }}
                     whileHover={lowMotion ? undefined : { y: -1, borderColor: "rgba(251,191,36,0.18)" }}
                   >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="gym-progress-history-heading flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-xs font-semibold text-stone-100">{fmtDate(entry.checkInDate)}</span>
                       <span className="rounded-full border border-amber-300/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
                         {changed.length} updated
                       </span>
                     </div>
                     {changed.length > 0 ? (
-                      <div className="mt-2 flex flex-wrap gap-2">
+                      <div className="gym-progress-history-values mt-2 flex flex-wrap gap-2">
                         {changed.map((f) => {
                           const cur = parseFloat(entry[f.key]);
                           const old = prev ? parseFloat(prev[f.key]) : null;
                           const diff = old != null && !isNaN(old) ? cur - old : null;
                           return (
-                        <div key={f.key} className="min-w-0 rounded-lg border border-amber-100/10 bg-white/5 px-2.5 py-1.5">
+                        <div key={f.key} className="gym-progress-history-value min-w-0 rounded-lg border border-amber-100/10 bg-white/5 px-2.5 py-1.5">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-stone-500">{f.label}</p>
                               <p className="mt-0.5 text-xs font-semibold text-stone-100">{cur} {f.unit}</p>
                               {diff !== null && !isNaN(diff) && (
@@ -517,15 +520,17 @@ export default function Progress({ initialTab = "measurements", lowMotion = fals
       {/* Tab bar */}
       <div className="gym-progress-tabs flex flex-col gap-2 rounded-[1.4rem] border border-amber-100/10 bg-black/20 p-1.5 sm:flex-row sm:items-center sm:rounded-2xl">
         {[
-          { id: "measurements", label: "📏 Measurements Progress" },
-          { id: "workouts",     label: "🏋️ Workout Progress"        },
-        ].map(({ id, label }) => {
+          { id: "measurements", label: "📏 Measurements Progress", shortLabel: "📏 Measurements" },
+          { id: "workouts",     label: "🏋️ Workout Progress", shortLabel: "🏋️ Workouts" },
+        ].map(({ id, label, shortLabel }) => {
           const isActive = tab === id;
           return (
             <Motion.button
               key={id}
               type="button"
               onClick={() => setTab(id)}
+              aria-label={label}
+              aria-pressed={isActive}
               whileHover={!lowMotion && !isActive ? {
                 scale: 1.06,
                 boxShadow: "0 0 18px rgba(251,191,36,0.55), 0 0 36px rgba(251,191,36,0.2)",
@@ -537,7 +542,8 @@ export default function Progress({ initialTab = "measurements", lowMotion = fals
                   : "border border-amber-100/10 text-stone-400 hover:border-amber-300/25 hover:bg-amber-500/10 hover:text-amber-200"
               }`}
             >
-              <span className="relative z-10">{label}</span>
+              <span className="gym-progress-label-long relative z-10">{label}</span>
+              <span className="gym-progress-label-short relative z-10">{shortLabel}</span>
             </Motion.button>
           );
         })}

@@ -132,8 +132,10 @@ function DayColumn({ date, tasks, selectedPriority, lowMotion }) {
   return (
     <div className="upcoming-day-col">
       <div className="mb-2 rounded-[1rem] border border-amber-100/10 bg-black/15 px-3 py-2.5 sm:rounded-xl">
-        <p className="text-xs font-bold text-amber-200">{formatWeekday(date)}</p>
-        <p className="text-[11px] text-stone-400">{formatDayLabel(date)}</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="min-w-0 text-xs font-bold text-amber-200">{formatWeekday(date)}</p>
+          <p className="shrink-0 whitespace-nowrap text-right text-[11px] text-stone-400">{formatDayLabel(date)}</p>
+        </div>
         <span className="mt-1.5 inline-block rounded-full border border-amber-100/10 bg-white/5 px-2 py-0.5 text-[10px] text-stone-400">
           {filtered.length} task{filtered.length !== 1 ? "s" : ""}
         </span>
@@ -316,19 +318,21 @@ export default function Upcoming({ lowMotion = false, tasks = [], clock, timezon
 
       {/* ── Card 2: Next 5 Days ───────────────────────────────────────────── */}
       <section className="upcoming-card-next5 upcoming-next5-card rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200/70">
               Next 5 Days
             </p>
             <h3 className="mt-1 text-xl font-bold text-amber-100">Upcoming Schedule</h3>
-            <p className="mt-1 text-xs leading-5 text-stone-400">
+          </div>
+          <div className="ml-auto flex min-w-0 items-center gap-3">
+            <p className="whitespace-nowrap text-xs leading-5 text-stone-400">
               {formatDayLabel(shiftTodoDay(clock.date, 2))} — {formatDayLabel(shiftTodoDay(clock.date, 6))}
             </p>
-          </div>
-          <div className="shrink-0 rounded-[1rem] border border-amber-100/10 bg-white/5 px-3 py-2 text-center sm:rounded-xl sm:px-4">
-            <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500">Shown</p>
-            <p className="mt-0.5 text-xl font-semibold text-stone-100">{totalNext5}</p>
+            <div className="shrink-0 rounded-[1rem] border border-amber-100/10 bg-white/5 px-3 py-2 text-center sm:rounded-xl sm:px-4">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-stone-500">Shown</p>
+              <p className="mt-0.5 text-xl font-semibold text-stone-100">{totalNext5}</p>
+            </div>
           </div>
         </div>
 

@@ -13,7 +13,7 @@ export function JournalPeriodFilters() {
   const oldest = Math.min(currentYear - 3, Number(data?.joinedDay?.slice(0,4)) || currentYear, Number(period.year));
   const years = Array.from({ length: Math.min(100, currentYear-oldest+1) },(_,index)=>String(currentYear-index));
   const changeYear = year => setPeriod({ year, month: year === today.slice(0,4) && period.month > today.slice(5,7) ? today.slice(5,7) : period.month });
-  return <div className="journal-analysis-filters flex flex-wrap gap-2">
+  return <div className="dashboard-period-controls journal-analysis-filters flex flex-wrap gap-2">
       <label className="flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-stone-300">Year
         <DashboardSelect aria-label="Analysis year" value={period.year} onChange={event=>changeYear(event.target.value)}>
           {years.map(year=><option key={year} value={year}>{year}</option>)}
@@ -35,7 +35,7 @@ export function AnalysisView({ children, insights, distribution }) {
       : data && <div className="journal-analysis-layout flex min-h-0 flex-col gap-4 lg:flex-row">
         <div className="journal-analysis-chart-column journal-scroll min-w-0 flex-1 overflow-y-auto rounded-[2rem] border border-amber-100/10 bg-white/[0.03]">
           <div className="space-y-6 p-4 sm:p-6">
-            <p className="text-xs leading-5 text-stone-400">{isDemoMode ? "Demo sample · " : ""}{period.year}-{period.month} · {data.timezone} · {data.analysis.loggedDays} logged days. {data.dataNote}</p>
+            <p className="text-xs leading-5 text-stone-400">{isDemoMode ? "Demo sample · " : ""}{period.year}-{period.month} · {data.timezone} · {data.analysis.loggedDays} logged days. <span className="analysis-secondary-instruction">{data.dataNote}</span></p>
             {!data.entries.length && <p role="status" className="rounded-xl border border-amber-200/20 bg-amber-500/10 p-4 text-sm text-amber-100">No journal entries in this period. Missing logs are not zero scores or proof of how a day felt.</p>}
             {children}
           </div>
@@ -63,7 +63,7 @@ export function InsightRail({ insights }) {
 }
 
 const readValue = (value, unit = "") => value === null || value === undefined ? "No data" : `${Math.round(value*10)/10}${unit}`;
-export function AnalysisChart({ title, subtitle, rows, series, type="line", max=100, rightAxis=false, colorByRow=false, integerTicks=false }) {
+export function AnalysisChart({ title, subtitle, rows, series, type="line", max=100, rightAxis=false, colorByRow=false, integerTicks=false, height=290 }) {
   const [hovered, setHovered] = useState(null);
   const [focused, setFocused] = useState(null);
   const [pinned, setPinned] = useState(null);
@@ -107,7 +107,7 @@ export function AnalysisChart({ title, subtitle, rows, series, type="line", max=
     return () => document.removeEventListener("keydown", dismiss);
   }, [selectionActive]);
   const row = rows[selected];
-  const left=48, right=rightAxis?55:20, top=24, bottom=58, height=290;
+  const left=48, right=rightAxis?55:20, top=24, bottom=58;
   const minStep = rows.some(item => item.date)
     ? (type === "bar" ? Math.max(24, series.length * 12) : 24)
     : Math.max(44, ...rows.map(item => Math.min(180, String(item.chartLabel || item.label || "").length * 6 + 12)));
@@ -149,12 +149,12 @@ export function AnalysisChart({ title, subtitle, rows, series, type="line", max=
     position();
     window.addEventListener("scroll", position, true);
     return () => window.removeEventListener("scroll", position, true);
-  }, [tooltipVisible, row, containerWidth, scrollLeft]);
+  }, [tooltipVisible, row, containerWidth, scrollLeft, height]);
   return <section className="analysis-chart-card rounded-[1.8rem] border border-white/10 bg-white/[0.025] p-4 sm:p-5">
     <p className="text-[10px] uppercase tracking-[0.24em] text-stone-400">{subtitle}</p><h4 className="mt-2 text-lg font-bold text-amber-50">{title}</h4>
     <div className="mt-3 flex flex-wrap gap-4 text-xs text-stone-300">{series.map(line=><span key={line.key} className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{background:line.color}}/>{line.label}{line.unit ? ` (${line.unit})` : ""}</span>)}</div>
     {rightAxis && <p className="mt-2 text-xs text-stone-400">Left axis: sleep hours · Right axis: self-reported scores /100. Different units are not directly comparable.</p>}
-    <p role="status" className="mt-3 min-h-10 text-xs leading-5 text-stone-300">{row ? formatRow(row) : "Hover, tap or focus a day for exact values. Gaps indicate unknown values, not zero."}</p>
+    <p role="status" className={`mt-3 min-h-10 text-xs leading-5 text-stone-300${row ? "" : " analysis-secondary-instruction"}`}>{row ? formatRow(row) : "Hover, tap or focus a day for exact values. Gaps indicate unknown values, not zero."}</p>
     <div ref={viewportRef} className="analysis-chart-viewport" onPointerLeave={()=>setHovered(null)}>
     <div ref={chartRef} className="analysis-chart-scroll overflow-x-auto rounded-xl" tabIndex={0} aria-label={`${title} chart; scroll horizontally if needed`} onScroll={event=>setScrollLeft(event.currentTarget.scrollLeft)}>
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ width, minWidth: width, height }} className="block max-w-none" role="group" aria-label={title}>

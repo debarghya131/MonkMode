@@ -995,12 +995,13 @@ export default function Schedule({
             <div>
               <p className="text-sm font-semibold text-amber-200">All Tasks</p>
               <p className="mt-0.5 text-xs text-stone-400">Every scheduled task at a glance.</p>
-              <div className="mt-2 flex items-center gap-1.5">
+              <div className="dashboard-filter-controls mt-2 flex items-center gap-1.5">
                 {["active", "archive"].map((view) => (
                   <button
                     key={view}
                     type="button"
                     onClick={() => setTasksView(view)}
+                    aria-pressed={tasksView === view}
                     className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold capitalize transition ${
                       tasksView === view
                         ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
@@ -1048,8 +1049,8 @@ export default function Schedule({
                           </span>
                           {!isArchiveView && (
                             <div className="schedule-task-actions flex items-center gap-1.5">
-                              <button type="button" disabled={saving || writeBlocked} onClick={() => startEdit(task)} className="dashboard-card-action" data-tone="warning">Edit</button>
-                              <button type="button" disabled={saving || writeBlocked} onClick={() => handleDelete(task.id)} className="dashboard-card-action" data-tone="danger">Delete</button>
+                              <button type="button" disabled={saving || writeBlocked} onClick={() => startEdit(task)} className="dashboard-edit-delete-action dashboard-card-action" data-tone="warning">Edit</button>
+                              <button type="button" disabled={saving || writeBlocked} onClick={() => handleDelete(task.id)} className="dashboard-edit-delete-action dashboard-card-action" data-tone="danger">Delete</button>
                             </div>
                           )}
                           {isArchiveView && isDeletedTask && task.canUndoDelete && Date.parse(task.deleteUndoExpiresAt) > Date.now() && (

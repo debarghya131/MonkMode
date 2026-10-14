@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { AnalysisChart } from "../journalanalysis/AnalysisUI";
-import { AnalysisView, MetricPicker } from "./GymAnalysisUI";
+import { GymChart as AnalysisChart, AnalysisView, MetricPicker } from "./GymAnalysisUI";
 import { valueLabel } from "./gymAnalysisFormatters";
 import useGymAnalysis from "./gymAnalysisContext";
 
@@ -19,7 +18,7 @@ export default function NutritionConsistencyAnalysis() {
       type="bar" max={100} series={[{key:"coverage",label:"Logged-day coverage",color:"#fbbf24",unit:"%"}]}/>
     <AnalysisChart title="Workout Coverage by Weekday" subtitle="Logged dates / elapsed occurrences of each weekday · no hard-coded rest days" rows={a.weekdays}
       type="bar" max={100} series={[{key:"coverage",label:"Logged-day coverage",color:"#34d399",unit:"%"}]}/>
-    <p className="rounded-xl border border-amber-200/20 p-4 text-sm text-amber-100">{a.nutritionNote}</p>
+    <p className="gym-analysis-nutrition-note rounded-xl border border-amber-200/20 p-4 text-sm text-amber-100">{a.nutritionNote}</p>
     <div className="gym-analysis-metric-grid rounded-2xl border border-amber-100/10 bg-black/10 p-4">
       <MetricPicker label="Nutrition metric" value={metric} onChange={setMetric} options={a.nutrition.map(row=>({value:row.id,label:row.label+" ("+row.unit+")"}))}/>
     </div>

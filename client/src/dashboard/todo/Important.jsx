@@ -159,8 +159,7 @@ export default function Important({
       </nav>
 
       <div className="important-heading">
-        <p className="text-label-lg">Important</p>
-        <h2 className="mt-2 text-2xl font-bold text-amber-100">Important Tasks</h2>
+        <h2 className="text-2xl font-bold text-amber-100">Important Tasks</h2>
         <p className="mt-2 text-sm text-stone-400">High-priority view + important categories with repeat schedule details.</p>
       </div>
 
@@ -228,7 +227,7 @@ export default function Important({
             </span>
           </div>
 
-          <div className="mb-4 flex flex-wrap gap-1.5">
+          <div className="important-priority-filter mb-4 flex flex-wrap gap-1.5" role="group" aria-label="User-created task priority">
             {PRIORITY_FILTERS.map((priority) => (
               <button
                 key={priority}

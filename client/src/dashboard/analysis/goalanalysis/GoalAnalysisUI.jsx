@@ -1,8 +1,13 @@
 import DashboardSelect from "../../../components/DashboardSelect";
-import { InsightRail } from "../journalanalysis/AnalysisUI";
+import { AnalysisChart as SharedAnalysisChart, InsightRail } from "../journalanalysis/AnalysisUI";
 import useGoalAnalysis from "./goalAnalysisContext";
+import { countLabel } from "./goalAnalysisFormatters";
 
 const months = Array.from({ length: 12 }, (_, index) => ({ value: String(index + 1).padStart(2,"0"), label: new Date(Date.UTC(2026,index,1)).toLocaleDateString("en", { month: "long", timeZone: "UTC" }) }));
+
+export function GoalChart(props) {
+  return <SharedAnalysisChart {...props} height={250} />;
+}
 
 export function GoalPeriodFilters() {
   const { data, period, setPeriod, today } = useGoalAnalysis();
@@ -10,7 +15,7 @@ export function GoalPeriodFilters() {
   const oldest = Math.min(currentYear - 3, Number(data?.joinedDay?.slice(0,4)) || currentYear, Number(period.year));
   const years = Array.from({ length: Math.min(100, currentYear-oldest+1) },(_,index)=>String(currentYear-index));
   const changeYear = year => setPeriod({ year, month: year === today.slice(0,4) && period.month > today.slice(5,7) ? today.slice(5,7) : period.month });
-  return <div className="goal-analysis-filters flex flex-wrap gap-2">
+  return <div className="dashboard-period-controls goal-analysis-filters flex flex-wrap gap-2">
       <label className="flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-stone-300">Year
         <DashboardSelect aria-label="Analysis year" value={period.year} onChange={event=>changeYear(event.target.value)}>
           {years.map(year=><option key={year} value={year}>{year}</option>)}
@@ -32,9 +37,9 @@ export function AnalysisView({ children, insights }) {
       : data && <div className="goal-analysis-layout flex min-h-0 flex-col gap-4 lg:flex-row">
         <div className="goal-analysis-chart-column journal-scroll min-w-0 flex-1 overflow-y-auto rounded-[2rem] border border-amber-100/10 bg-white/[0.03]">
           <div className="space-y-6 p-4 sm:p-6">
-            <p className="text-xs leading-5 text-stone-400">{isDemoMode ? "Demo sample · " : ""}{period.year}-{period.month} · {data.timezone} · {data.analysis.totals.goalCount} retained goals at this period's checkpoint. {data.dataNote}</p>
+            <p className="goal-analysis-data-note text-xs leading-5 text-stone-400">{isDemoMode ? "Demo sample · " : ""}{period.year}-{period.month} · {data.timezone} · {countLabel(data.analysis.totals.goalCount, "retained goal")} at this period's checkpoint. <span className="analysis-secondary-instruction">{data.dataNote}</span></p>
             {!data.analysis.totals.goalCount && <p role="status" className="rounded-xl border border-amber-200/20 bg-amber-500/10 p-4 text-sm text-amber-100">No eligible retained goals in this period. No progress or activity score is invented.</p>}
-            {data.analysis.historyNote && <p role="status" className="rounded-xl border border-sky-200/20 bg-sky-500/5 p-4 text-sm text-sky-100">{data.analysis.historyNote}</p>}
+            {data.analysis.historyNote && <p role="status" className="goal-analysis-history-note rounded-xl border border-sky-200/20 bg-sky-500/5 p-4 text-sm text-sky-100">{data.analysis.historyNote}</p>}
             {children}
           </div>
         </div>
@@ -51,7 +56,7 @@ export function GoalFilter() {
   const { goalFilter, setGoalFilter } = useGoalAnalysis();
   return <div className="goal-analysis-filter-card rounded-2xl border border-amber-100/10 bg-black/10 p-4">
     <p className="mb-2 text-xs text-stone-400">Chart filter · summary figures cover all eligible goals</p>
-    <div className="flex flex-wrap gap-2" role="group" aria-label="Goal chart filter">
+    <div className="dashboard-filter-controls flex flex-wrap gap-2" role="group" aria-label="Goal chart filter">
       {["All","Short Term","Long Term","High","Medium","Low"].map(filter=>
         <button key={filter} type="button" aria-pressed={goalFilter===filter} onClick={()=>setGoalFilter(filter)}
           className={`rounded-full border px-3 py-1.5 text-xs ${goalFilter===filter ? "border-amber-400/40 bg-amber-500/15 text-amber-200" : "border-white/10 text-stone-300"}`}>{filter}</button>)}

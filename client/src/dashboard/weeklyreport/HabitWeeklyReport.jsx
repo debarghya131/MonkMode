@@ -251,11 +251,11 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
 
                 {/* Card 1 — Habit Summary */}
                 <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
-                  className="weekly-habit-stat-card dashboard-glow-card flex min-h-[12rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[20vh]"
+                  className="weekly-habit-checkins-card weekly-habit-stat-card dashboard-glow-card flex min-h-[12rem] flex-col rounded-[1.4rem] border border-amber-100/10 bg-white/6 p-4 shadow-xl shadow-black/25 backdrop-blur sm:rounded-2xl lg:h-[20vh]"
                 >
                   <div className="mb-3 flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Scheduled Check-ins</p>
-                    <div className="weekly-habit-card-filter flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full">
+                    <div className="weekly-habit-card-filter flex w-full flex-wrap items-center gap-1 rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:w-auto sm:flex-nowrap sm:rounded-full" role="group" aria-label="Scheduled check-ins priority">
                       {["All", "High", "Medium", "Low"].map((p) => (
                         <button key={p} type="button" aria-pressed={priorityFilter === p} onClick={() => setPriorityFilter(p)}
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
@@ -274,22 +274,22 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                         const compPct = habitTotals.total > 0 ? Math.round((habitTotals.completed / habitTotals.total) * 100) : 0;
                         const missPct = habitTotals.total > 0 ? Math.round((habitTotals.missed    / habitTotals.total) * 100) : 0;
                         return (
-                          <div className="rounded-xl border border-amber-400/15 bg-stone-950/40 p-3">
+                          <div className="weekly-habit-checkins-summary rounded-xl border border-amber-400/15 bg-stone-950/40 p-3">
                             <div className="mb-1 flex items-center justify-between gap-2">
                               <p className="text-[10px] font-bold text-amber-300">All Habits This Week</p>
                             </div>
-                            <div className="grid grid-cols-3 gap-1.5">
+                            <div className="weekly-habit-checkins-stats grid grid-cols-3 gap-1.5">
                               <div className="rounded-lg border border-stone-700/40 bg-stone-900/50 px-1.5 py-1 text-center">
                                 <p className="text-[9px] text-stone-500">Check-ins</p>
                                 <p className="text-xs font-bold text-stone-200">{habitTotals.total}</p>
                               </div>
                               <div className="rounded-lg border border-emerald-400/15 bg-emerald-500/8 px-1.5 py-1 text-center">
-                                <p className="text-[9px] text-stone-500">Completed Check-ins</p>
+                                <p className="text-[9px] text-stone-500" aria-label="Completed check-ins">Completed</p>
                                 <p className="text-xs font-bold text-emerald-300">{habitTotals.completed}</p>
                                 <p className="text-[8px] text-stone-500">{compPct}% of check-ins</p>
                               </div>
                               <div className="rounded-lg border border-rose-400/15 bg-rose-500/8 px-1.5 py-1 text-center">
-                                <p className="text-[9px] text-stone-500">Missed Check-ins</p>
+                                <p className="text-[9px] text-stone-500" aria-label="Missed check-ins">Missed</p>
                                 <p className="text-xs font-bold text-rose-300">{habitTotals.missed}</p>
                                 <p className="text-[8px] text-stone-500">{missPct}% of check-ins</p>
                               </div>
@@ -303,20 +303,20 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                       const compPct = row.total > 0 ? Math.round((row.completed / row.total) * 100) : 0;
                       const missPct = row.total > 0 ? Math.round((row.missed / row.total) * 100) : 0;
                       return (
-                        <div className={`rounded-xl border bg-stone-950/40 p-3 ${priorityBorder[row.priority]}`}>
+                        <div className={`weekly-habit-checkins-summary rounded-xl border bg-stone-950/40 p-3 ${priorityBorder[row.priority]}`}>
                           <p className={`mb-2 text-[11px] font-bold ${priorityColor[row.priority]}`}>{row.priority} Priority Habits</p>
-                          <div className="grid grid-cols-3 gap-1.5">
+                          <div className="weekly-habit-checkins-stats grid grid-cols-3 gap-1.5">
                             <div className="rounded-lg border border-stone-700/40 bg-stone-900/50 px-1.5 py-1 text-center">
                               <p className="text-[9px] text-stone-500">Check-ins</p>
                               <p className="text-xs font-bold text-stone-200">{row.total}</p>
                             </div>
                             <div className="rounded-lg border border-emerald-400/15 bg-emerald-500/8 px-1.5 py-1 text-center">
-                              <p className="text-[9px] text-stone-500">Completed Check-ins</p>
+                              <p className="text-[9px] text-stone-500" aria-label="Completed check-ins">Completed</p>
                               <p className="text-xs font-bold text-emerald-300">{row.completed}</p>
                               <p className="text-[8px] text-stone-500">{compPct}% of check-ins</p>
                             </div>
                             <div className="rounded-lg border border-rose-400/15 bg-rose-500/8 px-1.5 py-1 text-center">
-                              <p className="text-[9px] text-stone-500">Missed Check-ins</p>
+                              <p className="text-[9px] text-stone-500" aria-label="Missed check-ins">Missed</p>
                               <p className="text-xs font-bold text-rose-300">{row.missed}</p>
                               <p className="text-[8px] text-stone-500">{missPct}% of check-ins</p>
                             </div>
@@ -343,7 +343,7 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                       ))}
                     </div>
                   </div>
-                  <div className="journal-scroll min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                  <div className="journal-scroll min-h-0 flex-1 space-y-3 overflow-y-auto pr-1" tabIndex={0} aria-label="Habit performance list">
                     <AnimatePresence mode="wait">
                       <Motion.div key={habitFilter} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }} className="space-y-3">
                         {(() => {
@@ -563,7 +563,7 @@ export default function HabitWeeklyReport({ lowMotion = false }) {
                 </p>
               </div>
             </div>
-            <div className="flex w-full flex-wrap items-center rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:flex-nowrap sm:rounded-full">
+            <div className="dashboard-filter-controls flex w-full flex-wrap items-center rounded-2xl border border-amber-100/10 bg-stone-900/60 p-0.5 sm:flex-nowrap sm:rounded-full">
               {["completion", "miss"].map((f) => (
                 <button
                   key={f}

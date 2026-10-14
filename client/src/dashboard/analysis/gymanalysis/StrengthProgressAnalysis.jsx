@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { AnalysisChart } from "../journalanalysis/AnalysisUI";
-import { AnalysisView, MetricPicker } from "./GymAnalysisUI";
+import { GymChart as AnalysisChart, AnalysisView, MetricPicker } from "./GymAnalysisUI";
 import { valueLabel, signedLabel } from "./gymAnalysisFormatters";
 import useGymAnalysis from "./gymAnalysisContext";
 const metrics = [{value:"weight",label:"Recorded load (kg)"},{value:"reps",label:"Recorded reps"},{value:"sets",label:"Recorded sets"},{value:"time",label:"Recorded exercise time (min)"},{value:"volume",label:"Estimated external-load volume (kg)"}];

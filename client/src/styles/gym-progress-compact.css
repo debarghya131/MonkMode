@@ -1,0 +1,183 @@
+/* Compact both progress views without changing recorded values or trends. */
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-view {
+  --gym-progress-chart-height: 72px;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-label-short {
+  display: none;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] :is(
+  .gym-progress-metric-panel, .gym-progress-chart, .gym-progress-history,
+  .gym-progress-workout-panel, .gym-progress-workout-summary, .gym-progress-workout-chart
+) {
+  padding: 10px;
+  border-radius: 12px;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] :is(
+  .gym-progress-view, .gym-progress-measurements, .gym-progress-measurement-detail, .gym-progress-workout-detail
+) > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 10px;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] :is(.gym-progress-workouts, .gym-progress-measurement-layout) {
+  gap: 10px;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] :is(.gym-progress-metric-panel, .gym-progress-history) > p {
+  margin-bottom: 8px;
+  font-size: 9px;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] :is(.gym-progress-chart-heading, .gym-progress-history-heading, .gym-progress-summary-heading) {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] :is(.gym-progress-chart-heading, .gym-progress-history-heading, .gym-progress-summary-heading) > :first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] :is(.gym-progress-chart-heading, .gym-progress-history-heading, .gym-progress-summary-heading) > span {
+  flex-shrink: 0;
+  font-size: 9.5px;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-workout-chart .gym-progress-chart-heading {
+  margin-bottom: 6px;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-workout-charts > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 8px;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-history-entry {
+  padding: 8px;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-history-values {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 6px;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-history-value {
+  padding: 5px 6px;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-history-value > p:first-child {
+  font-size: 8.5px;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+  overflow-wrap: anywhere;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-history-value > p:nth-child(2) {
+  font-size: 11px;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-mini-chart > div {
+  gap: 4px;
+  padding-inline: 8px;
+  padding-bottom: 6px;
+}
+
+@media (min-width: 640px) {
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-tabs {
+    width: min(100%, 520px);
+    align-self: center;
+    margin-inline: auto;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 12px;
+  }
+
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-tabs > button {
+    min-height: 36px;
+    padding: 6px 10px;
+    border-radius: 9px;
+    font-size: 11px;
+    line-height: 1.3;
+  }
+}
+
+@media (max-width: 639px) {
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-label-long {
+    display: none;
+  }
+
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-label-short {
+    display: inline;
+  }
+
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-tabs > button {
+    min-height: 36px;
+    padding: 4px 6px;
+    font-size: 10.5px;
+    line-height: 1.4;
+  }
+
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-measurements {
+    gap: 10px;
+  }
+
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-measurements > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0;
+  }
+
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] :is(.gym-progress-metric-list, .gym-progress-workout-list) {
+    height: auto;
+    min-height: 56px;
+    max-height: none;
+    gap: 6px;
+  }
+
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] :is(.gym-progress-metric-option, .gym-progress-workout-option) {
+    height: auto;
+    min-height: 56px;
+    max-height: none;
+    padding: 6px;
+    gap: 2px;
+  }
+
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-metric-list > button {
+    width: calc((100% - 12px) / 3);
+    min-width: calc((100% - 12px) / 3);
+    flex-basis: calc((100% - 12px) / 3);
+  }
+
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-workout-list > button {
+    width: 128px;
+    min-width: 128px;
+    flex-basis: 128px;
+  }
+
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] :is(.gym-progress-metric-option > span, .gym-progress-workout-option > div > p) {
+    overflow: visible;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    font-size: 10px;
+    line-height: 1.3;
+  }
+
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-metric-option p {
+    font-size: 9.5px;
+    line-height: 1.3;
+  }
+
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-history-values {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 350px) and (max-width: 639px) {
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="progress"] .gym-progress-history-values {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
