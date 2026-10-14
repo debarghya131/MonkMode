@@ -745,7 +745,7 @@ export default function TodaysWorkout({ lowMotion = false }) {
           <div className="gym-workout-panel flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.06),transparent_40%),linear-gradient(180deg,rgba(20,12,10,0.97),rgba(10,8,8,0.98))] sm:rounded-2xl">
             <div className="gym-workout-panel-header shrink-0 border-b border-amber-100/10 px-4 py-3 sm:px-5">
               <div className="gym-workout-panel-heading flex flex-wrap items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-stone-100">{formatDate(selectedDay, weekday)}'s Workouts</h3>
+                <h3 className="text-label-lg">{formatDate(selectedDay, weekday)}'s Workouts</h3>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-amber-300/20 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-amber-200">
                     {todayWorkouts.length} plan{todayWorkouts.length !== 1 ? "s" : ""}

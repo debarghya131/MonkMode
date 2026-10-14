@@ -295,6 +295,25 @@ export default function CreateHabit({ entity = "habit" }) {
   const [editingId, setEditingId] = useState(null);
   const formPanelRef = useRef(null);
 
+  useEffect(() => {
+    if (!isDemoMode) return;
+    setHabitLogs(demoHabits.flatMap((habit) => (
+      Array.isArray(habit.activityLogs) ? habit.activityLogs : []
+    ).map((entry, index) => {
+      const at = entry.at || new Date().toISOString();
+      const date = toDateStr(at) || today;
+      const time = habitClock(new Date(at), timezone).time;
+      return {
+        id: `${habit.id}-activity-${index}`,
+        title: entry.title || habit.title,
+        date,
+        time,
+        action: entry.action || "created",
+        logAt: at,
+      };
+    })));
+  }, [demoHabits, isDemoMode, timezone, today, toDateStr]);
+
   /* fetch habits for real users */
   useEffect(() => {
     if (isDemoMode) return;

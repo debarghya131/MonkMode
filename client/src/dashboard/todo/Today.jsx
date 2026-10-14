@@ -295,7 +295,7 @@ export default function Today({ lowMotion = false, consistency, tasks: realTasks
         <section className="today-main rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-6">
           <div className="today-desktop-heading flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <h3 className="text-2xl font-bold text-amber-100">Today&apos;s Tasks</h3>
+              <h3 className="text-label-lg">Today&apos;s Tasks</h3>
             </div>
 
             <Motion.div

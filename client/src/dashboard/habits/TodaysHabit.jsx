@@ -372,7 +372,7 @@ export default function TodaysHabit({ consistency = {} }) {
         <section className="today-main rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-6">
           <div className="habit-today-heading-row flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h3 className="text-2xl font-bold text-amber-100">Today&apos;s Habits</h3>
+              <h3 className="text-label-lg">Today&apos;s Habits</h3>
             </div>
             <div className="habit-today-desktop-consistency flex min-w-[15rem] items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-950/40 px-3 py-2">
               <span className="text-base leading-none" aria-hidden="true">📊</span>

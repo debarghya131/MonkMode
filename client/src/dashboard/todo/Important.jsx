@@ -159,7 +159,7 @@ export default function Important({
       </nav>
 
       <div className="important-heading">
-        <h2 className="text-2xl font-bold text-amber-100">Important Tasks</h2>
+        <h2 className="text-label-lg">Important Tasks</h2>
         <p className="mt-2 text-sm text-stone-400">High-priority view + important categories with repeat schedule details.</p>
       </div>
 

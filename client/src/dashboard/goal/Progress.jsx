@@ -56,7 +56,7 @@ export default function Progress({ goals = [], importantByGoal = {}, milestonesB
     <div className="goal-progress-view flex flex-col rounded-[1.6rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-[2rem] sm:p-6">
       <header className="goal-progress-heading">
         <div className="goal-progress-heading-copy">
-          <h2 className="text-2xl font-bold text-amber-100">Goal Progress</h2>
+          <h2 className="text-label-lg">Goal Progress</h2>
         </div>
         <span className="goal-progress-count rounded-full border border-amber-100/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
           {filtered.length} goals

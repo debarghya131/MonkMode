@@ -50,6 +50,24 @@ export function isHabitOnDay(habit, day, timezone = DEFAULT_HABIT_TIMEZONE) {
   return true;
 }
 
+function buildDemoActivityLogs(today, id, title, index) {
+  const createdDay = shiftHabitDay(today, -(30 + index * 4));
+  const editedDay = shiftHabitDay(today, -(12 + index * 2));
+  const entries = [
+    { action: "created", title, at: `${createdDay}T06:30:00.000Z` },
+    { action: "edited", title, at: `${editedDay}T15:00:00.000Z` },
+  ];
+
+  if (index === 1) {
+    entries.push({ action: "ended", title, at: `${shiftHabitDay(today, -5)}T10:00:00.000Z` });
+  }
+  if (index === 2) {
+    entries.push({ action: "deleted", title, at: `${shiftHabitDay(today, -3)}T11:30:00.000Z` });
+  }
+
+  return entries.map((entry, logIndex) => ({ ...entry, id: `demo-${id}-log-${logIndex}` }));
+}
+
 export function habitDaysOnDay(habit, day, timezone = DEFAULT_HABIT_TIMEZONE) {
   const effective = habitDayKey(habit.daysChangeEffectiveFrom, timezone);
   return effective && day >= effective && Array.isArray(habit.pendingDays) ? habit.pendingDays : (habit.days || []);
@@ -70,13 +88,13 @@ export function buildDemoHabits(today) {
     ["journal", "Night Journal", "Personal", "Low", "22:15", "Night", 30, 2, 15, false, "Write a short reflection before bedtime."],
     ["focus", "Deep Work Sprint", "Productivity", "High", "10:00", "Morning", 14, 1, null, false, "Make room for uninterrupted focus."],
   ];
-  return samples.map(([id, title, category, priority, time, timeOfDay, targetStreak, currentStreak, endsIn, done, note]) => ({
+  return samples.map(([id, title, category, priority, time, timeOfDay, targetStreak, currentStreak, endsIn, done, note], index) => ({
     id: `demo-habit-${id}`, title, category, priority, time, timeOfDay, note, reason: note,
     targetStreak, currentStreak, maxStreak: currentStreak, streakBreaks: 0,
     startDate: shiftHabitDay(today, -30), endDate: endsIn === null ? null : shiftHabitDay(today, endsIn),
     repeatType: "daily", isImportant: priority === "High", completedToday: done, status: done ? "completed" : "pending",
     completedDayKeys: Array.from({ length: currentStreak }, (_, index) => shiftHabitDay(today, -(index + (done ? 0 : 1)))),
-    activityLogs: [],
+    activityLogs: buildDemoActivityLogs(today, id, title, index),
   }));
 }
 

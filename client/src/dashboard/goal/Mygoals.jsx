@@ -172,7 +172,7 @@ export default function Mygoals({
     <div className="goals-my-view flex flex-col rounded-[1.6rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:rounded-[2rem] sm:p-6">
       <header className="goals-my-header">
         <div className="goals-my-heading-copy">
-          <h2 className="text-2xl font-bold text-amber-100">All Goals</h2>
+          <h2 className="text-label-lg">All Goals</h2>
         </div>
         <span className="goals-my-count rounded-full border border-amber-100/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
           {sortedGoals.length} goals

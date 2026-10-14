@@ -323,7 +323,7 @@ export default function Upcoming({ lowMotion = false, tasks = [], clock, timezon
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200/70">
               Next 5 Days
             </p>
-            <h3 className="mt-1 text-xl font-bold text-amber-100">Upcoming Schedule</h3>
+            <h3 className="mt-1 text-label-lg">Upcoming Schedule</h3>
           </div>
           <div className="ml-auto flex min-w-0 items-center gap-3">
             <p className="whitespace-nowrap text-xs leading-5 text-stone-400">

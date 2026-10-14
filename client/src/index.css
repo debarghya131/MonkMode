@@ -5115,7 +5115,7 @@ a {
 
 @container gym-measurements (min-width: 64rem) {
   .gym-page[data-active="measurements"] .gym-measurements-layout {
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    grid-template-columns: minmax(18rem, 0.7fr) minmax(0, 1.3fr);
     align-items: stretch;
   }
 }
