@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { useState } from "react";
 import { motion as Motion, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
 import monkIllustration from "../../assets/monk.webp";
 
@@ -10,20 +9,19 @@ const pillars = [
 ];
 
 const orbitFeatures = [
-  { label: "Overview", icon: "◉" },
-  { label: "Journal", icon: "✎" },
-  { label: "Tasks", icon: "✓" },
-  { label: "Habits", icon: "↻" },
-  { label: "Goals", icon: "⚑" },
-  { label: "Gym", icon: "⌁" },
-  { label: "Weekly Report", icon: "▥" },
-  { label: "Analysis", icon: "↗" },
-  { label: "AI Guide", icon: "✧" },
+  { label: "Overview", icon: "◉", id: "overview" },
+  { label: "Journal", icon: "✎", id: "journal" },
+  { label: "Tasks", icon: "✓", id: "todo" },
+  { label: "Habits", icon: "↻", id: "habit" },
+  { label: "Goals", icon: "⚑", id: "goal" },
+  { label: "Gym", icon: "⌁", id: "gym" },
+  { label: "Weekly Report", icon: "▥", id: "weekly-report" },
+  { label: "Analysis", icon: "↗", id: "analysis" },
+  { label: "AI Guide", icon: "✧", id: "ai-guru" },
 ];
 
 export default function Hero() {
   const reducedMotion = useReducedMotion();
-  const [orbitPaused, setOrbitPaused] = useState(false);
   const pointerX = useMotionValue(0);
   const pointerY = useMotionValue(0);
   const glowVisible = useMotionValue(0);
@@ -57,15 +55,20 @@ export default function Hero() {
     <main className="home-main" id="main-content" onPointerMove={movePointer} onPointerLeave={resetPointer}>
       {!reducedMotion && <Motion.div className="home-pointer-glow" aria-hidden="true" style={{ x: glowX, y: glowY, opacity: glowOpacity }} />}
       <section className="home-hero" aria-labelledby="home-heading">
-        <div className="home-copy">
-          <p className="home-eyebrow"><span /> A little focus. A different life.</p>
-          <h1 id="home-heading">Less noise.<br />More <em>MonkMode.</em></h1>
-          <p className="home-description">Make space for the person you want to become. Bring your habits, goals, and daily reflections together in one calm corner of your world.</p>
-          <div className="home-actions">
-            <Link className="home-button home-button-primary" to="/demo-login">Explore the demo <span aria-hidden="true">↗</span></Link>
-            <Link className="home-button home-button-secondary" to="/signup">Start your journey <span aria-hidden="true">→</span></Link>
+        <div className="home-lead">
+          <div className="home-copy">
+            <p className="home-eyebrow"><span /> A little focus. A different life.</p>
+            <h1 id="home-heading">Less noise.<br />More <em>MonkMode.</em></h1>
+            <p className="home-description">Make space for the person you want to become. Bring your habits, goals, and daily reflections together in one calm corner of your world.</p>
           </div>
-          <p className="home-action-note"><span aria-hidden="true">✧</span> Your next chapter starts with one small step.</p>
+
+          <div className="home-actions-wrapper">
+            <div className="home-actions">
+              <Link className="home-button home-button-primary" to="/demo-login">Explore the demo <span aria-hidden="true">↗</span></Link>
+              <Link className="home-button home-button-secondary" to="/signup">Start your journey <span aria-hidden="true">→</span></Link>
+            </div>
+            <p className="home-action-note"><span aria-hidden="true">✧</span> Your next chapter starts with one small step.</p>
+          </div>
         </div>
 
         <Motion.div className="home-art" style={{ x: artOffsetX, y: artOffsetY }}>
@@ -77,20 +80,24 @@ export default function Hero() {
             animate={reducedMotion ? undefined : { y: [0, -10, 0] }}
             transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
             fetchPriority="high" />
-          <ul className="home-feature-orbit" aria-label="MonkMode features" data-paused={orbitPaused}>
+          <ul className="home-feature-orbit" aria-label="MonkMode features">
             {orbitFeatures.map((feature, index) => (
               <li className="home-feature-spoke" key={feature.label} style={{ "--feature-angle": `${index * 360 / orbitFeatures.length - 90}deg` }}>
                 <div className="home-feature-position">
-                  <span className="home-feature-chip"><span className="home-feature-icon" aria-hidden="true">{feature.icon}</span><span>{feature.label}</span></span>
+                  <Link
+                    to={`/features#${feature.id}`}
+                    className="home-feature-chip"
+                    aria-label={`Explore ${feature.label} feature`}
+                  >
+                    <span className="home-feature-icon" aria-hidden="true">{feature.icon}</span>
+                    <span>{feature.label}</span>
+                  </Link>
                 </div>
               </li>
             ))}
           </ul>
           <div className="home-art-footer">
             <p className="home-art-caption">Breathe. Begin. Become.</p>
-            <button type="button" className="home-orbit-toggle" aria-pressed={orbitPaused} onClick={() => setOrbitPaused(value => !value)}>
-              {orbitPaused ? "Resume orbit" : "Pause orbit"}
-            </button>
           </div>
         </Motion.div>
       </section>

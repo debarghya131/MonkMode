@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { motion as Motion } from "framer-motion";
 import AuthBackground from "../authentication/AuthBackground";
 import LandingNavbar from "./LandingNavbar";
@@ -1513,6 +1514,21 @@ function AiGuruFeature({ feature }) {
 }
 
 export default function Features() {
+  const { hash } = useLocation();
+
+  useEffect(() => {
+    if (!hash) return;
+    const targetId = hash.replace("#", "");
+    // Small timeout ensures the DOM and images have painted before scrolling
+    const timer = setTimeout(() => {
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [hash]);
+
   return (
     <main className="auth-page public-content-page relative min-h-dvh overflow-x-hidden text-white sm:min-h-screen">
       <div className="fixed inset-0">
@@ -1524,14 +1540,17 @@ export default function Features() {
 
         <section className="mx-auto w-full max-w-7xl px-3 pb-14 pt-5 sm:px-6 sm:pb-24 sm:pt-8 md:px-8">
           <div className="flex flex-col gap-3.5 sm:gap-4">
-            {features.map((feature, index) => (
+            {features.map((feature, index) => {
+              const sectionId = (feature.id || feature.title).toLowerCase().replace(/[^a-z0-9]+/g, "-");
+              return (
               <Motion.article
                 key={feature.title}
+                id={sectionId}
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "100px" }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
-                className={`public-feature-card relative min-w-0 overflow-hidden rounded-[1.35rem] border border-amber-100/10 bg-stone-950/70 p-4 shadow-[0_16px_46px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:rounded-[1.5rem] sm:bg-stone-950/42 sm:p-6 ${
+                className={`public-feature-card scroll-mt-28 relative min-w-0 overflow-hidden rounded-[1.35rem] border border-amber-100/10 bg-stone-950/70 p-4 shadow-[0_16px_46px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:rounded-[1.5rem] sm:bg-stone-950/42 sm:p-6 ${
                   index === 0 ||
                   index === 1 ||
                   index === 2 ||
@@ -1595,7 +1614,7 @@ export default function Features() {
                   </>
                 )}
               </Motion.article>
-            ))}
+            );})}
           </div>
         </section>
       </div>

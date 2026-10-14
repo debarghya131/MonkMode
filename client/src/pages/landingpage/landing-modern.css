@@ -128,13 +128,37 @@
   .home-modern .landing-nav-signup { padding-inline: 13px; min-height: 38px; }
   .home-modern .landing-mobile-menu { left: 22px; right: 22px; }
   .home-modern .home-main { padding: 0 24px; }
-  .home-modern .home-hero { grid-template-columns: minmax(0, 1fr); padding: 48px 0 30px; gap: 34px; }
+  .home-modern .home-hero {
+    display: flex;
+    flex-direction: column;
+    padding: 40px 0 24px;
+    gap: 32px;
+  }
+  .home-modern .home-lead {
+    display: contents;
+  }
+  .home-modern .home-copy {
+    order: 1;
+  }
+  .home-modern .home-art {
+    order: 2;
+    width: min(100%, 470px);
+    align-self: center;
+    height: 350px;
+  }
+  .home-modern .home-actions-wrapper {
+    order: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
   .home-modern .home-copy h1 { font-size: clamp(40px, 9vw, 64px); }
   .home-modern .home-eyebrow { font-size: 9px; margin-bottom: 20px; letter-spacing: .12em; }
-  .home-modern .home-description { margin: 20px 0 24px; font-size: 14px; max-width: 480px; }
-  .home-modern .home-button { font-size: 12px; padding: 13px 15px; gap: 12px; }
-  .home-modern .home-action-note { font-size: 10px; }
-  .home-modern .home-art { width: min(100%, 470px); justify-self: center; height: 350px; }
+  .home-modern .home-description { margin: 20px 0 0; font-size: 14px; max-width: 480px; }
+  .home-modern .home-actions { display: flex; flex-direction: column; width: 100%; gap: 12px; }
+  .home-modern .home-button { width: 100%; font-size: 13px; padding: 14px 18px; justify-content: space-between; }
+  .home-modern .home-action-note { font-size: 10px; margin-top: 14px; justify-content: center; }
   .home-modern .home-orbit-outer { width: 300px; height: 300px; }
   .home-modern .home-orbit-inner { width: 230px; height: 230px; }
   .home-modern .home-monk { width: 430px; height: 350px; }
@@ -177,13 +201,34 @@
 .home-modern .home-button { position: relative; overflow: hidden; transition: background .25s, transform .25s, box-shadow .25s, border-color .25s; }
 .home-modern .home-button::before { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 25%, #ffffff26 50%, transparent 75%); transform: translateX(-120%); pointer-events: none; }
 .home-modern .home-button:hover::before { transform: translateX(120%); transition: transform .65s ease; }
-.home-modern .home-button-primary:hover { box-shadow: 0 8px 28px #ecc07922; }
+.home-modern .home-button-primary {
+  animation: home-button-jump 2.2s cubic-bezier(0.28, 0.84, 0.42, 1) infinite;
+}
+.home-modern .home-button-primary:hover {
+  animation-play-state: paused;
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: 0 10px 32px #ecc07945;
+}
 .home-modern .home-button-secondary:hover { border-color: #ecc07960; }
 .home-modern .home-button > span { transition: transform .25s; }
 .home-modern .home-button:hover > span { transform: translateX(3px); }
 .home-modern .home-button:active { transform: translateY(0) scale(.98); }
 .home-modern .home-pillar h2, .home-modern .home-pillar-number { transition: color .25s; }
 .home-modern .home-pillar:hover h2, .home-modern .home-pillar:hover .home-pillar-number { color: var(--home-gold); }
+@keyframes home-button-jump {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+    box-shadow: 0 4px 16px rgba(236, 192, 121, 0.2);
+  }
+  40% {
+    transform: translateY(-12px);
+    box-shadow: 0 16px 36px rgba(236, 192, 121, 0.45);
+  }
+  60% {
+    transform: translateY(-6px);
+    box-shadow: 0 10px 24px rgba(236, 192, 121, 0.35);
+  }
+}
 @keyframes home-enter { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes home-gold-flow { 0%, 100% { background-position: 100% 50%; } 50% { background-position: 0% 50%; } }
 @keyframes home-orbit-turn { to { transform: rotate(360deg); } }
@@ -196,16 +241,27 @@
 }
 .home-modern .home-art { --feature-orbit-size: min(400px, calc(100% - 116px)); height: 510px; }
 .home-modern .home-art .home-orbit-outer { width: var(--feature-orbit-size); height: auto; }
-.home-modern .home-feature-orbit { --orbit-duration: 65s; position: absolute; width: var(--feature-orbit-size); aspect-ratio: 1; margin: 0; padding: 0; list-style: none; z-index: 2; }
+.home-modern .home-feature-orbit { --orbit-duration: 65s; position: absolute; width: var(--feature-orbit-size); aspect-ratio: 1; margin: 0; padding: 0; list-style: none; z-index: 2; pointer-events: none; }
 .home-modern .home-feature-spoke { position: absolute; inset: 0; transform: rotate(var(--feature-angle)); animation: home-feature-revolve var(--orbit-duration) linear infinite; pointer-events: none; }
-.home-modern .home-feature-position { position: absolute; left: 100%; top: 50%; transform: translate(-50%, -50%); }
-.home-modern .home-feature-chip { display: flex; align-items: center; justify-content: center; gap: 7px; width: 112px; min-height: 38px; padding: 8px; border: 1px solid #ecc07940; border-radius: 12px; background: #242019f5; box-shadow: 0 5px 18px #00000025; color: #e6d7be; font-size: 11px; font-weight: 500; line-height: 1.3; white-space: nowrap; transform: rotate(calc(-1 * var(--feature-angle))); animation: home-feature-upright var(--orbit-duration) linear infinite; }
-.home-modern .home-feature-icon { color: var(--home-gold); font-size: 17px; line-height: 1; }
-.home-modern .home-feature-orbit:is(:hover, [data-paused="true"]) :is(.home-feature-spoke, .home-feature-chip) { animation-play-state: paused; }
+.home-modern .home-feature-position { position: absolute; left: 100%; top: 50%; transform: translate(-50%, -50%); pointer-events: auto; cursor: pointer; }
+.home-modern .home-feature-chip { display: flex; align-items: center; justify-content: center; gap: 7px; width: 112px; min-height: 38px; padding: 8px 12px; border: 1px solid #ecc07940; border-radius: 12px; background: #242019f5; box-shadow: 0 5px 18px #00000030; color: #e6d7be; font-size: 11px; font-weight: 500; line-height: 1.3; white-space: nowrap; transform: rotate(calc(-1 * var(--feature-angle))); animation: home-feature-upright var(--orbit-duration) linear infinite; transition: transform .3s cubic-bezier(.2,.8,.2,1), border-color .25s, background .25s, box-shadow .3s, color .25s; will-change: transform, box-shadow; }
+.home-modern .home-feature-position:hover .home-feature-chip {
+  transform: rotate(calc(-1 * var(--feature-angle))) scale(1.18);
+  border-color: #ffd27d;
+  background: linear-gradient(135deg, #3d2a17, #1f170f);
+  color: #fff9ed;
+  box-shadow: 0 0 0 1px #ecc07960, 0 0 24px rgba(236, 192, 121, 0.45), 0 12px 32px rgba(0, 0, 0, 0.7);
+  z-index: 10;
+}
+.home-modern .home-feature-icon { color: var(--home-gold); font-size: 17px; line-height: 1; transition: transform .3s cubic-bezier(.2,.8,.2,1), color .25s, filter .25s; }
+.home-modern .home-feature-position:hover .home-feature-icon {
+  color: #ffe6a3;
+  transform: scale(1.35) rotate(-10deg);
+  filter: drop-shadow(0 0 6px rgba(255, 230, 163, 0.8));
+}
+.home-modern .home-feature-orbit:hover :is(.home-feature-spoke, .home-feature-chip) { animation-play-state: paused; }
 .home-modern .home-art-footer { position: absolute; bottom: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 18px; }
 .home-modern .home-art-footer .home-art-caption { position: static; }
-.home-modern .home-orbit-toggle { min-height: 36px; padding: 6px 10px; border: 1px solid #ecc07925; border-radius: 20px; color: #b3a18a; font-size: 10px; background: #ffffff03; }
-.home-modern .home-orbit-toggle:hover { border-color: #ecc07980; color: var(--home-gold); }
 @keyframes home-feature-revolve { from { transform: rotate(var(--feature-angle)); } to { transform: rotate(calc(var(--feature-angle) + 360deg)); } }
 @keyframes home-feature-upright { from { transform: rotate(calc(-1 * var(--feature-angle))); } to { transform: rotate(calc(-1 * var(--feature-angle) - 360deg)); } }
 @media (min-width: 768px) and (max-width: 1100px) {
@@ -226,7 +282,6 @@
   .home-modern .home-monk { width: 290px; height: 290px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .home-modern .home-orbit-toggle { display: none; }
   .home-modern *, .home-modern *::before, .home-modern *::after { animation: none !important; transition: none !important; }
   .home-modern .home-pointer-glow { display: none; }
   .home-modern :is(.home-art, .home-monk) { transform: none !important; }
