@@ -1,8 +1,12 @@
 import DashboardSelect from "../../../components/DashboardSelect";
-import { InsightRail } from "../journalanalysis/AnalysisUI";
+import { AnalysisChart as SharedAnalysisChart, InsightRail } from "../journalanalysis/AnalysisUI";
 import useHabitAnalysis from "./habitAnalysisContext";
 
 const months = Array.from({ length: 12 }, (_, index) => ({ value: String(index + 1).padStart(2,"0"), label: new Date(Date.UTC(2026,index,1)).toLocaleDateString("en", { month: "long", timeZone: "UTC" }) }));
+
+export function HabitChart(props) {
+  return <SharedAnalysisChart {...props} height={250} />;
+}
 
 export function HabitPeriodFilters() {
   const { data, period, setPeriod, today } = useHabitAnalysis();
@@ -10,7 +14,7 @@ export function HabitPeriodFilters() {
   const oldest = Math.min(currentYear - 3, Number(data?.joinedDay?.slice(0,4)) || currentYear, Number(period.year));
   const years = Array.from({ length: Math.min(100, currentYear-oldest+1) },(_,index)=>String(currentYear-index));
   const changeYear = year => setPeriod({ year, month: year === today.slice(0,4) && period.month > today.slice(5,7) ? today.slice(5,7) : period.month });
-  return <div className="habit-analysis-filters flex flex-wrap gap-2">
+  return <div className="dashboard-period-controls habit-analysis-filters flex flex-wrap gap-2">
       <label className="flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-stone-300">Year
         <DashboardSelect aria-label="Analysis year" value={period.year} onChange={event=>changeYear(event.target.value)}>
           {years.map(year=><option key={year} value={year}>{year}</option>)}
@@ -32,7 +36,7 @@ export function AnalysisView({ children, insights }) {
       : data && <div className="habit-analysis-layout flex min-h-0 flex-col gap-4 lg:flex-row">
         <div className="habit-analysis-chart-column journal-scroll min-w-0 flex-1 overflow-y-auto rounded-[2rem] border border-amber-100/10 bg-white/[0.03]">
           <div className="space-y-6 p-4 sm:p-6">
-            <p className="text-xs leading-5 text-stone-400">{isDemoMode ? "Demo sample · " : ""}{period.year}-{period.month} · {data.timezone} · {data.analysis.totals.total} habit check-ins. {data.dataNote}</p>
+            <p className="text-xs leading-5 text-stone-400">{isDemoMode ? "Demo sample · " : ""}{period.year}-{period.month} · {data.timezone} · {data.analysis.totals.total} habit check-ins. <span className="analysis-secondary-instruction">{data.dataNote}</span></p>
             {!data.analysis.totals.total && <p role="status" className="rounded-xl border border-amber-200/20 bg-amber-500/10 p-4 text-sm text-amber-100">No retained habit check-ins in this period. Empty or future days have no completion score.</p>}
             {children}
           </div>

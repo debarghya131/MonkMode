@@ -169,7 +169,7 @@ export default function GYMWeeklyReport({ lowMotion = false }) {
                   <button
                     type="button"
                     onClick={() => { setShowPhotos(false); setShowFullScreen(false); }}
-                    className="shrink-0 rounded-full border border-stone-700 px-3 py-1 text-xs font-semibold text-stone-400 transition-colors hover:border-stone-500 hover:text-stone-200"
+                    className="weekly-gym-photo-action shrink-0 rounded-full border border-stone-700 px-3 py-1 text-xs font-semibold text-stone-400 transition-colors hover:border-stone-500 hover:text-stone-200"
                   >
                     ✕ Close
                   </button>
@@ -183,7 +183,7 @@ export default function GYMWeeklyReport({ lowMotion = false }) {
                       type="button"
                       onClick={() => { setShowPhotos(false); setFsIndex(0); setShowFullScreen(true); }}
                       disabled={!selectedWeek.stats.photoCount}
-                      className="rounded-full border border-violet-400/30 bg-violet-500/10 px-3 py-0.5 text-[10px] font-semibold text-violet-300 transition-colors hover:bg-violet-500/20"
+                      className="weekly-gym-photo-action rounded-full border border-violet-400/30 bg-violet-500/10 px-3 py-0.5 text-[10px] font-semibold text-violet-300 transition-colors hover:bg-violet-500/20"
                     >
                       View All
                     </button>
@@ -246,7 +246,7 @@ export default function GYMWeeklyReport({ lowMotion = false }) {
                 <button
                   type="button"
                   onClick={() => setShowFullScreen(false)}
-                  className="absolute right-4 top-4 z-10 rounded-full border border-stone-600 bg-black/60 px-4 py-1.5 text-xs font-semibold text-stone-300 backdrop-blur-sm transition-colors hover:border-stone-400 hover:text-white"
+                  className="weekly-gym-photo-action absolute right-4 top-4 z-10 rounded-full border border-stone-600 bg-black/60 px-4 py-1.5 text-xs font-semibold text-stone-300 backdrop-blur-sm transition-colors hover:border-stone-400 hover:text-white"
                 >
                   ✕ Close
                 </button>

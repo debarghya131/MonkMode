@@ -29,8 +29,10 @@
   :root .landing-navbar { padding: max(0.625rem, env(safe-area-inset-top)) 0.75rem 0.5rem; }
   :root .landing-navbar .landing-nav-logo { min-height: 2.75rem; }
   :root .landing-page .landing-hero {
-    flex: 0 0 auto;
-    padding: clamp(1rem, 5dvh, 3rem) 1rem 1.5rem;
+    /* Fill the space between navigation and footer so justify-center can work.
+       Keep the intrinsic height on short screens so the content can scroll. */
+    flex: 1 0 auto;
+    padding: clamp(1rem, 3dvh, 1.5rem) 1rem;
   }
   :root .landing-page .landing-monk-stage { height: clamp(8rem, 22dvh, 11rem); }
   :root .landing-page .landing-monk-illustration { width: clamp(9rem, 44vw, 11rem); }
@@ -69,7 +71,7 @@
 }
 
 @media (max-width: 639px) and (max-height: 500px) {
-  :root .landing-page .landing-hero { padding-top: 0.5rem; }
+  :root .landing-page .landing-hero { padding-block: 0.5rem; }
   :root .landing-page .landing-monk-stage { height: 6rem; }
   :root .landing-page .landing-monk-illustration { width: 7rem; }
   :root .demo-entry-art img { width: 5rem; }

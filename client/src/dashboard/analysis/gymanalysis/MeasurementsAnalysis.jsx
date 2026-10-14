@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { AnalysisChart } from "../journalanalysis/AnalysisUI";
-import { AnalysisView, MetricPicker } from "./GymAnalysisUI";
-import { valueLabel, signedLabel } from "./gymAnalysisFormatters";
+import { GymChart as AnalysisChart, AnalysisView, MetricPicker } from "./GymAnalysisUI";
+import { valueLabel, signedLabel, countLabel } from "./gymAnalysisFormatters";
 import useGymAnalysis from "./gymAnalysisContext";
 
 export default function MeasurementsAnalysis() {
@@ -14,11 +13,11 @@ export default function MeasurementsAnalysis() {
   const entries = new Map(selected?.entries.map(row=>[row.date,row.value])||[]);
   const rows = a?.days.map(row=>({...row,value:entries.get(row.date)??null}))||[];
   const insights = !selected ? [] : [
-    {title:"Measurement Check-in Days",value:a.totals.measurementDays+" days",description:"Distinct dates with at least one valid positive reading. Deleted, invalid and future measurements are excluded."},
+    {title:"Measurement Check-in Days",value:countLabel(a.totals.measurementDays,"day"),description:"Distinct dates with at least one valid positive reading. Deleted, invalid and future measurements are excluded."},
     {title:"Latest "+selected.label,value:valueLabel(selected.latest?.value,selected.unit),description:selected.latest ? "Latest valid "+selected.label.toLowerCase()+" reading this month: "+selected.latest.date+"." : "No valid reading for this field in the selected month. Other fields are not used as substitutes."},
     {title:"Measurement Change",value:signedLabel(selected.change,selected.unit),description:selected.baseline && selected.latest ? "From "+selected.baseline.date+" ("+selected.baseline.value+" "+selected.unit+") to "+selected.latest.date+". Uses the latest valid pre-month reading, or the first reading this month." : "Two valid dated readings are needed for a comparison."},
     {title:"Relative Change",value:signedLabel(selected.changePercent,"%"),description:"Signed change from the selected field's positive baseline. An increase or decrease is not automatically healthy or unhealthy; no target or diagnosis is inferred."},
-    {title:"Recorded Fields This Month",value:a.measurements.filter(row=>row.latest).length+" fields",description:"Each field retains its own units and dates. Missing readings are unknown, not zero; kilograms and centimetres are never compared on the same scale."},
+    {title:"Recorded Fields This Month",value:countLabel(a.measurements.filter(row=>row.latest).length,"field"),description:"Each field retains its own units and dates. Missing readings are unknown, not zero; kilograms and centimetres are never compared on the same scale."},
   ];
   return <AnalysisView insights={insights}>{a && <>
     <div className="gym-analysis-metric-grid rounded-2xl border border-amber-100/10 bg-black/10 p-4">

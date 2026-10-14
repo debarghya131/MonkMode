@@ -24,7 +24,7 @@ export default function SleepEnergyAnalysis() {
       series={[{key:"sleep",label:"Inferred sleep",color:"#38bdf8",unit:"h"}]}/>
     <section className="journal-comparison-controls rounded-2xl border border-white/10 p-4">
       <h4 className="font-bold text-amber-50">Select comparison block</h4><p className="mt-2 text-xs text-stone-400">Month blocks: days 1–7, 8–14, 15–21, 22–28, and remaining days. These are not Monday–Sunday calendar weeks.</p>
-      <div className="mt-3 flex flex-wrap gap-2">{stats?.weeks.map((item,index)=><button key={item.label} type="button" aria-pressed={week?.label===item.label} onClick={()=>setSelectedWeek(index)}
+      <div className="dashboard-filter-controls mt-3 flex flex-wrap gap-2">{stats?.weeks.map((item,index)=><button key={item.label} type="button" aria-pressed={week?.label===item.label} onClick={()=>setSelectedWeek(index)}
         className={`rounded-full border px-3 py-2 text-xs ${week?.label===item.label ? "border-amber-300/40 bg-amber-500/15 text-amber-200" : "border-white/10 text-stone-300"}`}>{item.label} · {Number(item.from.slice(-2))}–{Number(item.to.slice(-2))}</button>)}</div>
     </section>
     <AnalysisChart title="Sleep Duration vs Energy and Overall Day Rating" subtitle={week?.label || "Comparison"} rows={week?.days || []} type="bar" max={18} rightAxis

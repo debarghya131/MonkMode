@@ -175,7 +175,7 @@ const textareaBase =
   "w-full resize-none rounded-2xl border border-amber-100/10 bg-stone-950/45 px-5 py-4 text-sm text-amber-50/90 placeholder-stone-500 outline-none transition focus:border-amber-400/40 focus:shadow-[0_0_20px_rgba(251,191,36,0.1)]";
 
 const btnPrimary =
-  "rounded-full border border-amber-100/15 bg-white/8 px-6 py-2.5 text-sm font-semibold text-amber-50 transition duration-300 hover:-translate-y-0.5 hover:border-amber-200/50 hover:bg-gradient-to-r hover:from-amber-200 hover:via-yellow-300 hover:to-orange-300 hover:text-stone-950 hover:shadow-[0_0_28px_rgba(251,191,36,0.45)] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:translate-y-0 disabled:hover:bg-transparent disabled:hover:border-amber-100/15 disabled:hover:text-amber-50 disabled:hover:shadow-none";
+  "dashboard-action-button rounded-full border border-amber-100/15 bg-white/8 px-6 py-2.5 text-sm font-semibold text-amber-50 transition duration-300 hover:-translate-y-0.5 hover:border-amber-200/50 hover:bg-gradient-to-r hover:from-amber-200 hover:via-yellow-300 hover:to-orange-300 hover:text-stone-950 hover:shadow-[0_0_28px_rgba(251,191,36,0.45)] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:translate-y-0 disabled:hover:bg-transparent disabled:hover:border-amber-100/15 disabled:hover:text-amber-50 disabled:hover:shadow-none";
 
 /* ── Journal View Modal ───────────────────────────────────────────────────── */
 function Section({ icon, title, children }) {
@@ -756,25 +756,25 @@ function JournalContent() {
 
         <Motion.div
           data-journal-panel="today"
-          className="flex-1 min-w-0 flex flex-col items-center justify-center space-y-5 py-16 sm:py-24"
+          className="journal-logged-panel flex-1 min-w-0 flex flex-col items-center justify-center py-16 sm:py-24"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
         >
           <Motion.div
-            className="text-7xl"
+            className="journal-logged-icon text-7xl"
             animate={{ rotate: [0, -10, 10, -5, 5, 0] }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >🎉</Motion.div>
-          <h2 className="text-heading-xl text-center">Day Logged!</h2>
-          <p className="text-sm text-stone-400 text-center max-w-sm leading-relaxed">
-            Your journal entry has been saved. Come back tomorrow and keep your consistency alive.
+          <h2 className="journal-logged-title text-heading-xl text-center">Day Logged!</h2>
+          <p className="journal-logged-message text-sm text-stone-400 text-center max-w-sm leading-relaxed">
+            Your entry is saved. Come back tomorrow to keep your consistency going.
           </p>
           {saveWarning && <p role="status" className="max-w-md text-center text-xs text-amber-200">{saveWarning}</p>}
           {dayChanged && <button type="button" disabled={saving} onClick={() => setLoadAttempt(value => value + 1)} className={btnPrimary}>Load today's journal</button>}
 
           {/* Editable-today badge */}
-          <div className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold ${
+          <div className={`journal-logged-badge flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold ${
             canEditToday
               ? "border-amber-400/30 bg-amber-500/10 text-amber-300"
               : "border-stone-700 bg-stone-900/50 text-stone-500"
@@ -783,12 +783,12 @@ function JournalContent() {
             {canEditToday ? "Editable until midnight" : "Locked — entry moved to history"}
           </div>
 
-          <div className="mt-2 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+          <div className="journal-logged-actions mt-2 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
             {/* See Journal */}
             <button
               type="button"
               onClick={() => setShowJournalView(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-full border border-stone-600 bg-white/5 px-5 py-2.5 text-sm font-semibold text-stone-300 transition duration-200 hover:border-stone-400 hover:text-stone-100 sm:w-auto"
+              className="dashboard-action-button flex w-full items-center justify-center gap-2 rounded-full border border-stone-600 bg-white/5 px-5 py-2.5 text-sm font-semibold text-stone-300 transition duration-200 hover:border-stone-400 hover:text-stone-100 sm:w-auto"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" strokeLinecap="round" strokeLinejoin="round"/>
@@ -803,7 +803,7 @@ function JournalContent() {
                 type="button"
                 disabled={saving}
                 onClick={() => { setSubmitted(false); setStep(1); }}
-                className="flex w-full items-center justify-center gap-2 rounded-full border border-amber-400/30 bg-amber-500/10 px-5 py-2.5 text-sm font-semibold text-amber-300 transition duration-200 hover:border-amber-400/60 hover:bg-amber-500/20 hover:text-amber-200 sm:w-auto"
+                className="dashboard-action-button flex w-full items-center justify-center gap-2 rounded-full border border-amber-400/30 bg-amber-500/10 px-5 py-2.5 text-sm font-semibold text-amber-300 transition duration-200 hover:border-amber-400/60 hover:bg-amber-500/20 hover:text-amber-200 sm:w-auto"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" strokeLinecap="round" strokeLinejoin="round"/>

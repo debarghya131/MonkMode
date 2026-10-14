@@ -308,14 +308,14 @@ function YearPicker({ selectedYear, yearOptions, onChange }) {
   }, [isOpen]);
 
   return (
-    <div ref={menuRef} className="relative w-full sm:w-24">
+    <div ref={menuRef} className="dashboard-period-controls relative w-full sm:w-24">
       <button
         type="button"
         aria-label="Select heatmap year"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((open) => !open)}
-        className="flex min-h-10 w-full items-center justify-between rounded-xl border border-amber-100/15 bg-stone-950/70 px-3 py-2 text-[11px] font-semibold text-stone-200 outline-none transition hover:border-amber-300/35 focus-visible:border-amber-300/45 sm:min-h-8 sm:py-1.5"
+        className="dashboard-period-trigger flex min-h-10 w-full items-center justify-between rounded-xl border border-amber-100/15 bg-stone-950/70 px-3 py-2 text-[11px] font-semibold text-stone-200 outline-none transition hover:border-amber-300/35 focus-visible:border-amber-300/45 sm:min-h-8 sm:py-1.5"
       >
         <span>{selectedYear}</span>
         <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" className={`h-3.5 w-3.5 transition-transform ${isOpen ? "rotate-180" : ""}`}>

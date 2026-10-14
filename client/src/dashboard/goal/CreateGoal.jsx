@@ -246,11 +246,6 @@ export default function CreateGoal() {
         ))}
       </nav>
 
-      <div className="goal-create-heading">
-        <p className="text-label-lg">Create Goal</p>
-        <h2 className="mt-2 text-2xl font-bold text-amber-100">Build Your Goals</h2>
-      </div>
-
       <div className="schedule-layout goal-create-layout">
         <div ref={formPanelRef} data-goal-create-panel="create" className="schedule-main goal-create-form journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
           <h3 className="mb-4 text-sm font-semibold text-amber-200">New Goal</h3>
@@ -383,7 +378,7 @@ export default function CreateGoal() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-300 transition hover:text-stone-100"
+                className="dashboard-action-button w-full rounded-lg border border-amber-100/15 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-300 transition hover:text-stone-100"
               >
                 Cancel Edit
               </button>
@@ -400,12 +395,13 @@ export default function CreateGoal() {
             <div className="min-w-0">
               <p className="text-sm font-semibold text-amber-200">All Goals</p>
               <p className="mt-0.5 text-xs text-stone-400">Your created goals appear here.</p>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <div className="dashboard-filter-controls mt-2 flex flex-wrap items-center gap-1.5">
                 {["active", "archive"].map((view) => (
                   <button
                     key={view}
                     type="button"
                     onClick={() => setGoalsView(view)}
+                    aria-pressed={goalsView === view}
                     className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold capitalize transition ${
                       goalsView === view
                         ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
@@ -449,7 +445,7 @@ export default function CreateGoal() {
                   })}
                 >
                   <div className="goal-created-card-head flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <p className="min-w-0 flex-1 break-words text-sm font-semibold leading-relaxed text-stone-100">
+                    <p className="goal-created-card-title min-w-0 flex-1 break-words text-sm font-semibold leading-relaxed text-stone-100">
                       {goal.title}
                     </p>
                     <div className="goal-created-card-controls flex w-full flex-col items-start gap-2 sm:w-auto sm:shrink-0 sm:items-end">
@@ -463,36 +459,10 @@ export default function CreateGoal() {
                           {goal.priority}
                         </span>
                       </div>
-                      {isDeletedGoal && goal.canUndoDelete && Date.parse(goal.deleteUndoExpiresAt) > nowMs && (
-                        <button type="button" className="dashboard-card-action" data-tone="success"
-                          disabled={busy || isDemoMode} onClick={() => handleRestoreGoal({ goalId: goal.id })}>
-                          Restore
-                        </button>
-                      )}
-                      {goalsView !== "archive" && (
-                        <div className="goal-created-card-actions flex flex-wrap items-center gap-1.5 sm:justify-end">
-                          <button
-                            type="button"
-                            disabled={busy || isDemoMode}
-                            onClick={() => startEdit(goal)}
-                            className="dashboard-card-action" data-tone="warning"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busy || isDemoMode}
-                            onClick={() => handleDelete(goal.id)}
-                            className="dashboard-card-action" data-tone="danger"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
                   {goal.description && (
-                    <p className="mt-1 break-words text-xs leading-relaxed text-stone-400">{goal.description}</p>
+                    <p className="goal-created-card-description mt-1 break-words text-xs leading-relaxed text-stone-400">{goal.description}</p>
                   )}
                   <div className="goal-created-card-meta mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] text-stone-300">
                     <span className="rounded-full border border-amber-300/35 bg-amber-500/15 px-2 py-0.5 font-semibold text-amber-200">
@@ -505,6 +475,36 @@ export default function CreateGoal() {
                       Deadline {goal.deadline}
                     </span>
                   </div>
+                  {(goalsView !== "archive" || (isDeletedGoal && goal.canUndoDelete && Date.parse(goal.deleteUndoExpiresAt) > nowMs)) && (
+                    <div className="goal-created-card-actions mt-2 flex flex-wrap items-center justify-end gap-1.5">
+                      {isDeletedGoal && goal.canUndoDelete && Date.parse(goal.deleteUndoExpiresAt) > nowMs && (
+                        <button type="button" className="dashboard-card-action" data-tone="success"
+                          disabled={busy || isDemoMode} onClick={() => handleRestoreGoal({ goalId: goal.id })}>
+                          Restore
+                        </button>
+                      )}
+                      {goalsView !== "archive" && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={busy || isDemoMode}
+                            onClick={() => startEdit(goal)}
+                            className="dashboard-edit-delete-action dashboard-card-action" data-tone="warning"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy || isDemoMode}
+                            onClick={() => handleDelete(goal.id)}
+                            className="dashboard-edit-delete-action dashboard-card-action" data-tone="danger"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </GoalListCard>
                 );
               })

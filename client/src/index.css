@@ -14,6 +14,17 @@
 @import "./styles/ming-mobile.css";
 @import "./styles/analysis-mobile.css";
 @import "./styles/analysis-desktop.css";
+@import "./styles/sidebar-responsive.css";
+@import "./styles/action-button-density.css";
+@import "./styles/welcome-compact.css";
+@import "./styles/period-control-density.css";
+@import "./styles/gym-diet-compact.css";
+@import "./styles/gym-measurements-compact.css";
+@import "./styles/filter-button-density.css";
+@import "./styles/gym-today-compact.css";
+@import "./styles/gym-add-list-compact.css";
+@import "./styles/gym-progress-compact.css";
+@import "./styles/mobile-section-tabs-compact.css";
 
 /* ── Global scrollbar theme (overrides OS teal/colored scrollbars) ── */
 * {
@@ -8838,11 +8849,10 @@ a {
     overflow: hidden;
   }
 
-  .gym-page[data-active="diet-chart"] .gym-diet-layout[data-mobile-panel="diet"] .gym-diet-secondary,
-  .gym-page[data-active="diet-chart"] .gym-diet-layout:not([data-mobile-panel="diet"]) .gym-diet-primary,
-  .gym-page[data-active="diet-chart"] .gym-diet-layout[data-mobile-panel="nutrition"] :is(.gym-diet-supplements, .gym-diet-macros),
-  .gym-page[data-active="diet-chart"] .gym-diet-layout[data-mobile-panel="supplements"] :is(.gym-diet-nutrition, .gym-diet-macros),
-  .gym-page[data-active="diet-chart"] .gym-diet-layout[data-mobile-panel="macros"] .gym-diet-pair {
+  .gym-page[data-active="diet-chart"] .gym-diet-layout[data-mobile-panel="diet"] :is(.gym-diet-secondary, .gym-diet-macros),
+  .gym-page[data-active="diet-chart"] .gym-diet-layout[data-mobile-panel="nutrition"] :is(.gym-diet-primary, .gym-diet-supplements),
+  .gym-page[data-active="diet-chart"] .gym-diet-layout[data-mobile-panel="supplements"] :is(.gym-diet-primary, .gym-diet-nutrition),
+  .gym-page[data-active="diet-chart"] .gym-diet-layout[data-mobile-panel="macros"] :is(.gym-diet-secondary, .gym-diet-full-day) {
     display: none;
   }
 

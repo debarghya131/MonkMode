@@ -204,6 +204,7 @@ export default function ExerciseLibrary() {
                       key={group}
                       type="button"
                       onClick={() => setSelectedGroup(group)}
+                      aria-pressed={isActive}
                       className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] font-semibold transition duration-200 ${
                         isActive
                           ? "border-amber-300/45 bg-gradient-to-r from-[#ffd86b] via-[#f5b52f] to-[#ea8a17] text-stone-950 shadow-[0_0_16px_rgba(251,191,36,0.4)]"

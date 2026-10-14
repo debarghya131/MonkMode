@@ -1,0 +1,90 @@
+/* Welcome remains a scrollable dialog on short screens; compact the content,
+   not the viewport, and keep both paths and the preference visible. */
+:root .welcome-card {
+  max-width: 42rem;
+  border-radius: 1rem;
+}
+:root .welcome-card .welcome-greeting {
+  padding: 0.625rem 0.75rem;
+  gap: 0.5rem;
+}
+:root .welcome-card .welcome-monk {
+  width: 3rem;
+  height: 3rem;
+}
+:root .welcome-card .welcome-greeting h2 {
+  font-size: 1rem;
+  line-height: 1.4;
+}
+:root .welcome-card .welcome-content {
+  padding: 0.75rem;
+}
+:root .welcome-card #welcome-title {
+  font-size: 0.5625rem;
+  line-height: 1.5;
+  letter-spacing: 0.22em;
+}
+:root .welcome-card .welcome-intro {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+:root .welcome-card .welcome-paths,
+:root .welcome-card .welcome-preferences {
+  margin-top: 0.75rem;
+}
+:root .welcome-card .welcome-paths > p {
+  font-size: 0.625rem;
+  line-height: 1.5;
+  letter-spacing: 0.18em;
+}
+:root .welcome-card .welcome-options {
+  margin-top: 0.5rem;
+  gap: 0.5rem;
+  align-items: start;
+}
+:root .welcome-card .welcome-option {
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
+  min-height: 2.75rem;
+}
+:root .welcome-card .welcome-option-title {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+:root .welcome-card .welcome-option-description {
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+:root .welcome-card .welcome-preferences {
+  padding-top: 0.5rem;
+  gap: 0.25rem 0.75rem;
+}
+:root .welcome-card .welcome-preferences label {
+  min-height: 2rem;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+}
+:root .welcome-card .welcome-reminder {
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+
+@media (min-width: 768px) {
+  :root .welcome-card .welcome-layout {
+    grid-template-columns: minmax(9rem, 30%) minmax(0, 1fr);
+  }
+  :root .welcome-card .welcome-greeting {
+    padding: 1rem 0.75rem;
+    gap: 0;
+  }
+  :root .welcome-card .welcome-monk {
+    width: 7rem;
+    height: 7rem;
+  }
+  :root .welcome-card .welcome-content {
+    padding: 1rem;
+  }
+}
+

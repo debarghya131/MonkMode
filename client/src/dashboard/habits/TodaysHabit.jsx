@@ -5,7 +5,7 @@ import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import { useHabitEnvironment } from "./habitContext";
-import { formatHabitDay, formatHabitTime, habitDayKey, isHabitOnDay, habitTimeOnDay } from "./habitUtils";
+import { formatHabitTime, habitDayKey, isHabitOnDay, habitTimeOnDay } from "./habitUtils";
 import { validHabits, validHabitCompletion, habitFailureMessage, uncertainHabitWrite } from "./habitResponse";
 
 const PRIORITY_STYLES = {
@@ -132,6 +132,7 @@ function PriorityFilter({ selected, onChange }) {
           key={level}
           type="button"
           onClick={() => onChange(level)}
+          aria-pressed={selected === level}
           className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold leading-5 transition ${colorMap(level, selected === level)}`}
         >
           {level}
@@ -151,6 +152,7 @@ function TimeSlotFilter({ selected, onChange }) {
             key={slot.value}
             type="button"
             onClick={() => onChange(slot.value)}
+            aria-pressed={isActive}
             className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${
               isActive
                 ? "border-sky-300/50 bg-sky-500/20 text-sky-100"
@@ -243,7 +245,6 @@ export default function TodaysHabit({ consistency = {} }) {
       window.removeEventListener("monkmode:habits-updated", refreshHabits);
     };
   }, [isDemoMode, todayISO, timezone, retry]);
-  const todayLabel = formatHabitDay(todayISO, { weekday: "long", month: "short", day: "numeric" });
 
   const visibleHabits = useMemo(
     () => habits
@@ -371,8 +372,7 @@ export default function TodaysHabit({ consistency = {} }) {
         <section className="today-main rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-6">
           <div className="habit-today-heading-row flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-200/70">{todayLabel}</p>
-              <h3 className="mt-2 text-2xl font-bold text-amber-100">Today&apos;s Habits</h3>
+              <h3 className="text-2xl font-bold text-amber-100">Today&apos;s Habits</h3>
             </div>
             <div className="habit-today-desktop-consistency flex min-w-[15rem] items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-950/40 px-3 py-2">
               <span className="text-base leading-none" aria-hidden="true">📊</span>
@@ -470,7 +470,7 @@ export default function TodaysHabit({ consistency = {} }) {
                     filtered.map((habit, i) => (
                       <PendingRow
                         key={habit._id ?? habit.id}
-                        className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
+                        className="habit-pending-card rounded-xl border border-amber-100/10 bg-white/5 p-3"
                         {...(lowMotion ? {} : {
                           initial: { opacity: 0, y: 8 },
                           animate: { opacity: 1, y: 0 },
@@ -478,28 +478,26 @@ export default function TodaysHabit({ consistency = {} }) {
                           whileHover: { y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" }
                         })}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-stone-100">{habit.title}</p>
-                            <p className="mt-1 text-xs text-stone-400">{habit.note}</p>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => markDone(habit._id ?? habit.id)}
-                              disabled={busyIds.has(habit._id ?? habit.id) || blockedIds.current.has(habit._id ?? habit.id) || isDemoMode}
-                              aria-busy={busyIds.has(habit._id ?? habit.id)}
-                              className="dashboard-card-action"
-                              data-tone="success"
-                            >
-                              ✓ Done
-                            </button>
-                          </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-stone-100">{habit.title}</p>
+                          <p className="mt-1 text-xs text-stone-400">{habit.note}</p>
                         </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-stone-300">
-                          <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{habit.category}</span>
-                          <span className={`dashboard-card-priority ${PRIORITY_STYLES[habit.priority]}`}>{habit.priority}</span>
-                          <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{formatTime(habit.time)}</span>
+                        <div className="habit-pending-footer mt-3">
+                          <div className="habit-pending-meta flex flex-wrap items-center gap-2 text-xs text-stone-300">
+                            <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{habit.category}</span>
+                            <span className={`dashboard-card-priority ${PRIORITY_STYLES[habit.priority]}`}>{habit.priority}</span>
+                            <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{formatTime(habit.time)}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => markDone(habit._id ?? habit.id)}
+                            disabled={busyIds.has(habit._id ?? habit.id) || blockedIds.current.has(habit._id ?? habit.id) || isDemoMode}
+                            aria-busy={busyIds.has(habit._id ?? habit.id)}
+                            className="habit-pending-done dashboard-card-action"
+                            data-tone="success"
+                          >
+                            ✓ Done
+                          </button>
                         </div>
                       </PendingRow>
                     ))

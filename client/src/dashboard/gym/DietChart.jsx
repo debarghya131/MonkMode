@@ -81,12 +81,13 @@ function PlanViewModal({ title, plans, dayFilter, setDayFilter, copyingId, setCo
             </button>
           </div>
           <GymNotice />
-          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <div className="dashboard-filter-controls mt-3 flex flex-wrap items-center gap-1.5">
             {["all", ...WEEK_DAYS].map((day) => (
               <button
                 key={day}
                 type="button"
                 onClick={() => setDayFilter(day)}
+                aria-pressed={dayFilter === day}
                 className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold capitalize transition ${
                   dayFilter === day
                     ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
@@ -130,12 +131,12 @@ function PlanViewModal({ title, plans, dayFilter, setDayFilter, copyingId, setCo
                         </button>
                         {onEdit && (
                           <button type="button" onClick={() => onEdit(plan)}
-                            className="dashboard-card-action" data-tone="warning">
+                            className="dashboard-edit-delete-action dashboard-card-action" data-tone="warning">
                             Edit
                           </button>
                         )}
                         <button type="button" onClick={() => onDelete(plan.id)}
-                          className="dashboard-card-action" data-tone="danger">
+                          className="dashboard-edit-delete-action dashboard-card-action" data-tone="danger">
                           Delete
                         </button>
                       </div>
@@ -195,10 +196,10 @@ function MealGroup({ sections, meals, setMeals, inputs, setInputs }) {
 
   return (
     <>
-      <div className="space-y-4">
+      <div className="gym-diet-meal-groups space-y-4">
         {sections.map(({ key, label }) => (
           <div key={key}>
-            <div className="mb-2 flex items-center justify-between">
+            <div className="gym-diet-meal-heading mb-2 flex items-center justify-between">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-200/70">{label}</p>
               {meals[key].length > 0 && (
                 <Motion.button type="button" onClick={() => setViewingKey(key)}
@@ -211,11 +212,12 @@ function MealGroup({ sections, meals, setMeals, inputs, setInputs }) {
             </div>
             <div className="gym-diet-entry-row flex flex-col gap-2 sm:flex-row sm:gap-1.5">
               <input type="text" value={inputs[key].name}
+                aria-label={`${label} meal`}
                 onChange={(e) => setInputs((p) => ({ ...p, [key]: { ...p[key], name: e.target.value } }))}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addMeal(key); } }}
                 placeholder="Add meal…"
                 className="min-w-0 flex-1 rounded-lg border border-amber-100/15 bg-white/5 px-2.5 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
-<DashboardDateTimeInput type="time" value={inputs[key].time}
+<DashboardDateTimeInput type="time" aria-label={`${label} meal time`} value={inputs[key].time}
                 onChange={(e) => setInputs((p) => ({ ...p, [key]: { ...p[key], time: e.target.value } }))}
                 className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35 sm:w-24" />
               <button type="button" onClick={() => addMeal(key)}
@@ -363,6 +365,8 @@ const persistDietDraftCache = (storageKey, value) => {
 function DaySelector({ selected, onSelect, compact = false, inline = false, disabled = false }) {
   return (
     <div
+      role="group"
+      aria-label="Plan days"
       className={
         compact
           ? "gym-diet-days grid grid-cols-7 gap-1"
@@ -373,6 +377,7 @@ function DaySelector({ selected, onSelect, compact = false, inline = false, disa
     >
       {WEEK_DAYS.map((day) => (
         <button key={day} type="button"
+          aria-pressed={selected === day}
           onClick={() => {
             if (disabled) return;
             onSelect((prev) => (prev === day ? "" : day));
@@ -401,7 +406,7 @@ function SaveBtn({ label, selectedDay, onClick, disabled }) {
   return (
     <div>
       <button type="button" onClick={onClick} disabled={disabled || !selectedDay}
-        className={`w-full rounded-lg border px-4 py-2.5 text-xs font-semibold transition ${
+        className={`dashboard-action-button w-full rounded-lg border px-4 py-2.5 text-xs font-semibold transition ${
           selectedDay && !disabled
             ? "border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 text-amber-200 hover:from-amber-400/25 hover:to-orange-400/20"
             : "cursor-not-allowed border-amber-100/10 bg-white/5 text-stone-500"
@@ -908,7 +913,7 @@ export default function DietChart() {
                   <Motion.button type="button" onClick={() => { setShowDietView(true); setDietDayFilter("all"); setCopyingDietId(null); }}
                     whileHover={{ scale: 1.1, boxShadow: "0 0 18px rgba(251,191,36,0.65), 0 0 36px rgba(251,191,36,0.2)", transition: { duration: 0.18 } }}
                     whileTap={{ scale: 0.93, transition: { duration: 0.1 } }}
-                    className="w-full rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)] sm:w-auto sm:shrink-0">
+                    className="gym-diet-view-action w-full rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)] sm:w-auto sm:shrink-0">
                     View ({savedDiets.length})
                   </Motion.button>
                 </div>
@@ -940,6 +945,70 @@ export default function DietChart() {
             </div>
           </div>
 
+          {/* ── Container 4: Macros ── */}
+          <div className={`${card} gym-diet-panel gym-diet-macros`}>
+            {/* sticky header */}
+            <div className="shrink-0 border-b border-amber-100/10 px-4 pb-4 pt-4 sm:px-5 sm:pt-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-amber-200">Macros</h3>
+                </div>
+                <div className="gym-diet-controls flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                  <DaySelector selected={selectedMacroDay} onSelect={setSelectedMacroDay} compact disabled={Boolean(editingMacroId)} />
+                  <Motion.button type="button" onClick={() => { setShowMacrosView(true); setMacrosDayFilter("all"); setCopyingMacroId(null); }}
+                    whileHover={{ scale: 1.1, boxShadow: "0 0 18px rgba(251,191,36,0.65), 0 0 36px rgba(251,191,36,0.2)", transition: { duration: 0.18 } }}
+                    whileTap={{ scale: 0.93, transition: { duration: 0.1 } }}
+                    className="gym-diet-view-action w-full rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)] sm:w-auto sm:shrink-0">
+                    View ({savedMacros.length})
+                  </Motion.button>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-stone-400">Set your daily macro targets.</p>
+            </div>
+            {/* scrollable body */}
+            <div className="journal-scroll min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+              <div className="gym-diet-macro-grid grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {MACRO_FIELDS.map(({ key, label, unit }) => (
+                  <div key={key}>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
+                      {label} <span className="font-normal normal-case text-stone-500">({unit})</span>
+                    </label>
+                    <input type="number" min="0" step="0.1" value={macros[key]}
+                      aria-label={`${label} (${unit})`}
+                      onChange={(e) => setMacros((prev) => ({ ...prev, [key]: e.target.value }))}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1.5 text-sm text-stone-100 outline-none transition focus:border-amber-300/35 focus:ring-1 focus:ring-amber-300/30" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* sticky footer */}
+            <div className="shrink-0 border-t border-amber-100/10 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
+              <div className="space-y-2">
+                <button type="button" onClick={saveMacro} disabled={!selectedMacroDay}
+                  className={`w-full rounded-lg border px-4 py-2 text-xs font-semibold transition ${
+                    selectedMacroDay
+                      ? "border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 text-amber-200 hover:from-amber-400/25 hover:to-orange-400/20"
+                      : "cursor-not-allowed border-amber-100/10 bg-white/5 text-stone-500"
+                  }`}>
+                  {editingMacroId ? "Update this Macro Plan for" : "Add this Macro Plan for"} {selectedMacroDay || "Selected Day"}
+                </button>
+                {editingMacroId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingMacroId(null);
+                      setMacros(BLANK_MACROS);
+                      setSelectedMacroDay("");
+                    }}
+                    className="w-full rounded-lg border border-stone-500/20 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-300 transition hover:text-stone-100"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="gym-diet-secondary">
@@ -958,7 +1027,7 @@ export default function DietChart() {
                     <Motion.button type="button" onClick={() => { setShowWnView(true); setWnDayFilter("all"); setCopyingWnId(null); }}
                       whileHover={{ scale: 1.1, boxShadow: "0 0 18px rgba(251,191,36,0.65), 0 0 36px rgba(251,191,36,0.2)", transition: { duration: 0.18 } }}
                       whileTap={{ scale: 0.93, transition: { duration: 0.1 } }}
-                      className="w-full rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)] sm:w-auto sm:shrink-0">
+                      className="gym-diet-view-action w-full rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)] sm:w-auto sm:shrink-0">
                       View ({savedWn.length})
                     </Motion.button>
                   </div>
@@ -1002,7 +1071,7 @@ export default function DietChart() {
                     <Motion.button type="button" onClick={() => { setShowSuppView(true); setSuppDayFilter("all"); setCopyingSuppId(null); setShowSuppDraftView(false); }}
                       whileHover={{ scale: 1.1, boxShadow: "0 0 18px rgba(251,191,36,0.65), 0 0 36px rgba(251,191,36,0.2)", transition: { duration: 0.18 } }}
                       whileTap={{ scale: 0.93, transition: { duration: 0.1 } }}
-                      className="w-full rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)]">
+                      className="gym-diet-view-action w-full rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)]">
                       View ({savedSupps.length})
                     </Motion.button>
                   </div>
@@ -1027,11 +1096,12 @@ export default function DietChart() {
               <div className="px-4 pb-3 pt-3 sm:px-5">
                 <div className="gym-diet-entry-row flex flex-col gap-2 sm:flex-row sm:gap-1.5">
                   <input type="text" value={suppInput.name}
+                    aria-label="Supplement"
                     onChange={(e) => setSuppInput((p) => ({ ...p, name: e.target.value }))}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSuppItem(); } }}
                     placeholder="Add supplement…"
                     className="min-w-0 flex-1 rounded-lg border border-amber-100/15 bg-white/5 px-2.5 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35" />
-<DashboardDateTimeInput type="time" value={suppInput.time}
+<DashboardDateTimeInput type="time" aria-label="Supplement time" value={suppInput.time}
                     onChange={(e) => setSuppInput((p) => ({ ...p, time: e.target.value }))}
                     className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none transition focus:border-amber-300/35 sm:w-24" />
                   <button type="button" onClick={addSuppItem}
@@ -1062,69 +1132,6 @@ export default function DietChart() {
             </div>
           </div>
 
-          {/* ── Container 4: Macros ── */}
-          <div className={`${card} gym-diet-panel gym-diet-macros`}>
-            {/* sticky header */}
-            <div className="shrink-0 border-b border-amber-100/10 px-4 pb-4 pt-4 sm:px-5 sm:pt-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-amber-200">Macros</h3>
-                </div>
-                <div className="gym-diet-controls flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                  <DaySelector selected={selectedMacroDay} onSelect={setSelectedMacroDay} compact disabled={Boolean(editingMacroId)} />
-                  <Motion.button type="button" onClick={() => { setShowMacrosView(true); setMacrosDayFilter("all"); setCopyingMacroId(null); }}
-                    whileHover={{ scale: 1.1, boxShadow: "0 0 18px rgba(251,191,36,0.65), 0 0 36px rgba(251,191,36,0.2)", transition: { duration: 0.18 } }}
-                    whileTap={{ scale: 0.93, transition: { duration: 0.1 } }}
-                    className="w-full rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 hover:shadow-[0_0_18px_rgba(251,191,36,0.45)] sm:w-auto sm:shrink-0">
-                    View ({savedMacros.length})
-                  </Motion.button>
-                </div>
-              </div>
-              <p className="mt-2 text-xs text-stone-400">Set your daily macro targets.</p>
-            </div>
-            {/* scrollable body */}
-            <div className="journal-scroll min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-              <div className="gym-diet-macro-grid grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {MACRO_FIELDS.map(({ key, label, unit }) => (
-                  <div key={key}>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
-                      {label} <span className="font-normal normal-case text-stone-500">({unit})</span>
-                    </label>
-                    <input type="number" min="0" step="0.1" value={macros[key]}
-                      onChange={(e) => setMacros((prev) => ({ ...prev, [key]: e.target.value }))}
-                      placeholder="0"
-                      className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1.5 text-sm text-stone-100 outline-none transition focus:border-amber-300/35 focus:ring-1 focus:ring-amber-300/30" />
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* sticky footer */}
-            <div className="shrink-0 border-t border-amber-100/10 px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
-              <div className="space-y-2">
-                <button type="button" onClick={saveMacro} disabled={!selectedMacroDay}
-                  className={`w-full rounded-lg border px-4 py-2 text-xs font-semibold transition ${
-                    selectedMacroDay
-                      ? "border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 text-amber-200 hover:from-amber-400/25 hover:to-orange-400/20"
-                      : "cursor-not-allowed border-amber-100/10 bg-white/5 text-stone-500"
-                  }`}>
-                  {editingMacroId ? "Update this Macro Plan for" : "Add this Macro Plan for"} {selectedMacroDay || "Selected Day"}
-                </button>
-                {editingMacroId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingMacroId(null);
-                      setMacros(BLANK_MACROS);
-                      setSelectedMacroDay("");
-                    }}
-                    className="w-full rounded-lg border border-stone-500/20 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-300 transition hover:text-stone-100"
-                  >
-                    Cancel Edit
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 

@@ -1,3 +1,54 @@
+/* The desktop ToDo and Habits reports are pulled into the dashboard's top
+   padding. Extend their height by that offset plus the bottom padding so the
+   scroll area reaches the viewport edge instead of ending above a blank strip. */
+@media (min-width: 1024px) and (min-height: 700px) {
+  .weekly-report-main .weekly-report-page:is([data-active="todo"], [data-active="habits"]) {
+    height: calc(100% + 3.25rem);
+  }
+
+  .weekly-report-main .weekly-report-page[data-active="todo"] .weekly-todo-main,
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-main {
+    padding-bottom: 0.75rem;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-performance > .journal-scroll {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+@media (min-width: 1280px) and (min-height: 700px) {
+  .weekly-report-main .weekly-report-page:is([data-active="todo"], [data-active="habits"]) {
+    height: calc(100% + 3.75rem);
+  }
+}
+
+@media (min-width: 1536px) and (min-height: 700px) {
+  .weekly-report-main .weekly-report-page:is([data-active="todo"], [data-active="habits"]) {
+    height: calc(100% + 4rem);
+  }
+}
+
+/* Show two habit summaries at a time; additional habits stay in this card's
+   own scroll area instead of making the report panel taller. */
+.weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-performance {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  align-self: start;
+}
+
+.weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-performance > .journal-scroll {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 16.25rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* Filters must fit the actual card width, including narrow desktop columns. */
 .weekly-report-main .weekly-report-page[data-active] :is(
   .weekly-todo-stat-card, .weekly-habit-stat-card,
@@ -162,7 +213,7 @@
     overscroll-behavior: contain;
   }
 
-  :is(.weekly-gym-photos-modal, .weekly-gym-fullscreen) button {
+  :is(.weekly-gym-photos-modal, .weekly-gym-fullscreen) button:not(.weekly-gym-photo-action) {
     min-width: 2.75rem;
     min-height: 2.75rem;
   }
@@ -177,6 +228,18 @@
   .weekly-gym-fullscreen > .relative {
     min-height: 0;
   }
+}
+
+/* Photo dialogs are portaled outside the dashboard, so give their text
+   actions the compact pill sizing explicitly. Carousel targets stay larger. */
+:root :is(.weekly-gym-photos-modal, .weekly-gym-fullscreen) button.weekly-gym-photo-action {
+  width: auto;
+  min-width: 0;
+  height: auto;
+  min-height: 1.75rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.65625rem;
+  line-height: 1.4;
 }
 
 @media (max-width: 639px) {
@@ -215,5 +278,75 @@
     .weekly-journal-heading-actions, .weekly-todo-heading-actions, .weekly-habit-heading-actions
   ) {
     flex-wrap: wrap;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-checkins-card {
+    min-height: 0;
+    padding: 0.5rem;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-checkins-card > div:first-child {
+    align-items: stretch;
+    gap: 0.35rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-checkins-card > div:first-child > p {
+    font-size: 0.625rem;
+    letter-spacing: 0.1em;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-checkins-card .weekly-habit-card-filter {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+    max-width: none;
+    gap: 0.15rem;
+    overflow: visible;
+    padding: 0.15rem;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-checkins-card .weekly-habit-card-filter > button {
+    min-width: 0;
+    min-height: 1.5rem;
+    padding: 0.15rem 0.25rem;
+    font-size: 0.625rem;
+    line-height: 1.3;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-checkins-summary {
+    padding: 0.45rem;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-checkins-summary > :first-child {
+    margin-bottom: 0.3rem;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-checkins-summary > :first-child p,
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-checkins-summary > p:first-child {
+    font-size: 0.625rem;
+    line-height: 1.3;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-checkins-stats {
+    gap: 0.25rem;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-checkins-stats > div {
+    min-width: 0;
+    padding: 0.25rem 0.15rem;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-checkins-stats > div > p {
+    line-height: 1.3;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-checkins-stats > div > p:first-child {
+    font-size: 0.5625rem;
+    white-space: nowrap;
+  }
+
+  .weekly-report-main .weekly-report-page[data-active="habits"] .weekly-habit-checkins-stats > div > p:nth-child(2) {
+    font-size: 0.75rem;
   }
 }

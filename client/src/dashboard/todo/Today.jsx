@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { INITIAL_TASKS } from "../../../data/ToDoDummyData";
 import useAuth from "../../hooks/useAuth";
-import { formatTodoTime, formatTodoDay } from "./todoUtils";
+import { formatTodoTime } from "./todoUtils";
 
 const PRIORITY_ORDER = ["High", "Medium", "Low"];
 
@@ -135,7 +135,7 @@ function PriorityFilter({ selected, onChange }) {
   return (
     <div className="todo-priority-filter mt-3 flex flex-wrap gap-1.5">
       {["All", "High", "Medium", "Low"].map((level) => (
-        <button key={level} type="button" onClick={() => onChange(level)}
+        <button key={level} type="button" onClick={() => onChange(level)} aria-pressed={selected === level}
           className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold leading-5 transition ${colorMap(level, selected === level)}`}>
           {level}
         </button>
@@ -219,7 +219,6 @@ export default function Today({ lowMotion = false, consistency, tasks: realTasks
   const [completedFilter, setCompletedFilter] = useState("All");
   const [latePrompt, setLatePrompt] = useState({ taskId: null, time: "" });
 
-  const todayLabel = formatTodoDay(todayISO, { weekday: "long", month: "short", day: "numeric" });
 
   const pendingTasks = useMemo(() => tasks.filter((t) => t.status === "pending"), [tasks]);
   const completedTasks = useMemo(() => tasks.filter((t) => t.status === "completed"), [tasks]);
@@ -296,19 +295,18 @@ export default function Today({ lowMotion = false, consistency, tasks: realTasks
         <section className="today-main rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-6">
           <div className="today-desktop-heading flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-200/70">{todayLabel}</p>
-              <h3 className="mt-2 text-2xl font-bold text-amber-100">Today&apos;s Tasks</h3>
+              <h3 className="text-2xl font-bold text-amber-100">Today&apos;s Tasks</h3>
             </div>
 
             <Motion.div
-              className="today-heading-consistency hidden min-w-[255px] shrink-0 items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-950/50 px-4 py-2.5 shadow-lg lg:flex"
+              className="today-heading-consistency hidden min-w-0 shrink-0 items-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-950/50 px-3 py-1.5 lg:flex"
               initial={lowMotion ? false : { opacity: 0, x: 16 }}
               animate={lowMotion ? undefined : { opacity: 1, x: 0 }}
               transition={lowMotion ? undefined : { duration: 0.4, ease: "easeOut" }}
               whileHover={lowMotion ? undefined : { boxShadow: "0 0 20px rgba(251,191,36,0.25)" }}
             >
               <Motion.span
-                className="text-xl"
+                className="text-base"
                 aria-hidden="true"
                 animate={lowMotion ? undefined : { scale: [1, 1.25, 1] }}
                 transition={lowMotion ? undefined : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
@@ -316,17 +314,17 @@ export default function Today({ lowMotion = false, consistency, tasks: realTasks
                 📊
               </Motion.span>
               <div className="flex min-w-0 flex-col">
-                <span className="text-lg font-bold text-amber-400">
+                <span className="text-sm font-bold leading-tight text-amber-400">
                   Consistency {isDemoMode ? `${sampleConsistency}%` : `${consistency.lifetimeConsistency}%`}
                 </span>
                 {isDemoMode ? (
-                  <span className="text-[11px] text-amber-200/80">Sample today · {completedTasks.length}/{tasks.length}</span>
+                  <span className="text-[10px] leading-tight text-amber-200/80">Sample today · {completedTasks.length}/{tasks.length}</span>
                 ) : (
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
-                    <span className="rounded-full border border-amber-100/20 bg-black/20 px-2 py-0.5 text-amber-100/90">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px]">
+                    <span className="rounded-full border border-amber-100/20 bg-black/20 px-1.5 py-0.5 text-amber-100/90">
                       Today {consistency.todayCompleted}/{consistency.todayTotal}
                     </span>
-                    <span className="rounded-full border border-amber-100/20 bg-black/20 px-2 py-0.5 text-amber-100/90">
+                    <span className="rounded-full border border-amber-100/20 bg-black/20 px-1.5 py-0.5 text-amber-100/90">
                       Lifetime {consistency.lifetimeCompleted}/{consistency.lifetimeTotal}
                     </span>
                   </div>
@@ -421,7 +419,7 @@ export default function Today({ lowMotion = false, consistency, tasks: realTasks
                     filtered.map((task, i) => (
                       <Article
                         key={task.id}
-                        className="rounded-xl border border-amber-100/10 bg-white/5 p-3"
+                        className="today-pending-card rounded-xl border border-amber-100/10 bg-white/5 p-3"
                         {...(lowMotion ? {} : {
                           initial: { opacity: 0, y: 8 },
                           animate: { opacity: 1, y: 0 },
@@ -429,26 +427,26 @@ export default function Today({ lowMotion = false, consistency, tasks: realTasks
                           whileHover: { y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", borderColor: "rgba(251,191,36,0.2)" },
                         })}
                       >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-stone-100">{task.title}</p>
-                            <p className="mt-1 text-xs text-stone-400">{task.note}</p>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-stone-100">{task.title}</p>
+                          <p className="mt-1 text-xs text-stone-400">{task.note}</p>
+                        </div>
+                        <div className="today-pending-footer mt-3">
+                          <div className="today-pending-meta flex flex-wrap items-center gap-2 text-xs text-stone-300">
+                            <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{task.category}</span>
+                            <span className={`dashboard-card-priority ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
+                            <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{formatTime(task.time)}</span>
                           </div>
                           <button
                             type="button"
                             onClick={() => markComplete(task.id)}
                             disabled={busyIds.has(task.id)}
                             aria-busy={busyIds.has(task.id)}
-                            className="dashboard-card-action"
+                            className="today-pending-complete dashboard-card-action"
                             data-tone="success"
                           >
                             {busyIds.has(task.id) ? "Saving…" : "✓ Complete"}
                           </button>
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-stone-300">
-                          <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{task.category}</span>
-                          <span className={`dashboard-card-priority ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
-                          <span className="rounded-full border border-amber-100/10 bg-black/20 px-2 py-1">{formatTime(task.time)}</span>
                         </div>
                       </Article>
                     ))

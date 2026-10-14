@@ -130,9 +130,9 @@ export default function WelcomePopup({ onClose }) {
             />
           </div>
 
-          <div className="grid min-w-0 gap-0 md:grid-cols-[clamp(220px,34vw,320px)_minmax(0,1fr)]">
+          <div className="welcome-layout grid min-w-0 gap-0 md:grid-cols-[clamp(220px,34vw,320px)_minmax(0,1fr)]">
             {/* ── Left panel ── */}
-            <div className="relative flex min-w-0 items-center justify-center gap-3 overflow-hidden bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_45%),linear-gradient(180deg,rgba(82,42,20,0.55),rgba(18,13,10,0.98))] px-4 py-3 text-center sm:px-6 md:flex-col md:gap-0 md:py-8 lg:py-10">
+            <div className="welcome-greeting relative flex min-w-0 items-center justify-center gap-3 overflow-hidden bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_45%),linear-gradient(180deg,rgba(82,42,20,0.55),rgba(18,13,10,0.98))] px-4 py-3 text-center sm:px-6 md:flex-col md:gap-0 md:py-8 lg:py-10">
               {/* Ambient glow orb */}
               <Motion.div
                 className="pointer-events-none absolute left-1/2 top-1/3 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500/10 blur-3xl"
@@ -144,7 +144,7 @@ export default function WelcomePopup({ onClose }) {
               <Motion.img
                 src={monkGreetings}
                 alt="Monk greeting"
-                className="relative w-20 shrink-0 object-contain sm:w-24 md:w-40 lg:w-52"
+                className="welcome-monk relative w-20 shrink-0 object-contain sm:w-24 md:w-40 lg:w-52"
                 style={{ filter: "drop-shadow(0 0 24px rgba(245,158,11,0.3))" }}
                 initial={{ opacity: 0, scale: 0.78, y: 16 }}
                 animate={{ opacity: 1, scale: 1, y: [0, -11, 0] }}
@@ -189,24 +189,23 @@ export default function WelcomePopup({ onClose }) {
 
               <Motion.p
                 variants={fadeUp}
-                className="mt-3 max-w-xl text-sm leading-relaxed text-stone-300"
+                className="welcome-intro mt-3 max-w-xl text-sm leading-relaxed text-stone-300"
               >
-                <span className="font-semibold text-amber-200">New here ?</span>{" "}
-                Try the Demo first 👀 &nbsp;Explore how everything works before you start
-                building your own habits, analytics, and insights.
+                <span className="font-semibold text-amber-200">New here?</span>{" "}
+                Preview MonkMode with sample data, or start your own journey.
               </Motion.p>
 
-              <Motion.div variants={fadeUp} className="mt-6">
+              <Motion.div variants={fadeUp} className="welcome-paths mt-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-300/80">
                   Choose your path
                 </p>
 
-                <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
+                <div className="welcome-options mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
                   {/* Demo button */}
                   <Motion.button
                     type="button"
                     onClick={handleExploreDemo}
-                    className="min-w-0 rounded-2xl border border-amber-100/12 bg-white/[0.03] p-3 text-left sm:p-4"
+                    className="welcome-option min-w-0 rounded-2xl border border-amber-100/12 bg-white/[0.03] p-3 text-left sm:p-4"
                     whileHover={{
                       scale: 1.04,
                       borderColor: "rgba(251,191,36,0.38)",
@@ -216,11 +215,10 @@ export default function WelcomePopup({ onClose }) {
                     whileTap={{ scale: 0.96 }}
                     transition={{ type: "spring", stiffness: 320, damping: 22 }}
                   >
-                    <p className="text-sm font-semibold text-amber-100">Explore Try Demo</p>
-                    <p className="mt-2 text-xs leading-5 text-stone-400">
-                      <span className="font-semibold text-amber-200">No Signup Required !</span>{" "}
-                      Walk through sample habits, journals, workouts, and reports before
-                      setting up your own flow.
+                    <p className="welcome-option-title text-sm font-semibold text-amber-100">Explore the Demo</p>
+                    <p className="welcome-option-description mt-2 text-xs leading-5 text-stone-400">
+                      <span className="font-semibold text-amber-200">No signup needed.</span>{" "}
+                      Try sample habits, journals, workouts, and reports.
                     </p>
                   </Motion.button>
 
@@ -228,7 +226,7 @@ export default function WelcomePopup({ onClose }) {
                   <Motion.button
                     type="button"
                     onClick={handleDismiss}
-                    className="min-w-0 rounded-2xl border border-amber-300/18 bg-gradient-to-br from-amber-400/[0.14] to-orange-400/[0.06] p-3 text-left sm:p-4"
+                    className="welcome-option min-w-0 rounded-2xl border border-amber-300/18 bg-gradient-to-br from-amber-400/[0.14] to-orange-400/[0.06] p-3 text-left sm:p-4"
                     whileHover={{
                       scale: 1.04,
                       boxShadow: "0 0 32px rgba(251,191,36,0.28)",
@@ -237,10 +235,9 @@ export default function WelcomePopup({ onClose }) {
                     whileTap={{ scale: 0.96 }}
                     transition={{ type: "spring", stiffness: 320, damping: 22 }}
                   >
-                    <p className="text-sm font-semibold text-amber-50">Got It, Let&apos;s Begin</p>
-                    <p className="mt-2 text-xs leading-5 text-stone-300/80">
-                      Skip the walkthrough and begin customizing MonkMode with your own data
-                      right away.
+                    <p className="welcome-option-title text-sm font-semibold text-amber-50">Got It, Let&apos;s Begin</p>
+                    <p className="welcome-option-description mt-2 text-xs leading-5 text-stone-300/80">
+                      Track with your own data.
                     </p>
                   </Motion.button>
                 </div>
@@ -248,7 +245,7 @@ export default function WelcomePopup({ onClose }) {
 
               <Motion.div
                 variants={fadeUp}
-                className="mt-6 flex min-w-0 flex-col gap-2 border-t border-amber-100/10 pt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:pt-4"
+                className="welcome-preferences mt-3 flex min-w-0 flex-col gap-2 border-t border-amber-100/10 pt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:pt-4"
               >
                 <label className="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-3 text-xs text-stone-400">
                   <input
@@ -260,8 +257,8 @@ export default function WelcomePopup({ onClose }) {
                   <span>Don&apos;t show again</span>
                 </label>
 
-                <p className="text-xs leading-5 text-stone-500">
-                  You can revisit the demo any time from the landing page.
+                <p className="welcome-reminder text-xs leading-5 text-stone-500">
+                  Reopen the demo from the landing page anytime.
                 </p>
               </Motion.div>
             </Motion.div>

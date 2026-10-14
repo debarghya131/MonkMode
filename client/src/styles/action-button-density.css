@@ -1,0 +1,124 @@
+/* Shared card/form action sizing at every viewport. Navigation, filters,
+   date pickers, input controls, and icon-only buttons keep their own sizing. */
+:root .dashboard-shell .dashboard-main,
+:root .gym-diet-plan-modal {
+  --action-min-height: 1.75rem;
+  --action-padding: 0.25rem 0.5rem;
+  --action-font-size: 0.65625rem;
+}
+
+/* Pending completion actions sit at the bottom-right beside wrapping metadata. */
+:root .dashboard-shell .dashboard-main .todo-page[data-active="today"] .today-pending-footer,
+:root .dashboard-shell .dashboard-main .habits-page[data-active="today"] .habit-pending-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+:root .dashboard-shell .dashboard-main .todo-page[data-active="today"] .today-pending-meta,
+:root .dashboard-shell .dashboard-main .habits-page[data-active="today"] .habit-pending-meta {
+  min-width: 0;
+}
+
+:root .dashboard-shell .dashboard-main .todo-page[data-active="today"] .today-pending-meta > span,
+:root .dashboard-shell .dashboard-main .habits-page[data-active="today"] .habit-pending-meta > span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+:root .dashboard-shell .dashboard-main :is(
+  .dashboard-card-action:not(.goal-important-action),
+  .dashboard-action-button,
+  .ai-guru-send,
+  .overview-card-action,
+  .gym-diet-view-button,
+  .gym-diet-entry-row > button,
+  .gym-diet-view .space-y-2 > button,
+  .gym-library-actions > button,
+  .gym-gallery-summary > button,
+  .journal-step-nav > button,
+  button[type="submit"]
+),
+:root .dashboard-shell .dashboard-main [data-active] :is(
+  .dashboard-card-action:not(.goal-important-action),
+  .dashboard-action-button,
+  .gym-diet-view-button,
+  .gym-diet-entry-row > button,
+  .gym-diet-view .space-y-2 > button,
+  .gym-library-actions > button,
+  .gym-gallery-summary > button,
+  button[type="submit"]
+),
+:root .gym-diet-plan-modal .gym-diet-plan-actions > .dashboard-card-action {
+  height: auto;
+  min-height: var(--action-min-height);
+  align-self: center;
+  padding: var(--action-padding);
+  font-size: var(--action-font-size);
+  line-height: 1.35;
+  border-radius: 0.5rem;
+  white-space: normal;
+}
+
+/* Long shortcut labels may wrap without forcing every action to be tall. */
+:root .dashboard-shell .dashboard-main .overview-card-action {
+  gap: 0.375rem;
+}
+:root .dashboard-shell .dashboard-main .overview-card-action svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+:root .dashboard-shell .dashboard-main .ai-guru-send {
+  min-width: 3.5rem;
+  letter-spacing: 0.08em;
+}
+
+@media (max-width: 639px) {
+  /* Completion actions don't need to stretch across the entire task card. */
+  :root .dashboard-shell .dashboard-main .todo-page[data-active="today"]
+    .dashboard-card-action[data-tone="success"] {
+    width: auto;
+    align-self: flex-start;
+    justify-self: start;
+  }
+}
+
+:root .dashboard-shell .dashboard-main .todo-page[data-active="today"]
+  .today-pending-footer .today-pending-complete,
+:root .dashboard-shell .dashboard-main .habits-page[data-active="today"]
+  .habit-pending-footer .habit-pending-done {
+  width: auto;
+  align-self: end;
+  justify-self: end;
+}
+
+/* Edit/Delete pairs share a smaller row-action size, including portal cards. */
+:root .dashboard-shell .dashboard-main [data-active] button.dashboard-card-action.dashboard-edit-delete-action,
+:root .gym-diet-plan-modal .gym-diet-plan-actions > button.dashboard-edit-delete-action {
+  width: auto;
+  min-width: 40px;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 9999px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+/* Goal importance toggles stay smaller than the main card actions. */
+:root .dashboard-shell .dashboard-main .goals-page[data-active="my-goals"] button.goal-important-action {
+  width: auto;
+  min-width: 0;
+  height: auto;
+  min-height: 24px;
+  padding: 3px 6px;
+  gap: 3px;
+  font-size: 9.5px;
+  line-height: 1.4;
+}

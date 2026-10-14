@@ -994,7 +994,9 @@ export default function AddWorkout({ lowMotion = false }) {
                   <button
                     type="button"
                     onClick={() => setShowGoalDrop((p) => !p)}
-                    className="relative h-9 w-full rounded-lg border border-amber-100/15 bg-stone-900 pl-2 pr-6 text-left text-[11px] text-stone-100 outline-none transition focus:border-amber-300/35"
+                    aria-label="Workout goal type"
+                    aria-expanded={showGoalDrop}
+                    className="gym-add-select-trigger relative h-9 w-full rounded-lg border border-amber-100/15 bg-stone-900 pl-2 pr-6 text-left text-[11px] text-stone-100 outline-none transition focus:border-amber-300/35"
                   >
                     {form.goalType
                       ? goalOptions.find((g) => g.value === form.goalType)?.label ?? form.goalType
@@ -1059,7 +1061,7 @@ export default function AddWorkout({ lowMotion = false }) {
                   <button
                     type="button"
                     onClick={handleAddGoal}
-                    className="rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20 sm:py-1.5"
+                    className="dashboard-action-button rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20 sm:py-1.5"
                   >
                     Add
                   </button>
@@ -1075,7 +1077,9 @@ export default function AddWorkout({ lowMotion = false }) {
                   <button
                     type="button"
                     onClick={() => setShowSplitDrop((p) => !p)}
-                    className="relative h-9 w-full rounded-lg border border-amber-100/15 bg-stone-900 pl-2 pr-6 text-left text-[11px] text-stone-100 outline-none transition focus:border-amber-300/35"
+                    aria-label="Workout split"
+                    aria-expanded={showSplitDrop}
+                    className="gym-add-select-trigger relative h-9 w-full rounded-lg border border-amber-100/15 bg-stone-900 pl-2 pr-6 text-left text-[11px] text-stone-100 outline-none transition focus:border-amber-300/35"
                   >
                     {form.workoutSplit
                       ? splitOptions.find((s) => s.value === form.workoutSplit)?.label ?? form.workoutSplit
@@ -1140,7 +1144,7 @@ export default function AddWorkout({ lowMotion = false }) {
                   <button
                     type="button"
                     onClick={handleAddSplit}
-                    className="rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20 sm:py-1.5"
+                    className="dashboard-action-button rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20 sm:py-1.5"
                   >
                     Add
                   </button>
@@ -1191,7 +1195,7 @@ export default function AddWorkout({ lowMotion = false }) {
               {showExForm && (
                 <div className="mt-2 space-y-2 rounded-lg border border-amber-100/15 bg-white/5 p-3">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-200">{currentEx.name}</p>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="gym-add-exercise-fields grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <div>
                       <label className="mb-0.5 block text-[10px] text-stone-400">Sets *</label>
                       <input type="number" min="1" value={currentEx.sets}
@@ -1278,11 +1282,11 @@ export default function AddWorkout({ lowMotion = false }) {
                   {exError && <p className="text-[10px] text-red-300">{exError}</p>}
                   <div className="flex gap-2 pt-0.5">
                     <button type="button" onClick={handleSaveExercise}
-                      className="flex-1 rounded-lg border border-amber-400/35 bg-amber-400/10 py-1 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
+                      className="dashboard-action-button flex-1 rounded-lg border border-amber-400/35 bg-amber-400/10 py-1 text-[11px] font-semibold text-amber-200 transition hover:bg-amber-400/20">
                       Save Exercise
                     </button>
                     <button type="button" onClick={() => { setShowExForm(false); setExSearch(""); setCurrentEx({ ...BLANK_EXERCISE }); setExError(""); }}
-                      className="rounded-lg border border-amber-100/15 bg-white/5 px-3 py-1 text-[11px] text-stone-400 transition hover:text-stone-200">
+                      className="dashboard-action-button rounded-lg border border-amber-100/15 bg-white/5 px-3 py-1 text-[11px] text-stone-400 transition hover:text-stone-200">
                       Cancel
                     </button>
                   </div>
@@ -1295,7 +1299,7 @@ export default function AddWorkout({ lowMotion = false }) {
                   <button
                     type="button"
                     onClick={() => setViewWorkout({ title: "Current Workout", exercises })}
-                    className="rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-400/20"
+                    className="dashboard-action-button rounded border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200 transition hover:bg-amber-400/20"
                   >
                     View
                   </button>
@@ -1327,6 +1331,7 @@ export default function AddWorkout({ lowMotion = false }) {
                     key={day}
                     type="button"
                     onClick={() => toggleDay(day)}
+                    aria-pressed={form.days.includes(day)}
                     className={`rounded border py-1.5 text-[10px] font-semibold transition ${
                       form.days.includes(day)
                         ? "border-amber-300/55 bg-amber-400/15 text-amber-100"
@@ -1340,12 +1345,13 @@ export default function AddWorkout({ lowMotion = false }) {
             </div>
 
             {/* Dates */}
-            <div className="space-y-2 rounded-lg border border-amber-100/10 bg-white/5 p-2.5">
+            <div className="gym-add-date-card space-y-2 rounded-lg border border-amber-100/10 bg-white/5 p-2.5">
               <div className="gym-add-dates grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">Start *</label>
 <DashboardDateTimeInput
                     type="date"
+                    aria-label="Workout start date"
                     today={today}
                     value={form.startDate}
                     disabled={!!(editingId && form.startDate && form.startDate <= today)}
@@ -1359,7 +1365,7 @@ export default function AddWorkout({ lowMotion = false }) {
                 {!form.neverEnds && (
                   <div>
                     <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">End</label>
-<DashboardDateTimeInput type="date" today={today} value={form.endDate} min={form.startDate > today ? form.startDate : today}
+<DashboardDateTimeInput type="date" aria-label="Workout end date" today={today} value={form.endDate} min={form.startDate > today ? form.startDate : today}
                       onChange={(e) => setField("endDate", e.target.value)}
                       className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-2 py-1 text-xs text-stone-100 outline-none focus:border-amber-300/35" />
                   </div>
@@ -1382,6 +1388,7 @@ export default function AddWorkout({ lowMotion = false }) {
                     key={lvl}
                     type="button"
                     onClick={() => setField("difficulty", lvl)}
+                    aria-pressed={form.difficulty === lvl}
                     className={`flex min-w-[88px] flex-1 items-center justify-center rounded-lg border px-2 py-1.5 text-[10px] font-semibold transition ${
                       form.difficulty === lvl
                         ? DIFFICULTY_STYLES[lvl]
@@ -1405,7 +1412,7 @@ export default function AddWorkout({ lowMotion = false }) {
             </button>
             {editingId && (
               <button type="button" onClick={resetForm}
-                className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-300 transition hover:text-stone-100">
+                className="dashboard-action-button w-full rounded-lg border border-amber-100/15 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-300 transition hover:text-stone-100">
                 Cancel Edit
               </button>
             )}
@@ -1427,6 +1434,7 @@ export default function AddWorkout({ lowMotion = false }) {
                     key={view}
                     type="button"
                     onClick={() => setWorkoutsView(view)}
+                    aria-pressed={workoutsView === view}
                     className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold capitalize transition ${
                       workoutsView === view
                         ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
@@ -1441,6 +1449,7 @@ export default function AddWorkout({ lowMotion = false }) {
                 <button
                   type="button"
                   onClick={() => setWorkoutDayFilter("all")}
+                  aria-pressed={workoutDayFilter === "all"}
                   className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${
                     workoutDayFilter === "all"
                       ? "border-sky-300/45 bg-sky-500/15 text-sky-100"
@@ -1454,6 +1463,7 @@ export default function AddWorkout({ lowMotion = false }) {
                     key={day}
                     type="button"
                     onClick={() => setWorkoutDayFilter(day)}
+                    aria-pressed={workoutDayFilter === day}
                     className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${
                       workoutDayFilter === day
                         ? "border-sky-300/45 bg-sky-500/15 text-sky-100"
@@ -1509,18 +1519,20 @@ export default function AddWorkout({ lowMotion = false }) {
                             {isEnded ? "Ended" : w.isActive ? "Active" : "Inactive"}
                           </span>
                         )}
-                        <span className={`dashboard-card-priority ${DIFFICULTY_STYLES[w.difficulty] || "border-amber-100/10 text-stone-300"}`}>
-                          {w.difficulty}
-                        </span>
-                        <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${w.neverEnds ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200" : "border-rose-400/25 bg-rose-500/10 text-rose-200"}`}>
-                          {w.neverEnds ? "Never Ends" : `Ends ${w.endDate}`}
-                        </span>
-                        {w.days?.map((d) => (
-                          <span key={d} className="rounded-full border border-amber-300/25 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-amber-200">
-                            {d}
-                          </span>
-                        ))}
                       </div>
+                    </div>
+                    <div className="gym-add-card-badges mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <span className={`dashboard-card-priority ${DIFFICULTY_STYLES[w.difficulty] || "border-amber-100/10 text-stone-300"}`}>
+                        {w.difficulty}
+                      </span>
+                      <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${w.neverEnds ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200" : "border-rose-400/25 bg-rose-500/10 text-rose-200"}`}>
+                        {w.neverEnds ? "Never Ends" : `Ends ${w.endDate}`}
+                      </span>
+                      {w.days?.map((d) => (
+                        <span key={d} className="rounded-full border border-amber-300/25 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-amber-200">
+                          {d}
+                        </span>
+                      ))}
                     </div>
 
                   <div className="gym-add-card-meta mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px]">
@@ -1565,11 +1577,11 @@ export default function AddWorkout({ lowMotion = false }) {
                           Copy
                         </button>
                         <button type="button" onClick={() => startEdit(w)}
-                          className="dashboard-card-action" data-tone="warning">
+                          className="dashboard-edit-delete-action dashboard-card-action" data-tone="warning">
                           Edit
                         </button>
                         <button type="button" onClick={() => handleDelete(w.id)}
-                          className="dashboard-card-action" data-tone="danger">
+                          className="dashboard-edit-delete-action dashboard-card-action" data-tone="danger">
                           Delete
                         </button>
                       </>

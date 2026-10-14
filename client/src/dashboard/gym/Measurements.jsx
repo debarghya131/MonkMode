@@ -157,13 +157,14 @@ const formatDate = (value) => {
 
 function MeasurementInput({ field, value, onChange, readOnly = false, required = false }) {
   return (
-    <label className="block min-w-0">
+    <label className="gym-measurement-input block min-w-0">
       <span className="flex min-h-[2.4rem] items-end break-words text-[10px] font-semibold uppercase leading-snug tracking-[0.12em] text-stone-400">
         {field.label}
       </span>
       <div className="relative mt-1.5">
         <input
           type="number"
+          aria-label={`${field.label} (${field.unit})`}
           min="0"
           max="1000"
           step="any"
@@ -418,8 +419,9 @@ export default function Measurements({ lowMotion = false }) {
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">
                 Check-in Date
               </span>
-<DashboardDateTimeInput
+              <DashboardDateTimeInput
                 type="date"
+                aria-label="Check-in date"
                 value={form.checkInDate}
                 today={currentDate}
                 readOnly
@@ -427,7 +429,7 @@ export default function Measurements({ lowMotion = false }) {
               />
             </label>
 
-            <div className="rounded-[1.5rem] border border-amber-100/10 bg-black/15 p-1">
+            <div className="gym-measurements-form-groups rounded-[1.5rem] border border-amber-100/10 bg-black/15 p-1" role="group" aria-label="Measurement categories">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {MEASUREMENT_GROUPS.map((group) => {
                   const isActive = activeGroup.title === group.title;
@@ -435,6 +437,7 @@ export default function Measurements({ lowMotion = false }) {
                     <Motion.button
                       key={group.title}
                       type="button"
+                      aria-pressed={isActive}
                       onClick={() => setActiveGroupTitle(group.title)}
                       whileHover={!lowMotion && !isActive ? {
                         scale: 1.05,
@@ -455,8 +458,8 @@ export default function Measurements({ lowMotion = false }) {
               </div>
             </div>
 
-            <div className="rounded-[1.4rem] border border-amber-100/10 bg-black/15 p-4 sm:rounded-[1.5rem] sm:p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-amber-100/10 pb-3">
+            <div className="gym-measurements-field-card rounded-[1.4rem] border border-amber-100/10 bg-black/15 p-4 sm:rounded-[1.5rem] sm:p-5">
+              <div className="gym-measurements-group-heading flex flex-wrap items-start justify-between gap-3 border-b border-amber-100/10 pb-3">
                 <div className="min-w-0">
                   <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-200">
                     {activeGroup.title}
@@ -464,7 +467,7 @@ export default function Measurements({ lowMotion = false }) {
                   <p className="mt-1 text-xs text-stone-500">{activeGroup.description}</p>
                 </div>
                 <div className="shrink-0 rounded-full border border-amber-100/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-stone-400">
-                  {activeGroup.fields.length} inputs
+                  {activeGroup.fields.length} input{activeGroup.fields.length !== 1 ? "s" : ""}
                 </div>
               </div>
 
@@ -500,7 +503,7 @@ export default function Measurements({ lowMotion = false }) {
                   type="submit"
                   whileHover={lowMotion ? undefined : { scale: 1.06, boxShadow: "0 0 20px rgba(251,191,36,0.65), 0 0 40px rgba(251,191,36,0.2)" }}
                   whileTap={lowMotion ? undefined : { scale: 0.95 }}
-                  className="w-full rounded-2xl border border-amber-300/40 bg-amber-500/15 px-5 py-3 text-sm font-semibold text-amber-100 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 sm:w-auto"
+                  className="dashboard-action-button w-full rounded-2xl border border-amber-300/40 bg-amber-500/15 px-5 py-3 text-sm font-semibold text-amber-100 transition duration-200 hover:border-transparent hover:bg-gradient-to-r hover:from-[#ffd86b] hover:via-[#f5b52f] hover:to-[#ea8a17] hover:text-stone-950 sm:w-auto"
                 >
                   {editingId ? "Update measurements" : "Save measurements"}
                 </Motion.button>
@@ -510,7 +513,7 @@ export default function Measurements({ lowMotion = false }) {
                 <button
                   type="button"
                   onClick={() => startEditing(todayEntry)}
-                  className="w-full rounded-2xl border border-sky-300/25 bg-sky-500/10 px-4 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20 sm:w-auto"
+                  className="dashboard-action-button w-full rounded-2xl border border-sky-300/25 bg-sky-500/10 px-4 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20 sm:w-auto"
                 >
                   Update
                 </button>
@@ -520,7 +523,7 @@ export default function Measurements({ lowMotion = false }) {
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="w-full rounded-2xl border border-stone-500/20 bg-white/5 px-5 py-3 text-sm font-semibold text-stone-300 transition hover:text-stone-100 sm:w-auto"
+                  className="dashboard-action-button w-full rounded-2xl border border-stone-500/20 bg-white/5 px-5 py-3 text-sm font-semibold text-stone-300 transition hover:text-stone-100 sm:w-auto"
                 >
                   Cancel update
                 </button>
@@ -572,7 +575,7 @@ export default function Measurements({ lowMotion = false }) {
                   </div>
                 </div>
 
-                <div className="gym-measurements-saved-groups mt-5 rounded-[1.5rem] border border-amber-100/10 bg-black/15 p-1">
+                <div className="gym-measurements-saved-groups mt-5 rounded-[1.5rem] border border-amber-100/10 bg-black/15 p-1" role="group" aria-label="Saved measurement categories">
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {MEASUREMENT_GROUPS.map((group) => {
                       const isActive = savedActiveGroup.title === group.title;
@@ -580,6 +583,7 @@ export default function Measurements({ lowMotion = false }) {
                         <Motion.button
                           key={group.title}
                           type="button"
+                          aria-pressed={isActive}
                           onClick={() => setSavedActiveGroupTitle(group.title)}
                           whileHover={!lowMotion && !isActive ? {
                             scale: 1.05,
@@ -609,7 +613,7 @@ export default function Measurements({ lowMotion = false }) {
                       <p className="mt-1 text-xs text-stone-500">{savedActiveGroup.description}</p>
                     </div>
                     <div className="shrink-0 rounded-full border border-amber-100/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-stone-400">
-                      {savedActiveGroup.fields.length} inputs
+                      {savedActiveGroup.fields.length} input{savedActiveGroup.fields.length !== 1 ? "s" : ""}
                     </div>
                   </div>
 

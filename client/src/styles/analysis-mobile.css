@@ -1,5 +1,7 @@
 /* One compact layout rhythm for all five analysis families. */
 @media (max-width: 639px) {
+  :root .dashboard-shell .analysis-main .analytics-page[data-active] .analysis-secondary-instruction { display: none; }
+
   :root .dashboard-shell .analysis-main .analytics-page[data-active] :is(
     .journal-analysis-page, .todo-analysis-page, .habit-analysis-page,
     .goal-analysis-page, .gym-analysis-page

@@ -245,6 +245,7 @@ export default function HabitTracking() {
               key={view}
               type="button"
               onClick={() => setHabitView(view)}
+              aria-pressed={habitView === view}
               className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold capitalize transition ${
                 habitView === view
                   ? "border-amber-300/45 bg-amber-500/15 text-amber-200"
@@ -280,12 +281,13 @@ export default function HabitTracking() {
       </div>
 
       <section className="habits-track-panel rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-3 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-4">
-        <div className="habit-track-toolbar mb-2 rounded-lg border border-amber-100/10 bg-black/30 px-3 py-2">
+        <div className="dashboard-period-controls habit-track-toolbar mb-2 rounded-lg border border-amber-100/10 bg-black/30 px-3 py-2">
             <div className="flex min-w-0 items-center gap-3">
               <label className="flex shrink-0 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-400">
                 Year
                 <DashboardSelect
                   value={selectedYear}
+                  aria-label="Tracking year"
                   onChange={(event) => setSelectedYear(Number(event.target.value))}
                   className="rounded-md border border-amber-200/20 bg-black/40 px-2 py-1 text-[11px] font-semibold text-stone-100 outline-none transition focus:border-amber-300/50"
                 >

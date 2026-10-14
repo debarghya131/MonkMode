@@ -1,5 +1,4 @@
-import { AnalysisChart } from "../journalanalysis/AnalysisUI";
-import { AnalysisView } from "./HabitAnalysisUI";
+import { HabitChart as AnalysisChart, AnalysisView } from "./HabitAnalysisUI";
 import useHabitAnalysis from "./habitAnalysisContext";
 import { compactChartLabels } from "./habitAnalysisFormatters";
 

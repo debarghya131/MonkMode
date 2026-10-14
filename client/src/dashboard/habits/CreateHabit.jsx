@@ -782,11 +782,6 @@ export default function CreateHabit({ entity = "habit" }) {
         ))}
       </nav>
 
-      <div className="habits-create-heading mb-5">
-        <p className="text-label-lg">{`Create ${singular}`}</p>
-        <h2 className="mt-2 text-2xl font-bold text-amber-100">{`Build Your ${plural}`}</h2>
-      </div>
-
       <div className="schedule-layout habits-create-layout">
 
         {/* ── Column 1 : Create Habit Form ── */}
@@ -1062,7 +1057,7 @@ export default function CreateHabit({ entity = "habit" }) {
             {editingId && (
               <button type="button"
                 onClick={resetForm}
-                className="w-full rounded-lg border border-amber-100/15 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-300 transition hover:text-stone-100">
+                className="dashboard-action-button w-full rounded-lg border border-amber-100/15 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-300 transition hover:text-stone-100">
                 Cancel Edit
               </button>
             )}
@@ -1072,16 +1067,17 @@ export default function CreateHabit({ entity = "habit" }) {
 
         {/* ── Column 2 : All Habits ── */}
         <section data-habit-create-panel="habits" className="schedule-all-tasks habits-create-list rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="habit-list-heading mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-amber-200">{`All ${plural}`}</p>
               <p className="mt-0.5 text-xs text-stone-400">{`Every scheduled ${lowerSingular} at a glance.`}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <div className="dashboard-filter-controls mt-2 flex flex-wrap items-center gap-1.5">
                 {["active", "archive"].map((view) => (
                   <button
                     key={view}
                     type="button"
                     onClick={() => setHabitsView(view)}
+                    aria-pressed={habitsView === view}
                     className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold capitalize transition ${
                       habitsView === view
                         ? "border-amber-300/45 bg-amber-500/15 text-amber-100"
@@ -1116,7 +1112,7 @@ export default function CreateHabit({ entity = "habit" }) {
                 return (
                 <HabitCard
                   key={h.id}
-                  className={`rounded-xl border bg-white/5 p-3 ${editingId === h.id ? "border-amber-300/40 ring-1 ring-amber-300/20" : "border-amber-100/10"}`}
+                  className={`habit-list-card rounded-xl border bg-white/5 p-3 ${editingId === h.id ? "border-amber-300/40 ring-1 ring-amber-300/20" : "border-amber-100/10"}`}
                   {...(lowMotion ? {} : {
                     initial: { opacity: 0, y: 8 },
                     animate: { opacity: 1, y: 0 },
@@ -1127,7 +1123,7 @@ export default function CreateHabit({ entity = "habit" }) {
                     <>
                       <div className="habit-item-header flex flex-wrap items-start justify-between gap-2">
                         <div className="flex min-w-0 flex-1 items-center gap-2">
-                          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-stone-100">{h.title}</p>
+                          <p className="habit-item-title min-w-0 flex-1 text-sm font-semibold text-stone-100">{h.title}</p>
                           {editingId === h.id && (
                             <span className="dashboard-card-status" data-tone="warning">
                               Editing
@@ -1145,28 +1141,10 @@ export default function CreateHabit({ entity = "habit" }) {
                               {h.priority}
                             </span>
                           </div>
-                          {!isArchiveView && (
-                            <div className="habit-item-actions flex flex-wrap items-center gap-1.5 sm:justify-end">
-                              <button type="button" onClick={() => startEdit(h)} disabled={writeBlocked || submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
-                                className="dashboard-card-action" data-tone="warning">
-                                Edit
-                              </button>
-                              <button type="button" onClick={() => handleDelete(h.id)}
-                                disabled={writeBlocked || submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
-                                className="dashboard-card-action" data-tone="danger">
-                                {deletingHabitId === h.id ? "Deleting..." : "Delete"}
-                              </button>
-                            </div>
-                          )}
-                          {isArchiveView && h.deletedAt && getDeleteUndoMeta(h.deletedAt).canUndoDelete && (
-                            <button type="button" className="dashboard-card-action" data-tone="warning"
-                              disabled={writeBlocked || submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
-                              onClick={() => handleUndoDelete(h.id + "-archive", h)}>Restore</button>
-                          )}
                         </div>
                       </div>
-                      {(h.reason || h.description) && <p className="mt-1 text-xs text-stone-400">{h.reason || h.description}</p>}
-                      <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] text-stone-300">
+                      {(h.reason || h.description) && <p className="habit-item-description mt-1 text-xs text-stone-400">{h.reason || h.description}</p>}
+                      <div className="habit-item-details mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] text-stone-300">
                         {h.isImportant && (
                           <span className="rounded-full border border-amber-300/35 bg-amber-500/15 px-2 py-0.5 font-semibold text-amber-200">
                             Important
@@ -1201,6 +1179,27 @@ export default function CreateHabit({ entity = "habit" }) {
                           </span>
                         ))}
                       </div>
+                      {(!isArchiveView || (h.deletedAt && getDeleteUndoMeta(h.deletedAt).canUndoDelete)) && (
+                        <div className="habit-item-actions mt-2 flex flex-wrap items-center justify-end gap-1.5">
+                          {!isArchiveView ? (
+                            <>
+                              <button type="button" onClick={() => startEdit(h)} disabled={writeBlocked || submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
+                                className="dashboard-edit-delete-action dashboard-card-action" data-tone="warning">
+                                Edit
+                              </button>
+                              <button type="button" onClick={() => handleDelete(h.id)}
+                                disabled={writeBlocked || submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
+                                className="dashboard-edit-delete-action dashboard-card-action" data-tone="danger">
+                                {deletingHabitId === h.id ? "Deleting..." : "Delete"}
+                              </button>
+                            </>
+                          ) : (
+                            <button type="button" className="dashboard-card-action" data-tone="warning"
+                              disabled={writeBlocked || submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
+                              onClick={() => handleUndoDelete(h.id + "-archive", h)}>Restore</button>
+                          )}
+                        </div>
+                      )}
                     </>
                 </HabitCard>
                 );

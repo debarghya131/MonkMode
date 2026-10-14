@@ -255,7 +255,7 @@ function OverviewContent() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.16, ease: "easeOut" }}
           >
-            <section className="overview-summary-panel journal-scroll h-full rounded-[1.5rem] border border-amber-100/10 bg-white/6 p-4 shadow-2xl shadow-black/25 md:backdrop-blur sm:rounded-[2rem] sm:p-6 xl:p-7 min-[1800px]:overflow-y-auto min-[1800px]:p-8">
+            <section className="overview-summary-panel journal-scroll h-full rounded-[1.5rem] border border-amber-100/10 p-4 sm:rounded-[2rem] sm:p-6 xl:p-7 min-[1800px]:overflow-y-auto min-[1800px]:p-8">
               <header className="overview-summary-heading">
                 <p className="overview-summary-eyebrow">Overview</p>
               </header>

@@ -140,7 +140,7 @@ function SidebarSection({ title, items, activePath, activeSearch, onNavigate }) 
                     aria-label={`${open ? "Collapse" : "Expand"} ${item.name} subsections`}
                     aria-controls={childMenuId}
                     aria-expanded={open}
-                    className="absolute inset-y-1 right-1 flex w-9 items-center justify-center rounded-lg text-amber-100/65 transition hover:bg-amber-400/10 hover:text-amber-200"
+                    className="dashboard-sidebar-toggle absolute inset-y-1 right-1 flex w-9 items-center justify-center rounded-lg text-amber-100/65 transition hover:bg-amber-400/10 hover:text-amber-200"
                   >
                     <svg className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="m6 9 6 6 6-6" />
@@ -148,7 +148,7 @@ function SidebarSection({ title, items, activePath, activeSearch, onNavigate }) 
                   </button>
                 </Motion.div>
                 {open && (
-                  <div id={childMenuId} className="ml-4 mt-1 space-y-0.5 border-l border-amber-200/15 pl-2">
+                  <div id={childMenuId} className="dashboard-sidebar-children ml-4 mt-1 space-y-0.5 border-l border-amber-200/15 pl-2">
                     {item.children.map((child) => {
                       const childActive = active && activeChildId === child.id;
                       return (
@@ -158,7 +158,7 @@ function SidebarSection({ title, items, activePath, activeSearch, onNavigate }) 
                           onClick={onNavigate}
                           aria-current={active && requestedChild === child.id ? "page" : undefined}
                           title={child.name}
-                          className={`flex min-h-9 min-w-0 items-center gap-2 rounded-lg border px-2 py-1.5 text-xs font-medium transition ${
+                          className={`dashboard-sidebar-child flex min-h-9 min-w-0 items-center gap-2 rounded-lg border px-2 py-1.5 text-xs font-medium transition ${
                             childActive
                               ? "border-amber-300/30 bg-amber-400/15 text-amber-200"
                               : "border-transparent text-stone-400 hover:bg-amber-400/10 hover:text-amber-100"

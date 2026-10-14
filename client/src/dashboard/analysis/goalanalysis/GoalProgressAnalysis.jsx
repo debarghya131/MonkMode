@@ -1,6 +1,5 @@
-import { AnalysisChart } from "../journalanalysis/AnalysisUI";
-import { AnalysisView, GoalFilter } from "./GoalAnalysisUI";
-import { percentLabel } from "./goalAnalysisFormatters";
+import { GoalChart as AnalysisChart, AnalysisView, GoalFilter } from "./GoalAnalysisUI";
+import { percentLabel, countLabel } from "./goalAnalysisFormatters";
 import { filterAnalysisGoals } from "./goalAnalysisFilters";
 import useGoalAnalysis from "./goalAnalysisContext";
 
@@ -9,11 +8,11 @@ export default function GoalProgressAnalysis() {
   const rows = filterAnalysisGoals(a?.goals||[],goalFilter), known = a?.goals.filter(row=>row.progress!==null)||[];
   const highest = [...known].sort((a,b)=>b.progress-a.progress || a.id.localeCompare(b.id))[0];
   const insights = !a ? [] : [
-    {title:"Eligible Retained Goals",value:t.goalCount+" goals",description:"Goals created and started by the selected period's checkpoint, including "+t.deletedGoals+" retained deletions during this month. Deleted goals stop at their deletion date; earlier deletions and future starts are excluded."},
-    {title:"Completed Goals at Checkpoint",value:t.completedGoals+" goals",description:"Completion requires all known milestones done, or the actual numeric value reaching its positive target. A rounded 100% alone does not complete a goal."},
+    {title:"Eligible Retained Goals",value:countLabel(t.goalCount,"goal"),description:"Goals created and started by the selected period's checkpoint, including "+t.deletedGoals+" retained deletions during this month. Deleted goals stop at their deletion date; earlier deletions and future starts are excluded."},
+    {title:"Completed Goals at Checkpoint",value:countLabel(t.completedGoals,"goal"),description:"Completion requires all known milestones done, or the actual numeric value reaching its positive target. A rounded 100% alone does not complete a goal."},
     {title:"Average Known Progress",value:percentLabel(t.avgProgress),description:t.knownProgressGoals+" comparable goals have known progress; "+t.unknownProgressGoals+" unavailable snapshots are excluded. Each goal contributes equally; targets and milestone units are not summed."},
     {title:"Known Milestone State",value:t.completedMilestones+" / "+t.totalMilestones,description:"Completed / total milestones across "+t.knownMilestoneGoals+" milestone-based goals with reconstructable counts. Numeric goals are not treated as zero-milestone goals. Unknown milestone denominators are excluded."},
-    {title:"Milestone Completion Check-ins",value:t.milestoneCheckins+" check-ins",description:t.distinctMilestonesCompleted+" distinct milestones were completed at least once this month. Duplicate sources on the same day count once per milestone; recompletion on another day is another check-in. Reopened milestones remain historical activity, not currently completed milestones."},
+    {title:"Milestone Completion Check-ins",value:countLabel(t.milestoneCheckins,"check-in"),description:t.distinctMilestonesCompleted+" distinct milestones were completed at least once this month. Duplicate sources on the same day count once per milestone; recompletion on another day is another check-in. Reopened milestones remain historical activity, not currently completed milestones."},
     {title:"Late Latest Milestone Completions",value:t.lateMilestones+" late",description:"Compares retained completedAt with a usable unchanged milestone deadline by app-calendar day; the deadline day is on time. "+t.unknownMilestoneTimings+" completed milestone timings have missing or edited deadline history and are not classified."},
     {title:"Highest Known Progress",value:highest ? highest.label+" · "+percentLabel(highest.progress) : "No data",description:"A percentage comparison at the checkpoint, not proof of the fastest goal or greatest effort. Duplicate names are numbered by stable goal ID."},
   ];
