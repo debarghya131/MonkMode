@@ -1,16 +1,22 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
-import { useMemo } from "react";
+import { lazy, Suspense, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import ToDoNavbar from "./ToDoNavbar";
 import { TODO_TABS } from "./todoTabs";
-import Today from "./Today";
-import Upcomming from "./Upcomming";
-import Schedule from "./Schedule";
-import Important from "./Important";
 import useTodoData from "./useTodoData";
 import { shiftTodoDay, todoClock } from "./todoUtils";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
+
+const loadToday = () => import("./Today");
+const loadUpcoming = () => import("./Upcomming");
+const loadSchedule = () => import("./Schedule");
+const loadImportant = () => import("./Important");
+const viewLoaders = { today: loadToday, upcoming: loadUpcoming, schedule: loadSchedule, important: loadImportant };
+const Today = lazy(loadToday);
+const Upcomming = lazy(loadUpcoming);
+const Schedule = lazy(loadSchedule);
+const Important = lazy(loadImportant);
 
 
 function createDemoTasks(today) {
@@ -73,6 +79,9 @@ function TodoContent() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedView = searchParams.get("view");
   const active = TODO_TABS.some((tab) => tab.id === requestedView) ? requestedView : "today";
+  useEffect(() => {
+    void viewLoaders[active]?.();
+  }, [active]);
   const setActive = (view) => {
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
@@ -123,7 +132,7 @@ function TodoContent() {
       {/* Desktop navigation; compact screens use the expandable sidebar. */}
       <div className="todo-top-row">
         <div className="hidden w-full min-w-0 flex-1 lg:block">
-          <ToDoNavbar active={active} onChange={setActive} />
+          <ToDoNavbar active={active} onChange={setActive} onPrefetch={(view) => viewLoaders[view]?.()} />
         </div>
       </div>
 
@@ -136,22 +145,26 @@ function TodoContent() {
       {data.loading && !data.ready && <p role="status" className="p-6 text-sm text-stone-400">Loading tasks and account settings…</p>}
 
       {/* CONTENT */}
-      {data.ready && (lowMotion ? (
-        <div key={active} className="todo-content">{section[active]}</div>
-      ) : (
-        <AnimatePresence mode="wait">
-          <Motion.div
-            key={active}
-            className="todo-content"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.22, ease: "easeInOut" }}
-          >
-            {section[active]}
-          </Motion.div>
-        </AnimatePresence>
-      ))}
+      {data.ready && (
+        <Suspense fallback={<p role="status" className="p-6 text-sm text-stone-400">Loading {active} tasks…</p>}>
+          {lowMotion ? (
+            <div key={active} className="todo-content">{section[active]}</div>
+          ) : (
+            <AnimatePresence mode="wait">
+              <Motion.div
+                key={active}
+                className="todo-content"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.22, ease: "easeInOut" }}
+              >
+                {section[active]}
+              </Motion.div>
+            </AnimatePresence>
+          )}
+        </Suspense>
+      )}
 
     </div>
   );

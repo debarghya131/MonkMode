@@ -1,17 +1,22 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
-import CreateHabit from "./CreateHabit";
-import HabitTracking from "./HabitTracking";
 import HabitsNav from "./HabitsNav";
-import TodaysHabit from "./TodaysHabit";
 import { HABIT_TABS } from "./habitTabs";
 import { HabitContext } from "./habitContext";
 import { buildDemoHabits, DEFAULT_HABIT_TIMEZONE, habitClock } from "./habitUtils";
 import { validHabitConsistency, habitFailureMessage } from "./habitResponse";
+
+const loadToday = () => import("./TodaysHabit");
+const loadCreate = () => import("./CreateHabit");
+const loadTrack = () => import("./HabitTracking");
+const viewLoaders = { today: loadToday, create: loadCreate, track: loadTrack };
+const TodaysHabit = lazy(loadToday);
+const CreateHabit = lazy(loadCreate);
+const HabitTracking = lazy(loadTrack);
 
 export default function Habits() {
   const { isDemoMode, user } = useAuth();
@@ -32,7 +37,11 @@ function HabitContent() {
   const requestController = useRef(new AbortController());
   const clock = habitClock(new Date(tick + clockSkew), timezone);
   const previousDay = useRef(clock.date);
-  const demoHabits = useMemo(() => buildDemoHabits(clock.date), [clock.date]);
+  const [demoHabits, setDemoHabits] = useState(() => buildDemoHabits(clock.date));
+  const [demoCategories, setDemoCategories] = useState([]);
+  useEffect(() => {
+    setDemoHabits(buildDemoHabits(clock.date));
+  }, [clock.date]);
   const requestedView = searchParams.get("view");
   const requestedStateTab = location.state?.tab;
   const requestedTab = HABIT_TABS.some((tab) => tab.id === requestedView)
@@ -44,6 +53,9 @@ function HabitContent() {
     ? requestedTab
     : "today";
   const [activeTab, setActiveTab] = useState(initialTab);
+  useEffect(() => {
+    void viewLoaders[activeTab]?.();
+  }, [activeTab]);
   const [consistency, setConsistency] = useState({
     completedToday: 0,
     expectedToday: 0,
@@ -144,30 +156,34 @@ function HabitContent() {
   };
 
   return (
-    <HabitContext.Provider value={{ clock, timezone, demoHabits, requestSignal: requestController.current.signal }}>
+    <HabitContext.Provider value={{ clock, timezone, demoHabits, setDemoHabits, demoCategories, setDemoCategories, requestSignal: requestController.current.signal }}>
     <div className="habits-page w-full space-y-4" data-active={activeTab}>
       <div className="habits-top-row hidden flex-col gap-3 sm:flex md:flex-row md:items-center md:gap-6">
         <div className="w-full min-w-0 flex-1">
-          <HabitsNav activeTab={activeTab} onTabChange={changeActiveTab} />
+          <HabitsNav activeTab={activeTab} onTabChange={changeActiveTab} onPrefetch={(tab) => viewLoaders[tab]?.()} />
         </div>
       </div>
 
       {summaryError && <div role="alert" className="rounded-xl border border-rose-400/25 bg-rose-950/20 p-3 text-sm text-rose-200">{summaryError} <button type="button" className="ml-2 underline" onClick={() => setRetry(value => value + 1)}>Retry statistics</button></div>}
-      {!ready ? <p className="p-6 text-sm text-stone-400">{summaryError ? "Habit data is unavailable until the app date loads." : "Loading your habits..."}</p> : lowMotion ? (
-        <div key={activeTab} className="habits-content">{renderContent()}</div>
-      ) : (
-        <AnimatePresence mode="wait">
-          <Motion.div
-            key={activeTab}
-            className="habits-content"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.22, ease: "easeInOut" }}
-          >
-            {renderContent()}
-          </Motion.div>
-        </AnimatePresence>
+      {!ready ? <p className="p-6 text-sm text-stone-400">{summaryError ? "Habit data is unavailable until the app date loads." : "Loading your habits..."}</p> : (
+        <Suspense fallback={<p role="status" className="p-6 text-sm text-stone-400">Loading {activeTab === "create" ? "habit editor" : activeTab === "track" ? "habit tracking" : "today's habits"}…</p>}>
+          {lowMotion ? (
+            <div key={activeTab} className="habits-content">{renderContent()}</div>
+          ) : (
+            <AnimatePresence mode="wait">
+              <Motion.div
+                key={activeTab}
+                className="habits-content"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.22, ease: "easeInOut" }}
+              >
+                {renderContent()}
+              </Motion.div>
+            </AnimatePresence>
+          )}
+        </Suspense>
       )}
     </div>
     </HabitContext.Provider>

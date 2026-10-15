@@ -54,6 +54,7 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
     {
       label: "Features",
       path: "/features",
+      prefetch: () => import("./features"),
       onClick: () => {
         setMobileOpen(false);
         navigate("/features");
@@ -62,6 +63,7 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
     {
       label: "Try Demo",
       path: "/demo-login",
+      prefetch: () => import("./demologin"),
       onClick: () => {
         setMobileOpen(false);
         navigate("/demo-login");
@@ -70,6 +72,7 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
     {
       label: "About",
       path: "/about",
+      prefetch: () => import("./about"),
       onClick: () => {
         setMobileOpen(false);
         navigate("/about");
@@ -147,6 +150,8 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
               key={item.label}
               type="button"
               onClick={item.onClick}
+              onPointerEnter={item.prefetch}
+              onFocus={item.prefetch}
               className={navButtonClass(pathname === item.path, item.path === "/demo-login")}
               aria-current={pathname === item.path ? "page" : undefined}
             >
@@ -160,6 +165,8 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
           <button
             type="button"
             onClick={() => navigate("/login")}
+            onPointerEnter={() => import("../authentication/Login")}
+            onFocus={() => import("../authentication/Login")}
             className={`hidden min-h-11 items-center rounded-full border border-transparent bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-950/30 transition sm:inline-flex sm:px-5 sm:py-2.5 ${goldenHoverClass}`}
           >
             Login
@@ -167,6 +174,8 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
           <button
             type="button"
             onClick={() => navigate("/signup")}
+            onPointerEnter={() => import("../authentication/SignUp")}
+            onFocus={() => import("../authentication/SignUp")}
             className={`landing-nav-signup inline-flex min-h-11 items-center rounded-full border border-transparent bg-gradient-to-r from-amber-300 via-orange-400 to-orange-500 px-3 py-2 text-xs font-bold text-stone-950 shadow-lg shadow-orange-950/20 transition sm:px-5 sm:py-2.5 sm:text-sm ${goldenHoverClass}`}
           >
             Signup
@@ -243,6 +252,8 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
                 key={item.label}
                 type="button"
                 onClick={item.onClick}
+                onPointerEnter={item.prefetch}
+                onFocus={item.prefetch}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.06, duration: 0.2 }}
@@ -265,6 +276,8 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
             <motion.button
               type="button"
               onClick={() => { setMobileOpen(false); navigate("/login"); }}
+              onPointerEnter={() => import("../authentication/Login")}
+              onFocus={() => import("../authentication/Login")}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.18, duration: 0.2 }}

@@ -1,7 +1,7 @@
 import CalendarHeatmap from "react-calendar-heatmap";
 import "react-calendar-heatmap/dist/styles.css";
 import { motion as Motion } from "framer-motion";
-import { cloneElement, useEffect, useId, useMemo, useRef, useState } from "react";
+import { cloneElement, memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import useDashboardRead from "../useDashboardRead";
 import { heatmapValidators, OVERVIEW_EVENTS, toCalendarHeatmapValues } from "./overviewResponse";
@@ -286,6 +286,15 @@ function HeatmapCard({ sectionId, label, scale, values, year, resource, binary =
   );
 }
 
+const MemoHeatmapCard = memo(HeatmapCard, (previous, next) =>
+  previous.sectionId === next.sectionId &&
+  previous.year === next.year &&
+  previous.values === next.values &&
+  previous.resource?.data === next.resource?.data &&
+  previous.resource?.loading === next.resource?.loading &&
+  previous.resource?.error === next.resource?.error
+);
+
 function YearPicker({ selectedYear, yearOptions, onChange }) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
@@ -408,51 +417,17 @@ export default function OverviewHeatmap() {
     }
   }, [selectedYear, yearOptions]);
 
-  const sectionData = useMemo(
-    () =>
-      HEATMAP_SECTIONS.map((section) => {
-        if (section.id === "journal") {
-          const real = byYear(journalAllValues, selectedYear);
-          return {
-            ...section,
-            values: isDemoMode ? demoJournalSeries(section.seed, selectedYear, section.density) : real,
-          };
-        }
-        if (section.id === "todo") {
-          const real = byYear(todoAllValues, selectedYear);
-          return {
-            ...section,
-            values: isDemoMode ? demoTodoSeries(section.seed, selectedYear, section.density) : real,
-          };
-        }
-        if (section.id === "habit") {
-          const real = byYear(habitAllValues, selectedYear);
-          return {
-            ...section,
-            values: isDemoMode ? demoHabitSeries(section.seed, selectedYear, section.density) : real,
-          };
-        }
-        if (section.id === "goal") {
-          const real = byYear(goalAllValues, selectedYear);
-          return {
-            ...section,
-            values: isDemoMode ? demoGoalSeries(section.seed, selectedYear, section.density) : real,
-          };
-        }
-        if (section.id === "gym") {
-          const real = byYear(gymAllValues, selectedYear);
-          return {
-            ...section,
-            values: isDemoMode ? demoGymSeries(section.seed, selectedYear, section.density) : real,
-          };
-        }
-        return {
-          ...section,
-          values: isDemoMode ? demoSeries(section.seed, selectedYear, section.density) : [],
-        };
-      }),
-    [goalAllValues, gymAllValues, habitAllValues, isDemoMode, journalAllValues, selectedYear, todoAllValues]
-  );
+  const journalValues = useMemo(() => isDemoMode
+    ? demoJournalSeries(11, selectedYear, 0.14) : byYear(journalAllValues, selectedYear), [isDemoMode, journalAllValues, selectedYear]);
+  const todoValues = useMemo(() => isDemoMode
+    ? demoTodoSeries(37, selectedYear, 0.2) : byYear(todoAllValues, selectedYear), [isDemoMode, todoAllValues, selectedYear]);
+  const habitValues = useMemo(() => isDemoMode
+    ? demoHabitSeries(73, selectedYear, 0.24) : byYear(habitAllValues, selectedYear), [isDemoMode, habitAllValues, selectedYear]);
+  const goalValues = useMemo(() => isDemoMode
+    ? demoGoalSeries(53, selectedYear, 0.13) : byYear(goalAllValues, selectedYear), [isDemoMode, goalAllValues, selectedYear]);
+  const gymValues = useMemo(() => isDemoMode
+    ? demoGymSeries(29, selectedYear, 0.19) : byYear(gymAllValues, selectedYear), [isDemoMode, gymAllValues, selectedYear]);
+  const sectionValues = { journal: journalValues, todo: todoValues, habit: habitValues, goal: goalValues, gym: gymValues };
 
   return (
     <div className="overview-heatmap-stack flex h-full flex-col gap-2.5">
@@ -468,14 +443,14 @@ export default function OverviewHeatmap() {
       </div>
 
       <div className="overview-heatmap-cards flex min-h-0 flex-1 flex-col justify-between gap-2">
-        {sectionData.map((section) => (
-          <HeatmapCard
+        {HEATMAP_SECTIONS.map((section) => (
+          <MemoHeatmapCard
             key={`${user?.id}-${section.id}-${selectedYear}`}
             resource={isDemoMode ? null : resources[section.id]}
             sectionId={section.id}
             label={section.label}
             scale={section.scale}
-            values={section.values}
+            values={sectionValues[section.id]}
             year={selectedYear}
             binary={section.binary}
           />

@@ -681,7 +681,7 @@ export const getGymHeatmap = async (req, res) => {
 
 export const getGymGalleryEntries = async (req, res) => {
   try {
-    const entries = await GymGalleryEntry.find({ userId: req.user.id }).sort({ checkInDate: -1, createdAt: -1 });
+    const entries = await GymGalleryEntry.find({ userId: req.user.id }).sort({ checkInDate: -1, createdAt: -1 }).lean();
     const normalized = entries.map(normalizeGalleryEntry);
     res.json(normalized);
   } catch (error) {

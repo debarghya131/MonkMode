@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api/axios";
-import { validWeeklySummaries, validWeeklyReport, validWeeklyAiResponse, weeklyFailureMessage as failureMessage } from "./weeklyReportResponse";
+import { validWeeklySummaries, validWeeklyReport, validWeeklyAiResponse, readWeeklySavedAnalysis, weeklyFailureMessage as failureMessage } from "./weeklyReportResponse";
 import { DEMO_JOURNAL_REPORTS, DEMO_JOURNAL_SUMMARIES } from "./journalDemoReports";
 
 export default function useJournalWeeklyData(isDemoMode) {
@@ -49,22 +49,20 @@ export default function useJournalWeeklyData(isDemoMode) {
       setAnalysis({ text: DEMO_JOURNAL_REPORTS[selectedWeekId]?.aiSummary, loading: false, error: "", stale: false, warning: "" });
     } else {
       setDetail({ id: selectedWeekId, data: null, loading: true, error: "" });
-      const config = { signal: controller.signal, timeout: 15000, params: { week: selectedWeekId } };
+      const config = { signal: controller.signal, timeout: 15000, params: { week: selectedWeekId, includeAnalysis: "1" } };
       api.get("/weekly-report/journal", config)
         .then(({ data }) => {
           if (!alive()) return;
           if (!validWeeklyReport(data, "journal", selectedWeekId)) throw new Error("Invalid report response");
           setDetail({ id: selectedWeekId, data, loading: false, error: "" });
+          readWeeklySavedAnalysis(data, api, "/weekly-report/journal/ai-summary", config)
+            .then(saved => { if (alive()) setAnalysis({ text: saved.aiSummary, stale: Boolean(saved.stale), loading: false, error: saved.error || "", warning: "" }); })
+            .catch(error => { if (alive()) setAnalysis(previous => ({ ...previous, loading: false, error: failureMessage(error, "Could not load saved analysis. Please retry.") })); });
         })
-        .catch(error => { if (alive()) setDetail({ id: selectedWeekId, data: null, loading: false, error: failureMessage(error, "Could not load this journal report. Please retry.") }); });
-      // Cache-only GET. Generation is an explicit, separately rate-limited POST.
-      api.get("/weekly-report/journal/ai-summary", config)
-        .then(({ data }) => {
-          if (!alive()) return;
-          if (!validWeeklyAiResponse(data)) throw new Error("Invalid analysis response");
-          setAnalysis({ text: data.aiSummary, stale: Boolean(data.stale), loading: false, error: "", warning: "" });
-        })
-        .catch(error => { if (alive()) setAnalysis(previous => ({ ...previous, loading: false, error: failureMessage(error, "Could not load saved analysis. Please retry.") })); });
+        .catch(error => { if (alive()) {
+          setDetail({ id: selectedWeekId, data: null, loading: false, error: failureMessage(error, "Could not load this journal report. Please retry.") });
+          setAnalysis(previous => ({ ...previous, loading: false }));
+        } });
     }
     return () => controller.abort();
   }, [isDemoMode, selectedWeekId, detailAttempt]);

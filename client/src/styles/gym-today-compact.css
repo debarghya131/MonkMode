@@ -7,6 +7,16 @@
   padding: 6px;
 }
 
+:root .dashboard-shell .dashboard-main .gym-page[data-active="todays-workout"] .gym-day-selector-label {
+  flex-shrink: 0;
+  margin-left: 10px;
+  margin-right: 6px;
+  font-size: 12px;
+  line-height: 1.3;
+  letter-spacing: 0.12em;
+  color: rgb(253 230 138 / 0.85);
+}
+
 :root .dashboard-shell .dashboard-main .gym-page[data-active="todays-workout"] .gym-workout-panel {
   padding: 0;
 }

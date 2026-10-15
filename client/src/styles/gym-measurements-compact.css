@@ -5,11 +5,15 @@
 
 :root .dashboard-shell .dashboard-main .gym-page[data-active="measurements"] :is(.gym-measurements-saved-header, .gym-measurements-saved-panel > div:first-child) {
   gap: 6px;
+  align-items: center;
+  min-height: 32px;
 }
 
 :root .dashboard-shell .dashboard-main .gym-page[data-active="measurements"] :is(.gym-measurements-saved-header, .gym-measurements-saved-panel > div:first-child) h3 {
   margin-top: 0;
-  font-size: 14px;
+  margin-left: 4px;
+  font-size: 17px;
+  line-height: 1.3;
 }
 
 :root .dashboard-shell .dashboard-main .gym-page[data-active="measurements"] .gym-measurements-form {
@@ -47,6 +51,23 @@
   font-size: 10.5px;
   line-height: 1.4;
   border-radius: 8px;
+}
+
+/* Make the four category choices easier to read on laptop-sized layouts. */
+@media (min-width: 1024px) and (max-width: 1799px) {
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="measurements"] .gym-measurements-form-groups button {
+    min-height: 34px;
+    padding: 6px 4px;
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1199px) {
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="measurements"] .gym-measurements-form-groups button {
+    padding-inline: 2px;
+    font-size: 11px;
+  }
 }
 
 :root .dashboard-shell .dashboard-main .gym-page[data-active="measurements"] :is(.gym-measurements-field-card, .gym-measurements-preview-group, .gym-measurements-preview, .gym-measurements-history) {

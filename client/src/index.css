@@ -5444,29 +5444,42 @@ a {
 
 .gym-page[data-active="add-workout"] .gym-add-list-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem;
 }
 
-.gym-page[data-active="add-workout"] .gym-add-list-header > div:not(:first-child) {
-  grid-column: 1 / -1;
-  margin-top: 0;
+.gym-page[data-active="add-workout"] .gym-add-list-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
   min-width: 0;
 }
 
-.gym-page[data-active="add-workout"] .gym-add-list-header > span {
-  grid-column: 2;
-  grid-row: 1;
-  align-self: start;
+.gym-page[data-active="add-workout"] .gym-add-list-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.gym-page[data-active="add-workout"] .gym-add-list-heading > span {
   padding: 0.2rem 0.625rem;
   font-size: 0.6875rem;
 }
 
-.gym-page[data-active="add-workout"] .gym-add-list-header > .gym-add-view-tabs {
-  grid-column: 2;
-  grid-row: 2;
-  justify-self: end;
+.gym-page[data-active="add-workout"] .gym-add-view-tabs {
+  order: 2;
   justify-content: flex-end;
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+.gym-page[data-active="add-workout"] .gym-add-day-filters {
+  order: 1;
+  min-width: 0;
+  margin-top: 0;
 }
 
 .gym-page[data-active="add-workout"] .gym-add-card-top > p {
@@ -5550,6 +5563,15 @@ a {
 
   .gym-page[data-active="add-workout"] :is(.gym-add-form, .gym-add-list, .gym-add-log-panel) {
     padding: 0.875rem;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-list-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .gym-page[data-active="add-workout"] .gym-add-view-tabs {
+    justify-content: flex-start;
   }
 
   .gym-page[data-active="add-workout"] .gym-add-day-filters {

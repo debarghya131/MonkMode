@@ -408,6 +408,14 @@ function JournalContent() {
   const mobileView = JOURNAL_MOBILE_VIEWS.some((view) => view.id === requestedMobileView)
     ? requestedMobileView
     : "today";
+  const [compactLayout, setCompactLayout] = useState(() => window.matchMedia("(max-width: 1023px)").matches);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 1023px)");
+    const update = () => setCompactLayout(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   const selectMobileView = (view) => {
     setSearchParams((current) => {
@@ -443,6 +451,17 @@ function JournalContent() {
     lifetimeExpectedDays: 0
   });
   const [refreshSidebarKey, setRefreshSidebarKey] = useState(0);
+  const sidebar = (
+    <div className="journal-history">
+      <div className="journal-history-inner">
+        <JournalRightSidebar
+          refreshToken={refreshSidebarKey}
+          loadHistory={!compactLayout || mobileView === "past"}
+          loadMissed={!compactLayout || mobileView === "missed"}
+        />
+      </div>
+    </div>
+  );
 
   useEffect(() => {
     if (previousStepRef.current !== step && window.matchMedia("(max-width: 1023px)").matches) {
@@ -732,16 +751,24 @@ function JournalContent() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[55vh] items-center justify-center">
-        <p className="text-sm text-stone-400">Loading journal...</p>
+      <div className="journal-layout" data-mobile-view={mobileView}>
+        <JournalMobileNav active={mobileView} onChange={selectMobileView} />
+        <div className="journal-editor flex min-h-[55vh] items-center justify-center" data-journal-panel="today">
+          <p role="status" className="text-sm text-stone-400">Loading journal...</p>
+        </div>
+        {sidebar}
       </div>
     );
   }
   if (loadError) {
     return (
-      <div className="flex min-h-[55vh] flex-col items-center justify-center gap-4 px-4 text-center">
-        <p role="alert" className="max-w-md text-sm text-rose-200">{loadError}</p>
-        <button type="button" className={btnPrimary} onClick={() => setLoadAttempt(value => value + 1)}>Retry loading journal</button>
+      <div className="journal-layout" data-mobile-view={mobileView}>
+        <JournalMobileNav active={mobileView} onChange={selectMobileView} />
+        <div className="journal-editor flex min-h-[55vh] flex-col items-center justify-center gap-4 px-4 text-center" data-journal-panel="today">
+          <p role="alert" className="max-w-md text-sm text-rose-200">{loadError}</p>
+          <button type="button" className={btnPrimary} onClick={() => setLoadAttempt(value => value + 1)}>Retry loading journal</button>
+        </div>
+        {sidebar}
       </div>
     );
   }
@@ -815,11 +842,7 @@ function JournalContent() {
           </div>
         </Motion.div>
 
-        <div className="journal-history">
-          <div className="journal-history-inner">
-            <JournalRightSidebar refreshToken={refreshSidebarKey} />
-          </div>
-        </div>
+        {sidebar}
 
         {showJournalView && (
           <JournalViewModal
@@ -1449,11 +1472,7 @@ function JournalContent() {
       </div>
 
       {/* Right sidebar */}
-      <div className="journal-history">
-        <div className="journal-history-inner">
-          <JournalRightSidebar refreshToken={refreshSidebarKey} />
-        </div>
-      </div>
+      {sidebar}
     </div>
   );
 }

@@ -6,7 +6,7 @@ import AuthFloatingMonk from "../authentication/AuthFloatingMonk";
 import useAuth from "../../hooks/useAuth";
 import monkIllustration from "../../assets/monk.webp";
 
-const DEMO_ENTRY_DURATION = 2100;
+const DEMO_ENTRY_DURATION = 850;
 export default function DemoLogin() {
   const navigate = useNavigate();
   const { startDemoMode } = useAuth();
@@ -57,7 +57,7 @@ export default function DemoLogin() {
 
   return (
     <div className="auth-page auth-flow-page relative flex min-h-dvh items-center justify-center overflow-x-hidden px-4 py-6 text-white sm:px-6 sm:py-8">
-      {!isEntering && <AuthBackground />}
+      {!isEntering && <AuthBackground lightweight defer />}
 
       <div className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center">
         {!isEntering && <AuthFloatingMonk />}

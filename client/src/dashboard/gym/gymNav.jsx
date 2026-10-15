@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { GYM_TABS } from "./gymTabs";
 
-export default function GymNav({ active, onChange }) {
+export default function GymNav({ active, onChange, onPrefetch }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const activeTab = GYM_TABS.find((t) => t.id === active) ?? GYM_TABS[0];
 
@@ -32,6 +32,8 @@ export default function GymNav({ active, onChange }) {
                   key={tab.id}
                   type="button"
                   onClick={() => { onChange(tab.id); setMenuOpen(false); }}
+                  onPointerEnter={() => onPrefetch?.(tab.id)}
+                  onFocus={() => onPrefetch?.(tab.id)}
                   aria-pressed={active === tab.id}
                   className="dashboard-section-tab flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold"
                 >
@@ -51,6 +53,8 @@ export default function GymNav({ active, onChange }) {
               key={tab.id}
               type="button"
               onClick={() => onChange(tab.id)}
+              onPointerEnter={() => onPrefetch?.(tab.id)}
+              onFocus={() => onPrefetch?.(tab.id)}
               aria-pressed={active === tab.id}
               className="dashboard-section-tab flex min-w-[6rem] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold"
             >

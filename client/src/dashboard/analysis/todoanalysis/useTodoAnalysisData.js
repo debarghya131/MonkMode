@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../../../api/axios";
 import { todoReportDay } from "../../../../../shared/todoWeeklyStats.js";
-import { demoTodoAnalysis } from "./todoAnalysisData";
 import { todoAnalysisClockValid, validTodoAnalysisResponse } from "./todoAnalysisResponse";
 
 export default function useTodoAnalysisData(isDemoMode) {
@@ -27,8 +26,15 @@ export default function useTodoAnalysisData(isDemoMode) {
     const controller = new AbortController();
     setState({ loading: true, error: "", data: null });
     if (isDemoMode) {
-      setState({ loading: false, error: "", data: demoTodoAnalysis(period.year, period.month) });
-      return;
+      // Live accounts do not need the sample task generator or its calculator.
+      import("./todoAnalysisData")
+        .then(({ demoTodoAnalysis }) => {
+          if (!controller.signal.aborted) setState({ loading: false, error: "", data: demoTodoAnalysis(period.year, period.month) });
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setState({ loading: false, error: "Could not load ToDo Analysis. Please retry.", data: null });
+        });
+      return () => controller.abort();
     }
     api.get("/todos/analysis", { params: { year: period.year, month: Number(period.month) }, signal: controller.signal, timeout: 15000 })
       .then(({ data }) => {

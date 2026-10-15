@@ -8,16 +8,18 @@
   margin-bottom: 6px;
 }
 
-:root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-header > .gym-add-view-tabs {
-  grid-column: 2;
-  grid-row: 2;
+:root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-controls {
+  gap: 6px;
+}
+
+:root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-controls > .gym-add-view-tabs {
+  order: 2;
   justify-self: end;
   justify-content: flex-end;
 }
 
-:root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-header > .gym-add-day-filters {
-  grid-column: 1;
-  grid-row: 2;
+:root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-controls > .gym-add-day-filters {
+  order: 1;
   min-width: 0;
   margin-top: 0;
 }
@@ -85,30 +87,34 @@
   }
 
   :root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-header {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    align-items: center;
-    column-gap: 5px;
-    row-gap: 6px;
+    gap: 6px;
   }
 
-  :root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-header > div:first-child > p:last-child {
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-heading > div > p:last-child {
     display: none;
   }
 
-  :root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-header > .gym-add-view-tabs {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
-    flex-wrap: nowrap;
-    gap: 4px;
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-heading {
+    align-items: center;
   }
 
-  :root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-header > span {
-    grid-column: 3;
-    grid-row: 1;
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-heading > span {
     padding: 1px 6px;
     font-size: 10px;
     white-space: nowrap;
+  }
+
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-controls {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-controls > .gym-add-view-tabs {
+    order: 1;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: 4px;
   }
 
   :root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-header :is(.gym-add-view-tabs, .gym-add-day-filters) > button[type="button"]:not([role="tab"]) {
@@ -118,9 +124,9 @@
     font-size: 9.5px;
   }
 
-  :root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-day-filters {
-    grid-column: 1 / -1;
-    grid-row: 2;
+  :root .dashboard-shell .dashboard-main .gym-page[data-active="add-workout"] .gym-add-list-controls > .gym-add-day-filters {
+    order: 2;
+    width: 100%;
     gap: 4px;
     margin-top: 0;
   }

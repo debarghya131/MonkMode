@@ -1,33 +1,30 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
+import { lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
-import GoalAnalysis from "./goalanalysis/GoalAnalysis";
-import GYMAnalysis from "./gymanalysis/GYMAnalysis";
-import HabitAnalysis from "./habitanalysis/HabitAnalysis";
-import JournalAnalysis from "./journalanalysis/JournalAnalysis";
-import ToDoAnalysis from "./todoanalysis/ToDoAnalysis";
 import { ANALYTICS_TABS } from "./analysisTabs";
+
+// Only download the analysis section the visitor opens. Each section retains
+// its own loading/data lifecycle; switching tabs does not fetch the others.
+const analysisComponents = {
+  journal: lazy(() => import("./journalanalysis/JournalAnalysis")),
+  todo: lazy(() => import("./todoanalysis/ToDoAnalysis")),
+  habit: lazy(() => import("./habitanalysis/HabitAnalysis")),
+  goal: lazy(() => import("./goalanalysis/GoalAnalysis")),
+  gym: lazy(() => import("./gymanalysis/GYMAnalysis")),
+};
 
 export default function Analytics() {
   const [searchParams] = useSearchParams();
   const activeAnalytics =
     ANALYTICS_TABS.find((tab) => tab.id === searchParams.get("tab")) ?? ANALYTICS_TABS[0];
   const activeTab = activeAnalytics.id;
+  const ActiveComponent = analysisComponents[activeTab];
 
   const renderAnalyticsContent = () => {
-    if (activeAnalytics.id === "journal") {
-      return <JournalAnalysis />;
-    }
-    if (activeAnalytics.id === "todo") {
-      return <ToDoAnalysis />;
-    }
-    if (activeAnalytics.id === "habit") {
-      return <HabitAnalysis />;
-    }
-    if (activeAnalytics.id === "goal") {
-      return <GoalAnalysis />;
-    }
-    if (activeAnalytics.id === "gym") {
-      return <GYMAnalysis />;
+    if (ActiveComponent) {
+      return <Suspense fallback={<div role="status" className="rounded-2xl border border-white/10 p-6 text-stone-300">Loading analysis…</div>}>
+        <ActiveComponent />
+      </Suspense>;
     }
 
     return (

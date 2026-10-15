@@ -131,6 +131,33 @@ function getWeekStartDayKey(dayKey) {
   return toDayKey(date);
 }
 
+// The report and its saved analysis are needed together by the dashboard.
+// Read the cache alongside the report so opening a week does not rebuild the
+// same report for a second /ai-summary request. Existing standalone endpoints
+// remain available for callers that only need one resource.
+async function reportWithSavedAnalysis(req, loadReport, Summary, fingerprint, reportWeek, journal = false) {
+  if (req.query.includeAnalysis !== "1") return loadReport(req);
+  const weekStart = reportWeek(req.query.week)[0];
+  const filter = journal
+    ? { userId: req.user.id, $or: [{ weekStart }, { weekId: weekStart }] }
+    : { userId: req.user.id, weekStart };
+  const [report, saved] = await Promise.all([
+    loadReport(req),
+    Summary.findOne(filter, { aiSummary: 1, sourceHash: 1 }).lean()
+      .then(cached => ({ cached }))
+      .catch(() => ({ error: true })),
+  ]);
+  if (saved.error) {
+    console.error("Weekly saved analysis could not be loaded");
+    return { ...report, savedAnalysis: { aiSummary: null, stale: false, error: "Could not load saved analysis. Please retry." } };
+  }
+  const cached = saved.cached;
+  return { ...report, savedAnalysis: {
+    aiSummary: cached?.aiSummary || null,
+    stale: Boolean(cached?.aiSummary && cached.sourceHash !== fingerprint(report)),
+  } };
+}
+
 // ─── Weeks List ───────────────────────────────────────────────────────────────
 
 export const getWeeksList = (_req, res) => {
@@ -166,7 +193,7 @@ async function loadHabitReport(req) {
   return buildHabitWeeklyReport(habits, logs, days);
 }
 export const getHabitWeeklyReport = async (req, res) => {
-  try { res.json(await loadHabitReport(req)); }
+  try { res.json(await reportWithSavedAnalysis(req, loadHabitReport, HabitWeeklySummary, habitReportFingerprint, habitReportWeek)); }
   catch (error) {
     if (!error.status) console.error("Habit weekly report could not be loaded");
     res.status(error.status || 500).json({ error: error.status ? error.message : "Failed to load habit weekly report. Please retry." });
@@ -284,7 +311,7 @@ export const getTodoSummaries = async (req, res) => {
 
 export const getTodoWeeklyReport = async (req, res) => {
   try {
-    res.json(await loadTodoReport(req));
+    res.json(await reportWithSavedAnalysis(req, loadTodoReport, TodoWeeklySummary, todoReportFingerprint, todoReportWeek));
   } catch (error) {
     if (!error.status) console.error("ToDo weekly report could not be loaded");
     res.status(error.status || 500).json({ error: error.status ? error.message : "Failed to load task report. Please retry." });
@@ -376,7 +403,7 @@ async function loadJournalReport(req) {
 // Stats and missed days share one authoritative app-calendar snapshot.
 export const getJournalWeeklyReport = async (req, res) => {
   try {
-    res.json(await loadJournalReport(req));
+    res.json(await reportWithSavedAnalysis(req, loadJournalReport, JournalWeeklySummary, journalReportFingerprint, journalReportWeek, true));
   } catch (error) {
     if (!error.status) console.error("Journal weekly report could not be loaded");
     res.status(error.status || 500).json({ error: error.status ? error.message : "Failed to load journal weekly report" });
@@ -583,7 +610,7 @@ async function loadGoalReport(req) {
   return buildGoalWeeklyReport(goals, logs, days);
 }
 export const getGoalWeeklyReport = async (req, res) => {
-  try { res.json(await loadGoalReport(req)); }
+  try { res.json(await reportWithSavedAnalysis(req, loadGoalReport, GoalWeeklySummary, goalReportFingerprint, goalReportWeek)); }
   catch (error) {
     if (!error.status) console.error("Goal weekly report could not be loaded");
     res.status(error.status || 500).json({ error: error.status ? error.message : "Failed to load goal weekly report. Please retry." });
@@ -593,12 +620,18 @@ export const getGoalSummaries = async (req, res) => {
   try {
     const weeks = completedGoalWeeks();
     const { goals, logs } = await loadGoalRecords(req.user.id, [weeks.at(-1)[0], weeks[0][6]]);
-    const summaries = weeks.map(days => {
-      const { id, date, signal, status, stats, weeklyScore } = buildGoalWeeklyReport(goals, logs, days);
+    const reports = weeks.map(days => buildGoalWeeklyReport(goals, logs, days));
+    const summaries = reports.map(({ id, date, signal, status, stats, weeklyScore }) => {
       return { id, date, signal, status, goalCount: stats.goalCount, completedMilestonesThisWeek: stats.completedMilestonesThisWeek,
         progressUpdatesThisWeek: stats.progressUpdatesThisWeek, avgProgress: stats.avgProgress, weeklyScore };
-    });
-    res.json(summaries.filter(week => week.goalCount > 0));
+    }).filter(week => week.goalCount > 0);
+    if (req.query.includeLatest !== "1") return res.json(summaries);
+    const latest = reports.find(report => report.stats.goalCount > 0);
+    const latestReport = latest ? await reportWithSavedAnalysis(
+      { ...req, query: { week: latest.id, includeAnalysis: "1" } },
+      async () => latest, GoalWeeklySummary, goalReportFingerprint, goalReportWeek,
+    ) : null;
+    res.json({ summaries, latestReport });
   } catch {
     console.error("Goal weekly summaries could not be loaded");
     res.status(500).json({ error: "Failed to load goal summaries. Please retry." });
@@ -674,7 +707,7 @@ export const generateGoalAiSummary = async (req, res) => {
 
 // ─── Gym Weekly Report ───────────────────────────────────────────────────────
 
-async function loadGymRecords(userId, days, metadataOnly = false) {
+async function loadGymRecords(userId, days, metadataOnly = false, includeMacros = !metadataOnly) {
   const ownerId = GymExerciseProgress.schema.path("userId").cast(userId);
   const galleryFilter = gymGalleryFilter(metadataOnly ? ownerId : userId, days);
   const [current, measurements, gallery, macroPlans] = await Promise.all([
@@ -683,7 +716,7 @@ async function loadGymRecords(userId, days, metadataOnly = false) {
     metadataOnly
       ? GymGalleryEntry.aggregate([{ $match: galleryFilter }, { $project: GYM_GALLERY_METADATA }])
       : GymGalleryEntry.find(galleryFilter, { checkInDate: 1, createdAt: 1, images: 1 }).lean(),
-    metadataOnly ? [] : GymDietPlan.find({ userId, planType: "macros", isActive: true },
+    !includeMacros ? [] : GymDietPlan.find({ userId, planType: "macros", isActive: true },
       { planType: 1, day: 1, isActive: 1, values: 1, createdAt: 1, updatedAt: 1 }).lean(),
   ]);
   const ids = [...new Set(current.map(entry => entry.exerciseId).filter(Boolean))];
@@ -696,26 +729,49 @@ async function loadGymRecords(userId, days, metadataOnly = false) {
   ]) : [];
   return { exercises: [...previous, ...current], measurements, gallery, macroPlans };
 }
-async function loadGymReport(req, metadataOnly = false) {
+async function loadGymReport(req, metadataOnly = false, includeMacros = !metadataOnly) {
   const days = gymReportWeek(req.query.week);
-  return buildGymWeeklyReport(await loadGymRecords(req.user.id, days, metadataOnly), days);
+  return buildGymWeeklyReport(await loadGymRecords(req.user.id, days, metadataOnly, includeMacros), days);
 }
 export const getGymWeeklyReport = async (req, res) => {
-  try { res.json(await loadGymReport(req)); }
+  try {
+    const load = req.query.photos === "omit" ? request => loadGymReport(request, true, true) : loadGymReport;
+    const report = await reportWithSavedAnalysis(req, load, GymWeeklySummary, gymReportFingerprint, gymReportWeek);
+    res.json(req.query.photos === "omit" ? { ...report, photosOmitted: true } : report);
+  }
   catch (error) {
     if (!error.status) console.error("Gym weekly report could not be loaded");
     res.status(error.status || 500).json({ error: error.status ? error.message : "Failed to load gym weekly report. Please retry." });
   }
 };
+export const getGymWeeklyPhotos = async (req, res) => {
+  try {
+    const days = gymReportWeek(req.query.week);
+    const gallery = await GymGalleryEntry.find(gymGalleryFilter(req.user.id, days),
+      { checkInDate: 1, createdAt: 1, images: 1 }).lean();
+    const { id, progressPhotos, photoEntries } = buildGymWeeklyReport({ gallery }, days);
+    res.json({ id, progressPhotos, photoEntries });
+  } catch (error) {
+    if (!error.status) console.error("Gym weekly photos could not be loaded");
+    res.status(error.status || 500).json({ error: error.status ? error.message : "Failed to load weekly photos. Please retry." });
+  }
+};
 export const getGymSummaries = async (req, res) => {
   try {
     const weeks = completedGymWeeks();
-    const records = await loadGymRecords(req.user.id, [weeks.at(-1)[0], weeks[0][6]], true);
-    const summaries = weeks.map(days => {
-      const { id, date, workoutDays, status, stats, weeklyScore } = buildGymWeeklyReport(records, days);
+    const includeLatest = req.query.includeLatest === "1";
+    const records = await loadGymRecords(req.user.id, [weeks.at(-1)[0], weeks[0][6]], true, includeLatest);
+    const reports = weeks.map(days => buildGymWeeklyReport(records, days));
+    const summaries = reports.map(({ id, date, workoutDays, status, stats, weeklyScore }) => {
       return { id, date, workoutDays, status, exerciseLogs: stats.exerciseLogs, measurementDays: stats.measurementDays, photoCount: stats.photoCount, weeklyScore };
-    });
-    res.json(summaries.filter(week => week.exerciseLogs || week.measurementDays || week.photoCount));
+    }).filter(week => week.exerciseLogs || week.measurementDays || week.photoCount);
+    if (!includeLatest) return res.json(summaries);
+    const latest = reports.find(report => report.stats.exerciseLogs || report.stats.measurementDays || report.stats.photoCount);
+    const latestReport = latest ? await reportWithSavedAnalysis(
+      { ...req, query: { week: latest.id, includeAnalysis: "1" } },
+      async () => ({ ...latest, photosOmitted: true }), GymWeeklySummary, gymReportFingerprint, gymReportWeek,
+    ) : null;
+    res.json({ summaries, latestReport });
   } catch (error) {
     console.error("Gym weekly summaries could not be loaded");
     res.status(500).json({ error: "Failed to load gym summaries. Please retry." });

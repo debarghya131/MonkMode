@@ -134,6 +134,18 @@ test("picker and detail agree, include all-missed weeks and enforce owned habit 
   for (const key of ["totalInstances", "completed", "missed", "pending", "consistency", "longestStreak"]) assert.equal(summary[key], detail[key]);
   assert.equal(summary.habitCount, 1);
 });
+
+test("detail bundles stale saved analysis without generating it", async t => {
+  fixture(t);
+  t.mock.method(globalThis, "fetch", () => assert.fail("Report reads cannot call AI"));
+  t.mock.method(HabitWeeklySummary, "findOne", filter => {
+    assert.deepEqual(filter, { userId: USER, weekStart: WEEK });
+    return query({ aiSummary: "Older analysis", sourceHash: "old" });
+  });
+  const result = await call(getHabitWeeklyReport, request({ query: { week: WEEK, includeAnalysis: "1" } }));
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body.savedAnalysis, { aiSummary: "Older analysis", stale: true });
+});
 test("completed weeks and legacy query date bounds use the app calendar", t => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-11T18:45:00Z") });
   assert.equal(completedHabitWeeks()[0][0], "2026-10-05"); assert.equal(completedHabitWeeks().length, 12);

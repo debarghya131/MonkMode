@@ -6,6 +6,7 @@ import WorkoutPlan from "../models/WorkoutPlan.js";
 import GymDietPlan from "../models/GymDietPlan.js";
 import GymMeasurement from "../models/GymMeasurement.js";
 import GymExerciseProgress from "../models/GymExerciseProgress.js";
+import GymGalleryEntry from "../models/GymGalleryEntry.js";
 import { getWorkoutPlans, getGymDietPlans, getMeasurements, getGymGalleryEntries, getGymCustomExercises, getExerciseProgress, getWorkoutPlanLogs, getGymHeatmap, createWorkoutPlan, updateWorkoutPlan, toggleWorkoutPlanActive, deleteWorkoutPlan, updateGymDietPlan, toggleGymDietPlanActive, deleteGymDietPlan, createGymDietPlan, updateMeasurement, deleteMeasurement, undoDeleteMeasurement, upsertExerciseProgress } from "../controllers/gymController.js";
 import { checkGymRevision, saveGymRecord } from "../utils/gymMutationUtils.js";
 import { validGymResponse, validWorkoutPlan, validWorkoutPlans, validDietPlans, validMeasurements, validLibrary, validGallery, validProgressMap, validPlanLogs, validGymClock, gymFailureMessage, measurementKeys } from "../../client/src/dashboard/gym/gymResponse.js";
@@ -32,6 +33,17 @@ test("Gym response contracts validate empty snapshots and reject nested render o
  assert.equal(validGallery([{id:ID,date:DAY,images:[{id:"x",src:"javascript:alert(1)"}]}]),false);
  assert.equal(validLibrary([{id:ID,name:{},bodyGroup:"Chest",bodySection:"",bodyPart:"Chest",custom:true}]),false);
  assert.equal(gymFailureMessage({response:{data:{message:{}}}},"Safe"),"Safe");
+});
+test("Gallery reads lean owner-scoped records without changing the response contract",async t=>{
+ const src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jQXcAAAAASUVORK5CYII=";
+ t.mock.method(GymGalleryEntry,"find",filter=>{
+  assert.deepEqual(filter,{userId:USER});
+  return{sort(order){assert.deepEqual(order,{checkInDate:-1,createdAt:-1});return this},lean(){return Promise.resolve([{_id:ID,checkInDate:new Date(NOW),images:[{_id:USER,src}]}])}};
+ });
+ const result=await call(getGymGalleryEntries);
+ assert.equal(result.status,200);
+ assert.equal(validGallery(result.body),true);
+ assert.equal(result.body[0].date,DAY);
 });
 test("Gym clock rejects invalid zones and mismatched app calendar days",()=>{
  const clock={date:DAY,day:"Sun",timezone:"Asia/Kolkata",serverNow:NOW};assert.equal(validGymClock(clock),true);

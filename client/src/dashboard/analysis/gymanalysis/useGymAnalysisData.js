@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../../../api/axios";
 import { todoReportDay } from "../../../../../shared/todoWeeklyStats.js";
-import { demoGymAnalysis } from "./gymAnalysisData";
 import { gymAnalysisClockValid, validGymAnalysisResponse } from "./gymAnalysisResponse";
 
 export default function useGymAnalysisData(isDemoMode) {
@@ -28,8 +27,15 @@ export default function useGymAnalysisData(isDemoMode) {
     const controller = new AbortController();
     setState({ loading: true, error: "", data: null });
     if (isDemoMode) {
-      setState({ loading: false, error: "", data: demoGymAnalysis(period.year, period.month) });
-      return;
+      // Live accounts do not need demo workout fixtures or their aggregation.
+      import("./gymAnalysisData")
+        .then(({ demoGymAnalysis }) => {
+          if (!controller.signal.aborted) setState({ loading: false, error: "", data: demoGymAnalysis(period.year, period.month) });
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setState({ loading: false, error: "Could not load Gym Analysis. Please retry.", data: null });
+        });
+      return () => controller.abort();
     }
     api.get("/gym/analysis", { params: { year: period.year, month: Number(period.month) }, signal: controller.signal, timeout: 15000 })
       .then(({ data }) => {

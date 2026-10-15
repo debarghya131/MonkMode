@@ -1,4 +1,5 @@
 import { motion as Motion } from "framer-motion";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
@@ -6,10 +7,11 @@ import DashboardLayout from "../DashboardLayout";
 import { DEMO_OVERVIEW_STATS } from "../../../data/DummyData";
 import { INITIAL_HABITS as TODAY_HABITS } from "../../../data/HabitDummyData";
 import { INITIAL_TASKS as TODAY_TASKS } from "../../../data/ToDoDummyData";
-import OverviewHeatmap from "./OverviewHeatmap";
 import useDashboardRead from "../useDashboardRead";
 import { overviewValidators, OVERVIEW_EVENTS } from "./overviewResponse";
 import "./overview-summary.css";
+
+const OverviewHeatmap = lazy(() => import("./OverviewHeatmap"));
 
 
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -182,11 +184,37 @@ export default function Overview() {
 
 function OverviewContent() {
   const lowMotion = useMobileLowMotion();
+  const [showHeatmaps, setShowHeatmaps] = useState(false);
+  const [compactLayout, setCompactLayout] = useState(() => window.matchMedia("(max-width: 1023px)").matches);
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedMobileView = searchParams.get("overview");
   const mobileView = OVERVIEW_MOBILE_VIEWS.some((view) => view.id === requestedMobileView)
     ? requestedMobileView
     : "heatmaps";
+  const readSummary = !compactLayout || mobileView === "summary";
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 1023px)");
+    const update = () => setCompactLayout(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (showHeatmaps) return undefined;
+    if (compactLayout && mobileView !== "heatmaps") return undefined;
+    if (compactLayout) {
+      setShowHeatmaps(true);
+      return undefined;
+    }
+
+    const idleId = window.requestIdleCallback?.(() => setShowHeatmaps(true), { timeout: 900 });
+    const timeoutId = idleId === undefined ? window.setTimeout(() => setShowHeatmaps(true), 250) : 0;
+    return () => {
+      if (idleId !== undefined) window.cancelIdleCallback(idleId);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [compactLayout, mobileView, showHeatmaps]);
 
   const selectMobileView = (view) => {
     setSearchParams((current) => {
@@ -197,11 +225,11 @@ function OverviewContent() {
   };
 
   const { isDemoMode, user } = useAuth();
-  const journalRead = useDashboardRead("/journal/summary", overviewValidators.journal, OVERVIEW_EVENTS.journal, isDemoMode, user?.id);
-  const taskRead = useDashboardRead("/todos/summary", overviewValidators.tasks, OVERVIEW_EVENTS.tasks, isDemoMode, user?.id);
-  const habitRead = useDashboardRead("/habits/consistency", overviewValidators.habits, OVERVIEW_EVENTS.habits, isDemoMode, user?.id);
-  const goalRead = useDashboardRead("/goals/summary", overviewValidators.goals, OVERVIEW_EVENTS.goals, isDemoMode, user?.id);
-  const gymRead = useDashboardRead("/gym/summary", overviewValidators.gym, OVERVIEW_EVENTS.gym, isDemoMode, user?.id);
+  const journalRead = useDashboardRead("/journal/summary", overviewValidators.journal, OVERVIEW_EVENTS.journal, isDemoMode, user?.id, readSummary);
+  const taskRead = useDashboardRead("/todos/summary", overviewValidators.tasks, OVERVIEW_EVENTS.tasks, isDemoMode, user?.id, readSummary);
+  const habitRead = useDashboardRead("/habits/consistency", overviewValidators.habits, OVERVIEW_EVENTS.habits, isDemoMode, user?.id, readSummary);
+  const goalRead = useDashboardRead("/goals/summary", overviewValidators.goals, OVERVIEW_EVENTS.goals, isDemoMode, user?.id, readSummary);
+  const gymRead = useDashboardRead("/gym/summary", overviewValidators.gym, OVERVIEW_EVENTS.gym, isDemoMode, user?.id, readSummary);
   const displayJournalSummary = isDemoMode ? DEMO_OVERVIEW_STATS.journal : journalRead.data || {
     todayLogged: null, daysThisWeek: "—", achievementsThisWeek: "—", winsThisWeek: "—"
   };
@@ -366,7 +394,13 @@ function OverviewContent() {
             transition={{ duration: 0.16, ease: "easeOut" }}
           >
             <div className="overview-heatmap-panel h-[calc(100dvh-5.5rem)] min-h-0 rounded-[1.5rem] border border-amber-100/10 bg-white/6 px-2.5 py-3 shadow-2xl shadow-black/25 md:backdrop-blur sm:h-[calc(100dvh-7rem)] sm:rounded-[2rem] sm:px-3 sm:py-4 min-[1800px]:h-full">
-              <OverviewHeatmap />
+              {showHeatmaps ? (
+                <Suspense fallback={<p role="status" className="p-4 text-xs text-stone-400">Loading activity heatmaps…</p>}>
+                  <OverviewHeatmap />
+                </Suspense>
+              ) : (
+                <p role="status" className="p-4 text-xs text-stone-400">Loading activity heatmaps…</p>
+              )}
             </div>
           </Motion.div>
         </div>

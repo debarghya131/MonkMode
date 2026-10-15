@@ -7,6 +7,36 @@ import { TODO_TABS, todoViewPath } from "./todo/todoTabs";
 import { GOAL_TABS, goalTabPath } from "./goal/goalTabs";
 import { GYM_TABS, gymTabPath } from "./gym/gymTabs";
 
+const preloadTodo = () => import("./todo/Todo");
+const todoViewLoaders = {
+  today: () => import("./todo/Today"),
+  upcoming: () => import("./todo/Upcomming"),
+  schedule: () => import("./todo/Schedule"),
+  important: () => import("./todo/Important"),
+};
+const preloadHabits = () => import("./habits/Habits");
+const habitViewLoaders = {
+  today: () => import("./habits/TodaysHabit"),
+  create: () => import("./habits/CreateHabit"),
+  track: () => import("./habits/HabitTracking"),
+};
+const preloadGoals = () => import("./goal/Goal");
+const goalViewLoaders = {
+  "my-goals": () => import("./goal/Mygoals"),
+  "create-goals": () => import("./goal/CreateGoal"),
+  progress: () => import("./goal/Progress"),
+};
+const preloadGym = () => import("./gym/Gym");
+const gymViewLoaders = {
+  "todays-workout": () => import("./gym/TodaysWorkout"),
+  "add-workout": () => import("./gym/AddWorkout"),
+  "diet-chart": () => import("./gym/DietChart"),
+  measurements: () => import("./gym/Measurements"),
+  progress: () => import("./gym/Progress"),
+  library: () => import("./gym/ExerciseLibrary"),
+  gallery: () => import("./gym/Gallery"),
+};
+
 const menuItems = {
   main: [
     {
@@ -23,48 +53,56 @@ const menuItems = {
       name: "To-Do List",
       icon: "✓",
       path: "/dashboard/todo",
+      prefetch: preloadTodo,
       submenuParam: "view",
       children: TODO_TABS.map((tab) => ({
         id: tab.id,
         name: tab.label,
         icon: tab.icon,
         path: todoViewPath(tab.id),
+        prefetch: () => { void preloadTodo(); void todoViewLoaders[tab.id]?.(); },
       })),
     },
     {
       name: "Habits",
       icon: "⚡",
       path: "/dashboard/habit",
+      prefetch: () => { void preloadHabits(); void habitViewLoaders.today(); },
       submenuParam: "view",
       children: HABIT_TABS.map((tab) => ({
         id: tab.id,
         name: tab.label,
         icon: tab.icon,
         path: habitViewPath(tab.id),
+        prefetch: () => { void preloadHabits(); void habitViewLoaders[tab.id]?.(); },
       })),
     },
     {
       name: "Goals",
       icon: "🎯",
       path: "/dashboard/goal",
+      prefetch: () => { void preloadGoals(); void goalViewLoaders["my-goals"](); },
       submenuParam: "tab",
       children: GOAL_TABS.map((tab) => ({
         id: tab.id,
         name: tab.label,
         icon: tab.icon,
         path: goalTabPath(tab.id),
+        prefetch: () => { void preloadGoals(); void goalViewLoaders[tab.id]?.(); },
       })),
     },
     {
       name: "Gym",
       icon: "💪",
       path: "/dashboard/gym",
+      prefetch: () => { void preloadGym(); void gymViewLoaders["todays-workout"](); },
       submenuParam: "tab",
       children: GYM_TABS.map((tab) => ({
         id: tab.id,
         name: tab.label,
         icon: tab.icon,
         path: gymTabPath(tab.id),
+        prefetch: () => { void preloadGym(); void gymViewLoaders[tab.id]?.(); },
       })),
     },
   ],
@@ -123,6 +161,8 @@ function SidebarSection({ title, items, activePath, activeSearch, onNavigate }) 
                   <Link
                     to={item.path}
                     onClick={() => { setGroupOpen(item.name, true); onNavigate?.(); }}
+                    onPointerEnter={item.prefetch}
+                    onFocus={item.prefetch}
                     aria-current={active && !requestedChild ? "page" : undefined}
                     className={`dashboard-sidebar-link group relative flex min-h-11 w-full min-w-0 items-center gap-3 overflow-hidden rounded-xl py-2 pl-3 pr-11 text-accent-sm transition-all duration-200 2xl:py-2.5 ${
                       active
@@ -156,6 +196,8 @@ function SidebarSection({ title, items, activePath, activeSearch, onNavigate }) 
                           key={child.id}
                           to={child.path}
                           onClick={onNavigate}
+                          onPointerEnter={child.prefetch}
+                          onFocus={child.prefetch}
                           aria-current={active && requestedChild === child.id ? "page" : undefined}
                           title={child.name}
                           className={`dashboard-sidebar-child flex min-h-9 min-w-0 items-center gap-2 rounded-lg border px-2 py-1.5 text-xs font-medium transition ${

@@ -6,6 +6,7 @@ import { useGoalContext } from "./goalContext";
 import { goalFailureMessage, goalRevision } from "./goalResponse";
 import { addGoalMonths, formatGoalTime, shiftGoalDay } from "./goalUtils";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
+import { showDashboardToast } from "../../utils/dashboardToast";
 
 const GOAL_TYPES = [
   {
@@ -142,7 +143,7 @@ export default function CreateGoal() {
   };
 
   const startEdit = (goal) => {
-    if (isDemoMode || busy) return;
+    if (busy) return;
     editingRevision.current = goalRevision(goal);
     setEditingId(goal.id);
     setForm({
@@ -163,7 +164,7 @@ export default function CreateGoal() {
   };
 
   const handleDelete = async (id) => {
-    if (isDemoMode || busy) return false;
+    if (busy) return false;
     try {
       await mutate("delete", `/goals/${id}`);
       if (editingId === id) resetForm();
@@ -176,7 +177,7 @@ export default function CreateGoal() {
   };
 
   const handleRestoreGoal = async (log) => {
-    if (isDemoMode || busy || !log?.goalId) return;
+    if (busy || !log?.goalId) return;
     try {
       await mutate("patch", `/goals/${log.goalId}/restore`);
       setUndoError("");
@@ -186,7 +187,7 @@ export default function CreateGoal() {
   };
 
   const saveArchiveEdit = async () => {
-    if (isDemoMode || busy || !archiveEditGoal?.id || !archiveEditForm.title?.trim()) return;
+    if (busy || !archiveEditGoal?.id || !archiveEditForm.title?.trim()) return;
     try {
       await mutate("patch", `/goals/${archiveEditGoal.id}`, {
         ...goalRevision(archiveEditGoal),
@@ -210,9 +211,9 @@ export default function CreateGoal() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isDemoMode || busy) return;
+    if (busy) return;
     const validation = validate();
-    if (validation) { setError(validation); return; }
+    if (validation) { setError(validation); showDashboardToast(validation, "danger"); return; }
     try {
       await mutate(editingId ? "patch" : "post", editingId ? `/goals/${editingId}` : "/goals", {
         ...(editingId ? editingRevision.current : {}),
@@ -250,7 +251,7 @@ export default function CreateGoal() {
         <div ref={formPanelRef} data-goal-create-panel="create" className="schedule-main goal-create-form journal-scroll rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5">
           <h3 className="mb-4 text-sm font-semibold text-amber-200">New Goal</h3>
           <form className="space-y-3" onSubmit={handleSubmit}>
-            <fieldset disabled={busy || isDemoMode} className="space-y-3 min-w-0 border-0 p-0">
+            <fieldset disabled={busy} className="space-y-3 min-w-0 border-0 p-0">
             <div>
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-400">
                 Goal Title *
@@ -369,7 +370,7 @@ export default function CreateGoal() {
 
             <button
               type="submit"
-              disabled={busy || isDemoMode}
+              disabled={busy}
               className="w-full rounded-lg border border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 px-4 py-2 text-xs font-semibold text-amber-200 transition hover:from-amber-400/25 hover:to-orange-400/20"
             >
               {saving ? "Saving..." : editingId ? "Update Goal" : "Add Goal"}
@@ -479,7 +480,7 @@ export default function CreateGoal() {
                     <div className="goal-created-card-actions mt-2 flex flex-wrap items-center justify-end gap-1.5">
                       {isDeletedGoal && goal.canUndoDelete && Date.parse(goal.deleteUndoExpiresAt) > nowMs && (
                         <button type="button" className="dashboard-card-action" data-tone="success"
-                          disabled={busy || isDemoMode} onClick={() => handleRestoreGoal({ goalId: goal.id })}>
+                          disabled={busy} onClick={() => handleRestoreGoal({ goalId: goal.id })}>
                           Restore
                         </button>
                       )}
@@ -487,7 +488,7 @@ export default function CreateGoal() {
                         <>
                           <button
                             type="button"
-                            disabled={busy || isDemoMode}
+                            disabled={busy}
                             onClick={() => startEdit(goal)}
                             className="dashboard-edit-delete-action dashboard-card-action" data-tone="warning"
                           >
@@ -495,7 +496,7 @@ export default function CreateGoal() {
                           </button>
                           <button
                             type="button"
-                            disabled={busy || isDemoMode}
+                            disabled={busy}
                             onClick={() => handleDelete(goal.id)}
                             className="dashboard-edit-delete-action dashboard-card-action" data-tone="danger"
                           >
@@ -632,7 +633,7 @@ export default function CreateGoal() {
                       ((isDemoMode && log.deletedItem) || (!isDemoMode && log.canUndoDelete && log.goalId)) && (
                       <button
                         type="button"
-                        disabled={busy || isDemoMode}
+                        disabled={busy}
                             onClick={() => handleRestoreGoal(log)}
                         className="shrink-0 rounded border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
                         title="Restore goal"
@@ -707,7 +708,7 @@ export default function CreateGoal() {
               {!archiveEditForm.title?.trim() && (
                 <p className="text-[11px] text-rose-300">Title is required.</p>
               )}
-              <button type="button" disabled={busy || isDemoMode} onClick={saveArchiveEdit}
+              <button type="button" disabled={busy} onClick={saveArchiveEdit}
                 className="w-full rounded-lg border border-amber-400/35 bg-gradient-to-r from-amber-400/20 to-orange-400/15 px-4 py-2 text-xs font-semibold text-amber-200 transition hover:from-amber-400/25 hover:to-orange-400/20">
                 Save Changes
               </button>
@@ -723,7 +724,7 @@ export default function CreateGoal() {
             <p className="text-sm font-semibold text-stone-100">Delete this archived goal?</p>
             <p className="mt-1 text-xs text-stone-400">This action cannot be undone — the goal will be permanently removed.</p>
             <div className="mt-4 flex gap-2">
-              <button type="button" disabled={busy || isDemoMode} onClick={doArchiveDelete}
+              <button type="button" disabled={busy} onClick={doArchiveDelete}
                 className="flex-1 rounded-lg border border-rose-400/35 bg-rose-500/15 px-4 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/25">
                 Yes, Delete
               </button>

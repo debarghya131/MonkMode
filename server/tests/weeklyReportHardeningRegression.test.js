@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validWeeklySummaries, validWeeklyReport, validWeeklyAiResponse, weeklyFailureMessage } from "../../client/src/dashboard/weeklyreport/weeklyReportResponse.js";
+import { validWeeklySummaries, validWeeklyReport, validWeeklyAiResponse, readWeeklySavedAnalysis, weeklyFailureMessage } from "../../client/src/dashboard/weeklyreport/weeklyReportResponse.js";
 import { DEMO_JOURNAL_REPORTS, DEMO_JOURNAL_SUMMARIES } from "../../client/src/dashboard/weeklyreport/journalDemoReports.js";
 import { DEMO_TODO_REPORTS, DEMO_TODO_SUMMARIES } from "../../client/src/dashboard/weeklyreport/todoDemoReports.js";
 import { DEMO_HABIT_REPORTS, DEMO_HABIT_SUMMARIES } from "../../client/src/dashboard/weeklyreport/habitDemoReports.js";
@@ -93,6 +93,23 @@ test("weekly AI cache allows null, generation requires nonblank text, invalid va
     assert.equal(validWeeklyAiResponse(invalid), false);
     assert.equal(validWeeklyAiResponse(invalid, true), false);
   }
+});
+test("weekly reports validate optional bundled saved analysis", () => {
+  for (const [module, [reports]] of Object.entries(fixtures)) {
+    const report = Object.values(reports)[0];
+    assert.equal(validWeeklyReport({ ...report, savedAnalysis: { aiSummary: null, stale: false } }, module, report.id), true);
+    assert.equal(validWeeklyReport({ ...report, savedAnalysis: { aiSummary: "Saved analysis", stale: true } }, module, report.id), true);
+    assert.equal(validWeeklyReport({ ...report, savedAnalysis: { aiSummary: {}, stale: false } }, module, report.id), false);
+  }
+});
+test("saved analysis falls back only for an older report response", async () => {
+  let calls = 0;
+  const api = { get: async () => { calls++; return { data: { aiSummary: "Legacy saved analysis", stale: false } }; } };
+  assert.deepEqual(await readWeeklySavedAnalysis({ savedAnalysis: { aiSummary: "Bundled", stale: true } }, api, "/legacy", {}),
+    { aiSummary: "Bundled", stale: true });
+  assert.equal(calls, 0);
+  assert.equal((await readWeeklySavedAnalysis({}, api, "/legacy", {})).aiSummary, "Legacy saved analysis");
+  assert.equal(calls, 1);
 });
 test("weekly HTTP errors never return non-text render values", () => {
   for (const error of [null, {}, { response: { data: null } }, { response: { data: { error: {}, message: [] } } },

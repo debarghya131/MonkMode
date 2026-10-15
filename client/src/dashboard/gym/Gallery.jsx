@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useGymApi } from "./useGymData";
 import { useGymEnvironment } from "./gymContext";
@@ -85,14 +85,14 @@ const normalizeGalleryLogs = (logs) =>
   );
 
 function Lightbox({ logs, startEntryId, startImageId, onClose }) {
-  const allImages = logs.flatMap((log) =>
+  const allImages = useMemo(() => logs.flatMap((log) =>
     log.images.map((image) => ({
       entryId: log.id,
       imageId: image.id,
       src: image.src,
       date: log.date
     }))
-  );
+  ), [logs]);
 
   const initialIndex = allImages.findIndex(
     (image) => image.entryId === startEntryId && image.imageId === startImageId
@@ -197,7 +197,7 @@ export default function Gallery() {
   const { isDemoMode, today, busy, guard } = useGymEnvironment();
   const api = useGymApi();
   const resource = useGymResource("/gym/gallery", DEMO_LOGS, "monkmode:gym-gallery-updated");
-  const logs = normalizeGalleryLogs(resource.data);
+  const logs = useMemo(() => normalizeGalleryLogs(resource.data), [resource.data]);
   const { setData: setLogs, loading } = resource;
   const [dragging, setDragging] = useState(false);
   const [lightbox, setLightbox] = useState(null);
@@ -261,11 +261,11 @@ export default function Gallery() {
     }
   });
 
-  const totalImages = logs.reduce((sum, log) => sum + log.images.length, 0);
-  const logsForLightbox =
+  const totalImages = useMemo(() => logs.reduce((sum, log) => sum + log.images.length, 0), [logs]);
+  const logsForLightbox = useMemo(() =>
     lightbox?.mode === "all-asc"
       ? [...logs].sort((a, b) => a.date.localeCompare(b.date))
-      : logs;
+      : logs, [lightbox?.mode, logs]);
 
   return (
     <>

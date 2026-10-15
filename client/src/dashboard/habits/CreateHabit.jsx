@@ -176,7 +176,7 @@ const loadStoredCategories = (storageKey) => {
 /* ─── Component ─────────────────────────────────────── */
 export default function CreateHabit({ entity = "habit" }) {
   const { isDemoMode, user } = useAuth();
-  const { clock, timezone, demoHabits, requestSignal } = useHabitEnvironment();
+  const { clock, timezone, demoHabits, setDemoHabits, demoCategories, setDemoCategories, requestSignal } = useHabitEnvironment();
   const today = clock.date;
   const storageKey = habitCategoryStorageKey(user?.id, isDemoMode);
   const toDateStr = useCallback(value => habitDayKey(value, timezone), [timezone]);
@@ -230,7 +230,7 @@ export default function CreateHabit({ entity = "habit" }) {
 
   /* categories */
   const [categoryOptions, setCategoryOptions] = useState(() => {
-    const stored = isDemoMode ? [] : loadStoredCategories(storageKey);
+    const stored = isDemoMode ? demoCategories : loadStoredCategories(storageKey);
     const merged = new Map();
     [...DEFAULT_CATEGORIES, ...stored].forEach((category) => {
       const key = category.toLowerCase();
@@ -238,6 +238,10 @@ export default function CreateHabit({ entity = "habit" }) {
     });
     return [...merged.values()];
   });
+  useEffect(() => {
+    if (!isDemoMode) return;
+    setCategoryOptions(previous => [...new Map([...DEFAULT_CATEGORIES, ...demoCategories, ...previous].map(name => [name.toLowerCase(), name])).values()]);
+  }, [demoCategories, isDemoMode]);
   const [showCustomCat, setShowCustomCat] = useState(false);
   const [customCat, setCustomCat] = useState("");
   const [catError, setCatError] = useState("");
@@ -303,6 +307,8 @@ export default function CreateHabit({ entity = "habit" }) {
       const at = entry.at || new Date().toISOString();
       const date = toDateStr(at) || today;
       const time = habitClock(new Date(at), timezone).time;
+      const isDeleted = entry.action === "deleted";
+      const undoMeta = isDeleted ? getDeleteUndoMeta(habit.deletedAt || at) : {};
       return {
         id: `${habit.id}-activity-${index}`,
         title: entry.title || habit.title,
@@ -310,6 +316,7 @@ export default function CreateHabit({ entity = "habit" }) {
         time,
         action: entry.action || "created",
         logAt: at,
+        ...(isDeleted ? { deletedAt: habit.deletedAt || at, deletedItem: habit, ...undoMeta } : {}),
       };
     })));
   }, [demoHabits, isDemoMode, timezone, today, toDateStr]);
@@ -557,11 +564,12 @@ export default function CreateHabit({ entity = "habit" }) {
     const name = customCat.trim();
     if (!name) { setCatError("Please enter a category name."); return; }
     if (name.length > 80) { setCatError("Category name must be 80 characters or fewer."); return; }
-    if (isDemoMode) return;
     const existing = categoryOptions.find((c) => c.toLowerCase() === name.toLowerCase());
     if (!existing) {
       setCategoryOptions((p) => [...p, name]);
+      if (isDemoMode) setDemoCategories((p) => [...p, name]);
       setField("category", name);
+      if (isDemoMode) showToast(`${name} category added to this demo.`);
     } else {
       setField("category", existing);
     }
@@ -570,10 +578,11 @@ export default function CreateHabit({ entity = "habit" }) {
 
   const deleteCategory = (name) => {
     if (DEFAULT_CATEGORIES.includes(name)) { setCatDeleteError("Default categories cannot be deleted."); return; }
-    if (isDemoMode) return;
     setCategoryOptions((p) => p.filter((c) => c.toLowerCase() !== name.toLowerCase()));
+    if (isDemoMode) setDemoCategories((p) => p.filter((category) => category.toLowerCase() !== name.toLowerCase()));
     setCatDeleteError("");
     setForm((p) => ({ ...p, category: p.category.toLowerCase() === name.toLowerCase() ? "" : p.category }));
+    if (isDemoMode) showToast(`${name} category removed from this demo.`, "warning");
   };
 
   const validate = () => {
@@ -620,10 +629,10 @@ export default function CreateHabit({ entity = "habit" }) {
 
   const handleSubmit = async event => {
     event.preventDefault();
-    if (isDemoMode || writeLock.current || writeBlocked || !readyRef.current) return;
+    if ((!isDemoMode && !readyRef.current) || writeLock.current || writeBlocked) return;
     setTouched({ title: true, timeOfDay: true, category: true, priority: true, repeatType: true, time: true, startDate: true });
     const validationError = validate();
-    if (validationError) { setError(validationError); return; }
+    if (validationError) { setError(validationError); showToast(validationError, "danger"); return; }
     writeLock.current = true;
     version.current += 1;
     setSubmitting(true);
@@ -638,6 +647,33 @@ export default function CreateHabit({ entity = "habit" }) {
       time: form.time, repeatType: form.repeatType, startDate: form.startDate || null,
       endDate, days: form.repeatType === "weekdays" ? form.days : [],
     };
+    if (isDemoMode) {
+      const at = new Date();
+      const existing = editId ? habits.find(habit => habit.id === editId) : null;
+      const id = editId || `demo-habit-custom-${at.getTime()}`;
+      const log = { id: `${id}-demo-${at.getTime()}`, action: editId ? "edited" : "created", title: payload.title, at: at.toISOString() };
+      const demoHabit = normalizeHabit({
+        ...existing,
+        ...payload,
+        id,
+        reason: payload.note,
+        currentStreak: existing?.currentStreak ?? 0,
+        maxStreak: existing?.maxStreak ?? 0,
+        streakBreaks: existing?.streakBreaks ?? 0,
+        completedToday: existing?.completedToday ?? false,
+        completedDayKeys: existing?.completedDayKeys ?? [],
+        isImportant: existing?.isImportant ?? payload.priority === "High",
+        activityLogs: [...(existing?.activityLogs || []), log],
+      }, today, timezone);
+      setHabits(previous => editId ? previous.map(habit => habit.id === id ? demoHabit : habit) : [demoHabit, ...previous]);
+      setDemoHabits(previous => editId ? previous.map(habit => habit.id === id ? demoHabit : habit) : [demoHabit, ...previous]);
+      setHabitLogs(previous => [{ id: `${id}-activity-${at.getTime()}`, title: payload.title, action: log.action, date: toDateStr(at), time: getLocalHHMM(at), logAt: at.toISOString() }, ...previous]);
+      resetForm();
+      showToast(editId ? "Habit updated in this demo." : "Habit added to this demo.");
+      writeLock.current = false;
+      setSubmitting(false);
+      return;
+    }
     let acknowledged = false;
     try {
       const options = { signal: requestSignal, timeout: 20000 };
@@ -666,12 +702,25 @@ export default function CreateHabit({ entity = "habit" }) {
   };
 
   const handleDelete = async id => {
-    if (isDemoMode || writeLock.current || writeBlocked) return;
+    if (writeLock.current || writeBlocked) return;
     const habit = habits.find(h => h.id === id);
     if (!habit) return;
     writeLock.current = true;
     const confirmed = await openConfirm({ title: 'Delete "' + habit.title + '"?', message: "This removes the habit from active lists. You can restore it within 48 hours.", confirmLabel: "Delete Habit", tone: "danger" });
     if (!confirmed || !live.current) { writeLock.current = false; return; }
+    if (isDemoMode) {
+      const at = new Date();
+      const deleted = { ...habit, deletedAt: at.toISOString(), archivedReason: "deleted" };
+      const log = { id: `${id}-del-${at.getTime()}`, title: habit.title, date: toDateStr(at), time: getLocalHHMM(at), action: "deleted", deletedAt: at.toISOString(), deletedItem: deleted, logAt: at.toISOString(), ...getDeleteUndoMeta(at) };
+      const updated = { ...deleted, activityLogs: [...(habit.activityLogs || []), { id: log.id, action: "deleted", title: habit.title, at: at.toISOString() }] };
+      setHabits(previous => previous.map(item => item.id === id ? updated : item));
+      setDemoHabits(previous => previous.map(item => item.id === id ? updated : item));
+      setHabitLogs(previous => [log, ...previous]);
+      if (editingId === id) resetForm();
+      showToast(habit.title + " moved to Archive. You can restore it in this demo.", "warning");
+      writeLock.current = false;
+      return;
+    }
     version.current += 1;
     setDeletingHabitId(id);
     setError("");
@@ -699,11 +748,20 @@ export default function CreateHabit({ entity = "habit" }) {
   const handleUndoDelete = async (logId, fallbackItem = null) => {
     const log = habitLogs.find(entry => entry.id === logId);
     const item = log?.deletedItem || fallbackItem;
-    if (!item || isDemoMode || writeLock.current || writeBlocked) return;
+    if (!item || writeLock.current || writeBlocked) return;
     if (!getDeleteUndoMeta(item.deletedAt).canUndoDelete) { setUndoError("Restore expired. Deleted habits can only be restored within 48 hours."); return; }
     writeLock.current = true;
     const confirmed = await openConfirm({ title: 'Restore "' + item.title + '"?', message: "This restores the habit. If its end date has passed, it will remain in Archive.", confirmLabel: "Restore Habit", tone: "success" });
     if (!confirmed || !live.current) { writeLock.current = false; return; }
+    if (isDemoMode) {
+      const restored = { ...item, deletedAt: null, archivedReason: null, activityLogs: [...(item.activityLogs || []), { id: `${item.id}-restore-${Date.now()}`, action: "restored", title: item.title, at: new Date().toISOString() }] };
+      setHabits(previous => [restored, ...previous.filter(habit => habit.id !== item.id)]);
+      setDemoHabits(previous => [restored, ...previous.filter(habit => habit.id !== item.id)]);
+      setHabitLogs(previous => previous.filter(entry => entry.id !== logId));
+      showToast(item.title + " restored in this demo.");
+      writeLock.current = false;
+      return;
+    }
     version.current += 1;
     setRestoringLogId(logId);
     setUndoError("");
@@ -727,7 +785,7 @@ export default function CreateHabit({ entity = "habit" }) {
   };
 
   const startEdit = (h) => {
-    if (isDemoMode || writeLock.current || writeBlocked) return;
+    if (writeLock.current || writeBlocked) return;
     editingRevision.current = habitRevision(h);
     setError("");
     setEditingId(h.id);
@@ -811,7 +869,7 @@ export default function CreateHabit({ entity = "habit" }) {
         >
           <h3 className="mb-4 text-sm font-semibold text-amber-200">{editingId ? `Edit ${singular}` : `New ${singular}`}</h3>
           <form onSubmit={handleSubmit}>
-          <fieldset className="space-y-3 min-w-0" disabled={submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}>
+          <fieldset className="space-y-3 min-w-0" disabled={submitting || deletingHabitId != null || restoringLogId != null}>
 
             {/* Title */}
             <div>
@@ -1202,19 +1260,19 @@ export default function CreateHabit({ entity = "habit" }) {
                         <div className="habit-item-actions mt-2 flex flex-wrap items-center justify-end gap-1.5">
                           {!isArchiveView ? (
                             <>
-                              <button type="button" onClick={() => startEdit(h)} disabled={writeBlocked || submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
+                              <button type="button" onClick={() => startEdit(h)} disabled={writeBlocked || submitting || deletingHabitId != null || restoringLogId != null}
                                 className="dashboard-edit-delete-action dashboard-card-action" data-tone="warning">
                                 Edit
                               </button>
                               <button type="button" onClick={() => handleDelete(h.id)}
-                                disabled={writeBlocked || submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
+                                disabled={writeBlocked || submitting || deletingHabitId != null || restoringLogId != null}
                                 className="dashboard-edit-delete-action dashboard-card-action" data-tone="danger">
                                 {deletingHabitId === h.id ? "Deleting..." : "Delete"}
                               </button>
                             </>
                           ) : (
                             <button type="button" className="dashboard-card-action" data-tone="warning"
-                              disabled={writeBlocked || submitting || deletingHabitId != null || restoringLogId != null || isDemoMode}
+                              disabled={writeBlocked || submitting || deletingHabitId != null || restoringLogId != null}
                               onClick={() => handleUndoDelete(h.id + "-archive", h)}>Restore</button>
                           )}
                         </div>

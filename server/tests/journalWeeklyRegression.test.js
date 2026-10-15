@@ -171,6 +171,30 @@ test("detail and picker metrics agree, query only the authenticated user's range
   assert.deepEqual(detail.missedDays.map(day => day.date), [days[5]]);
 });
 
+test("detail can include saved analysis without a second report query or AI call", async t => {
+  const report = fixture(t);
+  noAiSideEffects(t);
+  t.mock.method(JournalWeeklySummary, "findOne", filter => {
+    assert.equal(filter.userId, USER_ID);
+    assert.deepEqual(filter.$or, [{ weekStart: WEEK }, { weekId: WEEK }]);
+    return query({ aiSummary: "Saved analysis", sourceHash: journalReportFingerprint(report) });
+  });
+  const result = await call(getJournalWeeklyReport, request({ query: { week: WEEK, includeAnalysis: "1" } }));
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body.savedAnalysis, { aiSummary: "Saved analysis", stale: false });
+  assert.equal(result.body.loggedDays, report.loggedDays);
+});
+
+test("saved-analysis cache failure does not hide the journal report", async t => {
+  fixture(t);
+  t.mock.method(JournalWeeklySummary, "findOne", () => query(Promise.reject(new Error("Cache unavailable"))));
+  const result = await call(getJournalWeeklyReport, request({ query: { week: WEEK, includeAnalysis: "1" } }));
+  assert.equal(result.status, 200);
+  assert.equal(result.body.loggedDays, 1);
+  assert.equal(result.body.savedAnalysis.aiSummary, null);
+  assert.match(result.body.savedAnalysis.error, /retry/i);
+});
+
 test("database read failures remain errors, never empty successful history", async t => {
   fixture(t);
   t.mock.method(Journal, "find", () => ({ lean: async () => { throw new Error("Database unavailable"); } }));

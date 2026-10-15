@@ -1,6 +1,6 @@
 import DashboardDateTimeInput from "../../components/DashboardDateTimeInput";
 import { motion as Motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { gymRevision } from "./gymResponse";
 
 import { useGymEnvironment } from "./gymContext";
@@ -189,7 +189,7 @@ export default function Measurements({ lowMotion = false }) {
   const { today: currentDate, now, guard } = useGymEnvironment();
   const api = useGymApi();
   const resource = useGymResource("/gym/measurements", createDemoEntries(currentDate), "monkmode:gym-measurements-updated");
-  const entries = sortEntries(Array.isArray(resource.data) ? resource.data : []);
+  const entries = useMemo(() => sortEntries(Array.isArray(resource.data) ? resource.data : []), [resource.data]);
   const { setData: setEntries, loading } = resource;
   const [form, setForm] = useState(() => createBlankForm(currentDate));
   const [mobilePanel, setMobilePanel] = useState("add");
@@ -203,11 +203,11 @@ export default function Measurements({ lowMotion = false }) {
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
 
-  const visibleEntries = entries.filter((entry) => {
+  const visibleEntries = useMemo(() => entries.filter((entry) => {
     if (!entry?.deletedAt) return true;
     return getDeleteUndoMeta(entry, nowMs).canUndoDelete;
-  });
-  const activeEntries = entries.filter((entry) => !entry?.deletedAt);
+  }), [entries, nowMs]);
+  const activeEntries = useMemo(() => entries.filter((entry) => !entry?.deletedAt), [entries]);
 
   useEffect(() => {
     if (!entries.length) {
@@ -534,7 +534,7 @@ export default function Measurements({ lowMotion = false }) {
         </section>
 
         <section className="gym-measurements-saved-panel flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.4rem] border border-amber-100/10 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_42%),linear-gradient(180deg,rgba(20,14,12,0.96),rgba(10,8,8,0.98))] p-4 shadow-lg shadow-black/25 sm:rounded-[1.75rem] sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="mt-2 text-xl font-semibold text-stone-100">
                 Saved measurements
