@@ -1,4 +1,4 @@
-## 🧘 MonkMode: AI-Powered Self-Improvement Platform
+git## 🧘 MonkMode: AI-Powered Self-Improvement Platform
 
 MonkMode is a full-stack discipline, productivity, and self-improvement dashboard. It helps users track journals, tasks, habits, goals, gym progress, analytics, weekly reports, and AI-powered discipline insights from one focused web app.
 
