@@ -2,7 +2,7 @@ import { TODO_TABS as TABS } from "./todoTabs";
 
 export { TABS };
 
-export default function ToDoNavbar({ active, onChange }) {
+export default function ToDoNavbar({ active, onChange, onPrefetch }) {
   return (
     <nav data-demo-allow="true" className="flex items-center gap-1 w-full overflow-x-auto rounded-2xl border border-amber-100/10 bg-white/6 p-1.5 shadow-xl shadow-black/25 backdrop-blur scrollbar-none">
       {TABS.map((tab) => {
@@ -12,6 +12,8 @@ export default function ToDoNavbar({ active, onChange }) {
             key={tab.id}
             type="button"
             onClick={() => onChange(tab.id)}
+            onPointerEnter={() => onPrefetch?.(tab.id)}
+            onFocus={() => onPrefetch?.(tab.id)}
             aria-pressed={isActive}
             className="dashboard-section-tab flex min-w-[5rem] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold"
           >

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../../../api/axios";
 import { todoReportDay } from "../../../../../shared/todoWeeklyStats.js";
-import { demoGoalAnalysis } from "./goalAnalysisData";
 import { goalAnalysisClockValid, validGoalAnalysisResponse } from "./goalAnalysisResponse";
 
 export default function useGoalAnalysisData(isDemoMode) {
@@ -29,8 +28,15 @@ export default function useGoalAnalysisData(isDemoMode) {
     const controller = new AbortController();
     setState({ loading: true, error: "", data: null });
     if (isDemoMode) {
-      setState({ loading: false, error: "", data: demoGoalAnalysis(period.year, period.month) });
-      return;
+      // Live accounts do not need the fixture generator or its aggregation code.
+      import("./goalAnalysisData")
+        .then(({ demoGoalAnalysis }) => {
+          if (!controller.signal.aborted) setState({ loading: false, error: "", data: demoGoalAnalysis(period.year, period.month) });
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setState({ loading: false, error: "Could not load Goal Analysis. Please retry.", data: null });
+        });
+      return () => controller.abort();
     }
     api.get("/goals/analysis", { params: { year: period.year, month: Number(period.month) }, signal: controller.signal, timeout: 15000 })
       .then(({ data }) => {

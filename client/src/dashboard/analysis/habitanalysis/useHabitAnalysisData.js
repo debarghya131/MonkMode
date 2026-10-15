@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../../../api/axios";
 import { todoReportDay } from "../../../../../shared/todoWeeklyStats.js";
-import { demoHabitAnalysis } from "./habitAnalysisData";
 import { habitAnalysisClockValid, validHabitAnalysisResponse } from "./habitAnalysisResponse";
 
 export default function useHabitAnalysisData(isDemoMode) {
@@ -27,8 +26,15 @@ export default function useHabitAnalysisData(isDemoMode) {
     const controller = new AbortController();
     setState({ loading: true, error: "", data: null });
     if (isDemoMode) {
-      setState({ loading: false, error: "", data: demoHabitAnalysis(period.year, period.month) });
-      return;
+      // Keep demo-only fixture generation out of the signed-in analysis bundle.
+      import("./habitAnalysisData")
+        .then(({ demoHabitAnalysis }) => {
+          if (!controller.signal.aborted) setState({ loading: false, error: "", data: demoHabitAnalysis(period.year, period.month) });
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setState({ loading: false, error: "Could not load Habit Analysis. Please retry.", data: null });
+        });
+      return () => controller.abort();
     }
     api.get("/habits/analysis", { params: { year: period.year, month: Number(period.month) }, signal: controller.signal, timeout: 15000 })
       .then(({ data }) => {

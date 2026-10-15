@@ -31,6 +31,7 @@ const MOOD_EMOJI = {
   sad: "😔",
   neutral: "😐"
 };
+const HISTORY_PAGE_SIZE = 6;
 
 const normalizeEntry = (entry) => {
   const moodLabel = typeof entry?.mood === "string" ? entry.mood : entry?.mood?.label || "Neutral";
@@ -281,7 +282,7 @@ function EntryModal({ entry, onClose }) {
   );
 }
 
-function JournalRightSidebar({ refreshToken = 0 }) {
+function JournalRightSidebar({ refreshToken = 0, loadHistory = true, loadMissed = true }) {
   const { isDemoMode } = useAuth();
   const [modalEntry, setModalEntry] = useState(null);
   const [history, setHistory] = useState([]);
@@ -307,6 +308,7 @@ function JournalRightSidebar({ refreshToken = 0 }) {
   const [reasonError, setReasonError] = useState("");
 
   useEffect(() => {
+    if (!loadHistory) return undefined;
     const version = ++historyVersion.current;
     setHistoryError("");
     setHistoryPage(1);
@@ -325,7 +327,7 @@ function JournalRightSidebar({ refreshToken = 0 }) {
     const loadEntries = async () => {
       setLoading(true);
       try {
-        const res = await api.get("/journal?page=1&limit=14", { signal: controller.signal, timeout: 15000 });
+        const res = await api.get(`/journal?page=1&limit=${HISTORY_PAGE_SIZE}`, { signal: controller.signal, timeout: 15000 });
         if (controller.signal.aborted) return;
         if (!validJournalEntries(res.data, 1)) throw new Error("Invalid history response");
         const entries = journalEntries(res.data);
@@ -340,7 +342,7 @@ function JournalRightSidebar({ refreshToken = 0 }) {
 
     loadEntries();
     return () => { controller.abort(); historyRequest.current?.abort(); if (historyVersion.current === version) historyVersion.current += 1; };
-  }, [isDemoMode, refreshToken, historyAttempt]);
+  }, [isDemoMode, loadHistory, refreshToken, historyAttempt]);
 
   const loadOlderEntries = async () => {
     if (isDemoMode || loading || loadingMoreRef.current || !hasMore) return;
@@ -352,7 +354,7 @@ function JournalRightSidebar({ refreshToken = 0 }) {
     setHistoryError("");
     try {
       const nextPage = historyPage + 1;
-      const res = await api.get(`/journal?page=${nextPage}&limit=14`, { signal: controller.signal, timeout: 15000 });
+      const res = await api.get(`/journal?page=${nextPage}&limit=${HISTORY_PAGE_SIZE}`, { signal: controller.signal, timeout: 15000 });
       if (controller.signal.aborted || version !== historyVersion.current) return;
       if (!validJournalEntries(res.data, nextPage)) throw new Error("Invalid older entries");
       const nextEntries = res.data.entries.map(normalizeEntry);
@@ -371,6 +373,7 @@ function JournalRightSidebar({ refreshToken = 0 }) {
   };
 
   useEffect(() => {
+    if (!loadMissed) return undefined;
     setMissedError("");
     reasonSaving.current = false;
     setSaving(false);
@@ -397,7 +400,7 @@ function JournalRightSidebar({ refreshToken = 0 }) {
 
     loadMissedDays();
     return () => { controller.abort(); reasonRequest.current?.abort(); };
-  }, [isDemoMode, refreshToken, missedAttempt]);
+  }, [isDemoMode, loadMissed, refreshToken, missedAttempt]);
 
   const handleStartEdit = (day) => {
     if (isDemoMode) return;

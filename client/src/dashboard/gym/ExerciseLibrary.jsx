@@ -123,28 +123,26 @@ export default function ExerciseLibrary() {
   const [error, setError] = useState("");
 
   const allExercises = useMemo(() => [...EXERCISE_LIBRARY, ...customExercises], [customExercises]);
-
-  const groupCounts = useMemo(
-    () =>
-      [...new Set([...BODY_PART_GROUPS.map(({ group }) => group), ...allExercises.map(exercise => getBodyGroup(exercise.bodyPart))])].filter(Boolean).map(group => ({
-        group,
-        count: allExercises.filter((exercise) => getBodyGroup(exercise.bodyPart) === group).length,
-      })).filter(({ count }) => count > 0),
-    [allExercises]
-  );
-
-  const visibleGroups = useMemo(() => {
-    const groups = selectedGroup === "all" ? groupCounts.map(({ group }) => group) : [selectedGroup];
-
-    return groups
-      .map((group) => ({
-        group,
-        exercises: allExercises.filter((exercise) => getBodyGroup(exercise.bodyPart) === group).sort((a, b) =>
-          a.name.localeCompare(b.name)
-        ),
-      }))
-      .filter(({ exercises }) => exercises.length > 0);
-  }, [groupCounts, selectedGroup, allExercises]);
+  const groupedExercises = useMemo(() => {
+    const groups = new Map(BODY_PART_GROUPS.map(({ group }) => [group, []]));
+    allExercises.forEach((exercise) => {
+      const group = getBodyGroup(exercise.bodyPart);
+      if (!group) return;
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group).push(exercise);
+    });
+    return [...groups].filter(([, exercises]) => exercises.length).map(([group, exercises]) => ({
+      group,
+      exercises: exercises.sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+  }, [allExercises]);
+  const groupCounts = useMemo(() => groupedExercises.map(({ group, exercises }) => ({
+    group,
+    count: exercises.length,
+  })), [groupedExercises]);
+  const visibleGroups = useMemo(() => selectedGroup === "all"
+    ? groupedExercises
+    : groupedExercises.filter(({ group }) => group === selectedGroup), [groupedExercises, selectedGroup]);
 
   const totalVisibleExercises = visibleGroups.reduce((sum, group) => sum + group.exercises.length, 0);
 

@@ -66,7 +66,7 @@ export default function Login() {
 
   return (
     <div className="auth-page auth-flow-page relative flex min-h-dvh items-center justify-center overflow-x-hidden px-4 py-6 text-white sm:px-6 sm:py-8">
-      <AuthBackground />
+      <AuthBackground lightweight defer />
 
       <div className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center">
         <AuthFloatingMonk />

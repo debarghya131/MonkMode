@@ -3,10 +3,23 @@ import api from "../../api/axios";
 import { GOALS } from "../../../data/GoalDummyData";
 import { buildDemoGoals, DEFAULT_GOAL_TIMEZONE, goalDayKey, normalizeGoal } from "./goalUtils";
 import { validGoals, validGoalSummary, validGoalLogs, validGoalConfirmation, goalFailureMessage, goalRevision } from "./goalResponse";
+import { showDashboardToast } from "../../utils/dashboardToast";
 
-export default function useGoalData(isDemoMode) {
+const demoLog = (goal, action, today) => ({
+  id: `demo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  goalId: goal.id,
+  title: goal.title,
+  action,
+  date: today,
+  time: new Intl.DateTimeFormat("en-GB", { timeZone: DEFAULT_GOAL_TIMEZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date()),
+  ...(action === "deleted" ? { deletedItem: true } : {}),
+});
+
+export default function useGoalData(isDemoMode, loadLogs = false) {
   const [rawGoals, setRawGoals] = useState([]);
+  const [demoGoals, setDemoGoals] = useState(() => buildDemoGoals(GOALS, goalDayKey(new Date(), DEFAULT_GOAL_TIMEZONE)));
   const [goalLogs, setGoalLogs] = useState([]);
+  const [demoGoalLogs, setDemoGoalLogs] = useState([]);
   const [timezone, setTimezone] = useState(DEFAULT_GOAL_TIMEZONE);
   const [skew, setSkew] = useState(0);
   const [tick, setTick] = useState(Date.now());
@@ -24,8 +37,11 @@ export default function useGoalData(isDemoMode) {
   const controller = useRef(null);
   const version = useRef(0);
   const writeLock = useRef(false);
+  const logsEnabled = useRef(loadLogs);
+  const wasLogsEnabled = useRef(loadLogs);
+  logsEnabled.current = loadLogs;
   const today = goalDayKey(new Date(tick + skew), timezone);
-  const goals = useMemo(() => isDemoMode ? buildDemoGoals(GOALS, today) : rawGoals.map(goal => normalizeGoal(goal, timezone, today)), [isDemoMode, rawGoals, timezone, today]);
+  const goals = useMemo(() => isDemoMode ? demoGoals.map(goal => normalizeGoal(goal, timezone, today)) : rawGoals.map(goal => normalizeGoal(goal, timezone, today)), [isDemoMode, demoGoals, rawGoals, timezone, today]);
 
   const refresh = useCallback(async ({ recover = false } = {}) => {
     if (isDemoMode || !live.current || writeLock.current) return false;
@@ -65,7 +81,7 @@ export default function useGoalData(isDemoMode) {
         if (isCurrent()) setLogsError("Could not refresh goal activity. Your goal list is still available.");
       }
     };
-    const [loaded] = await Promise.all([listJob(), logsJob()]);
+    const [loaded] = await Promise.all([listJob(), ...(logsEnabled.current ? [logsJob()] : [])]);
     if (loaded && isCurrent() && recover) { setWriteBlocked(false); setActionError(""); setRecoveryEpoch(value => value + 1); }
     return Boolean(loaded && isCurrent());
   }, [isDemoMode]);
@@ -75,7 +91,6 @@ export default function useGoalData(isDemoMode) {
     controller.current = new AbortController();
     const update = () => setTick(Date.now());
     const onFocus = () => { update(); refresh(); };
-    const clock = window.setInterval(update, 1000);
     const poll = window.setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 60000);
     window.addEventListener("focus", onFocus);
     window.addEventListener("monkmode:goals-updated", refresh);
@@ -84,17 +99,62 @@ export default function useGoalData(isDemoMode) {
       version.current += 1;
       controller.current.abort();
       readController.current?.abort();
-      window.clearInterval(clock);
       window.clearInterval(poll);
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("monkmode:goals-updated", refresh);
     };
   }, [refresh]);
 
+  useEffect(() => {
+    const update = () => setTick(Date.now());
+    update();
+    const clock = window.setInterval(update, loadLogs ? 1000 : 30000);
+    return () => window.clearInterval(clock);
+  }, [loadLogs]);
+
   useEffect(() => { refresh(); }, [today, refresh]);
+  useEffect(() => {
+    if (loadLogs && !wasLogsEnabled.current) void refresh();
+    wasLogsEnabled.current = loadLogs;
+  }, [loadLogs, refresh]);
 
   const mutate = async (method, path, body) => {
-    if (isDemoMode) throw new Error("Demo goals are read-only.");
+    if (isDemoMode) {
+      const parts = path.split("/").filter(Boolean);
+      const goalId = parts[1];
+      const subgoalId = parts[3];
+      let result;
+      let action = "edited";
+      let next = [...demoGoals];
+      if (method === "post" && path === "/goals") {
+        result = normalizeGoal({ id: `demo-goal-${Date.now()}`, ...body, description: body.description || "", isImportant: false, currentValue: 0, targetValue: 0, milestones: [], status: "Active", archiveReason: null }, timezone, today);
+        next = [result, ...next]; action = "created";
+      } else {
+        const index = next.findIndex(item => item.id === goalId);
+        if (index < 0) throw new Error("That demo goal is no longer available.");
+        const goal = next[index];
+        if (parts[2] === "important") { next[index] = { ...goal, isImportant: body.isImportant }; action = "important_toggled"; }
+        else if (parts[2] === "restore") { next[index] = { ...goal, deletedAt: null, archiveReason: null, canUndoDelete: false, deleteUndoExpiresAt: null }; action = "restored"; }
+        else if (parts[2] === "subgoals" && method === "post") {
+          const milestone = { id: `demo-milestone-${Date.now()}`, title: body.title.trim(), deadline: body.deadline, completed: false };
+          next[index] = { ...goal, milestones: [...(goal.milestones || []), milestone] }; action = "subgoal_added";
+        } else if (parts[2] === "subgoals" && parts[4] === "progress") {
+          next[index] = { ...goal, milestones: goal.milestones.map(row => row.id === subgoalId ? { ...row, completed: Boolean(body.completed) } : row) };
+          action = body.completed ? "subgoal_completed" : "subgoal_reopened";
+        } else if (parts[2] === "subgoals" && method === "delete") {
+          next[index] = { ...goal, milestones: goal.milestones.filter(row => row.id !== subgoalId) }; action = "subgoal_deleted";
+        } else if (method === "delete") {
+          next[index] = { ...goal, deletedAt: new Date().toISOString(), archiveReason: "deleted", canUndoDelete: true, deleteUndoExpiresAt: new Date(Date.now() + 86400000).toISOString() }; action = "deleted";
+        } else {
+          next[index] = normalizeGoal({ ...goal, ...body }, timezone, today); action = "edited";
+        }
+        result = next[index];
+      }
+      setDemoGoals(next);
+      setDemoGoalLogs(previous => [demoLog(result, action, today), ...previous.map(log => action === "restored" && log.goalId === result.id ? { ...log, deletedItem: false } : log)].slice(0, 50));
+      showDashboardToast(`${action === "created" ? "Goal created" : action === "edited" ? "Goal updated" : action === "deleted" ? "Goal deleted" : action === "restored" ? "Goal restored" : action === "important_toggled" ? "Goal importance updated" : action === "subgoal_added" ? "Sub-goal added" : action === "subgoal_deleted" ? "Sub-goal deleted" : action === "subgoal_completed" ? "Sub-goal completed" : "Sub-goal reopened"}. Demo changes are temporary.`, "success");
+      return result;
+    }
     if (writeBlocked) throw new Error("Reload goals before another change. The last change could not be confirmed.");
     if (!live.current || writeLock.current) throw new Error("Another goal update is saving. Please try again shortly.");
     writeLock.current = true;
@@ -117,6 +177,7 @@ export default function useGoalData(isDemoMode) {
       return goal;
     } catch (error) {
       const message = goalFailureMessage(error, "Could not save the goal. Please retry.");
+      showDashboardToast(message, "danger");
       if (live.current) {
         if (acknowledged || !error.response || error.response.status === 409 || error.response.status >= 500) setWriteBlocked(true);
         setActionError(message);
@@ -132,6 +193,6 @@ export default function useGoalData(isDemoMode) {
     }
   };
 
-  const demoLogs = useMemo(() => goals.slice(0, 3).map(goal => ({ id: `${goal.id}-created`, goalId: goal.id, title: goal.title, action: "created", date: goal.startDate < today ? goal.startDate : today, time: "06:30" })), [goals, today]);
+  const demoLogs = useMemo(() => [...demoGoalLogs, ...goals.filter(goal => GOALS.slice(0, 3).some(sample => sample.id === goal.id)).map(goal => ({ id: `${goal.id}-created`, goalId: goal.id, title: goal.title, action: "created", date: goal.startDate < today ? goal.startDate : today, time: "06:30" }))], [demoGoalLogs, goals, today]);
   return { goals, goalLogs: isDemoMode ? demoLogs : goalLogs, timezone, today, nowMs: tick + skew, ready, loadError, logsError, logsReady, actionError, warning, busy: busy || writeBlocked, saving: busy, writeBlocked, recoveryEpoch, refresh, mutate, isDemoMode };
 }

@@ -1,12 +1,12 @@
-import { useRef, useEffect, useLayoutEffect, useState } from "react";
+import { useRef, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { motion as Motion, AnimatePresence, MotionConfig } from "framer-motion";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import mingLogo from "../../assets/minglogo1.webp";
 import mingAvatar from "../../assets/minglogo2.webp";
-import { GURU_MESSAGE_LIMIT, GURU_HISTORY_LIMIT } from "../../../../shared/guruInsightsStats.js";
-import { createDemoGuruInsights, demoGuruReply, guruCards, guruPatterns, guruSuggestions } from "./guruPresentation";
+import { GURU_MESSAGE_LIMIT, GURU_HISTORY_LIMIT } from "../../../../shared/guruInsightsConfig.js";
+import { demoGuruReply, guruCards, guruPatterns, guruSuggestions } from "./guruPresentation";
 import { validGuruInsights, validGuruReply, guruFailureMessage } from "./guruResponse";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -16,6 +16,7 @@ const SCOPES = [
   { key: "30d", label: "30 Days"  },
   { key: "all", label: "All Time" },
 ];
+const INSIGHTS_CACHE_MS = 30_000;
 
 const INITIAL_MESSAGES = [
   {
@@ -97,6 +98,7 @@ function GuruSession({ isDemoMode, lowMotion }) {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState(null);
   const [activeTab, setActiveTab] = useState("chat"); // "insights" | "chat"
+  const insightsCacheRef = useRef(new Map());
 
   // Chat state
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
@@ -133,19 +135,34 @@ function GuruSession({ isDemoMode, lowMotion }) {
   useEffect(() => {
     if (activeTab !== "insights") return;
     const controller = new AbortController();
-    setData(null);
-    setError(null);
-    if (isDemoMode) {
-      setData(createDemoGuruInsights(scope));
+    const cached = insightsCacheRef.current.get(scope);
+    if (cached && Date.now() - cached.savedAt < INSIGHTS_CACHE_MS) {
+      setData(cached.data);
+      setError(null);
       setLoading(false);
       return;
     }
+    setData(null);
+    setError(null);
     setLoading(true);
+    if (isDemoMode) {
+      import("./guruDemoInsights")
+        .then(({ createDemoGuruInsights }) => {
+          if (controller.signal.aborted) return;
+          const result = createDemoGuruInsights(scope);
+          insightsCacheRef.current.set(scope, { data: result, savedAt: Date.now() });
+          setData(result);
+        })
+        .catch(() => { if (!controller.signal.aborted) setError("Could not load sample Insights. Please retry."); })
+        .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+      return () => controller.abort();
+    }
     api.get("/insights/summary", { params: { scope }, signal: controller.signal, timeout: 15000 })
       .then(({ data: result }) => {
         if (controller.signal.aborted) return;
         if (!validGuruInsights(result, scope))
           throw new Error("Invalid insights response");
+        insightsCacheRef.current.set(scope, { data: result, savedAt: Date.now() });
         setData(result);
       })
       .catch(err => {
@@ -207,9 +224,9 @@ function GuruSession({ isDemoMode, lowMotion }) {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); sendPrompt(prompt); }
   };
 
-  const cards       = data ? guruCards(data)            : [];
-  const patterns    = data ? guruPatterns(data)           : [];
-  const suggestions = data ? guruSuggestions(data)    : [];
+  const cards = useMemo(() => data ? guruCards(data) : [], [data]);
+  const patterns = useMemo(() => data ? guruPatterns(data) : [], [data]);
+  const suggestions = useMemo(() => data ? guruSuggestions(data) : [], [data]);
 
   return (
     <section data-demo-allow="true" className="ai-guru-page min-h-0 w-full">

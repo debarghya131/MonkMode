@@ -1423,11 +1423,17 @@ export default function AddWorkout({ lowMotion = false }) {
         <section
           className="gym-add-list flex min-h-0 min-w-0 flex-col rounded-[1.4rem] border border-amber-100/10 bg-gradient-to-b from-black/20 to-black/10 p-4 shadow-xl shadow-black/20 sm:rounded-2xl sm:p-5"
         >
-          <div className="gym-add-list-header mb-4 shrink-0 flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-amber-200">All Workouts</p>
-              <p className="mt-0.5 text-xs text-stone-400">Your saved workout plans.</p>
+          <div className="gym-add-list-header mb-4 shrink-0">
+            <div className="gym-add-list-heading">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-amber-200">All Workouts</p>
+                <p className="mt-0.5 text-xs text-stone-400">Your saved workout plans.</p>
+              </div>
+              <span className="shrink-0 rounded-full border border-amber-100/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
+                {displayedWorkouts.length} shown
+              </span>
             </div>
+            <div className="gym-add-list-controls">
               <div className="gym-add-view-tabs mt-2 flex flex-wrap items-center gap-1.5">
                 {["active", "archive"].map((view) => (
                   <button
@@ -1474,9 +1480,7 @@ export default function AddWorkout({ lowMotion = false }) {
                   </button>
                 ))}
               </div>
-            <span className="shrink-0 rounded-full border border-amber-100/10 bg-white/5 px-3 py-1 text-xs text-stone-300">
-              {displayedWorkouts.length} total
-            </span>
+            </div>
           </div>
 
           <div ref={workoutListRef} className="gym-add-list-body journal-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">

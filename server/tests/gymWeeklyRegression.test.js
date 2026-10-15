@@ -6,7 +6,8 @@ import GymGalleryEntry from "../models/GymGalleryEntry.js";
 import GymDietPlan from "../models/GymDietPlan.js";
 import GymWeeklySummary from "../models/GymWeeklySummary.js";
 import weeklyRoutes from "../routes/weeklyReportRoutes.js";
-import { getGymWeeklyReport, getGymSummaries, generateGymAiSummary } from "../controllers/weeklyReportController.js";
+import { getGymWeeklyReport, getGymWeeklyPhotos, getGymSummaries, generateGymAiSummary } from "../controllers/weeklyReportController.js";
+import { validWeeklyReport, validWeeklyGymPhotos } from "../../client/src/dashboard/weeklyreport/weeklyReportResponse.js";
 import { computeGymWeeklyReport, gymReportDays, gymReportNumber, gymNutritionReference, gymReportBodyGroup } from "../../shared/gymWeeklyStats.js";
 import { buildGymWeeklyReport, completedGymWeeks, gymReportFingerprint, gymAiContext } from "../utils/gymWeeklyReportUtils.js";
 import { createDemoGymReports } from "../../client/src/dashboard/weeklyreport/gymDemoReports.js";
@@ -159,6 +160,38 @@ test("picker includes workout, measurement-only and photo-only weeks and matches
   const picker=await call(getGymSummaries),detail=await call(getGymWeeklyReport);
   assert.equal(picker.status,200); assert.equal(picker.body.length,3); assert.equal(picker.body[0].exerciseLogs,detail.body.stats.exerciseLogs);
   assert.equal(picker.body[1].measurementDays,1); assert.equal(picker.body[2].photoCount,1);
+});
+
+test("gym summary omits photo sources until the owner opens the photo view", async t => {
+  fixture(t, { exercises: [exercise()], gallery: [photo()], macroPlans: [{ planType: "macros", isActive: true,
+    day: "Mon", values: { protein: "150 g" } }] });
+  const lean = await call(getGymWeeklyReport, request({ query: { week: WEEK, photos: "omit" } }));
+  assert.equal(lean.status, 200);
+  assert.equal(lean.body.photosOmitted, true);
+  assert.equal(lean.body.stats.photoCount, 1);
+  assert.equal(lean.body.photoEntries[0].photo, undefined);
+  assert.equal(lean.body.nutrition.avgProtein, "150 g");
+  assert.equal(validWeeklyReport(lean.body, "gym", WEEK), true);
+  assert.equal(JSON.stringify(lean.body).includes("PRIVATE-PHOTO"), false);
+  const photos = await call(getGymWeeklyPhotos);
+  assert.equal(photos.status, 200);
+  assert.equal(photos.body.photoEntries[0].photo, "https://example.invalid/PRIVATE-PHOTO.png");
+  assert.equal(validWeeklyGymPhotos(photos.body, WEEK), true);
+});
+test("gym picker bundles its latest metadata-only report", async t => {
+  fixture(t, { exercises: [exercise()], gallery: [photo()] });
+  t.mock.method(GymWeeklySummary, "findOne", filter => {
+    assert.deepEqual(filter, { userId: USER, weekStart: WEEK });
+    return query(null);
+  });
+  const result = await call(getGymSummaries, request({ query: { includeLatest: "1" } }));
+  assert.equal(result.status, 200);
+  assert.equal(result.body.summaries[0].id, WEEK);
+  assert.equal(result.body.latestReport.id, WEEK);
+  assert.equal(result.body.latestReport.photosOmitted, true);
+  assert.equal(result.body.latestReport.stats.photoCount, 1);
+  assert.equal(JSON.stringify(result.body).includes("PRIVATE-PHOTO"), false);
+  assert.equal(validWeeklyReport(result.body.latestReport, "gym", WEEK), true);
 });
 test("last 12 completed weeks use app Monday even while UTC is still Sunday", t => {
   t.mock.timers.enable({apis:["Date"],now:Date.parse("2026-10-11T18:45:00Z")});

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api/axios";
-import { validWeeklySummaries, validWeeklyReport, validWeeklyAiResponse, weeklyFailureMessage as failureMessage } from "./weeklyReportResponse";
+import { validWeeklySummaries, validWeeklyReport, validWeeklyAiResponse, readWeeklySavedAnalysis, weeklyFailureMessage as failureMessage } from "./weeklyReportResponse";
 import { DEMO_GOAL_REPORTS, DEMO_GOAL_SUMMARIES } from "./goalDemoReports";
 
 export default function useGoalWeeklyData(isDemoMode) {
@@ -13,9 +13,11 @@ export default function useGoalWeeklyData(isDemoMode) {
   const [detail, setDetail] = useState({ id: null, data: null, loading: false, error: "" });
   const [analysis, setAnalysis] = useState({ text: null, loading: false, error: "", stale: false, warning: "" });
   const context = useRef(null);
+  const preloaded = useRef(null);
 
   useEffect(() => {
     if (isDemoMode) {
+      preloaded.current = null;
       setSummaries(DEMO_GOAL_SUMMARIES);
       setSelectedWeekId(DEMO_GOAL_SUMMARIES[0].id);
       setLoadingSummaries(false);
@@ -24,12 +26,15 @@ export default function useGoalWeeklyData(isDemoMode) {
     const controller = new AbortController();
     setLoadingSummaries(true);
     setSummariesError("");
-    api.get("/weekly-report/goals/summaries", { signal: controller.signal, timeout: 15000 })
+    api.get("/weekly-report/goals/summaries", { signal: controller.signal, timeout: 15000, params: { includeLatest: "1" } })
       .then(({ data }) => {
         if (controller.signal.aborted) return;
-        if (!validWeeklySummaries(data)) throw new Error("Invalid summary response");
-        setSummaries(data);
-        setSelectedWeekId(current => data.some(week => week.id === current) ? current : data[0]?.id || null);
+        const rows = Array.isArray(data) ? data : data?.summaries;
+        if (!validWeeklySummaries(rows)) throw new Error("Invalid summary response");
+        if (data?.latestReport && !validWeeklyReport(data.latestReport, "goal", rows[0]?.id)) throw new Error("Invalid latest report response");
+        preloaded.current = data?.latestReport || null;
+        setSummaries(rows);
+        setSelectedWeekId(current => rows.some(week => week.id === current) ? current : rows[0]?.id || null);
       })
       .catch(error => { if (!controller.signal.aborted) setSummariesError(failureMessage(error, "Could not load goal weeks. Please retry.")); })
       .finally(() => { if (!controller.signal.aborted) setLoadingSummaries(false); });
@@ -47,24 +52,28 @@ export default function useGoalWeeklyData(isDemoMode) {
     } else if (isDemoMode) {
       setDetail({ id: selectedWeekId, data: DEMO_GOAL_REPORTS[selectedWeekId], loading: false, error: "" });
       setAnalysis({ text: DEMO_GOAL_REPORTS[selectedWeekId]?.aiSummary, loading: false, error: "", stale: false, warning: "" });
+    } else if (preloaded.current?.id === selectedWeekId && detailAttempt === 0) {
+      const data = preloaded.current;
+      preloaded.current = null;
+      setDetail({ id: selectedWeekId, data, loading: false, error: "" });
+      setAnalysis({ text: data.savedAnalysis?.aiSummary || null, stale: Boolean(data.savedAnalysis?.stale), loading: false,
+        error: data.savedAnalysis?.error || "", warning: "" });
     } else {
       setDetail({ id: selectedWeekId, data: null, loading: true, error: "" });
-      const config = { signal: controller.signal, timeout: 15000, params: { week: selectedWeekId } };
+      const config = { signal: controller.signal, timeout: 15000, params: { week: selectedWeekId, includeAnalysis: "1" } };
       api.get("/weekly-report/goals", config)
         .then(({ data }) => {
           if (!alive()) return;
           if (!validWeeklyReport(data, "goal", selectedWeekId)) throw new Error("Invalid report response");
           setDetail({ id: selectedWeekId, data, loading: false, error: "" });
+          readWeeklySavedAnalysis(data, api, "/weekly-report/goals/ai-summary", config)
+            .then(saved => { if (alive()) setAnalysis({ text: saved.aiSummary, stale: Boolean(saved.stale), loading: false, error: saved.error || "", warning: "" }); })
+            .catch(error => { if (alive()) setAnalysis(previous => ({ ...previous, loading: false, error: failureMessage(error, "Could not load saved analysis. Please retry.") })); });
         })
-        .catch(error => { if (alive()) setDetail({ id: selectedWeekId, data: null, loading: false, error: failureMessage(error, "Could not load this goal report. Please retry.") }); });
-      // Cache-only GET. Generation is an explicit, separately rate-limited POST.
-      api.get("/weekly-report/goals/ai-summary", config)
-        .then(({ data }) => {
-          if (!alive()) return;
-          if (!validWeeklyAiResponse(data)) throw new Error("Invalid analysis response");
-          setAnalysis({ text: data.aiSummary, stale: Boolean(data.stale), loading: false, error: "", warning: "" });
-        })
-        .catch(error => { if (alive()) setAnalysis(previous => ({ ...previous, loading: false, error: failureMessage(error, "Could not load saved analysis. Please retry.") })); });
+        .catch(error => { if (alive()) {
+          setDetail({ id: selectedWeekId, data: null, loading: false, error: failureMessage(error, "Could not load this goal report. Please retry.") });
+          setAnalysis(previous => ({ ...previous, loading: false }));
+        } });
     }
     return () => controller.abort();
   }, [isDemoMode, selectedWeekId, detailAttempt]);

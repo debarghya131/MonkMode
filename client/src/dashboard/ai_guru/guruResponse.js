@@ -1,4 +1,4 @@
-import { GURU_SCOPES } from "../../../../shared/guruInsightsStats.js";
+import { GURU_SCOPES } from "../../../../shared/guruInsightsConfig.js";
 import { validReportDay, shiftReportDay } from "../../../../shared/journalWeeklyStats.js";
 import { todoReportDay } from "../../../../shared/todoWeeklyStats.js";
 

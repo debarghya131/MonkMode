@@ -7,12 +7,13 @@ import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import { useHabitEnvironment } from "./habitContext";
 import { demoHabitTracking, habitDayKey, isHabitArchived } from "./habitUtils";
 import { validHabitTracking, validHabitYears, validHabitImportant, habitFailureMessage, habitRevision, uncertainHabitWrite } from "./habitResponse";
+import { showDashboardToast } from "../../utils/dashboardToast";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 export default function HabitTracking() {
   const { isDemoMode } = useAuth();
-  const { clock, timezone, demoHabits, requestSignal } = useHabitEnvironment();
+  const { clock, timezone, demoHabits, setDemoHabits, requestSignal } = useHabitEnvironment();
   const today = clock.date;
   const CURRENT_YEAR = Number(today.slice(0, 4));
   const CURRENT_MONTH = Number(today.slice(5, 7)) - 1;
@@ -198,7 +199,15 @@ export default function HabitTracking() {
   };
 
   const toggleImportant = async id => {
-    if (isDemoMode || locks.current.has(id) || blockedIds.current.has(id)) return;
+    if (isDemoMode) {
+      const habit = demoHabits.find(item => item.id === id);
+      if (!habit) return;
+      const isImportant = !habit.isImportant;
+      setDemoHabits(previous => previous.map(item => item.id === id ? { ...item, isImportant } : item));
+      showDashboardToast(`${habit.title} ${isImportant ? "added to" : "removed from"} important habits.`);
+      return;
+    }
+    if (locks.current.has(id) || blockedIds.current.has(id)) return;
     const habit = habits.find(h => h.id === id);
     if (!habit) return;
     locks.current.add(id);
@@ -397,7 +406,7 @@ export default function HabitTracking() {
                                 <button
                                   type="button"
                                   onClick={() => toggleImportant(habit._id?.toString() ?? habit.id)}
-                                  disabled={isDemoMode || busyIds.has(habit.id) || blockedIds.current.has(habit.id)}
+                                  disabled={busyIds.has(habit.id) || blockedIds.current.has(habit.id)}
                                   aria-busy={busyIds.has(habit.id)}
                                   aria-pressed={habit.isImportant}
                                   className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${

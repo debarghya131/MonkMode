@@ -3,10 +3,9 @@ import { computeHabitWeeklyReport } from "./habitWeeklyStats.js";
 import { computeTodoWeeklyReport, todoReportDay } from "./todoWeeklyStats.js";
 import { computeGoalWeeklyReport } from "./goalWeeklyStats.js";
 import { computeGymWeeklyReport } from "./gymWeeklyStats.js";
+import { GURU_SCOPES } from "./guruInsightsConfig.js";
 
-export const GURU_SCOPES = ["7d", "30d", "all"];
-export const GURU_MESSAGE_LIMIT = 2000;
-export const GURU_HISTORY_LIMIT = 10;
+export { GURU_SCOPES, GURU_MESSAGE_LIMIT, GURU_HISTORY_LIMIT } from "./guruInsightsConfig.js";
 
 // Shared by chat and Insights. All totals use retained records, not audit-action counts.
 export function computeGuruInsights(records, scope, { today, timezone = "Asia/Kolkata", time = "00:00", now = null }) {
@@ -24,6 +23,7 @@ export function computeGuruInsights(records, scope, { today, timezone = "Asia/Ko
   const from = requestedFrom < shiftReportDay(today, -36524) ? shiftReportDay(today, -36524) : requestedFrom;
   const length = Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86400000) + 1;
   const days = Array.from({ length }, (_, index) => shiftReportDay(from, index));
+  const daySet = new Set(days);
   const options = { today, timezone, time, now };
   const entries = journals.map(row => ({ ...row, dayKey: row.dayKey || dayOf(row.date) }));
   const journal = computeJournalWeeklyStats(entries, days);
@@ -34,7 +34,7 @@ export function computeGuruInsights(records, scope, { today, timezone = "Asia/Ko
   const moodCounts = new Map();
   // Canonical moods and duplicate-day resolution match the journal calculator.
   const canonical = new Map();
-  for (const entry of entries) if (days.includes(entry.dayKey)) {
+  for (const entry of entries) if (daySet.has(entry.dayKey)) {
     const old = canonical.get(entry.dayKey);
     if (!old || (Date.parse(entry.updatedAt || entry.date) || 0) > (Date.parse(old.updatedAt || old.date) || 0)) canonical.set(entry.dayKey, entry);
   }

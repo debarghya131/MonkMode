@@ -165,6 +165,18 @@ test("report and picker use the same owner-scoped calculator and preferences", a
   assert.deepEqual(detail.importantCategories.map(category => category.name), ["Work"]);
 });
 
+test("detail includes saved analysis in its single response", async t => {
+  const report = fixture(t);
+  t.mock.method(globalThis, "fetch", () => assert.fail("Report reads cannot call AI"));
+  t.mock.method(TodoWeeklySummary, "findOne", filter => {
+    assert.deepEqual(filter, { userId: USER, weekStart: WEEK });
+    return query({ aiSummary: "Saved analysis", sourceHash: todoReportFingerprint(report) });
+  });
+  const result = await call(getTodoWeeklyReport, request({ query: { week: WEEK, includeAnalysis: "1" } }));
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body.savedAnalysis, { aiSummary: "Saved analysis", stale: false });
+});
+
 test("last 12 completed weeks use app Monday even before UTC Monday", async t => {
   t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-11T18:45:00Z") });
   assert.equal(completedTodoWeeks()[0][0], "2026-10-05"); assert.equal(completedTodoWeeks().length, 12);

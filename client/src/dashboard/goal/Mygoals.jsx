@@ -6,6 +6,7 @@ import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import { useGoalContext } from "./goalContext";
 import { goalFailureMessage } from "./goalResponse";
 import { goalDaysLeft } from "./goalUtils";
+import { showDashboardToast } from "../../utils/dashboardToast";
 
 const PRIORITY_BADGE = {
   High: "border-red-400/30 bg-red-500/10 text-red-200",
@@ -46,7 +47,7 @@ export default function Mygoals({
   onUpdateSubgoalStatus,
   onDeleteSubgoal
 }) {
-  const { today, busy, isDemoMode } = useGoalContext();
+  const { today, busy } = useGoalContext();
   const getDaysLeft = deadline => goalDaysLeft(deadline, today);
   const navigate = useNavigate();
   const lowMotion = useMobileLowMotion();
@@ -79,7 +80,7 @@ export default function Mygoals({
   const completedMilestones = popupMilestones.filter((m) => m.completed);
 
   const updateMilestoneStatus = async (goalId, milestoneId, completed) => {
-    if (!goalId || !milestoneId || busy || isDemoMode || actionLock.current) return;
+    if (!goalId || !milestoneId || busy || actionLock.current) return;
     actionLock.current = true;
     const actionKey = `${goalId}:${milestoneId}:${completed ? "done" : "undo"}`;
     setSubgoalError("");
@@ -113,7 +114,10 @@ export default function Mygoals({
 
   const addSubgoal = async () => {
     const title = newSubgoal.trim();
-    if (!title || !newDeadline || !addPopupGoal || busy || isDemoMode || actionLock.current) return;
+    if (!title || !newDeadline || !addPopupGoal || busy || actionLock.current) {
+      if (!title || !newDeadline) showDashboardToast("Enter a sub-goal and deadline first.", "danger");
+      return;
+    }
     actionLock.current = true;
     setSubgoalError("");
     setIsSubmittingSubgoal(true);
@@ -142,7 +146,7 @@ export default function Mygoals({
   };
 
   const deleteSubgoal = async (goalId, milestoneId) => {
-    if (!goalId || !milestoneId || busy || isDemoMode || actionLock.current) return;
+    if (!goalId || !milestoneId || busy || actionLock.current) return;
     actionLock.current = true;
     const actionKey = `${goalId}:${milestoneId}:delete`;
     setSubgoalError("");
@@ -252,7 +256,7 @@ export default function Mygoals({
                   <div className="goal-card-state flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      disabled={busy || isDemoMode}
+                      disabled={busy}
                       onClick={() => onToggleImportant?.(goal.id)}
                       className="dashboard-card-action goal-important-action"
                       data-tone={importantByGoal[goal.id] ? "warning" : "neutral"}
@@ -342,7 +346,7 @@ export default function Mygoals({
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    disabled={busy || isDemoMode}
+                    disabled={busy}
                     value={newSubgoal}
                     onChange={(e) => setNewSubgoal(e.target.value)}
                     onKeyDown={(e) => {
@@ -366,7 +370,7 @@ export default function Mygoals({
                       value={newDeadline}
                       min={subgoalMinDate}
                       max={subgoalMaxDate}
-                      disabled={busy || isDemoMode || isSubgoalDateRangeInvalid}
+                    disabled={busy || isSubgoalDateRangeInvalid}
                       onChange={(e) => setNewDeadline(e.target.value)}
                       className="rounded-lg border border-amber-100/15 bg-black/20 px-3 py-1.5 text-sm text-stone-100 outline-none transition focus:border-amber-300/35 [color-scheme:dark]"
                     />
@@ -374,7 +378,7 @@ export default function Mygoals({
                   <button
                     type="button"
                     onClick={() => void addSubgoal()}
-                    disabled={busy || isDemoMode || !newSubgoal.trim() || !newDeadline || isSubmittingSubgoal || isSubgoalDateRangeInvalid}
+                    disabled={busy || !newSubgoal.trim() || !newDeadline || isSubmittingSubgoal || isSubgoalDateRangeInvalid}
                     className="self-stretch rounded border border-sky-300/25 bg-sky-400/10 px-4 py-2 text-xs font-semibold text-sky-200 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-40 sm:self-end sm:py-1.5"
                   >
                     {isSubmittingSubgoal ? "Saving..." : "Add"}
@@ -444,7 +448,7 @@ export default function Mygoals({
                           <button
                             type="button"
                             onClick={() => void updateMilestoneStatus(popupGoal.id, milestone.id, true)}
-                            disabled={busy || isDemoMode || Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:done`])}
+                            disabled={busy || Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:done`])}
                             className="dashboard-card-action"
                             data-tone="success"
                           >
@@ -453,7 +457,7 @@ export default function Mygoals({
                           <button
                             type="button"
                             onClick={() => void deleteSubgoal(popupGoal.id, milestone.id)}
-                            disabled={busy || isDemoMode || Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:delete`])}
+                            disabled={busy || Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:delete`])}
                             className="dashboard-card-action"
                             data-tone="danger"
                             title="Delete sub-goal"
@@ -488,7 +492,7 @@ export default function Mygoals({
                           <button
                             type="button"
                             onClick={() => void updateMilestoneStatus(popupGoal.id, milestone.id, false)}
-                            disabled={busy || isDemoMode || Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:undo`])}
+                            disabled={busy || Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:undo`])}
                             className="dashboard-card-action"
                             data-tone="warning"
                           >
@@ -497,7 +501,7 @@ export default function Mygoals({
                           <button
                             type="button"
                             onClick={() => void deleteSubgoal(popupGoal.id, milestone.id)}
-                            disabled={busy || isDemoMode || Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:delete`])}
+                            disabled={busy || Boolean(pendingMilestoneActions[`${popupGoal.id}:${milestone.id}:delete`])}
                             className="dashboard-card-action"
                             data-tone="danger"
                             title="Delete sub-goal"

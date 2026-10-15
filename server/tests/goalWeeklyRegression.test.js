@@ -168,6 +168,20 @@ test("picker and detail share numeric-only and zero-activity weeks with owner-sc
   assert.equal(summary.goalCount,detail.stats.goalCount); assert.equal(summary.avgProgress,detail.stats.avgProgress);
   assert.equal(summary.progressUpdatesThisWeek,detail.stats.progressUpdatesThisWeek); assert.equal(summary.completedMilestonesThisWeek,0);
 });
+
+test("picker can bundle the latest goal report and saved analysis", async t => {
+  fixture(t);
+  const latestWeek = completedGoalWeeks()[0][0];
+  t.mock.method(GoalWeeklySummary, "findOne", filter => {
+    assert.deepEqual(filter, { userId: USER, weekStart: latestWeek });
+    return query({ aiSummary: "Saved goal analysis", sourceHash: "older" });
+  });
+  const result = await call(getGoalSummaries, request({ query: { includeLatest: "1" } }));
+  assert.equal(result.status, 200);
+  assert.equal(result.body.summaries[0].id, latestWeek);
+  assert.equal(result.body.latestReport.id, latestWeek);
+  assert.deepEqual(result.body.latestReport.savedAnalysis, { aiSummary: "Saved goal analysis", stale: true });
+});
 test("the last 12 completed weeks and database date bounds use the app calendar", t => {
   t.mock.timers.enable({apis:["Date"],now:Date.parse("2026-10-11T18:45:00Z")});
   assert.equal(completedGoalWeeks()[0][0],"2026-10-05"); assert.equal(completedGoalWeeks().length,12);

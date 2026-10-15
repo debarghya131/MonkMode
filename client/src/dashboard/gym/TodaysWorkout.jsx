@@ -705,7 +705,7 @@ export default function TodaysWorkout({ lowMotion = false }) {
 
         {/* Day selector */}
         <div className="gym-day-selector dashboard-filter-controls shrink-0 flex flex-wrap items-center gap-2 rounded-[1.4rem] border border-amber-100/10 bg-black/20 px-3 py-3 sm:rounded-2xl sm:px-4" role="group" aria-label="Workout day">
-          <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">Day</span>
+          <span className="gym-day-selector-label mr-1 shrink-0 whitespace-nowrap text-xs font-semibold uppercase tracking-[0.12em] text-amber-200/80">Day</span>
           {WEEK_DAYS.map((day) => (
             <button key={day} type="button" onClick={() => { setSelectedDay(day); setBodyFilter("all"); }} aria-pressed={selectedDay === day}
               className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition ${

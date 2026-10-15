@@ -1,20 +1,27 @@
 import { AnimatePresence, MotionConfig, motion as Motion } from "framer-motion";
-import { useEffect, useId, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import useAuth from "../../hooks/useAuth";
-import GYMWeeklyReport from "./GYMWeeklyReport";
-import GoalWeeklyReport from "./GoalWeeklyReport";
-import HabitWeeklyReport from "./HabitWeeklyReport";
 import JournalWeeklyReport from "./JournalWeeklyReport";
-import ToDoWeeklyReport from "./ToDoWeeklyReport";
 import "./weeklyReport.css";
+
+// Keep the landing Journal tab ready while downloading the other report views
+// only when requested. Hover/focus warms a tab's chunk before the click.
+const loadTodo = () => import("./ToDoWeeklyReport");
+const loadHabits = () => import("./HabitWeeklyReport");
+const loadGoals = () => import("./GoalWeeklyReport");
+const loadGym = () => import("./GYMWeeklyReport");
+const ToDoWeeklyReport = lazy(loadTodo);
+const HabitWeeklyReport = lazy(loadHabits);
+const GoalWeeklyReport = lazy(loadGoals);
+const GYMWeeklyReport = lazy(loadGym);
 
 const REPORT_TABS = [
   { id: "journal", icon: "📝", label: "Journal", Component: JournalWeeklyReport },
-  { id: "todo", icon: "✓", label: "ToDo", Component: ToDoWeeklyReport },
-  { id: "habits", icon: "⚡", label: "Habits", Component: HabitWeeklyReport },
-  { id: "goals", icon: "🎯", label: "Goals", Component: GoalWeeklyReport },
-  { id: "gym", icon: "💪", label: "GYM", Component: GYMWeeklyReport },
+  { id: "todo", icon: "✓", label: "ToDo", Component: ToDoWeeklyReport, preload: loadTodo },
+  { id: "habits", icon: "⚡", label: "Habits", Component: HabitWeeklyReport, preload: loadHabits },
+  { id: "goals", icon: "🎯", label: "Goals", Component: GoalWeeklyReport, preload: loadGoals },
+  { id: "gym", icon: "💪", label: "GYM", Component: GYMWeeklyReport, preload: loadGym },
 ];
 
 export default function WeeklyReport() {
@@ -91,6 +98,8 @@ function WeeklyReportContent() {
                   key={tab.id}
                   type="button"
                   onClick={() => { setActiveTab(tab.id); setMenuOpen(false); menuTriggerRef.current?.focus(); }}
+                  onPointerEnter={tab.preload}
+                  onFocus={tab.preload}
                   aria-pressed={activeTab === tab.id}
                   className="dashboard-section-tab flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold"
                 >
@@ -110,6 +119,8 @@ function WeeklyReportContent() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
+              onPointerEnter={tab.preload}
+              onFocus={tab.preload}
               aria-pressed={activeTab === tab.id}
               className="dashboard-section-tab flex min-w-[6rem] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold"
             >
@@ -120,24 +131,26 @@ function WeeklyReportContent() {
       </nav>
 
       <div ref={contentRef} className="weekly-report-content mt-6">
-        {lowMotion ? (
-          <div key={activeReport.id} className="weekly-report-active-panel">
-            <ActiveReport lowMotion={lowMotion} />
-          </div>
-        ) : (
-          <AnimatePresence mode="wait">
-            <Motion.div
-              key={activeReport.id}
-              className="weekly-report-active-panel"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22, ease: "easeInOut" }}
-            >
+        <Suspense fallback={<div role="status" className="flex min-h-40 items-center justify-center text-sm text-stone-400">Loading report section…</div>}>
+          {lowMotion ? (
+            <div key={activeReport.id} className="weekly-report-active-panel">
               <ActiveReport lowMotion={lowMotion} />
-            </Motion.div>
-          </AnimatePresence>
-        )}
+            </div>
+          ) : (
+            <AnimatePresence mode="wait">
+              <Motion.div
+                key={activeReport.id}
+                className="weekly-report-active-panel"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.22, ease: "easeInOut" }}
+              >
+                <ActiveReport lowMotion={lowMotion} />
+              </Motion.div>
+            </AnimatePresence>
+          )}
+        </Suspense>
       </div>
     </div>
     </MotionConfig>

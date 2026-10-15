@@ -5,8 +5,9 @@ import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
 import useMobileLowMotion from "../../hooks/useMobileLowMotion";
 import { useHabitEnvironment } from "./habitContext";
-import { formatHabitTime, habitDayKey, isHabitOnDay, habitTimeOnDay } from "./habitUtils";
+import { formatHabitTime, habitDayKey, isHabitOnDay, habitTimeOnDay, shiftHabitDay } from "./habitUtils";
 import { validHabits, validHabitCompletion, habitFailureMessage, uncertainHabitWrite } from "./habitResponse";
+import { showDashboardToast } from "../../utils/dashboardToast";
 
 const PRIORITY_STYLES = {
   High: "border-red-400/30 bg-red-500/10 text-red-200",
@@ -169,7 +170,7 @@ function TimeSlotFilter({ selected, onChange }) {
 
 export default function TodaysHabit({ consistency = {} }) {
   const { isDemoMode } = useAuth();
-  const { clock, timezone, demoHabits, requestSignal } = useHabitEnvironment();
+  const { clock, timezone, demoHabits, setDemoHabits, requestSignal } = useHabitEnvironment();
   const todayISO = clock.date;
   const [searchParams, setSearchParams] = useSearchParams();
   const lowMotion = useMobileLowMotion();
@@ -210,6 +211,9 @@ export default function TodaysHabit({ consistency = {} }) {
     live.current = true;
     return () => { live.current = false; version.current += 1; };
   }, []);
+  useEffect(() => {
+    if (isDemoMode) setHabits(demoHabits);
+  }, [demoHabits, isDemoMode]);
   useEffect(() => {
     if (isDemoMode) return;
     let cancelled = false;
@@ -277,7 +281,36 @@ export default function TodaysHabit({ consistency = {} }) {
   );
 
   const updateCompletion = async (id, completed) => {
-    if (isDemoMode || locks.current.has(id) || blockedIds.current.has(id)) return;
+    if (isDemoMode) {
+      const updateDemoHabits = previous => previous.map(habit => {
+        if ((habit._id ?? habit.id) !== id) return habit;
+        const completedDayKeys = new Set(habit.completedDayKeys || []);
+        if (completed) completedDayKeys.add(todayISO);
+        else completedDayKeys.delete(todayISO);
+        const days = [...completedDayKeys].sort();
+        const streakAnchor = completed ? todayISO : shiftHabitDay(todayISO, -1);
+        let currentStreak = 0;
+        let expectedDay = streakAnchor;
+        while (completedDayKeys.has(expectedDay)) {
+          currentStreak += 1;
+          expectedDay = shiftHabitDay(expectedDay, -1);
+        }
+        return {
+          ...habit,
+          completedToday: completed,
+          status: completed ? "completed" : "pending",
+          completedDayKeys: days,
+          currentStreak,
+          maxStreak: Math.max(Number(habit.maxStreak) || 0, currentStreak),
+        };
+      });
+      setHabits(updateDemoHabits);
+      setDemoHabits(updateDemoHabits);
+      const selected = demoHabits.find(habit => (habit._id ?? habit.id) === id);
+      showDashboardToast(`${selected?.title || "Habit"} ${completed ? "marked done" : "marked pending"}.`);
+      return;
+    }
+    if (locks.current.has(id) || blockedIds.current.has(id)) return;
     locks.current.add(id);
     version.current += 1;
     setBusyIds(new Set(locks.current));
@@ -491,7 +524,7 @@ export default function TodaysHabit({ consistency = {} }) {
                           <button
                             type="button"
                             onClick={() => markDone(habit._id ?? habit.id)}
-                            disabled={busyIds.has(habit._id ?? habit.id) || blockedIds.current.has(habit._id ?? habit.id) || isDemoMode}
+                            disabled={busyIds.has(habit._id ?? habit.id) || blockedIds.current.has(habit._id ?? habit.id)}
                             aria-busy={busyIds.has(habit._id ?? habit.id)}
                             className="habit-pending-done dashboard-card-action"
                             data-tone="success"
@@ -537,7 +570,7 @@ export default function TodaysHabit({ consistency = {} }) {
                         habit={habit}
                         status={getHabitStatus(habit)}
                         onUndo={() => markPending(habit._id ?? habit.id)}
-                        busy={busyIds.has(habit._id ?? habit.id) || isDemoMode}
+                        busy={busyIds.has(habit._id ?? habit.id)}
                         blocked={blockedIds.current.has(habit._id ?? habit.id)}
                         lowMotion={lowMotion}
                       />

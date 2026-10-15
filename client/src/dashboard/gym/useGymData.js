@@ -13,7 +13,7 @@ const demoDiets = () => [
   ...DEMO_MACRO_PLANS.map(plan => ({ ...plan, planType: "macros" })),
 ];
 
-export default function useGymData(isDemoMode, userId) {
+export default function useGymData(isDemoMode, userId, preciseClock = false) {
   const [clock, setClock] = useState({ timezone: GYM_TIMEZONE, offset: 0 });
   const [now, setNow] = useState(Date.now());
   const today = gymDay(now + clock.offset, clock.timezone);
@@ -32,9 +32,16 @@ export default function useGymData(isDemoMode, userId) {
     const current = control.current;
     current.mounted = true;
     current.abort = new AbortController();
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => { current.mounted = false; current.abort.abort(); window.clearInterval(timer); };
+    return () => { current.mounted = false; current.abort.abort(); };
   }, []);
+
+  useEffect(() => {
+    const update = () => setNow(Date.now());
+    update();
+    const timer = window.setInterval(update, preciseClock ? 1000 : 30000);
+    window.addEventListener("focus", update);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", update); };
+  }, [preciseClock]);
 
   const refresh = useCallback(async ({ recover = false } = {}) => {
     if (isDemoMode || !control.current.mounted) return;
@@ -80,6 +87,7 @@ export default function useGymData(isDemoMode, userId) {
 
   const guard = useCallback(task => async (...args) => {
     const current = control.current;
+    if (!ready) { if (current.mounted && !isDemoMode) setError("Gym data must finish syncing before you can save. Retry the sync above."); return false; }
     if (isDemoMode || current.blocked || current.locked || !current.mounted) return false;
     current.locked = true; current.version++; setBusy(true); setError("");
     try { return await task(...args); }
@@ -87,7 +95,7 @@ export default function useGymData(isDemoMode, userId) {
       if (current.mounted && failure.code !== "ERR_CANCELED") setError(gymFailureMessage(failure, "Could not save. Please retry."));
       return false;
     } finally { current.locked = false; if (current.mounted) { setBusy(false); if (current.pending) { current.pending = false; void refresh(); } } }
-  }, [isDemoMode, refresh]);
+  }, [isDemoMode, ready, refresh]);
 
   const blockWrites = useCallback(message => {
     control.current.blocked = true;

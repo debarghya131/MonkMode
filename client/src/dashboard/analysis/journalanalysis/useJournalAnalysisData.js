@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../../../api/axios";
 import { todoReportDay } from "../../../../../shared/todoWeeklyStats.js";
-import { demoJournalAnalysis } from "./journalAnalysisData";
 import { journalAnalysisClockValid, validJournalAnalysisResponse } from "./journalAnalysisResponse";
 
 export default function useJournalAnalysisData(isDemoMode) {
@@ -20,8 +19,16 @@ export default function useJournalAnalysisData(isDemoMode) {
     const controller = new AbortController();
     setState({ loading: true, error: "", data: null });
     if (isDemoMode) {
-      setState({ loading: false, error: "", data: demoJournalAnalysis(period.year, period.month) });
-      return;
+      // The sample generator and its aggregation code are not needed by live
+      // accounts. Keep them out of the initial production analysis download.
+      import("./journalAnalysisData")
+        .then(({ demoJournalAnalysis }) => {
+          if (!controller.signal.aborted) setState({ loading: false, error: "", data: demoJournalAnalysis(period.year, period.month) });
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setState({ loading: false, error: "Could not load Journal Analysis. Please retry.", data: null });
+        });
+      return () => controller.abort();
     }
     api.get("/journal/analysis", { params: { year: period.year, month: Number(period.month) }, signal: controller.signal, timeout: 15000 })
       .then(({ data }) => {

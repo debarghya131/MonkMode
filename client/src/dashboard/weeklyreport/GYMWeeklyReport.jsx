@@ -69,7 +69,7 @@ function ReportCard({ children, className = "" }) {
 export default function GYMWeeklyReport({ lowMotion = false }) {
   const { isDemoMode } = useAuth();
   const { summaries, loadingSummaries, summariesError, retrySummaries, selectedWeekId, setSelectedWeekId,
-    weekData, loadingWeekData, weekError, retryWeek, analysis, generate } = useGymWeeklyData(isDemoMode);
+    weekData, loadingWeekData, weekError, retryWeek, analysis, generate, loadPhotos, photosLoading, photosError } = useGymWeeklyData(isDemoMode);
   const aiSummary = analysis.text, loadingAi = analysis.loading;
   const [bodyGroupFilter, setBodyGroupFilter] = useState("All");
   const [bodyPartFilter, setBodyPartFilter]   = useState("All");
@@ -121,7 +121,7 @@ export default function GYMWeeklyReport({ lowMotion = false }) {
       document.body.style.overflow = previousOverflow;
       if (previousFocus?.isConnected) previousFocus.focus();
     };
-  }, [showPhotos, showFullScreen, selectedWeek]);
+  }, [showPhotos, showFullScreen, selectedWeekId, selectedWeek?.photoEntries.length]);
 
   useEffect(() => {
     if (aiRef.current) aiRef.current.scrollTop = 0;
@@ -175,6 +175,9 @@ export default function GYMWeeklyReport({ lowMotion = false }) {
                   </button>
                 </div>
 
+                {photosLoading && <p role="status" className="mb-3 text-xs text-stone-400">Loading progress photos…</p>}
+                {photosError && <LoadError message={photosError} retry={loadPhotos} />}
+
                 {/* Mon–Sun thumbnail strip */}
                 <div className="mb-5 rounded-xl border border-stone-800/60 bg-stone-950/60 p-3">
                   <div className="mb-2.5 flex items-center justify-between">
@@ -182,7 +185,7 @@ export default function GYMWeeklyReport({ lowMotion = false }) {
                     <button
                       type="button"
                       onClick={() => { setShowPhotos(false); setFsIndex(0); setShowFullScreen(true); }}
-                      disabled={!selectedWeek.stats.photoCount}
+                      disabled={!selectedWeek.stats.photoCount || selectedWeek.photosOmitted}
                       className="weekly-gym-photo-action rounded-full border border-violet-400/30 bg-violet-500/10 px-3 py-0.5 text-[10px] font-semibold text-violet-300 transition-colors hover:bg-violet-500/20"
                     >
                       View All
@@ -426,7 +429,7 @@ export default function GYMWeeklyReport({ lowMotion = false }) {
                   </span>
                   <Motion.button
                     type="button"
-                    onClick={() => setShowPhotos(true)}
+                    onClick={() => { setShowPhotos(true); loadPhotos(); }}
                     whileHover={{ scale: 1.05, boxShadow: "0 0 14px rgba(167,139,250,0.38)" }}
                     whileTap={{ scale: 0.95 }}
                     className="relative overflow-hidden rounded-full border border-violet-400/30 bg-violet-500/10 px-3 py-1 text-[11px] font-semibold text-violet-300 transition-colors hover:border-violet-400/50 hover:bg-violet-500/20"

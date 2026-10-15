@@ -18,6 +18,7 @@ import {
   getGoalWeeklyReport,
   generateGoalAiSummary,
   getGymWeeklyReport,
+  getGymWeeklyPhotos,
   getGymSummaries,
   generateGymAiSummary,
 } from "../controllers/weeklyReportController.js";
@@ -106,6 +107,7 @@ router.post("/goals/ai-summary", goalAiSummaryLimiter, generateGoalAiSummary);
 router.get("/goals", getGoalWeeklyReport);
 
 // Gym
+router.get("/gym/photos", getGymWeeklyPhotos);
 router.get("/gym/summaries", getGymSummaries);
 router.get("/gym/ai-summary", (req, res, next) => {
   if (req.query.regenerate === "true") return gymAiSummaryLimiter(req, res, next);

@@ -52,7 +52,7 @@ const drawBird = (context, bird, time) => {
   context.restore();
 };
 
-export default function AuthBackground() {
+export default function AuthBackground({ lightweight = false, defer = false }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -73,20 +73,24 @@ export default function AuthBackground() {
     let width = 0;
     let height = 0;
     let lastFrame = 0;
+    let idleId = 0;
+    let timeoutId = 0;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     const resize = () => {
       width = window.innerWidth;
       height = window.innerHeight;
 
-      const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+      const devicePixelRatio = Math.min(window.devicePixelRatio || 1, lightweight ? 1 : 1.5);
       canvas.width = width * devicePixelRatio;
       canvas.height = height * devicePixelRatio;
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       context.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 
-      const visibleBirdCount = Math.min(BIRD_COUNT, Math.max(10, Math.round(width / 32)));
+      const visibleBirdCount = lightweight
+        ? Math.min(24, Math.max(8, Math.round(width / 44)))
+        : Math.min(BIRD_COUNT, Math.max(10, Math.round(width / 32)));
       birds = Array.from({ length: visibleBirdCount }, () => createBird(width, height));
       if (reducedMotion.matches) birds.forEach((bird) => drawBird(context, bird, 0));
     };
@@ -94,7 +98,7 @@ export default function AuthBackground() {
     const animate = (time) => {
       animationFrameId = window.requestAnimationFrame(animate);
       const elapsed = time - lastFrame;
-      if (elapsed < 1000 / 60 - 1) return;
+      if (elapsed < 1000 / (lightweight ? 30 : 60) - 1) return;
       const step = Math.min(elapsed / (1000 / 60), 2);
       lastFrame = time;
       context.clearRect(0, 0, width, height);
@@ -168,19 +172,31 @@ export default function AuthBackground() {
       }
     };
 
-    resize();
-    syncAnimation();
-    window.addEventListener("resize", resize);
-    document.addEventListener("visibilitychange", syncAnimation);
-    reducedMotion.addEventListener("change", syncAnimation);
+    const start = () => {
+      resize();
+      syncAnimation();
+      window.addEventListener("resize", resize);
+      document.addEventListener("visibilitychange", syncAnimation);
+      reducedMotion.addEventListener("change", syncAnimation);
+    };
+
+    if (defer && "requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(start, { timeout: 1200 });
+    } else if (defer) {
+      timeoutId = window.setTimeout(start, 400);
+    } else {
+      start();
+    }
 
     return () => {
+      if (idleId) window.cancelIdleCallback(idleId);
+      if (timeoutId) window.clearTimeout(timeoutId);
       window.cancelAnimationFrame(animationFrameId);
       window.removeEventListener("resize", resize);
       document.removeEventListener("visibilitychange", syncAnimation);
       reducedMotion.removeEventListener("change", syncAnimation);
     };
-  }, []);
+  }, [defer, lightweight]);
 
   return (
     <>

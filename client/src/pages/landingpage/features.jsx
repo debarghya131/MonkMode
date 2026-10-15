@@ -723,7 +723,8 @@ function OverviewSlider({ activeSlide, setActiveSlide }) {
       <div className="relative overflow-hidden rounded-[1rem] border border-amber-100/10 bg-stone-950/70">
         <img
           src={overviewSlides[activeSlide].image}
-          loading="lazy"
+          loading="eager"
+          fetchPriority="high"
           decoding="async"
           alt={overviewSlides[activeSlide].title}
           className="aspect-[16/10] w-full object-contain"
@@ -1532,7 +1533,7 @@ export default function Features() {
   return (
     <main className="auth-page public-content-page relative min-h-dvh overflow-x-hidden text-white sm:min-h-screen">
       <div className="fixed inset-0">
-        <AuthBackground />
+        <AuthBackground lightweight />
       </div>
 
       <div className="relative z-10">

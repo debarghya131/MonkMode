@@ -15,7 +15,8 @@ import { loadGuruInsights } from "../utils/guruInsightsUtils.js";
 import { getInsightsSummary } from "../controllers/insightsController.js";
 import { chatWithMing, validateGuruChat, GURU_SYSTEM_PROMPT } from "../controllers/aiGuruController.js";
 import insightsRoutes from "../routes/insightsRoutes.js";
-import { createDemoGuruInsights, guruCards, guruPatterns, guruSuggestions, demoGuruReply } from "../../client/src/dashboard/ai_guru/guruPresentation.js";
+import { guruCards, guruPatterns, guruSuggestions, demoGuruReply } from "../../client/src/dashboard/ai_guru/guruPresentation.js";
+import { createDemoGuruInsights } from "../../client/src/dashboard/ai_guru/guruDemoInsights.js";
 import { validGuruInsights, validGuruReply, guruFailureMessage } from "../../client/src/dashboard/ai_guru/guruResponse.js";
 import { DEFAULT_GROQ_MODEL, groqCompletionOptions } from "../config/groq.js";
 
@@ -146,6 +147,31 @@ test("server loader reads only owner-scoped definitions and minimal fields", asy
   const result = await loadGuruInsights(USER, "7d");
   assert.equal(result.timezone, "Asia/Kolkata"); assert.equal(result.journal.entryCount, 1);
   assert.equal(result.period.from, days[0]); assert.equal(result.habits.possibleLogs, 7);
+});
+test("Insights starts owned log reads before an unrelated slow Journal read finishes", async t => {
+  let finishJournal;
+  const journalRead = new Promise(resolve => { finishJournal = resolve; });
+  let habitLogsStarted = false, goalLogsStarted = false;
+  t.mock.method(Journal, "find", () => ({ lean: () => journalRead }));
+  for (const Model of [Habit, Todo, Goal, GymExerciseProgress, GymMeasurement])
+    t.mock.method(Model, "find", () => query([]));
+  t.mock.method(HabitLog, "find", filter => {
+    assert.deepEqual(filter.habitId.$in, []);
+    habitLogsStarted = true;
+    return query([]);
+  });
+  t.mock.method(GoalProgressLog, "find", filter => {
+    assert.equal(filter.userId, USER);
+    assert.deepEqual(filter.goalId.$in, []);
+    goalLogsStarted = true;
+    return query([]);
+  });
+  const pending = loadGuruInsights(USER, "7d", new Date(now));
+  await new Promise(setImmediate);
+  assert.equal(habitLogsStarted, true);
+  assert.equal(goalLogsStarted, true);
+  finishJournal([]);
+  assert.equal((await pending).scope, "7d");
 });
 test("Insights rejects invalid scopes before DB reads and preserves explicit failures", async t => {
   let reads = 0;

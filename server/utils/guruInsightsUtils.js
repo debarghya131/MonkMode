@@ -22,18 +22,28 @@ export async function loadGuruInsights(userId, scope, now = new Date()) {
   const days = [from, today];
   // Broad timestamp bounds are resolved to exact app days by the shared calculator.
   const date = { $gte: new Date(Date.parse(`${from}T00:00:00Z`) - 86400000), $lt: new Date(Date.parse(`${today}T00:00:00Z`) + 2 * 86400000) };
-  const [journals, habits, todos, goals, exercises, measurements] = await Promise.all([
-    Journal.find({ userId, $or: [{ dayKey: { $gte: from, $lte: today } }, { dayKey: null, date }] }, { dayKey: 1, date: 1, updatedAt: 1, mood: 1, energyLevel: 1, overallRating: 1 }).lean(),
-    Habit.find({ userId }, HABIT_REPORT_FIELDS).lean(),
+  const journalsRead = Journal.find({ userId, $or: [{ dayKey: { $gte: from, $lte: today } }, { dayKey: null, date }] }, { dayKey: 1, date: 1, updatedAt: 1, mood: 1, energyLevel: 1, overallRating: 1 }).lean();
+  const habitsRead = Habit.find({ userId }, HABIT_REPORT_FIELDS).lean();
+  const goalsRead = Goal.find({ userId }, GOAL_REPORT_FIELDS).lean();
+  // Start each dependent log read as soon as its owned definitions arrive,
+  // without waiting for unrelated Journal, Todo, or Gym reads to finish.
+  const habitLogsRead = habitsRead.then(habits => HabitLog.find(
+    habitLogFilter(habits.map(row => row._id), days),
+    { habitId: 1, dayKey: 1, date: 1, completed: 1, updatedAt: 1 }
+  ).lean());
+  const goalLogsRead = goalsRead.then(goals => GoalProgressLog.find(
+    { userId, goalId: { $in: goals.map(row => row._id) } },
+    { goalId: 1, date: 1, previousValue: 1, currentValue: 1 }
+  ).lean());
+  const [journals, habits, todos, goals, exercises, measurements, habitLogs, goalLogs] = await Promise.all([
+    journalsRead,
+    habitsRead,
     Todo.find(todoReportFilter(userId, days), TODO_REPORT_FIELDS).lean(),
-    Goal.find({ userId }, GOAL_REPORT_FIELDS).lean(),
+    goalsRead,
     GymExerciseProgress.find({ userId, date: { $gte: from, $lte: today } }, GYM_EXERCISE_FIELDS).lean(),
     GymMeasurement.find({ userId, deletedAt: null, checkInDate: { $gte: from, $lte: today } }, GYM_MEASUREMENT_FIELDS).lean(),
-  ]);
-  const [habitLogs, goalLogs] = await Promise.all([
-    // HabitLog has no userId: constrain to IDs from this user's owned definitions.
-    HabitLog.find(habitLogFilter(habits.map(row => row._id), days), { habitId: 1, dayKey: 1, date: 1, completed: 1, updatedAt: 1 }).lean(),
-    GoalProgressLog.find({ userId, goalId: { $in: goals.map(row => row._id) } }, { goalId: 1, date: 1, previousValue: 1, currentValue: 1 }).lean(),
+    habitLogsRead,
+    goalLogsRead,
   ]);
   const time = new Intl.DateTimeFormat("en-GB", { timeZone: APP_TIMEZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(now);
   return { ...computeGuruInsights({ journals, habits, habitLogs, todos, goals, goalLogs, exercises, measurements }, scope,

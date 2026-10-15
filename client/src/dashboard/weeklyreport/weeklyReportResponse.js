@@ -31,7 +31,8 @@ const goal = fields({ id: nonblank, title: text, type: choice(["Short Term", "Lo
   deleted: boolean, asOf: validReportDay, risk: nonblank });
 const countMap = value => object(value) && Object.values(value).every(count);
 const photo = fields({ day: text, dayKey: validReportDay, photo: nullable(text), count });
-const base = { id: monday, date: nonblank, status: choice(["Ready", "Draft"]), weeklyScore: nullable(percent) };
+const base = { id: monday, date: nonblank, status: choice(["Ready", "Draft"]), weeklyScore: nullable(percent),
+  savedAnalysis: optional(value => validWeeklyAiResponse(value)), photosOmitted: optional(boolean) };
 const activity = { signal: text, ...named("completed missed pending activeDays scheduledDays longestStreak", count),
   consistency: percent, completionRate: percent, categories: rows(category), priorityStats: priorities, dailyStats: rows(daily) };
 const schemas = {
@@ -59,7 +60,7 @@ const schemas = {
       repsChange: nullable(number), timeChange: nullable(number), isFirstEntry: boolean })),
     bodyProgress: rows(fields({ id: nonblank, ...named("bodyPart category previous current change", text), delta: nullable(number),
       trend: choice(["up", "down", "flat"]), previousDate: nullable(validReportDay), currentDate: validReportDay })),
-    progressPhotos: rows(photo), photoEntries: rows(fields({ id: nonblank, day: text, dayKey: validReportDay, photo: text })),
+    progressPhotos: rows(photo), photoEntries: rows(fields({ id: nonblank, day: text, dayKey: validReportDay, photo: optional(text) })),
     nutrition: nullable(fields({ ...named("avgProtein avgCarbs avgFats avgFiber avgCalories avgWater avgSugar avgSodium note", text), dayCount: count, counts: countMap })) }),
 };
 
@@ -81,8 +82,25 @@ export function validWeeklyReport(value, module, week) {
 }
 
 export function validWeeklyAiResponse(value, requireText = false) {
-  return fields({ aiSummary: requireText ? nonblank : nullable(nonblank), warning: optional(text),
+  return fields({ aiSummary: requireText ? nonblank : nullable(nonblank), warning: optional(text), error: optional(text),
     ...named("cached stale needsGeneration persisted", optional(boolean)) })(value);
+}
+
+export function validWeeklyGymPhotos(value, week) {
+  return fields({ id: monday, progressPhotos: rows(photo), photoEntries: rows(fields({
+    id: nonblank, day: text, dayKey: validReportDay, photo: text,
+  })) })(value) && value.id === week && value.progressPhotos.length === 7 &&
+    value.progressPhotos.every((row, index) => row.dayKey === shiftReportDay(week, index)) &&
+    value.photoEntries.every(row => row.dayKey >= week && row.dayKey <= shiftReportDay(week, 6));
+}
+
+// During a rolling deploy, the API may still return the old report shape.
+// Only those responses need the legacy cache-only analysis request.
+export async function readWeeklySavedAnalysis(report, api, path, config) {
+  if (report.savedAnalysis) return report.savedAnalysis;
+  const { data } = await api.get(path, config);
+  if (!validWeeklyAiResponse(data)) throw new Error("Invalid analysis response");
+  return data;
 }
 
 export function weeklyFailureMessage(error, fallback) {

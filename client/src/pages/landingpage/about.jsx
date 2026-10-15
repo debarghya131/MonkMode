@@ -32,7 +32,7 @@ export default function About() {
   return (
     <main className="auth-page public-content-page relative min-h-dvh overflow-x-hidden text-white sm:min-h-screen">
       <div className="fixed inset-0">
-        <AuthBackground />
+        <AuthBackground lightweight />
       </div>
 
       <div className="relative z-10">
@@ -76,6 +76,8 @@ export default function About() {
                   <Motion.img
                     src={creatorImage}
                     alt="Debarghya Bandyopadhyay"
+                    fetchPriority="high"
+                    decoding="async"
                     className="relative h-44 w-44 rounded-full border border-amber-100/20 object-cover object-top shadow-[0_24px_60px_rgba(0,0,0,0.42)] sm:h-56 sm:w-56 lg:h-64 lg:w-64"
                     animate={{ y: [0, -8, 0] }}
                     transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
@@ -244,6 +246,8 @@ export default function About() {
                 <Motion.img
                   src={monkIllustration}
                   alt="Meditating monk"
+                  loading="lazy"
+                  decoding="async"
                   className="relative z-10 w-44 drop-shadow-[0_28px_50px_rgba(0,0,0,0.42)] sm:w-56 lg:w-72"
                   animate={{ y: [0, -12, 0] }}
                   transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
