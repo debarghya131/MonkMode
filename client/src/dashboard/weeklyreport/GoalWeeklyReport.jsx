@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion as Motion } from "framer-motion";
-import littleMonkLogo from "../../assets/littlemonklogo.webp";
+import littleMonkLogo from "../../assets/branding/littlemonklogo.webp";
 import useGoalWeeklyData from "./useGoalWeeklyData";
 import { goalReportRisk } from "../../../../shared/goalWeeklyStats";
 

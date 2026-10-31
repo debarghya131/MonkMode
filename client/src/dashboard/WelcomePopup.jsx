@@ -1,7 +1,7 @@
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import monkGreetings from "../assets/monkgreetingslogo.webp";
+import monkGreetings from "../assets/dashboard/monkgreetingslogo.webp";
 
 const PARTICLES = Array.from({ length: 14 }, (_, i) => ({
   id: i,

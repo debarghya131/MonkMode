@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import DashboardSelect from "../../../components/DashboardSelect";
-import littleMonkLogo from "../../../assets/littlemonklogo.webp";
+import littleMonkLogo from "../../../assets/branding/littlemonklogo.webp";
 import useJournalAnalysis from "./journalAnalysisContext";
 import "./analysisChart.css";
 

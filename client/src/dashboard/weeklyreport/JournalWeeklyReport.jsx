@@ -2,7 +2,7 @@ import { motion as Motion, AnimatePresence } from "framer-motion";
 import useJournalWeeklyData from "./useJournalWeeklyData";
 import { reportDayLabel } from "../../../../shared/journalWeeklyStats.js";
 import useAuth from "../../hooks/useAuth";
-import littleMonkLogo from "../../assets/littlemonklogo.webp";
+import littleMonkLogo from "../../assets/branding/littlemonklogo.webp";
 
 const formatDate = reportDayLabel;
 function LoadError({ message, retry }) {

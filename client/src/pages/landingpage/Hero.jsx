@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { motion as Motion, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
-import monkIllustration from "../../assets/monk.webp";
+import monkIllustration from "../../assets/shared/monk.webp";
 
 const pillars = [
   { number: "01", title: "Find your focus", description: "Give your tasks, goals, and daily journal a place to live." },

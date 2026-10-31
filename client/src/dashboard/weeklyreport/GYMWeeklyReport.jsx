@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion as Motion } from "framer-motion";
-import littleMonkLogo from "../../assets/littlemonklogo.webp";
+import littleMonkLogo from "../../assets/branding/littlemonklogo.webp";
 import useGymWeeklyData from "./useGymWeeklyData";
 import useAuth from "../../hooks/useAuth";
 

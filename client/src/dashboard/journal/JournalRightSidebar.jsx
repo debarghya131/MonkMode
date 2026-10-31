@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import api from "../../api/axios";
 import useAuth from "../../hooks/useAuth";
-import { MOCK_HISTORY } from "../../../data/JournalDummyData";
+import { DEMO_MISSED_JOURNAL_DAYS, MOCK_HISTORY } from "../../../data/JournalDummyData";
 import { formatJournalDay } from "./journalUtils";
 import { validJournalEntries, journalEntries, validJournalMissedDays, journalFailureMessage } from "./journalResponse";
 
@@ -378,7 +378,10 @@ function JournalRightSidebar({ refreshToken = 0, loadHistory = true, loadMissed 
     reasonSaving.current = false;
     setSaving(false);
     if (isDemoMode) {
-      setMissedDays([]);
+      setMissedDays(DEMO_MISSED_JOURNAL_DAYS.map((day) => ({
+        ...day,
+        label: formatJournalDay(day.date, { weekday: "short", month: "short", day: "numeric" }),
+      })));
       setMissedLoading(false);
       return;
     }
@@ -448,9 +451,7 @@ function JournalRightSidebar({ refreshToken = 0, loadHistory = true, loadMissed 
             </p>
           </div>
 
-          {isDemoMode ? (
-            <p className="text-xs text-stone-500">Sample week — no missed days! 🎉</p>
-          ) : missedLoading ? (
+          {missedLoading ? (
             <p className="text-xs text-stone-500">Loading...</p>
           ) : missedError ? (
             <div className="space-y-2">
@@ -472,13 +473,15 @@ function JournalRightSidebar({ refreshToken = 0, loadHistory = true, loadMissed 
                         <p className="mt-0.5 text-[11px] text-stone-600 italic">No reason added</p>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleStartEdit(day)}
-                      className="shrink-0 rounded-lg border border-amber-400/20 bg-amber-500/10 px-2 py-1 text-[10px] font-semibold text-amber-300 transition hover:border-amber-400/40 hover:text-amber-200"
-                    >
-                      {day.reason ? "Edit" : "Add reason"}
-                    </button>
+                    {!isDemoMode && (
+                      <button
+                        type="button"
+                        onClick={() => handleStartEdit(day)}
+                        className="shrink-0 rounded-lg border border-amber-400/20 bg-amber-500/10 px-2 py-1 text-[10px] font-semibold text-amber-300 transition hover:border-amber-400/40 hover:text-amber-200"
+                      >
+                        {day.reason ? "Edit" : "Add reason"}
+                      </button>
+                    )}
                   </div>
 
                   {editingDay === day.date && (

@@ -1,6 +1,6 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useId, useRef, useState } from "react";
-import monkLogo from "../assets/monkmode-logo.webp";
+import monkLogo from "../assets/branding/monkmode-logo.webp";
 import { INITIAL_HABITS } from "../../data/HabitDummyData";
 import { INITIAL_TASKS } from "../../data/ToDoDummyData";
 import { DEMO_OVERVIEW_STATS } from "../../data/DummyData";

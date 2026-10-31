@@ -1,3 +1,17 @@
+// These dates intentionally sit just before the five consecutive sample
+// entries below, so the sidebar can demonstrate a realistic weekly recovery
+// pattern without affecting the past-entry list.
+export const DEMO_MISSED_JOURNAL_DAYS = [
+  {
+    date: "2026-04-10",
+    reason: "Travel day — I got home late and skipped my evening reflection.",
+  },
+  {
+    date: "2026-04-09",
+    reason: null,
+  },
+];
+
 export const MOCK_HISTORY = [
   {
     date: "2026-04-15",

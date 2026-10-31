@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import AuthBackground from "../authentication/AuthBackground";
 import AuthFloatingMonk from "../authentication/AuthFloatingMonk";
 import useAuth from "../../hooks/useAuth";
-import monkIllustration from "../../assets/monk.webp";
+import monkIllustration from "../../assets/shared/monk.webp";
 
 const DEMO_ENTRY_DURATION = 850;
 export default function DemoLogin() {

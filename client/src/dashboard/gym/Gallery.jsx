@@ -4,12 +4,12 @@ import { useGymApi } from "./useGymData";
 import { useGymEnvironment } from "./gymContext";
 import useGymResource from "./useGymResource";
 import GymResourceNotice from "./GymResourceNotice";
-import transformatiomImage1 from "../../assets/transformatiom image 1.webp";
-import transformatiomImage2 from "../../assets/transformatiom image 2.webp";
-import transformatiomImage3 from "../../assets/transformatiom image 3.webp";
-import transformatiomImage4 from "../../assets/transformatiom image 4.webp";
-import transformatiomImage5 from "../../assets/transformatiom image 5.webp";
-import transformatiomImage6 from "../../assets/transformatiom image 6.webp";
+import transformatiomImage1 from "../../assets/gym/transformatiom image 1.webp";
+import transformatiomImage2 from "../../assets/gym/transformatiom image 2.webp";
+import transformatiomImage3 from "../../assets/gym/transformatiom image 3.webp";
+import transformatiomImage4 from "../../assets/gym/transformatiom image 4.webp";
+import transformatiomImage5 from "../../assets/gym/transformatiom image 5.webp";
+import transformatiomImage6 from "../../assets/gym/transformatiom image 6.webp";
 const formatDate = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", {
     day: "numeric",

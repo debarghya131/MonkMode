@@ -651,13 +651,23 @@ monkmode/
 │   │   ├── api/
 │   │   │   └── axios.js                 # API client, Clerk token, and 429 interceptor
 │   │   ├── assets/                      # Logos, artwork, and feature screenshots
+│   │   │   ├── about/                   # Creator portrait for the About page
 │   │   │   ├── aiguru/
-│   │   │   ├── analysis/
+│   │   │   ├── analysis/                 # General and module-specific analysis screenshots
+│   │   │   │   ├── gym/
+│   │   │   │   ├── habit/
+│   │   │   │   ├── journal/
+│   │   │   │   └── todo/
+│   │   │   ├── authentication/           # Login and sign-up artwork
+│   │   │   ├── branding/                # MonkMode and Little Monk logos
+│   │   │   ├── dashboard/               # Dashboard-only artwork
 │   │   │   ├── goal/
 │   │   │   ├── gym/
 │   │   │   ├── habit/
 │   │   │   ├── journal/
+│   │   │   ├── landing/                 # Landing-page preview artwork
 │   │   │   ├── overview/
+│   │   │   ├── shared/                  # Cross-section illustrations
 │   │   │   ├── todo/
 │   │   │   └── weeklyreport/
 │   │   ├── components/                  # Shared dashboard form and feedback UI
@@ -1024,28 +1034,125 @@ flowchart LR
 
 ## 🖼️ Screenshots
 
-Screenshots are stored in `client/src/assets` and are used by the landing feature gallery.
+MonkMode features a clean, responsive interface built for deep focus and distraction-free self-improvement. This gallery keeps the clearest representative screens for each module; the complete asset collection remains in `client/src/assets`.
 
-| Module | Screenshot |
-| --- | --- |
-| Landing Page | ![Landing Page](client/src/assets/landing-page.png) |
-| Overview | ![Overview Dashboard](client/src/assets/overview/overviewpic4.webp) |
-| Journal | ![Journal](client/src/assets/journal/journalpic1.webp) |
-| Todo | ![Todo](client/src/assets/todo/todopic1.webp) |
-| Habits | ![Habits](client/src/assets/habit/habitpic1.webp) |
-| Habit Tracker | ![Habit Tracker](client/src/assets/habit/habitpic4.webp) |
-| Goals | ![Goals](client/src/assets/goal/goalpic1.webp) |
-| Goal Progress | ![Goal Progress](client/src/assets/goal/goalpic5.webp) |
-| Gym | ![Gym](client/src/assets/gym/gympic1.webp) |
-| Gym Workout Builder | ![Gym Workout Builder](client/src/assets/gym/gympic11.webp) |
-| Gym Measurements | ![Gym Measurements](client/src/assets/gym/gympic14.webp) |
-| Gym Progress Photos | ![Gym Progress Photos](client/src/assets/gym/gympic17.webp) |
-| Weekly Report | ![Weekly Report](client/src/assets/weeklyreport/weeklyreportpic1.webp) |
-| Weekly Report Detail | ![Weekly Report Detail](client/src/assets/weeklyreport/weeklyreportpic4.webp) |
-| Analysis | ![Analysis](client/src/assets/analysis/analysispic1.webp) |
-| Analysis Detail | ![Analysis Detail](client/src/assets/analysis/analysispic2.webp) |
-| AI Guru | ![AI Guru](client/src/assets/aiguru/aigurupic1.webp) |
-| AI Guru Chat | ![AI Guru Chat](client/src/assets/aiguru/aigurupic4.webp) |
+> **Quick Navigation:**
+> [🌟 Landing & Auth](#landing-auth) • [📊 Overview](#overview) • [📝 Journal](#journal) • [✅ To-Do](#todo) • [⚡ Habits](#habits) • [🎯 Goals](#goals) • [💪 Gym & Fitness](#gym) • [📅 Weekly Reports](#weekly-reports) • [📈 Analytics](#analytics) • [🧠 AI Guru (Ming)](#ai-guru)
+
+---
+
+<a id="landing-auth"></a>
+### 🌟 Landing & Authentication
+
+| Landing Page | Authentication & Login |
+| :---: | :---: |
+| <img src="client/src/assets/landing/landing-page.webp" alt="Landing Page" width="100%" /><br>**Landing Page**<br><sub>Modern landing page introducing MonkMode, core value proposition, interactive 3D elements, and demo access</sub> | <img src="client/src/assets/authentication/login-page.webp" alt="Login Page" width="100%" /><br>**Authentication & Sign-In**<br><sub>Secure Google SSO and email authentication powered by Clerk, featuring calm aesthetic artwork</sub> |
+
+---
+
+<a id="overview"></a>
+### 📊 Overview Dashboard
+
+<p align="center">
+  <img src="client/src/assets/overview/overview-dashboard.webp" alt="Overview Dashboard" width="100%" />
+  <br>
+  <em><b>Overview Dashboard:</b> Central command center uniting today's journal, tasks, habits, goals, gym status, active streaks, consistency score, and monk level.</em>
+</p>
+
+---
+
+<a id="journal"></a>
+### 📝 Journal Module
+
+| Journal Overview | Guided Journal Entry |
+| :---: | :---: |
+| <img src="client/src/assets/journal/journal-overview.webp" alt="Journal overview" width="100%" /><br>**Guided Entry Overview** | <img src="client/src/assets/journal/guided-journal-entry.webp" alt="Guided journal entry" width="100%" /><br>**Guided Journal Entry** |
+
+---
+
+<a id="todo"></a>
+### ✅ To-Do List Module
+
+| Today's Tasks | To-Do Schedule |
+| :---: | :---: |
+| <img src="client/src/assets/todo/todopic1.webp" alt="Today's tasks board" width="100%" /><br>**Today's Tasks** | <img src="client/src/assets/todo/todo-schedule.webp" alt="To-do schedule" width="100%" /><br>**To-Do Schedule** |
+
+---
+
+<a id="habits"></a>
+### ⚡ Habit Tracker Module
+
+| Today's Habits | Monthly Habit Tracker |
+| :---: | :---: |
+| <img src="client/src/assets/habit/habitpic1.webp" alt="Today's habits board" width="100%" /><br>**Today's Habits** | <img src="client/src/assets/habit/habitpic4.webp" alt="Monthly habit tracker matrix" width="100%" /><br>**Monthly Habit Tracker** |
+
+---
+
+<a id="goals"></a>
+### 🎯 Goal Tracker Module
+
+| All Goals | Goal Progress |
+| :---: | :---: |
+| <img src="client/src/assets/goal/goalpic1.webp" alt="All goals directory" width="100%" /><br>**All Goals** | <img src="client/src/assets/goal/goalpic5.webp" alt="Goal progress overview" width="100%" /><br>**Goal Progress** |
+
+---
+
+<a id="gym"></a>
+### 💪 Gym & Workout Module
+
+<p align="center">
+  <img src="client/src/assets/gym/gympic1.webp" alt="Today's Workout Board" width="100%" />
+  <br>
+  <em><b>Today's Workout Board:</b> Daily training hub displaying planned exercises, target muscle groups, sets, reps, weight, rest timer, total volume, and nutrition sidebar.</em>
+</p>
+
+| Nutrition | Training Progress |
+| :---: | :---: |
+| <img src="client/src/assets/gym/gympic11.webp" alt="Diet chart builder" width="100%" /><br>**Diet Chart Builder** | <img src="client/src/assets/gym/gympic14.webp" alt="Workout progress charts" width="100%" /><br>**Workout Progress** |
+
+| Physique Progress |
+| :---: |
+| <img src="client/src/assets/gym/gympic17.webp" alt="Physique progress photo viewer" width="100%" /><br>**Physique Progress Photos** |
+
+---
+
+<a id="weekly-reports"></a>
+### 📅 Weekly Reports Module
+
+| Weekly Review | Saved Summaries |
+| :---: | :---: |
+| <img src="client/src/assets/weeklyreport/weeklyreportpic1.webp" alt="Weekly reports entry" width="100%" /><br>**Weekly Review** | <img src="client/src/assets/weeklyreport/weeklyreportpic2.webp" alt="Saved weekly summaries" width="100%" /><br>**Saved Summaries** |
+
+| Journal Weekly Report |
+| :---: |
+| <img src="client/src/assets/weeklyreport/weeklyreportpic4.webp" alt="Journal weekly report" width="100%" /><br>**Journal Weekly Report** |
+
+
+---
+
+<a id="analytics"></a>
+### 📈 Analytics & Performance Insights
+
+<p align="center">
+  <img src="client/src/assets/analysis/journal/mood-distribution.webp" alt="Mood distribution analysis" width="65%" />
+  <br>
+  <em><b>Mood Distribution:</b> A clear view of emotional patterns across journal entries.</em>
+</p>
+
+| Performance Analysis | Performance Analysis |
+| :---: | :---: |
+| <img src="client/src/assets/analysis/journal/sleep-energy-rating.webp" alt="Sleep, energy, and rating analysis" width="100%" /><br>**Sleep, Energy & Rating** | <img src="client/src/assets/analysis/todo/category-task-outcomes.webp" alt="Task outcomes by category" width="100%" /><br>**Task Outcomes by Category** |
+| <img src="client/src/assets/analysis/todo/weekday-task-outcomes.webp" alt="Task outcomes by weekday" width="100%" /><br>**Task Outcomes by Weekday** | <img src="client/src/assets/analysis/habit/weekday-habit-outcomes.webp" alt="Habit outcomes by weekday" width="100%" /><br>**Habit Outcomes by Weekday** |
+| <img src="client/src/assets/analysis/habit/time-of-day-habit-analysis.webp" alt="Habit outcomes by time of day" width="100%" /><br>**Habit Outcomes by Time of Day** | <img src="client/src/assets/analysis/gym/estimated-daily-training-volume.webp" alt="Estimated daily training volume" width="100%" /><br>**Daily Training Volume** |
+
+---
+
+<a id="ai-guru"></a>
+### 🧠 AI Guru (Ming)
+
+| AI Guru Dashboard | Ming Character |
+| :---: | :---: |
+| <img src="client/src/assets/aiguru/ai-guru-dashboard.webp" alt="AI Guru dashboard" width="100%" /><br>**AI Guru Dashboard** | <img src="client/src/assets/aiguru/aigurupic1.webp" alt="Ming character visual" width="100%" /><br>**Ming Character** |
 
 ## 🛠️ Tech Stack
 
@@ -1280,7 +1387,7 @@ Current verified checks:
 ## 👨‍💻 Author Details
 
 <p align="left">
-  <img src="client/src/assets/creator.webp" alt="Debarghya Bandyopadhyay" width="110" height="134" />
+  <img src="client/src/assets/about/creator.webp" alt="Debarghya Bandyopadhyay" width="110" height="134" />
 </p>
 
 **Debarghya Bandyopadhyay**

@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api/axios";
 import { validWeeklySummaries, validWeeklyReport, validWeeklyAiResponse, validWeeklyGymPhotos, readWeeklySavedAnalysis, weeklyFailureMessage as failureMessage } from "./weeklyReportResponse";
 import { createDemoGymReports } from "./gymDemoReports";
-import photo1 from "../../assets/transformatiom image 1.webp";
-import photo2 from "../../assets/transformatiom image 2.webp";
-import photo3 from "../../assets/transformatiom image 3.webp";
-import photo4 from "../../assets/transformatiom image 4.webp";
+import photo1 from "../../assets/gym/transformatiom image 1.webp";
+import photo2 from "../../assets/gym/transformatiom image 2.webp";
+import photo3 from "../../assets/gym/transformatiom image 3.webp";
+import photo4 from "../../assets/gym/transformatiom image 4.webp";
 const DEMO_GYM_REPORTS = createDemoGymReports([photo1, photo2, photo3, photo4]);
 const DEMO_GYM_SUMMARIES = Object.values(DEMO_GYM_REPORTS).map(({ id, date, workoutDays, stats }) => ({ id, date, workoutDays, exerciseLogs: stats.exerciseLogs, measurementDays: stats.measurementDays, photoCount: stats.photoCount }));
 
