@@ -20,6 +20,10 @@ That realization became the motivation behind MonkMode.
 
 The name MonkMode is inspired by focus, self-control, mindfulness, and reducing distractions. The goal is to help students, learners, builders, and self-improvement focused users improve step by step.
 
+## 🌟 Why MonkMode Is Different
+
+Many productivity tools focus on one part of a routine. MonkMode connects planning and follow-through with personal reflection: users can manage tasks, habits, goals, and workouts, then review journal moods, trends, and weekly progress in the same workspace. Its analytics turn recorded activity into understandable summaries, while Ming offers guidance based on the user's activity. A read-only demo lets visitors explore the experience with sample data before creating an account.
+
 ## ✨ Features
 
 - 🔐 Google authentication with Clerk.
@@ -1142,7 +1146,7 @@ MonkMode features a clean, responsive interface built for deep focus and distrac
 | Performance Analysis | Performance Analysis |
 | :---: | :---: |
 | <img src="client/src/assets/analysis/journal/sleep-energy-rating.webp" alt="Sleep, energy, and rating analysis" width="100%" /><br>**Sleep, Energy & Rating** | <img src="client/src/assets/analysis/todo/category-task-outcomes.webp" alt="Task outcomes by category" width="100%" /><br>**Task Outcomes by Category** |
-| <img src="client/src/assets/analysis/todo/weekday-task-outcomes.webp" alt="Task outcomes by weekday" width="100%" /><br>**Task Outcomes by Weekday** | <img src="client/src/assets/analysis/habit/weekday-habit-outcomes.webp" alt="Habit outcomes by weekday" width="100%" /><br>**Habit Outcomes by Weekday** |
+| <img src="client/src/assets/analysis/analysispic6.webp" alt="Gym analytics dashboard" width="100%" /><br>**Gym Analytics Dashboard** | <img src="client/src/assets/analysis/Pasted%20Image%20%28Copy%202%29.png" alt="Daily habit outcomes" width="100%" /><br>**Daily Habit Outcomes** |
 | <img src="client/src/assets/analysis/habit/time-of-day-habit-analysis.webp" alt="Habit outcomes by time of day" width="100%" /><br>**Habit Outcomes by Time of Day** | <img src="client/src/assets/analysis/gym/estimated-daily-training-volume.webp" alt="Estimated daily training volume" width="100%" /><br>**Daily Training Volume** |
 
 ---
