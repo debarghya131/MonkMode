@@ -407,7 +407,7 @@ export default function TodaysHabit({ consistency = {} }) {
             <div>
               <h3 className="text-label-lg">Today&apos;s Habits</h3>
             </div>
-            <div className="habit-today-desktop-consistency flex min-w-[15rem] items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-950/40 px-3 py-2">
+            <div className="habit-today-desktop-consistency flex min-w-[15rem] items-center gap-2 rounded-xl border border-amber-500/25 bg-transparent px-3 py-2">
               <span className="text-base leading-none" aria-hidden="true">📊</span>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-amber-300">

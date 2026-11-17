@@ -63,6 +63,16 @@ app.get("/health", (_req, res) => {
   });
 });
 
+// Keep the health check under the API prefix too, so browser clients can wake
+// the service without needing to reconstruct the root URL from VITE_API_URL.
+app.get("/api/health", (_req, res) => {
+  res.json({
+    status: "ok",
+    database:
+      mongoose.connection.readyState === 1 ? "connected" : "disconnected"
+  });
+});
+
 app.get("/test-db", async (_req, res) => {
   if (IS_PRODUCTION) {
     return res.status(404).json({ message: "Route not found" });

@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import AuthBackground from "./AuthBackground";
 import AuthFloatingMonk from "./AuthFloatingMonk";
 import useAuth from "../../hooks/useAuth";
+import useBackendWarmup from "../../hooks/useBackendWarmup";
 
 const OAUTH_REDIRECT_URL = "/dashboard";
 const OAUTH_CALLBACK_URL = "/sso-callback";
@@ -34,6 +35,7 @@ export default function Login() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { errors, fetchStatus, signIn } = useSignIn();
+  const { isReady: isBackendReady, isWarming, secondsRemaining, error: backendError, retry: retryBackendWarmup } = useBackendWarmup();
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -108,15 +110,41 @@ export default function Login() {
                 <Motion.button
                   type="button"
                   onClick={handleGoogleLogin}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !isBackendReady}
                   className="flex w-full items-center justify-center gap-3 rounded-2xl border border-amber-100/10 bg-stone-950/55 px-4 py-3 text-sm font-semibold text-white transition hover:border-amber-300/40 hover:bg-stone-900/70 disabled:cursor-not-allowed disabled:opacity-70"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.27, duration: 0.3 }}
                 >
                   <GoogleIcon />
-                  <span>{isSubmitting ? "Redirecting to Google..." : "Continue with Gmail"}</span>
+                  <span>
+                    {isSubmitting
+                      ? "Redirecting to Google..."
+                      : isBackendReady
+                        ? "Continue with Gmail"
+                        : isWarming && secondsRemaining > 0
+                          ? `Waking MonkMode · ${secondsRemaining}s`
+                          : "Waking MonkMode..."}
+                  </span>
                 </Motion.button>
+
+                {!isBackendReady && (
+                  <div role="status" aria-live="polite" className="rounded-2xl border border-amber-300/15 bg-amber-500/5 px-4 py-3 text-xs leading-5 text-amber-100/80">
+                    {backendError ? (
+                      <>
+                        <p>{backendError}</p>
+                        <button type="button" onClick={retryBackendWarmup} className="mt-1 font-semibold text-amber-200 underline underline-offset-2">
+                          Retry wake-up
+                        </button>
+                      </>
+                    ) : (
+                      "We are starting the secure workspace before continuing to Google. This is usually instant; after inactivity it can take up to a minute."
+                    )}
+                    <Link to="/demo-login" className="mt-3 inline-flex min-h-9 items-center rounded-lg border border-amber-300/35 bg-amber-300/10 px-3 py-1.5 font-semibold text-amber-100 transition hover:border-amber-200 hover:bg-amber-300/20">
+                      Try Demo Instead <span className="ml-2" aria-hidden="true">→</span>
+                    </Link>
+                  </div>
+                )}
 
                 <Motion.p
                   className="auth-notice rounded-2xl border border-amber-100/10 bg-black/20 px-4 py-3 text-xs leading-5 text-stone-300 sm:leading-6"

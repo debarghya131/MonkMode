@@ -124,7 +124,23 @@
   .home-modern .landing-navbar > div:first-child { padding-bottom: 14px; }
   .home-modern .landing-nav-logo { width: 116px; height: 46px; }
   .home-modern .landing-nav-logo img { width: 194px; height: 86px; transform: translate(-35px, -22px); }
-  .home-modern .landing-nav-views { display: none; }
+  .home-modern .landing-nav-views {
+    display: flex;
+    min-width: 4.15rem;
+    height: 2.2rem;
+    gap: 0.3rem;
+    padding-left: 0.55rem;
+  }
+  .home-modern .landing-nav-views-label {
+    font-size: 0.5rem;
+    letter-spacing: 0.07em;
+  }
+  .home-modern .landing-nav-views-unavailable {
+    max-width: 3.25rem;
+    font-size: 0.45rem;
+    line-height: 1.2;
+    white-space: normal;
+  }
   .home-modern .landing-nav-signup { padding-inline: 13px; min-height: 38px; }
   .home-modern .landing-mobile-menu { left: 22px; right: 22px; }
   .home-modern .home-main { padding: 0 16px; }
@@ -303,4 +319,57 @@
   .home-modern *, .home-modern *::before, .home-modern *::after { animation: none !important; transition: none !important; }
   .home-modern .home-pointer-glow { display: none; }
   .home-modern :is(.home-art, .home-monk) { transform: none !important; }
+}
+
+/*
+ * Phone composition
+ *
+ * Keep the landing scene as one deliberate, vertical story on narrow screens:
+ * message first, then the feature orbit, then the two routes into the product.
+ * This also keeps the illustration clear of the actions on short phones instead
+ * of letting the desktop art sizing push the CTAs below the initial viewport.
+ */
+@media (max-width: 767px) {
+  .home-modern .home-main {
+    width: 100%;
+    padding-inline: clamp(1rem, 5vw, 1.4rem);
+  }
+
+  .home-modern .home-hero {
+    gap: clamp(0.7rem, 2.2dvh, 1.05rem);
+    padding-block: clamp(0.7rem, 2dvh, 1.1rem) 0.8rem;
+  }
+
+  .home-modern .home-copy h1 {
+    font-size: clamp(1.75rem, 8vw, 2.4rem);
+  }
+
+  .home-modern .home-description {
+    max-width: 21rem;
+  }
+
+  .home-modern .home-art {
+    width: min(100%, 23rem);
+    height: clamp(21.5rem, 47dvh, 25rem);
+    min-height: 0;
+    --feature-orbit-size: min(15.75rem, calc(100% - 4.9rem));
+  }
+
+  .home-modern .home-monk {
+    width: min(22.5rem, 105%);
+    height: min(20rem, 82%);
+  }
+
+  .home-modern .home-actions-wrapper {
+    max-width: 23rem;
+  }
+
+  .home-modern .home-button {
+    min-height: 2.45rem;
+    padding-block: 0.6rem;
+  }
+
+  .home-modern .home-action-note {
+    margin-top: 0.55rem;
+  }
 }

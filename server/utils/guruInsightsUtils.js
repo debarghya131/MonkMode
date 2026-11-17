@@ -23,8 +23,11 @@ export async function loadGuruInsights(userId, scope, now = new Date()) {
   // Broad timestamp bounds are resolved to exact app days by the shared calculator.
   const date = { $gte: new Date(Date.parse(`${from}T00:00:00Z`) - 86400000), $lt: new Date(Date.parse(`${today}T00:00:00Z`) + 2 * 86400000) };
   const journalsRead = Journal.find({ userId, $or: [{ dayKey: { $gte: from, $lte: today } }, { dayKey: null, date }] }, { dayKey: 1, date: 1, updatedAt: 1, mood: 1, energyLevel: 1, overallRating: 1 }).lean();
-  const habitsRead = Habit.find({ userId }, HABIT_REPORT_FIELDS).lean();
-  const goalsRead = Goal.find({ userId }, GOAL_REPORT_FIELDS).lean();
+  // Mongoose queries are thenable but are not reusable: awaiting the same Query
+  // twice throws "Query was already executed". Convert the definition reads to
+  // native promises once because their results are also used to start log reads.
+  const habitsRead = Promise.resolve(Habit.find({ userId }, HABIT_REPORT_FIELDS).lean());
+  const goalsRead = Promise.resolve(Goal.find({ userId }, GOAL_REPORT_FIELDS).lean());
   // Start each dependent log read as soon as its owned definitions arrive,
   // without waiting for unrelated Journal, Todo, or Gym reads to finish.
   const habitLogsRead = habitsRead.then(habits => HabitLog.find(

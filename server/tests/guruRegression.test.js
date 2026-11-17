@@ -27,7 +27,21 @@ const days = Array.from({ length: 7 }, (_, index) => shiftReportDay(today, index
 const habit = extra => ({ _id: "habit", startDate: days[0], createdAt: days[0], repeatType: "daily", ...extra });
 const task = extra => ({ _id: "task", startDate: days[0], repeatType: "daily", ...extra });
 const compute = (records = {}, scope = "7d", opts = clock) => computeGuruInsights(records, scope, opts);
-const query = data => ({ lean: async () => data });
+// Mongoose Query objects may only execute once. This test double has the same
+// constraint, so a loader regression that awaits a definition query twice is
+// caught without needing a database connection.
+const query = data => ({
+  lean() {
+    let executed = false;
+    return {
+      then(resolve, reject) {
+        if (executed) return Promise.reject(new Error("Query was already executed")).then(resolve, reject);
+        executed = true;
+        return Promise.resolve(data).then(resolve, reject);
+      }
+    };
+  }
+});
 function fixtures(t, data = {}) {
   t.mock.timers.enable({ apis: ["Date"], now });
   for (const [Model, key] of [[Journal, "journals"], [Habit, "habits"], [Todo, "todos"], [Goal, "goals"], [GymExerciseProgress, "exercises"], [GymMeasurement, "measurements"]]) {

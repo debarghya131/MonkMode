@@ -2530,12 +2530,13 @@ a {
 @media (min-width: 1024px) {
   .habits-page[data-active="today"] .habit-today-heading-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: end;
+    column-gap: 0.75rem;
   }
 
   .habits-page[data-active="today"] .habit-today-desktop-consistency {
-    justify-self: center;
+    justify-self: end;
   }
 
   .habits-page[data-active="today"] .habit-today-desktop-time-filter {

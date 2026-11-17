@@ -173,12 +173,13 @@ export default function LandingNavbar({ viewCount, viewCountFailed = false }) {
           </button>
           <button
             type="button"
-            onClick={() => navigate("/signup")}
+            onClick={() => navigate(window.matchMedia("(max-width: 767px)").matches ? "/demo-login" : "/signup")}
             onPointerEnter={() => import("../authentication/SignUp")}
             onFocus={() => import("../authentication/SignUp")}
             className={`landing-nav-signup inline-flex min-h-11 items-center rounded-full border border-transparent bg-gradient-to-r from-amber-300 via-orange-400 to-orange-500 px-3 py-2 text-xs font-bold text-stone-950 shadow-lg shadow-orange-950/20 transition sm:px-5 sm:py-2.5 sm:text-sm ${goldenHoverClass}`}
           >
-            Signup
+            <span className="md:hidden">Try Demo</span>
+            <span className="hidden md:inline">Signup</span>
           </button>
 
           {/* Hamburger — visible only below lg */}
