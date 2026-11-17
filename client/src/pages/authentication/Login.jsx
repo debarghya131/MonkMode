@@ -129,20 +129,34 @@ export default function Login() {
                 </Motion.button>
 
                 {!isBackendReady && (
-                  <div role="status" aria-live="polite" className="rounded-2xl border border-amber-300/15 bg-amber-500/5 px-4 py-3 text-xs leading-5 text-amber-100/80">
+                  <div role="status" aria-live="polite" className="flex items-center justify-between gap-3 rounded-xl border border-amber-300/15 bg-amber-500/5 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+                    <div className="flex min-w-0 items-center gap-2.5 text-xs leading-5 text-amber-100/80">
+                      {!backendError && (
+                        <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-300 shadow-[0_0_10px_rgba(252,211,77,0.85)]" aria-hidden="true" />
+                      )}
+                      <div>
+                        <p className="hidden font-semibold text-amber-100 sm:block">
+                          {backendError ? "MonkMode is taking longer than usual" : "Preparing secure sign-in"}
+                        </p>
+                        <p className="sm:hidden">{backendError || "Secure sign-in starts in under a minute."}</p>
+                        <p className="hidden sm:block">{backendError || "This normally takes less than a minute."}</p>
+                      </div>
+                    </div>
                     {backendError ? (
-                      <>
-                        <p>{backendError}</p>
-                        <button type="button" onClick={retryBackendWarmup} className="mt-1 font-semibold text-amber-200 underline underline-offset-2">
-                          Retry wake-up
-                        </button>
-                      </>
+                      <button type="button" onClick={retryBackendWarmup} className="shrink-0 whitespace-nowrap font-semibold text-amber-200 underline underline-offset-2 transition hover:text-amber-100">
+                        Retry
+                      </button>
                     ) : (
-                      "We are starting the secure workspace before continuing to Google. This is usually instant; after inactivity it can take up to a minute."
+                      <Link
+                        to="/demo-login"
+                        className="group inline-flex min-h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-300/35 bg-amber-300/10 px-2.5 py-1 font-semibold text-amber-100 shadow-[0_0_14px_rgba(251,191,36,0.1)] transition duration-200 hover:-translate-y-0.5 hover:border-amber-200/70 hover:bg-amber-300/20 hover:text-amber-50 hover:shadow-[0_0_18px_rgba(251,191,36,0.24)] active:translate-y-0 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/80 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-950"
+                      >
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-200" aria-hidden="true" />
+                        <span className="sm:hidden">Demo</span>
+                        <span className="hidden sm:inline">Explore demo</span>
+                        <span className="transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true">→</span>
+                      </Link>
                     )}
-                    <Link to="/demo-login" className="mt-3 inline-flex min-h-9 items-center rounded-lg border border-amber-300/35 bg-amber-300/10 px-3 py-1.5 font-semibold text-amber-100 transition hover:border-amber-200 hover:bg-amber-300/20">
-                      Try Demo Instead <span className="ml-2" aria-hidden="true">→</span>
-                    </Link>
                   </div>
                 )}
 

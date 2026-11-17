@@ -1,6 +1,14 @@
 import axios from "axios";
 
 const RATE_LIMIT_EVENT = "monkmode:rate-limit";
+const COLD_START_RETRY_DELAY_MS = 2_500;
+const MAX_COLD_START_RETRIES = 3;
+
+const delay = (duration) => new Promise((resolve) => window.setTimeout(resolve, duration));
+const isRetryableColdStartError = (error) => {
+  const status = error?.response?.status;
+  return !status || [502, 503, 504].includes(status);
+};
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:5000/api"
@@ -26,7 +34,25 @@ api.interceptors.request.use(async (config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const config = error?.config;
+    const method = config?.method?.toLowerCase();
+    const retries = Number(config?.coldStartRetries || 0);
+
+    // Reads are safe to repeat. This covers a tab returning after Render has
+    // slept, without ever replaying a form submission or other write action.
+    if (
+      typeof window !== "undefined"
+      && method === "get"
+      && !config?.skipColdStartRetry
+      && !config?.signal?.aborted
+      && retries < MAX_COLD_START_RETRIES
+      && isRetryableColdStartError(error)
+    ) {
+      await delay(COLD_START_RETRY_DELAY_MS);
+      return api({ ...config, coldStartRetries: retries + 1 });
+    }
+
     const status = error?.response?.status;
     const message = error?.response?.data?.message;
 

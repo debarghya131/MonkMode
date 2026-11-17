@@ -11,11 +11,16 @@ const REQUEST_TIMEOUT_MS = 15_000;
  * A free Render instance can answer an initial request with a transient error
  * while its container starts, so the check is retried for a short window.
  */
-export default function useBackendWarmup() {
+export default function useBackendWarmup({ enabled = true } = {}) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState({ status: "warming", secondsRemaining: COUNTDOWN_SECONDS });
 
   useEffect(() => {
+    if (!enabled) {
+      setState({ status: "idle", secondsRemaining: 0 });
+      return undefined;
+    }
+
     const controller = new AbortController();
     const startedAt = Date.now();
     let retryTimer;
@@ -40,6 +45,7 @@ export default function useBackendWarmup() {
         const response = await api.get("/health", {
           signal: controller.signal,
           timeout: REQUEST_TIMEOUT_MS,
+          skipColdStartRetry: true,
         });
 
         if (response.data?.status !== "ok") throw new Error("Unexpected health response");
@@ -66,7 +72,7 @@ export default function useBackendWarmup() {
       window.clearInterval(countdownTimer);
       window.clearTimeout(retryTimer);
     };
-  }, [attempt]);
+  }, [attempt, enabled]);
 
   return {
     isReady: state.status === "ready",
